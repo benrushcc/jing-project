@@ -8,9 +8,18 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.METHOD)
 public @interface Downcall {
+    /**
+     *   Linked methodName in shared library, it's recommended to use snake-case string as C function names
+     */
     String methodName();
 
+    /**
+     *   Whether the return value is a constant, if true, the returned value would be cached and constant folded, this option is usually used when returning a MACRO value from native
+     */
     boolean constant() default false;
 
+    /**
+     *   Whether the function could return immediately without extra checking, this option is dangerous because it completely removes safepoint check
+     */
     boolean critical() default false;
 }

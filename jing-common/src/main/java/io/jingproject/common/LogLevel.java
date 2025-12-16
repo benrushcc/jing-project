@@ -18,11 +18,11 @@ public enum LogLevel {
     }
 
     public static LogLevel fromString(String s) {
-        return switch (s) {
-            case "DEBUG" -> DEBUG;
-            case "INFO" -> INFO;
-            case "ERROR" -> ERROR;
-            default -> throw new IllegalArgumentException("Unsupported loglevel : " + s);
-        };
+        for (LogLevel v : LogLevel.values()) {
+            if (v.name().equalsIgnoreCase(s)) {
+                return v;
+            }
+        }
+        throw new IllegalArgumentException("Unsupported logging level : " + s);
     }
 }

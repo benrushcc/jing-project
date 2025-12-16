@@ -3,6 +3,9 @@ package io.jingproject.ffm.demo;
 import io.jingproject.ffm.Downcall;
 import io.jingproject.ffm.FFM;
 
+import java.lang.foreign.MemorySegment;
+
+@SuppressWarnings("unused")
 @FFM(libraryName = "demo")
 public interface DemoFacade {
     @Downcall(methodName = "empty", critical = true)
@@ -12,5 +15,5 @@ public interface DemoFacade {
     int constant();
 
     @Downcall(methodName = "address", critical = true)
-    void address(long addr, long size);
+    MemorySegment address(MemorySegment addr, long size);
 }

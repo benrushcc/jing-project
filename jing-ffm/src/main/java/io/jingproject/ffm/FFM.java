@@ -10,7 +10,8 @@ import java.lang.annotation.Target;
 public @interface FFM {
     String VM = "vm";
 
+    /**
+     *   Shared library name, using jvm internal lookup by default, you shouldn't name your dynamic library as vm
+     */
     String libraryName() default VM;
-
-    OsType supportedOsType() default OsType.All;
 }

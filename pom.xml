@@ -24,7 +24,6 @@
         <module>jing-ffm-processor</module>
         <module>jing-maven-plugin</module>
         <module>jing-log</module>
-        <module>jing-std</module>
         <module>jing-net</module>
     </modules>
 

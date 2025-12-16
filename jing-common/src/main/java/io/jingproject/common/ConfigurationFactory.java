@@ -14,14 +14,22 @@ public final class ConfigurationFactory {
         throw new UnsupportedOperationException("utility class");
     }
 
-    public static String item(String key) {
+    private static ConfigurationFacade instance() {
         class Holder {
             static final ConfigurationFacade INSTANCE = Anchor.compute(ConfigurationFacade.class, () -> {
                 Optional<ConfigurationFacade> cf = ServiceLoader.load(ConfigurationFacade.class).findFirst();
                 return cf.orElseGet(DefaultConfigurationFacade::new);
             });
         }
-        return Holder.INSTANCE.item(key);
+        return Holder.INSTANCE;
+    }
+
+    public static String item(String key) {
+        return instance().item(key);
+    }
+
+    public static Map<String, String> items(String prefix) {
+        return instance().items(prefix);
     }
 
     public static String item(String key, String defaultValue) {
@@ -32,46 +40,62 @@ public final class ConfigurationFactory {
         return value;
     }
 
-    public static boolean itemAsBoolean(String key, boolean defaultValue) {
-        if("true".equalsIgnoreCase(key)) {
+    public static boolean valueAsBoolean(String value, boolean defaultValue) {
+        if("true".equalsIgnoreCase(value)) {
             return true;
-        } else if("false".equalsIgnoreCase(key)) {
+        } else if("false".equalsIgnoreCase(value)) {
             return false;
         } else {
             return defaultValue;
         }
     }
 
-    public static int itemAsInt(String key, int defaultValue) {
-        String s = item(key);
-        if(s == null) {
+    public static boolean itemAsBoolean(String key, boolean defaultValue) {
+        return valueAsBoolean(item(key), defaultValue);
+    }
+
+    public static int valueAsInt(String value, int defaultValue) {
+        if(value == null) {
             return defaultValue;
         }
-        return Integer.parseInt(s);
+        return Integer.parseInt(value);
+    }
+
+    public static int itemAsInt(String key, int defaultValue) {
+        return valueAsInt(item(key), defaultValue);
+    }
+
+    public static long valueAsLong(String value, long defaultValue) {
+        if(value == null) {
+            return defaultValue;
+        }
+        return Long.parseLong(value);
     }
 
     public static long itemAsLong(String key, long defaultValue) {
-        String s = item(key);
-        if(s == null) {
+        return valueAsLong(item(key), defaultValue);
+    }
+
+    public static float valueAsFloat(String value, float defaultValue) {
+        if(value == null) {
             return defaultValue;
         }
-        return Long.parseLong(s);
+        return Float.parseFloat(value);
     }
 
     public static float itemAsFloat(String key, float defaultValue) {
-        String s = item(key);
-        if(s == null) {
+        return valueAsFloat(item(key), defaultValue);
+    }
+
+    public static double valueAsDouble(String value, double defaultValue) {
+        if(value == null) {
             return defaultValue;
         }
-        return Float.parseFloat(s);
+        return Double.parseDouble(value);
     }
 
     public static double itemAsDouble(String key, double defaultValue) {
-        String s = item(key);
-        if(s == null) {
-            return defaultValue;
-        }
-        return Double.parseDouble(s);
+        return valueAsDouble(item(key), defaultValue);
     }
 
     sealed interface ConfigrationObject {
@@ -86,6 +110,9 @@ public final class ConfigurationFactory {
 
     }
 
+    /**
+     *   Default configuration facade would read JSON file as input
+     */
     static final class DefaultConfigurationFacade implements ConfigurationFacade {
 
         private static final int MAX_NESTED_LIMITS = 128;
@@ -96,10 +123,12 @@ public final class ConfigurationFactory {
             String fileName = System.getProperty("jing.config.file", "jing-config.json");
             try (InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(fileName)) {
                 if(stream == null) {
-                    throw new ExceptionInInitializerError("File not found: " + fileName);
+                    // Given an empty configuration by default
+                    ROOT = new ConfigurationSet(Map.of());
+                } else {
+                    byte[] content = stream.readAllBytes();
+                    ROOT = parseConfigurationSet(content, 0, new HashMap<>(), 0);
                 }
-                byte[] content = stream.readAllBytes();
-                ROOT = parseConfigurationSet(content, 0, new HashMap<>(), 0);
             } catch (IOException e) {
                 throw new ExceptionInInitializerError(e);
             }
@@ -147,7 +176,7 @@ public final class ConfigurationFactory {
                 }
                 index = searchByte(content, index, b -> b == (byte) ',' || b == (byte) '}');
                 if(content[index - 1] == '}') {
-                    return new ConfigurationSet(current);
+                    return new ConfigurationSet(Map.copyOf(current));
                 }
             }
         }
@@ -219,7 +248,6 @@ public final class ConfigurationFactory {
             return b - 'A' + 10;
         }
 
-
         @Override
         public String item(String key) {
             ConfigurationSet current = ROOT;
@@ -229,18 +257,38 @@ public final class ConfigurationFactory {
                 switch (o) {
                     case ConfigurationSet cs -> current = cs;
                     case ConfigurationItem(String value) -> {
-                        if (i == ss.length - 1) {
-                            return value;
-                        } else {
-                            return null;
-                        }
+                        return i == ss.length - 1 ? value : null;
                     }
-                    case null, default -> {
+                    default -> {
                         return null;
                     }
                 }
             }
             return null;
+        }
+
+        @Override
+        public Map<String, String> items(String prefix) {
+            ConfigurationSet current = ROOT;
+            String[] ss = prefix.split("\\.");
+            for (String string : ss) {
+                ConfigrationObject o = current.value().get(string);
+                if (o instanceof ConfigurationSet cs) {
+                    current = cs;
+                } else {
+                    return Map.of();
+                }
+            }
+            if(current == null) {
+                return Map.of();
+            }
+            Map<String, String> r = new HashMap<>();
+            current.value().forEach((k, v) -> {
+                if(v instanceof ConfigurationItem(String s)) {
+                    r.put(k, s);
+                }
+            });
+            return Map.copyOf(r);
         }
     }
 }

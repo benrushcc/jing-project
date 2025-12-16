@@ -20,7 +20,7 @@ public final class NetFactory {
     private static final class DefaultNetImpl implements NetFacade {
         @Override
         public void handle(NetEvent event) {
-
+            throw new UnsupportedOperationException("NetEvent could not be handled");
         }
     }
 }

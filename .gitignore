@@ -1,10 +1,7 @@
 */target/*
 
 ### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
+.idea/*
 *.iws
 *.iml
 *.ipr
@@ -32,4 +29,4 @@ replay_pid*
 *.db
 
 ### CMake build directories ###
-jing-std/src/main/c/build/
+/c/build/

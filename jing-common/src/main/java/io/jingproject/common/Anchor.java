@@ -23,15 +23,15 @@ public final class Anchor {
         throw new UnsupportedOperationException("utility class");
     }
 
-    public static <T1, T2> T2 assume(Class<T1> clazz, Class<T2> clazz2) {
+    public static <T1, T2> T2 assume(Class<T1> clazz, Class<T2> assumed) {
         if(!clazz.isInterface()) {
             throw new IllegalArgumentException("Class " + clazz + " is not interface");
         }
-        if(clazz.isAssignableFrom(clazz2)) {
-            throw new IllegalArgumentException("Class " + clazz2 + " is not a implementation");
+        if(clazz.isAssignableFrom(assumed)) {
+            throw new IllegalArgumentException("Class " + assumed + " is not a implementation");
         }
         try {
-            return clazz2.cast(m.get(clazz));
+            return assumed.cast(m.get(clazz));
         } catch (ClassCastException e) {
             throw new RuntimeException("Assume failure", e);
         }

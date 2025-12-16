@@ -1,12 +1,15 @@
 package io.jingproject.common;
 
+import java.lang.foreign.MemorySegment;
 import java.nio.ByteOrder;
 
-public interface ReadBuffer {
+public sealed interface ReadBuffer permits HeapReadBuffer, SegmentReadBuffer {
 
     byte readByte();
 
     byte[] readBytes(int len);
+
+    MemorySegment readSegment(long len);
 
     short readShort(ByteOrder byteOrder);
 
@@ -43,4 +46,21 @@ public interface ReadBuffer {
     default double readDouble() {
         return readDouble(ByteOrder.nativeOrder());
     }
+
+    default MemorySegment readAddress(ByteOrder byteOrder) {
+        long rawAddress = readLong(byteOrder);
+        return MemorySegment.ofAddress(rawAddress);
+    }
+
+    default MemorySegment readAddress() {
+        return readAddress(ByteOrder.nativeOrder());
+    }
+
+    int intIndex();
+
+    long longIndex();
+
+    int intLength();
+
+    long longLength();
 }

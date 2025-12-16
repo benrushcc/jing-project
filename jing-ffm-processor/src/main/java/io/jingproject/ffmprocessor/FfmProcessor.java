@@ -7,12 +7,14 @@ import io.jingproject.annprocess.Provider;
 import io.jingproject.ffm.*;
 
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.*;
 import javax.lang.model.type.TypeMirror;
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
+import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -23,6 +25,14 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public final class FfmProcessor extends AbstractProcessor {
+
+    private TypeMirror memorySegmentType;
+
+    @Override
+    public synchronized void init(ProcessingEnvironment processingEnv) {
+        super.init(processingEnv);
+        memorySegmentType = processingEnv.getElementUtils().getTypeElement(MemorySegment.class.getCanonicalName()).asType();
+    }
 
     @Override
     public SourceVersion getSupportedSourceVersion() {
@@ -103,6 +113,7 @@ public final class FfmProcessor extends AbstractProcessor {
         String sharedLibs = source.register(SharedLibs.class);
         String functionDescriptor = source.register(FunctionDescriptor.class);
         String linker = source.register(Linker.class);
+        String memorySegment = source.register(MemorySegment.class);
         String valueLayout = source.register(ValueLayout.class);
         String methodHandle = source.register(MethodHandle.class);
         String targetClass = source.register(ffmData.typeElement());
@@ -112,23 +123,19 @@ public final class FfmProcessor extends AbstractProcessor {
         for (DowncallData downcallData : ffmData.downcallDataList()) {
             ExecutableElement ex = downcallData.executableElement();
             String methodName = ex.getSimpleName().toString();
-            String returnType = castPrimitiveType(ex.getReturnType());
+            String returnType = castParameterType(memorySegment, ex.getReturnType());
             List<? extends VariableElement> parameters = ex.getParameters();
-            String fullParams = parameters.stream().map(v -> castPrimitiveType(v.asType()) + " " + v.getSimpleName().toString()).collect(Collectors.joining(", "));
+            String fullParams = parameters.stream().map(v -> castParameterType(memorySegment, v.asType()) + " " + v.getSimpleName().toString()).collect(Collectors.joining(", "));
             String shortParams = parameters.stream().map(v -> v.getSimpleName().toString()).collect(Collectors.joining(", "));
             String p1 = "\"" + ffmData.ffm().libraryName() + "\"";
             String p2 = "\"" + downcallData.downcall().methodName() + "\"";
-            String p3, mh;
+            String p3;
             if(returnType.equals("void")) {
                 p3 = functionDescriptor + ".ofVoid(" + parameters.stream().map(v -> castValueLayout(valueLayout, v.asType())).collect(Collectors.joining(", ")) + ")";
             } else {
                 p3 = functionDescriptor + ".of(" + Stream.concat(Stream.of(ex.getReturnType()), parameters.stream().map(VariableElement::asType)).map(v -> castValueLayout(valueLayout, v)).collect(Collectors.joining(", "))+ ")";
             }
-            if(downcallData.downcall().critical()) {
-                mh = String.join(", ", p1, p2, p3, linker + ".Option.critical(false)");
-            } else {
-                mh = String.join(", ", p1, p2, p3);
-            }
+            String mh = String.join(", ", p1, p2, p3, downcallData.downcall().critical() ? "true" : "false");
             GeneratorBlock b = new GeneratorBlock().addLine("@Override").addLine("public " + returnType + " " +  methodName + "(" + fullParams + ") {")
                     .indent().addLine("class Holder {").indent()
                     .addLine("static final " + methodHandle + " MH = " + sharedLibs + ".getMethodHandleFromLib(" + mh + ");");
@@ -144,7 +151,11 @@ public final class FfmProcessor extends AbstractProcessor {
                     .indent().addLine("throw new RuntimeException(\"Failed to invoke " + methodName + " method\", t);").unindent().addLine("}")
                     .unindent().addLine("}").unindent().addLine("}").addLine("return Holder.CACHED;").unindent().addLine("}").newLine();
             } else {
-                b.unindent().addLine("}").addLine("try {").indent().addLine("Holder.MH.invokeExact(" + shortParams + ");")
+                String invokeStatement = "Holder.MH.invokeExact(" + shortParams + ");";
+                if(!returnType.equals("void")) {
+                    invokeStatement = "return (" + returnType + ") " + invokeStatement;
+                }
+                b.unindent().addLine("}").addLine("try {").indent().addLine(invokeStatement)
                         .unindent().addLine("} catch (Throwable t) {").indent().addLine("throw new RuntimeException(\"Failed to invoke " + methodName + " method\", t);")
                         .unindent().addLine("}").unindent().addLine("}").newLine();
             }
@@ -156,7 +167,7 @@ public final class FfmProcessor extends AbstractProcessor {
         return generatedClass;
     }
 
-    private static String castPrimitiveType(TypeMirror type) {
+    private String castParameterType(String memorySegment, TypeMirror type) {
         return switch (type.getKind()) {
             case VOID -> "void";
             case BYTE -> "byte";
@@ -166,11 +177,17 @@ public final class FfmProcessor extends AbstractProcessor {
             case LONG -> "long";
             case FLOAT -> "float";
             case DOUBLE -> "double";
-            default -> throw new UnsupportedOperationException("Unsupported type: " + type.getKind());
+            case DECLARED -> {
+                if (processingEnv.getTypeUtils().isSameType(type, memorySegmentType)) {
+                    yield memorySegment;
+                }
+                throw new UnsupportedOperationException("Unsupported type: " + type);
+            }
+            default -> throw new UnsupportedOperationException("Unsupported type: " + type);
         };
     }
 
-    private static String castValueLayout(String valueLayout, TypeMirror type) {
+    private String castValueLayout(String valueLayout, TypeMirror type) {
         return switch (type.getKind()) {
             case BYTE -> valueLayout + ".JAVA_BYTE";
             case CHAR -> valueLayout + ".JAVA_CHAR";
@@ -179,13 +196,18 @@ public final class FfmProcessor extends AbstractProcessor {
             case LONG -> valueLayout + ".JAVA_LONG";
             case FLOAT -> valueLayout + ".JAVA_FLOAT";
             case DOUBLE -> valueLayout + ".JAVA_DOUBLE";
-            default -> throw new  UnsupportedOperationException("Unsupported type: " + type.getKind());
+            case DECLARED -> {
+                if (processingEnv.getTypeUtils().isSameType(type, memorySegmentType)) {
+                    yield valueLayout + ".ADDRESS";
+                }
+                throw new UnsupportedOperationException("Unsupported type: " + type);
+            }
+            default -> throw new UnsupportedOperationException("Unsupported type: " + type);
         };
     }
 
     private void generateFFMProviderSource(FfmData ffmData, String implClassName) {
         GeneratorSource source = new GeneratorSource(processingEnv, ffmData.typeElement(), "LibProvider");
-        String osType = source.register(OsType.class);
         String list = source.register(List.class);
         String supplier = source.register(Supplier.class);
         String sharedLib = source.register(SharedLib.class);
@@ -194,11 +216,6 @@ public final class FfmProcessor extends AbstractProcessor {
         String generatedClass = source.className();
         List<GeneratorBlock> blocks = new ArrayList<>();
         blocks.add(new GeneratorBlock().addLine("@" + provider + "(target = " + targetClass + ".class)").addLine("public final class " + generatedClass + " implements " + sharedLib + " {").indent().newLine());
-        blocks.add(new GeneratorBlock()
-                .addLine("@Override")
-                .addLine("public " + osType + " supportedOsType() {")
-                .indent().addLine("return " + osType + "." + ffmData.ffm().supportedOsType().name() + ";")
-                .unindent().addLine("}").newLine());
         blocks.add(new GeneratorBlock()
                 .addLine("@Override")
                 .addLine("public Class<?> target() {")

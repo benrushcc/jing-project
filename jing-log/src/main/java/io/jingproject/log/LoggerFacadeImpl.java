@@ -1,17 +1,18 @@
 package io.jingproject.log;
 
-import io.jingproject.common.LifeCycle;
-import io.jingproject.common.Logger;
-import io.jingproject.common.LoggerFacade;
-
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedTransferQueue;
+import io.jingproject.common.*;
 
 public final class LoggerFacadeImpl implements LoggerFacade, LifeCycle {
-    private static final BlockingQueue<LogEvent> QUEUE = new LinkedTransferQueue<>();
+    private final LogLevel level;
+    private final BatchQueue<LogEvent> queue;
+    private final Thread logThread;
 
-    public static BlockingQueue<LogEvent> getQueue() {
-        return QUEUE;
+    public LoggerFacadeImpl() {
+        this.level = LogLevel.fromString(ConfigurationFactory.item("jing.log.level", "INFO"));
+        this.queue = new BatchQueue<>(ConfigurationFactory.itemAsInt("jing.log.batchsize", BatchQueue.defaultBatchSize()));
+        this.logThread = Thread.ofPlatform().unstarted(() -> {
+
+        });
     }
 
     @Override
@@ -26,6 +27,6 @@ public final class LoggerFacadeImpl implements LoggerFacade, LifeCycle {
 
     @Override
     public Logger getLogger(Class<?> clazz) {
-        return new LoggerImpl(clazz);
+        return new LoggerImpl(clazz, level, queue);
     }
 }

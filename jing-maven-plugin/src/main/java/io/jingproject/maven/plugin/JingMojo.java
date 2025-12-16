@@ -9,8 +9,6 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.classfile.Attributes;
 import java.lang.classfile.ClassFile;
@@ -20,6 +18,8 @@ import java.lang.classfile.attribute.ModuleProvideInfo;
 import java.lang.constant.ClassDesc;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 
@@ -35,67 +35,54 @@ public final class JingMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         for (Resource resource : project.getResources()) {
-            File resourceDir = new File(resource.getDirectory());
-            getLog().debug("Searching for Jing-providers.json file: " + resourceDir.getAbsolutePath());
-            File targetFile = new File(resourceDir, FILE_NAME);
-            if(targetFile.exists() && targetFile.isFile()) {
-                getLog().debug("Found Jing-providers.json file: " + targetFile.getAbsolutePath());
-                processJingProviderFile(targetFile);
+            Path resourceDir = Paths.get(resource.getDirectory());
+            getLog().debug("Searching for Jing-providers.json file: " + resourceDir.toAbsolutePath());
+            Path targetPath = resourceDir.resolve(FILE_NAME);
+            if(Files.isRegularFile(targetPath)) {
+                getLog().debug("Found Jing-providers.json file: " + targetPath.toAbsolutePath());
+                processJingProviderFile(targetPath);
             }
         }
         getLog().debug("Jing-providers.json file not found, skipping process Jing-providers.json");
     }
 
-    private void processJingProviderFile(File file) throws MojoExecutionException, MojoFailureException {
-        if (!file.canRead()) {
+    private void processJingProviderFile(Path path) throws MojoExecutionException, MojoFailureException {
+        if (!Files.isReadable(path)) {
             throw new MojoExecutionException("Jing-providers.json is not readable");
         }
         byte[] content;
         try {
-            content = Files.readAllBytes(file.toPath());
+            content = Files.readAllBytes(path);
         } catch (IOException e) {
             throw new MojoExecutionException("Cannot read from Jing-providers.json", e);
         }
         Map<String, Set<String>> data = parseProviderData(content);
-        File targetDir = new File(project.getBuild().getOutputDirectory(), "META-INF/services");
-        if(!targetDir.exists() && !targetDir.mkdirs()) {
-            throw new MojoExecutionException("Cannot create META-INF/services directory");
+        Path targetDirPath = Path.of(project.getBuild().getOutputDirectory(), "META-INF", "services");
+        try {
+            Files.createDirectories(targetDirPath);
+        } catch (IOException e) {
+            throw new MojoExecutionException("Cannot create META-INF/services directory", e);
         }
         for (Map.Entry<String, Set<String>> entry : data.entrySet()) {
             String key = entry.getKey();
             Set<String> lines = entry.getValue();
             getLog().debug("processing key : " + key);
             getLog().debug("processing lines : " + lines);
+            Path targetPath = targetDirPath.resolve(key);
             try {
-                File targetFile = new File(targetDir, key);
-                getLog().debug("Checking file : " + targetFile.getAbsolutePath());
-                if(targetFile.exists() && !targetFile.delete()) {
-                    throw new MojoExecutionException("SPI file already exists and cannot be deleted");
-                }
-                if (!targetFile.createNewFile()) {
-                    throw new MojoExecutionException("Cannot create SPI file");
-                }
-                if(!targetFile.canWrite()) {
-                    throw new MojoExecutionException("Cannot write to SPI file");
-                }
-                try (FileWriter writer = new FileWriter(targetFile)) {
-                    for (String line : lines) {
-                        writer.write(line);
-                        writer.write(System.lineSeparator());
-                    }
-                }
+                Files.write(targetPath, lines, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
             } catch (IOException e) {
-                throw new MojoExecutionException("Cannot perform IO operations", e);
+                throw new MojoExecutionException("Cannot write SPI file: " + targetPath.toAbsolutePath(), e);
             }
         }
-        File moduleInfo = new File(project.getBuild().getOutputDirectory(), "module-info.class");
-        if(moduleInfo.exists()) {
-            getLog().debug("Found module-info class: " + moduleInfo.getAbsolutePath());
+        Path moduleInfoPath = Path.of(project.getBuild().getOutputDirectory(), "module-info.class");
+        if(Files.isRegularFile(moduleInfoPath)) {
+            getLog().debug("Found module-info class: " + moduleInfoPath.toAbsolutePath());
             byte[] bytecodes;
             try {
-                bytecodes = Files.readAllBytes(moduleInfo.toPath());
+                bytecodes = Files.readAllBytes(moduleInfoPath);
                 bytecodes = updateModuleInfoByteCodes(bytecodes, data);
-                Files.write(moduleInfo.toPath(), bytecodes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.write(moduleInfoPath, bytecodes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
             } catch (IOException e) {
                 throw new MojoExecutionException("Cannot perform IO operations", e);
             }

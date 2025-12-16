@@ -12,49 +12,67 @@ public final class SharedLibs {
 
     private static final List<String> SEARCH_PATH = createSearchPath();
 
+    /**
+     *   Critical path could be disabled globally to ensure safepoint is always checked
+     */
+    private static final Boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
+
     private static List<String> createSearchPath() {
         List<String> r = new ArrayList<>();
         String argPath = System.getProperty("jing.library.path");
-        if (argPath != null && !argPath.isBlank()) {
+        if (argPath != null && !argPath.isBlank() && Files.isDirectory(Paths.get(argPath))) {
             r.add(argPath);
         }
         String envPath = System.getenv("JING_LIBRARY_PATH");
-        if(envPath != null && !envPath.isBlank()) {
+        if(envPath != null && !envPath.isBlank() && Files.isDirectory(Paths.get(envPath))) {
             r.add(envPath);
         }
         for (String p : System.getProperty("java.library.path", "").split(File.pathSeparator)) {
-            if(!p.isBlank()) {
+            if(!p.isBlank() && Files.isDirectory(Paths.get(p))) {
                 r.add(p);
             }
         }
         return List.copyOf(r);
     }
 
-    private static final Map<String, Map<String, MemorySegment>> SYMBOLS;
+    private static final Map<String, LibDescriptor> DESCRIPTORS;
     private static final Map<Class<?>, Object> IMPLS;
 
+    record LibDescriptorCache(
+            String mappedName,
+            SymbolLookup lookup,
+            Map<String, MemorySegment> functions
+    ) {
+        public void registerFunctions(List<String> functionNames) {
+            for (String functionName : functionNames) {
+                functions.computeIfAbsent(functionName, k -> lookup.find(k).orElse(MemorySegment.NULL));
+            }
+        }
+    }
+
     static {
-        Map<String, Map<String, MemorySegment>> symbols = new HashMap<>();
+        Map<String, LibDescriptorCache> descriptors = new HashMap<>();
         Map<Class<?>, Object> impls = new HashMap<>();
         ServiceLoader<SharedLib> libs = ServiceLoader.load(SharedLib.class);
         for (SharedLib lib : libs) {
-            if(OsType.enabled(lib.supportedOsType())) {
-                String libName = lib.libName();
+            if (impls.put(lib.target(), lib.supplier().get()) != null) {
+                throw new ForeignException("SharedLib : " + lib.target() + " already exists");
+            }
+            String libName = lib.libName();
+            LibDescriptorCache cache = descriptors.get(libName);
+            if (cache == null) {
                 String mappedLibraryName = System.mapLibraryName(libName);
                 Path libPath = SEARCH_PATH.stream().map(p -> Paths.get(p, mappedLibraryName))
                         .filter(Files::exists).findFirst().orElseThrow(() -> new ForeignException("Library : " + libName + " not found"));
                 SymbolLookup lookup = SymbolLookup.libraryLookup(libPath, Arena.global());
-                List<String> methodNames = lib.methodNames();
-                Map<String, MemorySegment> methodMap = symbols.getOrDefault(libName, new HashMap<>());
-                for (String methodName : methodNames) {
-                    methodMap.computeIfAbsent(methodName, k -> lookup.find(k).orElse(MemorySegment.NULL));
-                }
-                symbols.putIfAbsent(libName, methodMap);
-                impls.put(lib.target(), lib.supplier().get());
+                cache = new LibDescriptorCache(mappedLibraryName, lookup, new HashMap<>());
+                descriptors.put(libName, cache);
             }
+            cache.registerFunctions(lib.methodNames());
         }
-        symbols.replaceAll((_, v) -> Map.copyOf(v));
-        SYMBOLS = Map.copyOf(symbols);
+        Map<String, LibDescriptor> temp = new HashMap<>();
+        descriptors.forEach((k, v) -> temp.put(k, new LibDescriptor(k, v.mappedName(), v.lookup(), Map.copyOf(v.functions()))));
+        DESCRIPTORS = Map.copyOf(temp);
         IMPLS = Map.copyOf(impls);
     }
 
@@ -62,32 +80,44 @@ public final class SharedLibs {
         throw new UnsupportedOperationException("utility class");
     }
 
-    public static MethodHandle getMethodHandleFromVM(String functionName, FunctionDescriptor descriptor, Linker.Option... options) {
+    public static MethodHandle getMethodHandleFromVM(String functionName, FunctionDescriptor descriptor, boolean critical) {
         Linker linker = Linker.nativeLinker();
         SymbolLookup lookup = linker.defaultLookup();
         MemorySegment functionAddr = lookup.find(functionName).orElseThrow(() -> new ForeignException("Function : " + functionName + " not found in vm"));
-        return linker.downcallHandle(functionAddr, descriptor, options);
+        if(critical) {
+            return linker.downcallHandle(functionAddr, descriptor, Linker.Option.critical(false));
+        } else {
+            return linker.downcallHandle(functionAddr, descriptor);
+        }
     }
 
-    public static MethodHandle getMethodHandleFromLib(String libName, String functionName, FunctionDescriptor descriptor, Linker.Option... options) {
+    public static MethodHandle getMethodHandleFromLib(String libName, String functionName, FunctionDescriptor descriptor, boolean critical) {
         if(libName.equals(FFM.VM)) {
-            return getMethodHandleFromVM(functionName, descriptor, options);
+            return getMethodHandleFromVM(functionName, descriptor, critical);
         }
         Linker linker = Linker.nativeLinker();
         MemorySegment segment = getFunctionAddressFromLib(libName, functionName);
-        return linker.downcallHandle(segment, descriptor, options);
+        if(critical) {
+            return linker.downcallHandle(segment, descriptor, Linker.Option.critical(false));
+        } else {
+            return linker.downcallHandle(segment, descriptor);
+        }
     }
 
     public static MemorySegment getFunctionAddressFromLib(String libName, String functionName) {
-        Map<String, MemorySegment> m = SYMBOLS.get(libName);
-        if (m == null || m.isEmpty()) {
+        LibDescriptor libDescriptor = DESCRIPTORS.get(libName);
+        if (libDescriptor == null) {
             throw new ForeignException("Library : " + libName + " not found");
         }
-        MemorySegment segment = m.get(functionName);
+        MemorySegment segment = libDescriptor.functions().get(functionName);
         if(segment.address() == 0L) {
             throw new ForeignException("Function : " + functionName + " not found");
         }
         return segment;
+    }
+
+    public static LibDescriptor getLibDescriptor(String libName) {
+        return DESCRIPTORS.get(libName);
     }
 
     public static <T> T getImpl(Class<T> clazz) {
