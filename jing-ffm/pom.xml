@@ -44,9 +44,6 @@
                 <configuration>
                     <release>${java.version}</release>
                     <encoding>UTF-8</encoding>
-                    <compilerArgs>
-                        <arg>--enable-preview</arg> <!-- enable preview by default -->
-                    </compilerArgs>
                     <proc>full</proc>
                     <annotationProcessorPaths>
                         <path>

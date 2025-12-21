@@ -33,7 +33,7 @@ public final class Anchor {
         try {
             return assumed.cast(m.get(clazz));
         } catch (ClassCastException e) {
-            throw new RuntimeException("Assume failure", e);
+            throw new LifecycleError("Assume failure", e);
         }
     }
 
@@ -43,7 +43,7 @@ public final class Anchor {
             created.set(true);
             T instance = supplier.get();
             if(instance == null) {
-                throw new RuntimeException("Failed to create instance");
+                throw new LifecycleError("Failed to create instance");
             }
             return instance;
         });
@@ -72,7 +72,7 @@ public final class Anchor {
         lock.lock();
         try {
             if(shutdown) {
-                throw new RuntimeException("Already shutdown");
+                throw new LifecycleError("Already shutdown");
             }
             if(lcs.isEmpty()) {
                 addHook();
@@ -88,7 +88,7 @@ public final class Anchor {
             lock.lock();
             try {
                 if(shutdown) {
-                    throw new RuntimeException("Already shutdown");
+                    throw new LifecycleError("Already shutdown");
                 }
                 shutdown = true;
                 for (LifeCycle lc : lcs) {

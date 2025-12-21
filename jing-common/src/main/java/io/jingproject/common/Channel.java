@@ -1,11 +1,7 @@
 package io.jingproject.common;
 
-public interface Channel<T> {
-    Socket socket();
-
-    Enc<T> enc();
-
-    Dec<T> dec();
+public interface Channel<T extends Transmittable<T>> {
+    Descriptor rawSocket();
 
 
 }

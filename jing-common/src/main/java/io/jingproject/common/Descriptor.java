@@ -1,23 +1,23 @@
 package io.jingproject.common;
 
 /**
- *   Currently we could just make the assumptions that all sockets are int or long
+ *   Currently we could just make the assumptions that all descriptors are int or long
  */
-public sealed interface Socket {
+public sealed interface Descriptor {
 
     int asInt();
 
     long asLong();
 
-    static Socket of(int value) {
-        return new IntSocket(value);
+    static Descriptor of(int value) {
+        return new IntDescriptor(value);
     }
 
-    static Socket of(long value) {
-        return new LongSocket(value);
+    static Descriptor of(long value) {
+        return new LongDescriptor(value);
     }
 
-    record IntSocket(int value) implements Socket {
+    record IntDescriptor(int value) implements Descriptor {
         @Override
         public int asInt() {
             return value;
@@ -29,7 +29,7 @@ public sealed interface Socket {
         }
     }
 
-    record LongSocket(long value) implements Socket {
+    record LongDescriptor(long value) implements Descriptor {
         @Override
         public int asInt() {
             return Math.toIntExact(value);
