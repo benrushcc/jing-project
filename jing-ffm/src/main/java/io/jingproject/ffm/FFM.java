@@ -1,5 +1,7 @@
 package io.jingproject.ffm;
 
+import io.jingproject.common.Os;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -11,7 +13,10 @@ public @interface FFM {
     String VM = "vm";
 
     /**
-     *   Shared library name, using jvm internal lookup by default, you shouldn't name your dynamic library as vm
+     * Specifies the shared library name. Defaults to JVM's internal lookup.
+     * Don't name your library "vm".
      */
     String libraryName() default VM;
+
+    Os[] supportedOS() default {Os.WINDOWS, Os.LINUX, Os.MACOS};
 }

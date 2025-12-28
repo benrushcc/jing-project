@@ -6,7 +6,7 @@ import io.jingproject.ffm.FFM;
 import java.lang.foreign.MemorySegment;
 
 @FFM(libraryName = "jing")
-public interface LogLib {
+public interface LogBindings {
 
     @Downcall(methodName = "jing_win_ansi_support", constant = true, critical = true)
     int winAnsiSupport();

@@ -5,10 +5,14 @@ import java.lang.invoke.MethodHandle;
 import java.nio.ByteOrder;
 
 /**
- *   Utility class for accessing native memorySegment and VM native functions
+ *   Utility class for accessing native memorySegment and VM native functions TODO 绝大部分方法都是过度设计，可以直接砍掉
  */
 public final class NativeSegmentAccess {
 
+    /**
+     * Private constructor to prevent instantiation.
+     * This is a utility class with only static methods.
+     */
     private NativeSegmentAccess() {
         throw new UnsupportedOperationException("utility class");
     }
@@ -19,7 +23,7 @@ public final class NativeSegmentAccess {
      *   Address is unsigned, so we can not represent raw address larger than Long.MAX_VALUE,
      *   However, user-land address space is usually 48-bit on most operating system, so we are all good here.
      */
-    private static final MemorySegment ZERO = MemorySegment.ofAddress(0L).reinterpret(Long.MAX_VALUE);
+    private static final MemorySegment ZERO = MemorySegment.NULL.reinterpret(Long.MAX_VALUE);
 
     private static final ByteOrder OPPOSITE_BYTE_ORDER = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN;
 
@@ -371,120 +375,15 @@ public final class NativeSegmentAccess {
         }
     }
 
-    // memory related methods, heap memory are not allowed by default
-
-    public static MemorySegment malloc(long byteSize) {
-        class Holder {
-            static final MethodHandle MH =
-                    SharedLibs.getMethodHandleFromVM("malloc", FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG), true);
-        }
-        try {
-            MemorySegment r = (MemorySegment) Holder.MH.invokeExact(byteSize);
-            if(r.address() == 0L) {
-                throw new OutOfMemoryError();
-            }
-            return r.reinterpret(byteSize);
-        } catch (Throwable t) {
-            throw new ForeignException("Failed to invoke malloc method", t);
-        }
-    }
-
-    public static MemorySegment realloc(MemorySegment m, long newByteSize) {
-        assert m.isNative() && !m.isMapped();
-        class Holder {
-            static final MethodHandle MH =
-                    SharedLibs.getMethodHandleFromVM("realloc", FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG), true);
-        }
-        try {
-            MemorySegment r = (MemorySegment) Holder.MH.invokeExact(m, newByteSize);
-            if(r.address() == 0L) {
-                throw new OutOfMemoryError();
-            }
-            return r.reinterpret(newByteSize);
-        } catch (Throwable t) {
-            throw new ForeignException("Failed to invoke realloc method", t);
-        }
-    }
-
-    public static void free(MemorySegment m) {
-        assert m.isNative() && !m.isMapped();
-        class Holder {
-            static final MethodHandle MH =
-                    SharedLibs.getMethodHandleFromVM("free", FunctionDescriptor.ofVoid(ValueLayout.ADDRESS), true);
-        }
-        try {
-            Holder.MH.invokeExact(m);
-        } catch (Throwable t) {
-            throw new ForeignException("Failed to invoke free method", t);
-        }
-    }
-
-    public static int memcmp(MemorySegment dest, MemorySegment src, long size) {
-        assert dest.isNative() && src.isNative();
-        class Holder {
-            static final MethodHandle MH =
-                    SharedLibs.getMethodHandleFromVM("memcmp", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG), true);
-        }
-        try {
-            return (int) Holder.MH.invokeExact(dest, src, size);
-        } catch (Throwable t) {
-            throw new ForeignException("Failed to invoke memcpy method", t);
-        }
-    }
-
-    public static void memcpy(MemorySegment dest, MemorySegment src, long size) {
-        assert dest.isNative() && src.isNative();
-        class Holder {
-            static final MethodHandle MH =
-                    SharedLibs.getMethodHandleFromVM("memcpy", FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG), true);
-        }
-        try {
-            MemorySegment _ = (MemorySegment) Holder.MH.invokeExact(dest, src, size);
-        } catch (Throwable t) {
-            throw new ForeignException("Failed to invoke memcpy method", t);
-        }
-    }
-
-    public static void memmove(MemorySegment dest, MemorySegment src, long size) {
-        assert dest.isNative() && src.isNative();
-        class Holder {
-            static final MethodHandle MH =
-                    SharedLibs.getMethodHandleFromVM("memmove", FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG), true);
-        }
-        try {
-            MemorySegment _ = (MemorySegment) Holder.MH.invokeExact(dest, src, size);
-        } catch (Throwable t) {
-            throw new ForeignException("Failed to invoke memmove method", t);
-        }
-    }
-
-    public static MemorySegment memchr(MemorySegment src, int ch, long size) {
-        assert src.isNative();
-        class Holder {
-            static final MethodHandle MH =
-                    SharedLibs.getMethodHandleFromVM("memchr", FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG), true);
-        }
-        try {
-            return (MemorySegment) Holder.MH.invokeExact(src, ch, size);
-        } catch (Throwable t) {
-            throw new ForeignException("Failed to invoke memchr method", t);
-        }
-    }
-
-    public static void memset(MemorySegment src, int ch, long count) {
-        assert src.isNative();
-        class Holder {
-            static final MethodHandle MH =
-                    SharedLibs.getMethodHandleFromVM("memset", FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG), true);
-        }
-        try {
-            MemorySegment _  = (MemorySegment) Holder.MH.invokeExact(src, ch, count);
-        } catch (Throwable t) {
-            throw new ForeignException("Failed to invoke memset method", t);
-        }
-    }
-
     // jing_result related methods
+    private static final MemoryLayout SIZE_T_LAYOUT = Linker.nativeLinker().canonicalLayouts().get("size_t");
+    private static final MemoryLayout JING_ERR_VAL_LAYOUT = MemoryLayout.structLayout(
+            ValueLayout.JAVA_INT.withName("err_code"),
+            ValueLayout.JAVA_INT.withName("err_flag")
+    );
+    private static final long JING_ERR_CODE_OFFSET = JING_ERR_VAL_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("err_code"));
+    private static final long JING_ERR_FLAG_OFFSET = JING_ERR_VAL_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("err_flag"));
+
 
     private static final MemoryLayout JING_DATA_LAYOUT = MemoryLayout.unionLayout(
             ValueLayout.JAVA_BYTE.withName("byte_val"),
@@ -494,53 +393,95 @@ public final class NativeSegmentAccess {
             ValueLayout.JAVA_LONG.withName("long_val"),
             ValueLayout.JAVA_FLOAT.withName("float_val"),
             ValueLayout.JAVA_DOUBLE.withName("double_val"),
-            ValueLayout.ADDRESS.withName("ptr_val")
+            ValueLayout.ADDRESS.withName("ptr_val"),
+            JING_ERR_VAL_LAYOUT.withName("err_val")
     );
 
+    private static final long JING_DATA_BYTE_VAL_OFFSET = JING_DATA_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("byte_val"));
+    private static final long JING_DATA_SHORT_VAL_OFFSET = JING_DATA_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("short_val"));
+    private static final long JING_DATA_CHAR_VAL_OFFSET = JING_DATA_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("char_val"));
+    private static final long JING_DATA_INT_VAL_OFFSET = JING_DATA_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("int_val"));
+    private static final long JING_DATA_LONG_VAL_OFFSET = JING_DATA_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("long_val"));
+    private static final long JING_DATA_FLOAT_VAL_OFFSET = JING_DATA_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("float_val"));
+    private static final long JING_DATA_DOUBLE_VAL_OFFSET = JING_DATA_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("double_val"));
+    private static final long JING_DATA_PTR_VAL_OFFSET = JING_DATA_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("ptr_val"));
+    private static final long JING_DATA_ERR_VAL_OFFSET = JING_DATA_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("err_val"));
+
     private static final MemoryLayout JING_RESULT_LAYOUT = MemoryLayout.structLayout(
-            Linker.nativeLinker().canonicalLayouts().get("size_t").withName("len"),
+            SIZE_T_LAYOUT.withName("len"),
             JING_DATA_LAYOUT.withName("data")
     );
 
-    private static final long JING_DATA_OFFSET = JING_RESULT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("data"));
     private static final long JING_LEN_OFFSET = JING_RESULT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("len"));
+    private static final long JING_DATA_OFFSET = JING_RESULT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("data"));
 
     static {
-        if(JING_DATA_LAYOUT.byteSize() != 8 || JING_RESULT_LAYOUT.byteSize() != 16) {
-            throw new ExceptionInInitializerError("JING_RESULT_LAYOUT byteSize mismatch");
+        if(SIZE_T_LAYOUT.byteSize() != 8 || JING_DATA_LAYOUT.byteSize() != 8 || JING_RESULT_LAYOUT.byteSize() != 16) {
+            throw new ExceptionInInitializerError("Layout byteSize mismatch, might not be 64-bits operating system");
         }
     }
 
+    public static MemoryLayout rLayout() {
+        return JING_RESULT_LAYOUT;
+    }
+
     public static byte rByte(MemorySegment r) {
-        return r.get(ValueLayout.JAVA_BYTE, JING_DATA_OFFSET);
+        return getByte(r, JING_DATA_OFFSET + JING_DATA_BYTE_VAL_OFFSET);
     }
 
     public static short rShort(MemorySegment r) {
-        return r.get(ValueLayout.JAVA_SHORT, JING_DATA_OFFSET);
+        return getShort(r, JING_DATA_OFFSET + JING_DATA_SHORT_VAL_OFFSET);
+    }
+
+    public static char rChar(MemorySegment r) {
+        return getChar(r, JING_DATA_OFFSET + JING_DATA_CHAR_VAL_OFFSET);
     }
 
     public static int rInt(MemorySegment r) {
-        return r.get(ValueLayout.JAVA_INT, JING_DATA_OFFSET);
+        return getInt(r, JING_DATA_OFFSET + JING_DATA_INT_VAL_OFFSET);
     }
 
     public static long rLong(MemorySegment r) {
-        return r.get(ValueLayout.JAVA_LONG, JING_DATA_OFFSET);
+        return getLong(r, JING_DATA_OFFSET + JING_DATA_LONG_VAL_OFFSET);
     }
 
     public static float rFloat(MemorySegment r) {
-        return r.get(ValueLayout.JAVA_FLOAT, JING_DATA_OFFSET);
+        return getFloat(r, JING_DATA_OFFSET + JING_DATA_FLOAT_VAL_OFFSET);
     }
 
     public static double rDouble(MemorySegment r) {
-        return r.get(ValueLayout.JAVA_DOUBLE, JING_DATA_OFFSET);
+        return getDouble(r, JING_DATA_OFFSET + JING_DATA_DOUBLE_VAL_OFFSET);
     }
 
     public static MemorySegment rAddress(MemorySegment r) {
-        return r.get(ValueLayout.ADDRESS, JING_DATA_OFFSET);
+        return getAddress(r, JING_DATA_OFFSET + JING_DATA_PTR_VAL_OFFSET);
     }
 
     public static long rLen(MemorySegment r) {
-        return r.get(ValueLayout.JAVA_LONG_UNALIGNED, JING_LEN_OFFSET);
+        return getLong(r, JING_LEN_OFFSET);
+    }
+
+    public static int rErrCode(MemorySegment r) {
+        return getInt(r, JING_DATA_OFFSET + JING_DATA_ERR_VAL_OFFSET + JING_ERR_CODE_OFFSET);
+    }
+
+    public static int rErrFlag(MemorySegment r) {
+        return getInt(r, JING_DATA_OFFSET + JING_DATA_ERR_VAL_OFFSET + JING_ERR_FLAG_OFFSET);
+    }
+
+    private static final long JING_POINTER_ERR_FLAG = 0x8000000000000000L;
+
+    public static boolean isErrPtr(MemorySegment seg) {
+        return (seg.address() & JING_POINTER_ERR_FLAG) != 0;
+    }
+
+    public static int errCode(MemorySegment seg) {
+        return (int) seg.address();
+    }
+
+    public static MemorySegment reinterpret(MemorySegment seg, long newSize) {
+        assert seg.isNative();
+        return seg.reinterpret(newSize);
     }
 
 }

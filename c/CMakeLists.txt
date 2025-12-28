@@ -32,15 +32,21 @@ endif()
 project(jing_std VERSION 0.0.1 LANGUAGES C)
 
 # provided options
-option(JING_ENABLE_BORINGSSL "Enable boringssl related functions" ON)
+# option(JING_ENABLE_BORINGSSL "Enable boringssl related functions" ON)
 
 add_library(jing SHARED)
 target_sources(jing PRIVATE
-    src/jing.c
+    src/jing_sys.c
+    src/jing_wepoll.c
+    src/jing_epoll.c
+    src/jing_kqueue.c
+    src/jing_net.c
+    src/jing_win_net.c
+    src/jing_posix_net.c
 )
 
 set(JING_WEPOLL_VERSION    "v1.5.8"       CACHE STRING "wepoll library version"    FORCE)
-set(JING_BORINGSSL_VERSION "0.20251002.0" CACHE STRING "boringssl library version" FORCE)
+# set(JING_BORINGSSL_VERSION "0.20251002.0" CACHE STRING "boringssl library version" FORCE)
 
 include(FetchContent)
 
@@ -62,23 +68,23 @@ if(WIN32)
     target_link_libraries(jing PRIVATE wepollstatic)
 endif()
 
-# setup boringssl
-if(JING_ENABLE_BORINGSSL)
-    target_compile_definitions(jing PRIVATE JING_ENABLE_BORINGSSL)
-    FetchContent_Declare(
-        boringsslproject
-        GIT_REPOSITORY https://github.com/google/boringssl.git
-        GIT_TAG tags/${JING_BORINGSSL_VERSION}
-        GIT_SHALLOW TRUE
-    )
-    set(BUILD_TESTING OFF CACHE BOOL "Whether to build boringssl tests" FORCE)
-    message(STATUS "Configuring boringssl")
-    FetchContent_MakeAvailable(boringsslproject)
-    message(STATUS "Configuring boringssl succeed")
-    set_target_properties(bssl PROPERTIES EXCLUDE_FROM_ALL TRUE)
-    if(APPLE)
-        target_compile_definitions(crypto PRIVATE OPENSSL_STATIC_ARMCAP)
-        target_compile_definitions(ssl PRIVATE OPENSSL_STATIC_ARMCAP)
-    endif()
-    target_link_libraries(jing PRIVATE ssl crypto)
-endif()
+# # setup boringssl
+# if(JING_ENABLE_BORINGSSL)
+#     target_compile_definitions(jing PRIVATE JING_ENABLE_BORINGSSL)
+#     FetchContent_Declare(
+#         boringsslproject
+#         GIT_REPOSITORY https://github.com/google/boringssl.git
+#         GIT_TAG tags/${JING_BORINGSSL_VERSION}
+#         GIT_SHALLOW TRUE
+#     )
+#     set(BUILD_TESTING OFF CACHE BOOL "Whether to build boringssl tests" FORCE)
+#     message(STATUS "Configuring boringssl")
+#     FetchContent_MakeAvailable(boringsslproject)
+#     message(STATUS "Configuring boringssl succeed")
+#     set_target_properties(bssl PROPERTIES EXCLUDE_FROM_ALL TRUE)
+#     if(APPLE)
+#         target_compile_definitions(crypto PRIVATE OPENSSL_STATIC_ARMCAP)
+#         target_compile_definitions(ssl PRIVATE OPENSSL_STATIC_ARMCAP)
+#     endif()
+#     target_link_libraries(jing PRIVATE ssl crypto)
+# endif()

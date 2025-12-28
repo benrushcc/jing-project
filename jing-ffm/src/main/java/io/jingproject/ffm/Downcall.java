@@ -5,11 +5,16 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ *  Downcall marked annotations for calling into shared library functions at runtime
+ *  The JVM could support variadic functions, heap segment arguments, or VM-level error handling, but doing so would make the system overly complex.
+ *  Keeping downcalls straightforward and lightweight is our first concern.
+ */
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.METHOD)
 public @interface Downcall {
     /**
-     *   Linked methodName in shared library, it's recommended to use snake-case string as C function names
+     *   Linked methodName in shared library, it's recommended to use a snake-case string as C function names
      */
     String methodName();
 

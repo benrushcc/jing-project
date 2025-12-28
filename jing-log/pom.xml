@@ -30,6 +30,12 @@
         </dependency>
         <dependency>
             <groupId>io.jingproject</groupId>
+            <artifactId>jing-annprocessor</artifactId>
+            <version>${revision}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jingproject</groupId>
             <artifactId>jing-ffm-processor</artifactId>
             <version>${revision}</version>
             <scope>provided</scope>
@@ -47,11 +53,30 @@
                     <annotationProcessorPaths>
                         <path>
                             <groupId>io.jingproject</groupId>
+                            <artifactId>jing-annprocessor</artifactId>
+                            <version>${revision}</version>
+                        </path>
+                        <path>
+                            <groupId>io.jingproject</groupId>
                             <artifactId>jing-ffm-processor</artifactId>
                             <version>${revision}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>io.jingproject</groupId>
+                <artifactId>jing-maven-plugin</artifactId>
+                <version>${revision}</version>
+                <executions>
+                    <execution>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>process-jing-providers</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

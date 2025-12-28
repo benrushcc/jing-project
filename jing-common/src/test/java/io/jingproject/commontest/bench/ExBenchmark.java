@@ -1,6 +1,6 @@
 package io.jingproject.commontest.bench;
 
-import io.jingproject.common.Ex;
+import io.jingproject.common.DualLock;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.profile.GCProfiler;
@@ -10,7 +10,6 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Exchanger;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
@@ -42,17 +41,17 @@ public class ExBenchmark {
     @Benchmark
     @OperationsPerInvocation(10000)
     public void testEx(Blackhole blackhole) throws InterruptedException {
-        Ex<IntHolder> ex = new Ex<>(new IntHolder(0));
+        DualLock<IntHolder> dualLock = new DualLock<>(new IntHolder(0));
         CountDownLatch startLatch = new CountDownLatch(1);
         CountDownLatch endLatch = new CountDownLatch(2);
         Thread t1 = Thread.ofPlatform().unstarted(() -> {
             try {
                 startLatch.await();
                 for(int i = 0; i < 5; i++) {
-                    IntHolder intHolder = ex.lock();
+                    IntHolder intHolder = dualLock.lock();
                     int value = intHolder.value();
                     blackhole.consume(value);
-                    ex.unlock(new IntHolder(value + 1));
+                    dualLock.unlock(new IntHolder(value + 1));
                 }
                 endLatch.countDown();
             } catch (InterruptedException e) {
@@ -63,10 +62,10 @@ public class ExBenchmark {
             try {
                 startLatch.await();
                 for(int i = 0; i < 5; i++) {
-                    IntHolder intHolder = ex.lock();
+                    IntHolder intHolder = dualLock.lock();
                     int value = intHolder.value();
                     blackhole.consume(value);
-                    ex.unlock(new IntHolder(value + 1));
+                    dualLock.unlock(new IntHolder(value + 1));
                 }
                 endLatch.countDown();
             } catch (InterruptedException e) {

@@ -1,12 +1,12 @@
 package io.jingproject.commontest;
 
-import io.jingproject.common.Ex;
+import io.jingproject.common.DualLock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
 
-public class ExTest {
+public class DualLockTest {
     record IntHolder(int value) {
 
     }
@@ -14,15 +14,15 @@ public class ExTest {
     @Test
     public void testEx() throws InterruptedException {
         for(int times = 0; times < 1000; times++) {
-            Ex<IntHolder> ex = new Ex<>(new IntHolder(0));
+            DualLock<IntHolder> dualLock = new DualLock<>(new IntHolder(0));
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch endLatch = new CountDownLatch(2);
             Thread t1 = Thread.ofPlatform().unstarted(() -> {
                 try {
                     startLatch.await();
                     for(int i = 0; i < 100000; i++) {
-                        IntHolder intHolder = ex.lock();
-                        ex.unlock(new IntHolder(intHolder.value() + 1));
+                        IntHolder intHolder = dualLock.lock();
+                        dualLock.unlock(new IntHolder(intHolder.value() + 1));
                     }
                     endLatch.countDown();
                 } catch (InterruptedException e) {
@@ -33,8 +33,8 @@ public class ExTest {
                 try {
                     startLatch.await();
                     for(int i = 0; i < 100000; i++) {
-                        IntHolder intHolder = ex.lock();
-                        ex.unlock(new IntHolder(intHolder.value() + 1));
+                        IntHolder intHolder = dualLock.lock();
+                        dualLock.unlock(new IntHolder(intHolder.value() + 1));
                     }
                     endLatch.countDown();
                 } catch (InterruptedException e) {
@@ -45,7 +45,7 @@ public class ExTest {
             t2.start();
             startLatch.countDown();
             endLatch.await();
-            Assertions.assertEquals(100000 * 2, ex.peek().value());
+            Assertions.assertEquals(100000 * 2, dualLock.peek().value());
         }
     }
 }

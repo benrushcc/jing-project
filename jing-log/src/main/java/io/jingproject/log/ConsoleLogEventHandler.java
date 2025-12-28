@@ -10,7 +10,7 @@ import java.util.Map;
  *   ConsoleLogEventHandler is designed to output logs to stdout and stderr
  */
 public final class ConsoleLogEventHandler implements LogEventHandler {
-    private static final LogLib LOG_LIB = SharedLibs.getImpl(LogLib.class);
+    private static final LogBindings LOG_BINDINGS = SharedLibs.getImpl(LogBindings.class);
     private static final String IDEA_RUNTIME_TYPICAL_CLASS_NAME = "com.intellij.rt.compiler.JavacResourcesReader";
     private static final Boolean USING_INTELLIJ_IDEA = checkIntellijIdeaEnvironment();
 
@@ -32,7 +32,7 @@ public final class ConsoleLogEventHandler implements LogEventHandler {
         }
         switch (Os.current()) {
             case WINDOWS -> {
-                return LOG_LIB.winAnsiSupport() == 0;
+                return LOG_BINDINGS.winAnsiSupport() == 0;
             }
             case LINUX, MACOS -> {
                 if(System.console() == null) {

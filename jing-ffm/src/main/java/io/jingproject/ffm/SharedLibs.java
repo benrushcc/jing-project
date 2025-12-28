@@ -1,5 +1,7 @@
 package io.jingproject.ffm;
 
+import io.jingproject.common.Os;
+
 import java.io.File;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
@@ -7,13 +9,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public final class SharedLibs {
 
     private static final List<String> SEARCH_PATH = createSearchPath();
 
     /**
-     *   Critical path could be disabled globally to ensure safepoint is always checked
+     *   Critical path could be disabled globally to ensure safepoint is always checked on each downcall
      */
     private static final Boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
 
@@ -35,6 +39,7 @@ public final class SharedLibs {
         return List.copyOf(r);
     }
 
+    private static final ConcurrentMap<String, MemorySegment> VM_FUNCTIONS = new ConcurrentHashMap<>();
     private static final Map<String, LibDescriptor> DESCRIPTORS;
     private static final Map<Class<?>, Object> IMPLS;
 
@@ -58,17 +63,19 @@ public final class SharedLibs {
             if (impls.put(lib.target(), lib.supplier().get()) != null) {
                 throw new ForeignException("SharedLib : " + lib.target() + " already exists");
             }
-            String libName = lib.libName();
-            LibDescriptorCache cache = descriptors.get(libName);
-            if (cache == null) {
-                String mappedLibraryName = System.mapLibraryName(libName);
-                Path libPath = SEARCH_PATH.stream().map(p -> Paths.get(p, mappedLibraryName))
-                        .filter(Files::exists).findFirst().orElseThrow(() -> new ForeignException("Library : " + libName + " not found"));
-                SymbolLookup lookup = SymbolLookup.libraryLookup(libPath, Arena.global());
-                cache = new LibDescriptorCache(mappedLibraryName, lookup, new HashMap<>());
-                descriptors.put(libName, cache);
+            if (lib.supportedOS().contains(Os.current())) {
+                String libName = lib.libName();
+                LibDescriptorCache cache = descriptors.get(libName);
+                if (cache == null) {
+                    String mappedLibraryName = System.mapLibraryName(libName);
+                    Path libPath = SEARCH_PATH.stream().map(p -> Paths.get(p, mappedLibraryName))
+                            .filter(Files::exists).findFirst().orElseThrow(() -> new ForeignException("Library : " + libName + " not found"));
+                    SymbolLookup lookup = SymbolLookup.libraryLookup(libPath, Arena.global());
+                    cache = new LibDescriptorCache(mappedLibraryName, lookup, new HashMap<>());
+                    descriptors.put(libName, cache);
+                }
+                cache.registerFunctions(lib.methodNames());
             }
-            cache.registerFunctions(lib.methodNames());
         }
         Map<String, LibDescriptor> temp = new HashMap<>();
         descriptors.forEach((k, v) -> temp.put(k, new LibDescriptor(k, v.mappedName(), v.lookup(), Map.copyOf(v.functions()))));
@@ -80,27 +87,21 @@ public final class SharedLibs {
         throw new UnsupportedOperationException("utility class");
     }
 
+    public static MemorySegment getFunctionAddressFromVM(String functionName) {
+        return VM_FUNCTIONS.computeIfAbsent(functionName, k -> {
+            Linker linker = Linker.nativeLinker();
+            SymbolLookup lookup = linker.defaultLookup();
+            return lookup.find(k).orElseThrow(() -> new ForeignException("Function : " + functionName + " not found in vm"));
+        });
+    }
+
     public static MethodHandle getMethodHandleFromVM(String functionName, FunctionDescriptor descriptor, boolean critical) {
         Linker linker = Linker.nativeLinker();
-        SymbolLookup lookup = linker.defaultLookup();
-        MemorySegment functionAddr = lookup.find(functionName).orElseThrow(() -> new ForeignException("Function : " + functionName + " not found in vm"));
-        if(critical) {
+        MemorySegment functionAddr = getFunctionAddressFromVM(functionName);
+        if(JING_CRITICAL && critical) {
             return linker.downcallHandle(functionAddr, descriptor, Linker.Option.critical(false));
         } else {
             return linker.downcallHandle(functionAddr, descriptor);
-        }
-    }
-
-    public static MethodHandle getMethodHandleFromLib(String libName, String functionName, FunctionDescriptor descriptor, boolean critical) {
-        if(libName.equals(FFM.VM)) {
-            return getMethodHandleFromVM(functionName, descriptor, critical);
-        }
-        Linker linker = Linker.nativeLinker();
-        MemorySegment segment = getFunctionAddressFromLib(libName, functionName);
-        if(critical) {
-            return linker.downcallHandle(segment, descriptor, Linker.Option.critical(false));
-        } else {
-            return linker.downcallHandle(segment, descriptor);
         }
     }
 
@@ -116,10 +117,24 @@ public final class SharedLibs {
         return segment;
     }
 
+    public static MethodHandle getMethodHandleFromLib(String libName, String functionName, FunctionDescriptor descriptor, boolean critical) {
+        if(libName.equals(FFM.VM)) {
+            return getMethodHandleFromVM(functionName, descriptor, critical);
+        }
+        Linker linker = Linker.nativeLinker();
+        MemorySegment segment = getFunctionAddressFromLib(libName, functionName);
+        if(JING_CRITICAL && critical) {
+            return linker.downcallHandle(segment, descriptor, Linker.Option.critical(false));
+        } else {
+            return linker.downcallHandle(segment, descriptor);
+        }
+    }
+
     public static LibDescriptor getLibDescriptor(String libName) {
         return DESCRIPTORS.get(libName);
     }
 
+    // TODO LazyConstants
     public static <T> T getImpl(Class<T> clazz) {
         Object o = IMPLS.get(clazz);
         if(o == null) {

@@ -1,5 +1,6 @@
 package io.jingproject.ffm.demo;
 
+import io.jingproject.common.Os;
 import io.jingproject.ffm.SharedLib;
 
 import java.util.List;
@@ -12,6 +13,11 @@ public final class DemoLib implements SharedLib {
     @Override
     public Class<?> target() {
         return DemoFacade.class;
+    }
+
+    @Override
+    public List<Os> supportedOS() {
+        return List.of(Os.WINDOWS, Os.LINUX, Os.MACOS);
     }
 
     @Override

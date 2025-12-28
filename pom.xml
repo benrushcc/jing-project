@@ -25,6 +25,7 @@
         <module>jing-maven-plugin</module>
         <module>jing-log</module>
         <module>jing-net</module>
+        <module>jing-bindings</module>
     </modules>
 
     <properties>

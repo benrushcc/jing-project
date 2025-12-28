@@ -4,7 +4,11 @@ import io.jingproject.annprocess.AnnotationProcessorException;
 import io.jingproject.annprocess.GeneratorBlock;
 import io.jingproject.annprocess.GeneratorSource;
 import io.jingproject.annprocess.Provider;
-import io.jingproject.ffm.*;
+import io.jingproject.common.Os;
+import io.jingproject.ffm.Downcall;
+import io.jingproject.ffm.FFM;
+import io.jingproject.ffm.SharedLib;
+import io.jingproject.ffm.SharedLibs;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -13,11 +17,11 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.*;
 import javax.lang.model.type.TypeMirror;
 import java.lang.foreign.FunctionDescriptor;
-import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -112,7 +116,6 @@ public final class FfmProcessor extends AbstractProcessor {
         GeneratorSource source = new GeneratorSource(processingEnv, ffmData.typeElement(), "LibImpl");
         String sharedLibs = source.register(SharedLibs.class);
         String functionDescriptor = source.register(FunctionDescriptor.class);
-        String linker = source.register(Linker.class);
         String memorySegment = source.register(MemorySegment.class);
         String valueLayout = source.register(ValueLayout.class);
         String methodHandle = source.register(MethodHandle.class);
@@ -209,6 +212,7 @@ public final class FfmProcessor extends AbstractProcessor {
     private void generateFFMProviderSource(FfmData ffmData, String implClassName) {
         GeneratorSource source = new GeneratorSource(processingEnv, ffmData.typeElement(), "LibProvider");
         String list = source.register(List.class);
+        String os = source.register(Os.class);
         String supplier = source.register(Supplier.class);
         String sharedLib = source.register(SharedLib.class);
         String provider = source.register(Provider.class);
@@ -220,6 +224,11 @@ public final class FfmProcessor extends AbstractProcessor {
                 .addLine("@Override")
                 .addLine("public Class<?> target() {")
                 .indent().addLine("return " + targetClass + ".class;")
+                .unindent().addLine("}").newLine());
+        blocks.add(new GeneratorBlock()
+                .addLine("@Override")
+                .addLine("public " + list + "<" + os + "> supportedOS() {")
+                .indent().addLine("return " + list + ".of(" + Arrays.stream(ffmData.ffm().supportedOS()).map(o -> os + "." + o.name()).collect(Collectors.joining(", ")) + ");")
                 .unindent().addLine("}").newLine());
         blocks.add(new GeneratorBlock().addLine("@Override")
                 .addLine("public String libName() {")
