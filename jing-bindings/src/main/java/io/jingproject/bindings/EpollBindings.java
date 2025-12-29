@@ -4,6 +4,8 @@ import io.jingproject.common.Os;
 import io.jingproject.ffm.Downcall;
 import io.jingproject.ffm.FFM;
 
+import java.lang.foreign.MemorySegment;
+
 @FFM(libraryName = "jing", supportedOS = Os.LINUX)
 public interface EpollBindings {
     @Downcall(methodName = "jing_epoll_in", constant = true, critical = true)
@@ -27,5 +29,9 @@ public interface EpollBindings {
     @Downcall(methodName = "jing_epoll_cloexec",  constant = true, critical = true)
     int epollCloexec();
 
+    @Downcall(methodName = "jing_epoll_create",critical = true)
+    int epollCreate();
 
+    @Downcall(methodName = "jing_epoll_ctl", critical = true)
+    int epollCtl(int epfd, int socket, int op, int eventTypes, int data);
 }

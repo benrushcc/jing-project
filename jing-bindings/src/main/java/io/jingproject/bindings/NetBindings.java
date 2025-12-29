@@ -38,5 +38,5 @@ public interface NetBindings {
     int udpProtocolCode();
 
     @Downcall(methodName = "jing_socket", critical = true)
-    void createSocket(int af, int type, int protocol, MemorySegment r);
+    int createSocket(int af, int type, int protocol);
 }

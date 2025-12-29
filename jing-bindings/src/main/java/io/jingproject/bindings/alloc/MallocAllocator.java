@@ -33,6 +33,16 @@ public final class MallocAllocator implements Allocator {
     private static final SysBindings SYS_BINDINGS = SharedLibs.getImpl(SysBindings.class);
 
     /**
+     * Address of the free function obtained from the VM.
+     * <p>
+     * Using the VM's internal free function ensures consistent memory management
+     * throughout the application. This prevents issues that could arise from mixing
+     * different malloc/free implementations (e.g., system malloc vs. library-specific
+     * allocators), which can lead to memory corruption or undefined behavior.
+     */
+    private static final MemorySegment FREE_FUNC_ADDR = SharedLibs.getFunctionAddressFromVM("free");
+
+    /**
      * Array tracking allocated pointers for batch deallocation.
      * <p>
      * State transitions:
@@ -68,13 +78,18 @@ public final class MallocAllocator implements Allocator {
      */
     @Override
     public MemorySegment allocate(long byteSize, long byteAlignment) {
-        assert Long.bitCount(byteAlignment) == 1 && ValueLayout.JAVA_LONG.byteSize() == ValueLayout.ADDRESS.byteSize();
+        assert byteAlignment >= 1L && Long.bitCount(byteAlignment) == 1;
         if(addressArray == null) {
             throw new IllegalStateException("MallocBumper already closed");
         }
         MemorySegment ptr; long storedAddr;
         if(byteAlignment <= SYS_BINDINGS.maxAlign()) {
-            ptr = Mem.malloc(byteSize);
+            if(byteSize > byteAlignment) {
+                ptr = Mem.malloc(byteSize);
+            } else {
+                // Allocate at least 'byteAlignment' bytes, so that malloc is guaranteed to return a pointer aligned to that alignment
+                ptr = NativeSegmentAccess.reinterpret(Mem.malloc(byteAlignment), byteSize);
+            }
             storedAddr = ptr.address();
         } else {
             MemorySegment p = SYS_BINDINGS.alignedAlloc(byteSize, byteAlignment);
@@ -120,7 +135,7 @@ public final class MallocAllocator implements Allocator {
         }
         long count = Math.divideExact(addressIndex, ValueLayout.JAVA_LONG.byteSize());
         if(count > 0L) {
-            SYS_BINDINGS.batchFree(addressArray, count);
+            SYS_BINDINGS.batchFree(addressArray, count, FREE_FUNC_ADDR);
             addressIndex = Long.MIN_VALUE;
         }
     }

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -e
 
 if ! command -v clang-format >/dev/null 2>&1; then

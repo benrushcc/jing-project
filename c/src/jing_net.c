@@ -3,18 +3,36 @@
 #if defined(JING_OS_WINDOWS)
 #include <winsock2.h>
 #include <windows.h>
+#include <ws2tcpip.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <errno.h>
 #endif
 
 int jing_connect_blocked_errcode(void) {
+#if defined(JING_OS_WINDOWS)
 	return WSAEWOULDBLOCK;
+#else
+	return EINPROGRESS;
+#endif
 }
 
 int jing_send_blocked_errcode(void) {
+#if defined(JING_OS_WINDOWS)
 	return WSAEWOULDBLOCK;
+#else
+	return EAGAIN;
+#endif
 }
 
 int jing_interrupt_errcode(void) {
+#if defined(JING_OS_WINDOWS)
 	return WSAEINTR;
+#else
+	return EINTR;
+#endif
 }
 
 int jing_af_inet_code(void) {

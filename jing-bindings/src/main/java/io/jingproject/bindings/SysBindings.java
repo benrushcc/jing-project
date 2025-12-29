@@ -40,5 +40,5 @@ public interface SysBindings {
     void alignedFree(MemorySegment segment);
 
     @Downcall(methodName = "jing_batch_free", critical = true)
-    void batchFree(MemorySegment ptrs, long count);
+    void batchFree(MemorySegment ptrs, long count, MemorySegment freeAddr);
 }

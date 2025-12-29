@@ -18,15 +18,15 @@ JING_EXPORT_SYMBOL int jing_epoll_ctl_del(void);
 
 JING_EXPORT_SYMBOL int jing_epoll_cloexec(void);
 
-JING_EXPORT_SYMBOL void jing_epoll_create(jing_result *r);
+JING_EXPORT_SYMBOL void jing_epoll_create(jing_result* r);
 
 JING_EXPORT_SYMBOL void jing_epoll_ctl(int epfd, int socket, int op,
                                        uint32_t events, uint32_t data,
-                                       jing_result *r);
+                                       jing_result* r);
 
-JING_EXPORT_SYMBOL void jing_epoll_wait(int epfd, struct epoll_event *events,
+JING_EXPORT_SYMBOL void jing_epoll_wait(int epfd, struct epoll_event* events,
                                         int maxevents, int timeout,
-                                        jing_result *r);
+                                        jing_result* r);
 #endif
 
 #endif

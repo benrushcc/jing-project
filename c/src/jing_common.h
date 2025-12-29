@@ -13,8 +13,8 @@
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN // Exclude rarely used APIs from <Windows.h> to
-                            // speed up build and reduce namespace pollution
+#define WIN32_LEAN_AND_MEAN   // Exclude rarely used APIs from <Windows.h> to
+                              // speed up build and reduce namespace pollution
 #endif
 #endif
 
@@ -38,23 +38,25 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <cassert>
 #else
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <assert.h>
 #endif
 
 static_assert(sizeof(int) == 4, "integer size mismatch");
 static_assert(sizeof(size_t) == 8, "size_t size mismatch");
-static_assert(sizeof(void *) == 8, "pointer size mismatch");
+static_assert(sizeof(void*) == 8, "pointer size mismatch");
 
 static const uintptr_t JING_PTR_ERR_FLAG = (1ULL << 63);
 
-static inline void *jing_make_error_ptr(int err) {
-  return (void *)((uintptr_t)err | JING_PTR_ERR_FLAG);
+static inline void* jing_make_error_ptr(int err) {
+	return (void*) ((uintptr_t) err | JING_PTR_ERR_FLAG);
 }
 
-#define JING_UNUSED(x) (void)(x)
+#define JING_UNUSED(x) (void) (x)
 
 #if defined(__GNUC__) || defined(__clang__)
 #define JING_LIKELY(x) __builtin_expect(!!(x), 1)
@@ -73,84 +75,84 @@ static inline void *jing_make_error_ptr(int err) {
 #endif
 
 typedef union {
-  int8_t byte_val;
-  int16_t short_val;
-  uint16_t char_val;
-  int32_t int_val;
-  int64_t long_val;
-  float float_val;
-  double double_val;
-  void *ptr_val;
-  struct {
-    int32_t err_code;
-    int32_t err_flag;
-  } err_val;
+	int8_t byte_val;
+	int16_t short_val;
+	uint16_t char_val;
+	int32_t int_val;
+	int64_t long_val;
+	float float_val;
+	double double_val;
+	void* ptr_val;
+	struct {
+		int32_t err_code;
+		int32_t err_flag;
+	} err_val;
 } jing_data;
 
 typedef struct {
-  size_t len;
-  jing_data data;
+	size_t len;
+	jing_data data;
 } jing_result;
 
 static_assert(sizeof(jing_result) == 16, "jing_result size mismatch");
 
 #define JING_SYSTEM_ERROR_FLAG 0
 
-static inline void jing_err_result(jing_result *r, int err) {
-  memset(r, 0, sizeof(jing_result));
-  r->len = 0;
-  r->data.err_val.err_code = err;
-  r->data.err_val.err_flag = JING_SYSTEM_ERROR_FLAG;
+static inline void jing_err_result(jing_result* r, int err) {
+	memset(r, 0, sizeof(jing_result));
+	r->len                   = 0;
+	r->data.err_val.err_code = err;
+	r->data.err_val.err_flag = JING_SYSTEM_ERROR_FLAG;
 }
 
-static inline void jing_err_result_with_flag(jing_result *r, int err,
+static inline void jing_err_result_with_flag(jing_result* r, int err,
                                              int flag) {
-  memset(r, 0, sizeof(jing_result));
-  r->len = 0;
-  r->data.err_val.err_code = err;
-  r->data.err_val.err_flag = flag;
+	memset(r, 0, sizeof(jing_result));
+	r->len                   = 0;
+	r->data.err_val.err_code = err;
+	r->data.err_val.err_flag = flag;
 }
 
-static inline void jing_byte_result(jing_result *r, int8_t value) {
-  memset(r, 0, sizeof(jing_result));
-  r->len = SIZE_MAX;
-  r->data.byte_val = value;
+static inline void jing_byte_result(jing_result* r, int8_t value) {
+	memset(r, 0, sizeof(jing_result));
+	r->len           = SIZE_MAX;
+	r->data.byte_val = value;
 }
 
-static inline void jing_short_result(jing_result *r, int16_t value) {
-  memset(r, 0, sizeof(jing_result));
-  r->len = SIZE_MAX;
-  r->data.short_val = value;
+static inline void jing_short_result(jing_result* r, int16_t value) {
+	memset(r, 0, sizeof(jing_result));
+	r->len            = SIZE_MAX;
+	r->data.short_val = value;
 }
 
-static inline void jing_int_result(jing_result *r, int32_t value) {
-  memset(r, 0, sizeof(jing_result));
-  r->len = SIZE_MAX;
-  r->data.int_val = value;
+static inline void jing_int_result(jing_result* r, int32_t value) {
+	memset(r, 0, sizeof(jing_result));
+	r->len          = SIZE_MAX;
+	r->data.int_val = value;
 }
 
-static inline void jing_long_result(jing_result *r, int64_t value) {
-  memset(r, 0, sizeof(jing_result));
-  r->len = SIZE_MAX;
-  r->data.long_val = value;
+static inline void jing_long_result(jing_result* r, int64_t value) {
+	memset(r, 0, sizeof(jing_result));
+	r->len           = SIZE_MAX;
+	r->data.long_val = value;
 }
 
-static inline void jing_float_result(jing_result *r, float value) {
-  memset(r, 0, sizeof(jing_result));
-  r->len = SIZE_MAX;
-  r->data.float_val = value;
+static inline void jing_float_result(jing_result* r, float value) {
+	memset(r, 0, sizeof(jing_result));
+	r->len            = SIZE_MAX;
+	r->data.float_val = value;
 }
 
-static inline void jing_double_result(jing_result *r, double value) {
-  memset(r, 0, sizeof(jing_result));
-  r->len = SIZE_MAX;
-  r->data.double_val = value;
+static inline void jing_double_result(jing_result* r, double value) {
+	memset(r, 0, sizeof(jing_result));
+	r->len             = SIZE_MAX;
+	r->data.double_val = value;
 }
 
-static inline void jing_ptr_result(jing_result *r, void *value, size_t len) {
-  memset(r, 0, sizeof(jing_result));
-  r->len = len;
-  r->data.ptr_val = value;
+static inline void jing_ptr_result(jing_result* r, void* value, size_t len) {
+	memset(r, 0, sizeof(jing_result));
+	r->len          = len;
+	r->data.ptr_val = value;
 }
 
 #endif

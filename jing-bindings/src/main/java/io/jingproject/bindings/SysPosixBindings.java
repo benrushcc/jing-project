@@ -37,4 +37,6 @@ public interface SysPosixBindings {
 
     @Downcall(methodName = "jing_posix_munmap", critical = true)
     int posixMunmap(MemorySegment addr, long size);
+
+    int posixClose(int fd);
 }
