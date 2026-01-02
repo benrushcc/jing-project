@@ -29,7 +29,7 @@ public final class ConfigurationFactory {
     }
 
     public static Map<String, String> items(String prefix) {
-        return instance().items(prefix);
+        return instance().itemMap(prefix);
     }
 
     public static String item(String key, String defaultValue) {
@@ -268,9 +268,9 @@ public final class ConfigurationFactory {
         }
 
         @Override
-        public Map<String, String> items(String prefix) {
+        public Map<String, String> itemMap(String key) {
             ConfigurationSet current = ROOT;
-            String[] ss = prefix.split("\\.");
+            String[] ss = key.split("\\.");
             for (String string : ss) {
                 ConfigrationObject o = current.value().get(string);
                 if (o instanceof ConfigurationSet cs) {

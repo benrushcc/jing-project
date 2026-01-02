@@ -9,7 +9,7 @@
 
 static_assert(sizeof(SOCKET) == 8, "SOCKET size mismatch");
 
-JING_EXPORT_SYMBOL SOCKET jing_socket(int af, int type, int protocol);
+JING_EXPORT_SYMBOL SOCKET jing_win_socket(int af, int type, int protocol);
 
 #endif
 

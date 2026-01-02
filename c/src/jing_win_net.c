@@ -4,7 +4,7 @@
 #include <winsock2.h>
 #include <windows.h>
 
-SOCKET jing_socket(int af, int type, int protocol) {
+SOCKET jing_win_socket(int af, int type, int protocol) {
 	SOCKET v = socket(af, type, protocol);
 	if (JING_UNLIKELY(v == INVALID_SOCKET)) {
 		int err = WSAGetLastError();
