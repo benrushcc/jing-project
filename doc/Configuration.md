@@ -35,6 +35,8 @@ public interface ConfigurationFacade {
 默认提供的ConfigurationFacade实现支持三种类型的配置文件：json，properties和toml，且需要明确注意，配置文件的语法并不是完整的json，properties，toml的语法合集
 而是他们的一部分的特定功能子集，不遵循于某个特定的版本，一切按照jing文档中的描述为准，一个完备的解析器会带来巨大的额外工作量，以及引入一些非预期内的配置转化的错误
 
+对于字符串的格式要求是，只允许字母（a-z, A-Z）、数字（0-9）、下划线（_）、连字符（-），不允许出现引号，空格，或其它的特殊字符
+
 文件名后缀为.json时，jing的默认配置加载会以JSON格式完成对配置文件的解析，具体的格式规范请参考 https://www.json.org/json-en.html
 对于json文件，key固定为字符串类型，value固定为字符串类型，或者是[]包裹的多个字符串类型，或者是{}包裹的符合上述两个条件的json键值对的对象
 json中的null会被直接解析为不存在的配置项
@@ -58,6 +60,22 @@ key和value的分割只能使用等号，有一些规范支持使用冒号，或
 如果value字符串以`[`进行开头，以`]`进行结尾，那么这个value会被判定为一个数组类型，其中的所有数据项都是string类型，使用逗号进行字符串的分割
 
 文件后缀名为.toml时，jing的默认配置加载会以TOML格式完成对配置文件的解析，具体的格式规范请参考 https://toml.io/en/v1.0.0
-对于toml文件，采取按行解析的策略，以#开头的是注释行，整行内容都会被直接drop掉
+对于toml文件，采取按行解析的策略，对于以#开头的是注释行，整行内容都会被直接drop掉
+toml的key只支持bare keys的模式，可以用dotted keys来连接bare keys，但是不允许quoted keys的形式，也就是keys里面不能用单引号或者双引号，也不允许出现任何的空格
+字符串的值规定必须以双引号形式提供，支持
+\b         - backspace       (U+0008)
+\t         - tab             (U+0009)
+\n         - linefeed        (U+000A)
+\f         - form feed       (U+000C)
+\r         - carriage return (U+000D)
+\"         - quote           (U+0022)
+\\         - backslash       (U+005C)
+\uXXXX     - unicode         (U+XXXX)
+\UXXXXXXXX - unicode         (U+XXXXXXXX) 形式的转义
+字符串只允许在单行内完成书写，不允许出现多行字符串
+字符串数组是以[]包裹的多个字符串
+支持table headers，用.进行分割，之后的key value都属于该分支之下，table header严格使用[]进行分割，是多个key用.进行拼接的结果
+其它的toml语法，比如[[]]之类的，都不支持
+
 
 

@@ -3,10 +3,7 @@ package io.jingproject.common;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.ServiceLoader;
+import java.util.*;
 
 public final class ConfigurationFactory {
 
@@ -107,6 +104,10 @@ public final class ConfigurationFactory {
     }
 
     record ConfigurationSet(Map<String, ConfigrationObject> value) implements ConfigrationObject {
+
+    }
+
+    record ConfigurationArrayItem(List<String> value) implements ConfigrationObject {
 
     }
 
@@ -265,6 +266,12 @@ public final class ConfigurationFactory {
                 }
             }
             return null;
+        }
+
+        @Override
+        public List<String> itemList(String key) {
+            // TODO
+            return List.of();
         }
 
         @Override
