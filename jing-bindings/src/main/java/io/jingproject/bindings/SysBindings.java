@@ -24,7 +24,7 @@ public interface SysBindings {
 
     default int errPtr(MemorySegment segment) {
         long addr = segment.address();
-        if((addr & ptrErrFlag()) != 0L) {
+        if ((addr & ptrErrFlag()) != 0L) {
             return (int) addr;
         }
         return 0;

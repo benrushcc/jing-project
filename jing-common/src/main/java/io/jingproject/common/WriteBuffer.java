@@ -63,11 +63,11 @@ public interface WriteBuffer {
     }
 
     default void writeUtf8CodePoint(int codePoint) {
-        if(codePoint < 0x80) {
+        if (codePoint < 0x80) {
             writeByte((byte) codePoint);
-        }else if(codePoint < 0x800) {
+        } else if (codePoint < 0x800) {
             writeBytes((byte) (0xC0 | (codePoint >> 6)), (byte) (0x80 | (codePoint & 0x3F)));
-        }else {
+        } else {
             writeBytes((byte) (0xE0 | (codePoint >> 12)), (byte) (0x80 | ((codePoint >> 6) & 0x3F)), (byte) (0x80 | (codePoint & 0x3F)));
         }
     }

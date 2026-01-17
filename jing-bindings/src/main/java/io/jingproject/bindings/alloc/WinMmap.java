@@ -19,7 +19,9 @@ import java.lang.foreign.MemorySegment;
  * - Specific error handling patterns
  */
 public final class WinMmap implements Mmap {
-    /** Native bindings for Windows memory management APIs. */
+    /**
+     * Native bindings for Windows memory management APIs.
+     */
     private static final SysWinBindings SYS_WIN_BINDINGS = SharedLibs.getImpl(SysWinBindings.class);
 
     /**
@@ -63,7 +65,7 @@ public final class WinMmap implements Mmap {
         int memReserve = SYS_WIN_BINDINGS.winMemReserve();
         int pageReadWrite = SYS_WIN_BINDINGS.winPageReadWrite();
         MemorySegment reserved = SYS_WIN_BINDINGS.winVirtualAlloc(MemorySegment.NULL, size, memReserve, pageReadWrite);
-        if(NativeSegmentAccess.isErrPtr(reserved)) {
+        if (NativeSegmentAccess.isErrPtr(reserved)) {
             int err = NativeSegmentAccess.errCode(reserved);
             throw new ForeignException("Failed to reserve memory, err : " + err);
         }
@@ -84,7 +86,7 @@ public final class WinMmap implements Mmap {
         int memCommit = SYS_WIN_BINDINGS.winMemCommit();
         int pageReadWrite = SYS_WIN_BINDINGS.winPageReadWrite();
         MemorySegment committed = SYS_WIN_BINDINGS.winVirtualAlloc(mem, mem.byteSize(), memCommit, pageReadWrite);
-        if(NativeSegmentAccess.isErrPtr(committed)) {
+        if (NativeSegmentAccess.isErrPtr(committed)) {
             int err = NativeSegmentAccess.errCode(committed);
             throw new ForeignException("Failed to commit memory, err : " + err);
         }
@@ -103,7 +105,7 @@ public final class WinMmap implements Mmap {
     public void uncommit(MemorySegment mem) {
         int memDecommit = SYS_WIN_BINDINGS.winMemDecommit();
         int v = SYS_WIN_BINDINGS.winVirtualFree(mem, mem.byteSize(), memDecommit);
-        if(v > 0) {
+        if (v > 0) {
             throw new ForeignException("Failed to decommit memory, err : " + v);
         }
     }
@@ -121,7 +123,7 @@ public final class WinMmap implements Mmap {
     public void release(MemorySegment mem) {
         int memRelease = SYS_WIN_BINDINGS.winMemRelease();
         int v = SYS_WIN_BINDINGS.winVirtualFree(mem, mem.byteSize(), memRelease);
-        if(v > 0) {
+        if (v > 0) {
             throw new ForeignException("Failed to release memory, err : " + v);
         }
     }

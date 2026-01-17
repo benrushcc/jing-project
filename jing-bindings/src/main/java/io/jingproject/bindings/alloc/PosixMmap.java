@@ -19,7 +19,9 @@ import java.lang.foreign.MemorySegment;
  * - Both follow similar POSIX semantics but with system-specific optimizations
  */
 public final class PosixMmap implements Mmap {
-    /** Native bindings for POSIX memory management APIs. */
+    /**
+     * Native bindings for POSIX memory management APIs.
+     */
     private static final SysPosixBindings SYS_POSIX_BINDINGS = SharedLibs.getImpl(SysPosixBindings.class);
 
     /**
@@ -62,7 +64,7 @@ public final class PosixMmap implements Mmap {
         int mapPrivate = SYS_POSIX_BINDINGS.posixMapPrivate();
         int mapAnonymous = SYS_POSIX_BINDINGS.posixMapAnonymous();
         MemorySegment mem = SYS_POSIX_BINDINGS.posixMmap(MemorySegment.NULL, size, protNone, mapPrivate | mapAnonymous, -1, 0L);
-        if(NativeSegmentAccess.isErrPtr(mem)) {
+        if (NativeSegmentAccess.isErrPtr(mem)) {
             int err = NativeSegmentAccess.errCode(mem);
             throw new ForeignException("Failed to reserve memory, err : " + err);
         }
@@ -80,7 +82,7 @@ public final class PosixMmap implements Mmap {
         int protRead = SYS_POSIX_BINDINGS.posixProtRead();
         int protWrite = SYS_POSIX_BINDINGS.posixProtWrite();
         int v = SYS_POSIX_BINDINGS.posixMprotect(mem, mem.byteSize(), protRead | protWrite);
-        if(v > 0) {
+        if (v > 0) {
             throw new ForeignException("Failed to commit memory, err : " + v);
         }
     }
@@ -102,12 +104,12 @@ public final class PosixMmap implements Mmap {
     public void uncommit(MemorySegment mem) {
         int protNone = SYS_POSIX_BINDINGS.posixProtNone();
         int v = SYS_POSIX_BINDINGS.posixMprotect(mem, mem.byteSize(), protNone);
-        if(v > 0) {
+        if (v > 0) {
             throw new ForeignException("Failed to uncommit memory, err : " + v);
         }
         int madvDontNeed = SYS_POSIX_BINDINGS.posixMadvDontNeed();
         v = SYS_POSIX_BINDINGS.posixMadvise(mem, mem.byteSize(), madvDontNeed);
-        if(v  > 0) {
+        if (v > 0) {
             throw new ForeignException("Failed to return memory to OS, err : " + v);
         }
     }
@@ -123,7 +125,7 @@ public final class PosixMmap implements Mmap {
     @Override
     public void release(MemorySegment mem) {
         int v = SYS_POSIX_BINDINGS.posixMunmap(mem, mem.byteSize());
-        if(v > 0) {
+        if (v > 0) {
             throw new ForeignException("Failed to release memory, err : " + v);
         }
     }

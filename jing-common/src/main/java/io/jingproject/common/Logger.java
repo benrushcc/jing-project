@@ -8,7 +8,7 @@ public interface Logger {
     }
 
     default void debug(String msg, Throwable throwable) {
-        if(enabled(LogLevel.DEBUG)) {
+        if (enabled(LogLevel.DEBUG)) {
             log(LogLevel.DEBUG, msg, throwable);
         }
     }
@@ -18,7 +18,7 @@ public interface Logger {
     }
 
     default void info(String msg, Throwable throwable) {
-        if(enabled(LogLevel.INFO)) {
+        if (enabled(LogLevel.INFO)) {
             log(LogLevel.INFO, msg, throwable);
         }
     }
@@ -36,7 +36,7 @@ public interface Logger {
     }
 
     default void debug(Supplier<String> msgSupplier, Throwable throwable) {
-        if(enabled(LogLevel.DEBUG)) {
+        if (enabled(LogLevel.DEBUG)) {
             log(LogLevel.DEBUG, msgSupplier.get(), throwable);
         }
     }
@@ -46,7 +46,7 @@ public interface Logger {
     }
 
     default void info(Supplier<String> msgSupplier, Throwable throwable) {
-        if(enabled(LogLevel.INFO)) {
+        if (enabled(LogLevel.INFO)) {
             log(LogLevel.INFO, msgSupplier.get(), throwable);
         }
     }

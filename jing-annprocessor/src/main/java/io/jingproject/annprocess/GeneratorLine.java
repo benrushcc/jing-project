@@ -1,6 +1,7 @@
 package io.jingproject.annprocess;
 
 public record GeneratorLine(
-        String content, int indent
+        String content,
+        int indent
 ) {
 }

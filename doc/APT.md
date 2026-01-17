@@ -7,6 +7,7 @@ APT不能修改已有的源代码，只能生成新的源代码
 目前有很多基于APT构建的库，都被广泛使用
 
 # Introduction to Java module system
+
 在这个部分介绍java9引入的module系统，以及module系统的现状，为什么要使用module系统进行封装
 
 # APT 对比 Reflection
@@ -33,9 +34,11 @@ APT生成的类需要在运行时有一套加载机制，这个需要库开发�
 在项目中生成一个jing-providers.json的文件，记录有哪些具体的SPI提供方
 
 由于APT不允许注解处理器在编译期修改字节码，我们不能直接依赖APT来修改module-info的内容，将生成的实现通过SPI暴露出去，因此，编写了一个特定的
-jing-maven-plugin，这个插件的作用是，检测到jing-providers.json的内容之后，修改module-info的字节码，把生成的实现也添加进去，这样就省去了用户自己写一遍provide with的麻烦事
+jing-maven-plugin，这个插件的作用是，检测到jing-providers.json的内容之后，修改module-info的字节码，把生成的实现也添加进去，这样就省去了用户自己写一遍provide
+with的麻烦事
 
-@Provider的这一套机制是为了方便开发者将自己编写的类的细节通过SPI的机制提供给第三方库，省去了手动为生成类在module-info中还需要编写provide with的麻烦
+@Provider的这一套机制是为了方便开发者将自己编写的类的细节通过SPI的机制提供给第三方库，省去了手动为生成类在module-info中还需要编写provide
+with的麻烦
 可以更好的关注到自己的实现层面上，只需做好相应的maven配置即可
 
 @Provider也可以作为一个偷懒的做法，用在非生成类的SPI提供方上面，利用这一套机制也可以实现服务方的暴露

@@ -16,7 +16,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
     @Override
     public byte readByte() {
         long newPosition = Math.addExact(position, ValueLayout.JAVA_BYTE.byteSize());
-        if(newPosition > segment.byteSize()) {
+        if (newPosition > segment.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
         byte r = segment.get(ValueLayout.JAVA_BYTE, position);
@@ -27,7 +27,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
     @Override
     public byte[] readBytes(int len) {
         long newPosition = Math.addExact(position, Math.multiplyExact(len, ValueLayout.JAVA_BYTE.byteSize()));
-        if(newPosition > segment.byteSize()) {
+        if (newPosition > segment.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
         byte[] r = new byte[len];
@@ -45,7 +45,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
     @Override
     public short readShort(ByteOrder byteOrder) {
         long newPosition = Math.addExact(position, ValueLayout.JAVA_SHORT.byteSize());
-        if(newPosition > segment.byteSize()) {
+        if (newPosition > segment.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
         short r = segment.get(ValueLayout.JAVA_SHORT, position);
@@ -56,7 +56,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
     @Override
     public char readChar(ByteOrder byteOrder) {
         long newPosition = Math.addExact(position, ValueLayout.JAVA_CHAR.byteSize());
-        if(newPosition > segment.byteSize()) {
+        if (newPosition > segment.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
         char r = segment.get(ValueLayout.JAVA_CHAR, position);
@@ -67,7 +67,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
     @Override
     public int readInt(ByteOrder byteOrder) {
         long newPosition = Math.addExact(position, ValueLayout.JAVA_INT.byteSize());
-        if(newPosition > segment.byteSize()) {
+        if (newPosition > segment.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
         int r = segment.get(ValueLayout.JAVA_INT, position);
@@ -78,7 +78,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
     @Override
     public long readLong(ByteOrder byteOrder) {
         long newPosition = Math.addExact(position, ValueLayout.JAVA_LONG.byteSize());
-        if(newPosition > segment.byteSize()) {
+        if (newPosition > segment.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
         long r = segment.get(ValueLayout.JAVA_LONG, position);
@@ -89,7 +89,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
     @Override
     public float readFloat(ByteOrder byteOrder) {
         long newPosition = Math.addExact(position, ValueLayout.JAVA_FLOAT.byteSize());
-        if(newPosition > segment.byteSize()) {
+        if (newPosition > segment.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
         float r = segment.get(ValueLayout.JAVA_FLOAT, position);
@@ -100,7 +100,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
     @Override
     public double readDouble(ByteOrder byteOrder) {
         long newPosition = Math.addExact(position, ValueLayout.JAVA_DOUBLE.byteSize());
-        if(newPosition > segment.byteSize()) {
+        if (newPosition > segment.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
         double r = segment.get(ValueLayout.JAVA_DOUBLE, position);

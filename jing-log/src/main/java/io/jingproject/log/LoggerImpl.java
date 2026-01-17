@@ -25,7 +25,7 @@ public final class LoggerImpl implements Logger {
     @Override
     public void setLevel(LogLevel level) {
         site.setTarget(MethodHandles.constant(LogLevel.class, level));
-        MutableCallSite.syncAll(new MutableCallSite[] { site });
+        MutableCallSite.syncAll(new MutableCallSite[]{site});
     }
 
     @Override
@@ -43,5 +43,6 @@ public final class LoggerImpl implements Logger {
     public void log(LogLevel level, String msg, Throwable throwable) {
         String className = clazz.getCanonicalName();
         String threadName = Thread.currentThread().getName();
+        // TODO 做具体实现
     }
 }

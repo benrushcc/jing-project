@@ -1,7 +1,7 @@
 package io.jingproject.common;
 
 /**
- *   Currently we could just make the assumptions that all descriptors are int or long
+ * Currently we could just make the assumptions that all descriptors are int or long
  */
 public sealed interface Descriptor {
 

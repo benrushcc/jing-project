@@ -7,7 +7,7 @@ import io.jingproject.ffm.SharedLibs;
 import java.util.Map;
 
 /**
- *   ConsoleLogEventHandler is designed to output logs to stdout and stderr
+ * ConsoleLogEventHandler is designed to output logs to stdout and stderr
  */
 public final class ConsoleLogEventHandler implements LogEventHandler {
     private static final LogBindings LOG_BINDINGS = SharedLibs.getImpl(LogBindings.class);
@@ -15,7 +15,7 @@ public final class ConsoleLogEventHandler implements LogEventHandler {
     private static final Boolean USING_INTELLIJ_IDEA = checkIntellijIdeaEnvironment();
 
     /**
-     *   Check if current environment is using IntelliJ IDEA, if so, the terminal support ansi color by default
+     * Check if current environment is using IntelliJ IDEA, if so, the terminal support ansi color by default
      */
     private static Boolean checkIntellijIdeaEnvironment() {
         try {
@@ -27,7 +27,7 @@ public final class ConsoleLogEventHandler implements LogEventHandler {
     }
 
     private static Boolean checkAnsiColorEnabled() {
-        if(USING_INTELLIJ_IDEA) {
+        if (USING_INTELLIJ_IDEA) {
             return Boolean.TRUE;
         }
         switch (Os.current()) {
@@ -35,7 +35,7 @@ public final class ConsoleLogEventHandler implements LogEventHandler {
                 return LOG_BINDINGS.winAnsiSupport() == 0;
             }
             case LINUX, MACOS -> {
-                if(System.console() == null) {
+                if (System.console() == null) {
                     return Boolean.FALSE;
                 }
                 return System.getenv("TERM") != null;
@@ -45,7 +45,6 @@ public final class ConsoleLogEventHandler implements LogEventHandler {
     }
 
     public ConsoleLogEventHandler() {
-        Map<String, String> conf = ConfigurationFactory.items("jing.log.console");
 
     }
 

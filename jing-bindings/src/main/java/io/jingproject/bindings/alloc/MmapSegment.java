@@ -40,7 +40,7 @@ public final class MmapSegment implements AutoCloseable {
      * <p>
      * This value can be adjusted based on application patterns:
      * - Larger values reduce decommit frequency but may cause memory retention
-     *   during scaling operations
+     * during scaling operations
      * - Smaller values allow more frequent memory return but increase system call overhead
      */
     private static final Duration MMAP_UNCOMMIT_TIME_THRESHOLD = Duration.ofMillis(200);
@@ -59,7 +59,9 @@ public final class MmapSegment implements AutoCloseable {
      */
     private static final Mmap MMAP = Mmap.getInstance();
 
-    /** Total size of the reserved memory region (aligned to granularity). */
+    /**
+     * Total size of the reserved memory region (aligned to granularity).
+     */
     private final long memSize;
 
     /**
@@ -95,7 +97,9 @@ public final class MmapSegment implements AutoCloseable {
      */
     private long[] scaleArray = null;
 
-    /** Current index in the scale array. */
+    /**
+     * Current index in the scale array.
+     */
     private int scaleArrayIndex = 0;
 
     /**
@@ -120,14 +124,15 @@ public final class MmapSegment implements AutoCloseable {
      * Ensures the memory segment is initialized.
      * <p>
      * If the segment hasn't been initialized yet, reserves the virtual address space
+     *
      * @throws IllegalStateException if mmapSegment has already been closed
-     * @throws ForeignException if mmap reserve failed
+     * @throws ForeignException      if mmap reserve failed
      */
     private void checkInitialized() {
-        if(mem == null) {
+        if (mem == null) {
             throw new IllegalStateException("MmapSegment already closed");
         }
-        if(mem.address() == 0L) {
+        if (mem.address() == 0L) {
             mem = MMAP.reserve(memSize);
             commitAddress = mem.address();
             writeAddress = mem.address();
@@ -146,11 +151,11 @@ public final class MmapSegment implements AutoCloseable {
      */
     public int scale() {
         checkInitialized();
-        if(scaleArray == null) {
+        if (scaleArray == null) {
             scaleArray = new long[MMAP_SCALE_ARRAY_DEFAULT_CAPACITY];
         }
         int currentScaleIndex = scaleArrayIndex;
-        if(currentScaleIndex == scaleArray.length) {
+        if (currentScaleIndex == scaleArray.length) {
             scaleArray = Arrays.copyOf(scaleArray, Math.multiplyExact(currentScaleIndex, 2));
         }
         scaleArray[currentScaleIndex] = writeAddress;
@@ -168,19 +173,19 @@ public final class MmapSegment implements AutoCloseable {
      *
      * @param index the checkpoint index returned by {@link #scale()}
      * @throws IllegalStateException if the scale state is corrupted or invalid
-     * @throws ForeignException if memory uncommitment fails
+     * @throws ForeignException      if memory uncommitment fails
      */
     public void unScale(int index) {
-        if(scaleArray == null) {
+        if (scaleArray == null) {
             throw new IllegalStateException("MmapSegment has never been scaled");
         }
-        if(scaleArrayIndex != Math.addExact(index, 1)) {
+        if (scaleArrayIndex != Math.addExact(index, 1)) {
             throw new IllegalStateException("Corrupted scale index");
         }
         long lastWriteAddress = scaleArray[index];
         // Check if decommitment is warranted
         // Note: Using direct subtraction for System.nanoTime() to handle overflow correctly
-        if(Math.subtractExact(commitAddress, lastWriteAddress) > Math.multiplyExact(MMAP_UNCOMMITTED_PAGE_THREHOLD, MMAP.pageSize()) && (System.nanoTime() - lastUncommitTime) > MMAP_UNCOMMIT_TIME_THRESHOLD.toNanos()) {
+        if (Math.subtractExact(commitAddress, lastWriteAddress) > Math.multiplyExact(MMAP_UNCOMMITTED_PAGE_THREHOLD, MMAP.pageSize()) && (System.nanoTime() - lastUncommitTime) > MMAP_UNCOMMIT_TIME_THRESHOLD.toNanos()) {
             long uncommitSize = Math.multiplyExact(MMAP_UNCOMMITTED_PAGE_COUNT, MMAP.pageSize());
             long shrinkedCommitAddress = Math.subtractExact(commitAddress, uncommitSize);
             try {
@@ -197,7 +202,7 @@ public final class MmapSegment implements AutoCloseable {
     /**
      * Aligns an address to the specified boundary.
      *
-     * @param addr the address to align
+     * @param addr          the address to align
      * @param byteAlignment the alignment boundary (must be power of two)
      * @return the aligned address
      */
@@ -212,26 +217,26 @@ public final class MmapSegment implements AutoCloseable {
      * The allocation is aligned to the specified boundary and may trigger
      * commitment of additional physical memory if needed.
      *
-     * @param byteSize the size of the allocation in bytes
+     * @param byteSize      the size of the allocation in bytes
      * @param byteAlignment the alignment requirement (must be power of two)
      * @return a MemorySegment representing the allocated slice
      * @throws IndexOutOfBoundsException if the allocation exceeds segment bounds
-     * @throws ForeignException if memory commitment fails
+     * @throws ForeignException          if memory commitment fails
      */
     public MemorySegment slice(long byteSize, long byteAlignment) {
         assert byteSize > 0L && Long.bitCount(byteAlignment) == 1;
         checkInitialized();
         long alignedAddress = align(writeAddress, byteAlignment);
         long newWriteAddress = Math.addExact(alignedAddress, byteSize);
-        if(newWriteAddress > memSize) {
+        if (newWriteAddress > memSize) {
             throw new IndexOutOfBoundsException("MmapSegment write out of bounds, index : " + newWriteAddress + ", size : " + memSize);
         }
         // Commit more memory if needed
-        if(newWriteAddress > commitAddress) {
+        if (newWriteAddress > commitAddress) {
             long newCommitAddress = align(newWriteAddress, MMAP.pageSize());
             // NOTE: If the OS memory mapping granularity is a multiple of the page size (which is true on almost all systems),
             // this branch will never be triggered. It is kept here purely as a defensive safeguard.
-            if(newCommitAddress > memSize) {
+            if (newCommitAddress > memSize) {
                 throw new IndexOutOfBoundsException("MmapSegment commit out of bounds, index : " + newCommitAddress + ", size : " + memSize);
             }
             try {
@@ -250,15 +255,15 @@ public final class MmapSegment implements AutoCloseable {
      * Closes the segment and releases all associated resources.
      *
      * @throws IllegalStateException if the segment has already been closed
-     * @throws ForeignException if mmap release failed
+     * @throws ForeignException      if mmap release failed
      */
     @Override
     public void close() {
-        if(mem == null) {
+        if (mem == null) {
             throw new IllegalStateException("MmapSegment already closed");
         }
-        if(mem.address() == 0L) {
-            return ;
+        if (mem.address() == 0L) {
+            return;
         }
         MMAP.release(mem);
         mem = null;

@@ -4,11 +4,20 @@ import io.jingproject.common.Os;
 import io.jingproject.ffm.SharedLib;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 @SuppressWarnings("unused")
-public final class DemoLib implements SharedLib {
+public final class DemoProvider implements SharedLib {
     private static final String LIB_NAME = System.getProperty("jing.ffm.demo.libname", "demo");
+
+    private static final AtomicBoolean atomicBoolean = new AtomicBoolean(false);
+
+    public DemoProvider() {
+        if(!atomicBoolean.compareAndSet(false, true)) {
+            throw new IllegalStateException("DemoProvider instance has already been created");
+        }
+    }
 
     @Override
     public Class<?> target() {

@@ -25,12 +25,12 @@ public final class GeneratorSource {
         Elements elm = env.getElementUtils();
         ModuleElement moduleElement = elm.getModuleOf(el);
         PackageElement packageElement = elm.getPackageOf(el);
-        if(moduleElement.isUnnamed() || elm.isAutomaticModule(moduleElement)) {
+        if (moduleElement.isUnnamed() || elm.isAutomaticModule(moduleElement)) {
             throw new RuntimeException("ModuleElement cannot be unnamed or automatic");
         }
         sourceModuleName = moduleElement.getQualifiedName().toString();
         sourcePackageName = packageElement.getQualifiedName().toString();
-        sourceClassName = "_" + el.getSimpleName().toString() + "$$" + tag;
+        sourceClassName = "_" + el.getSimpleName() + "$$" + tag;
     }
 
     public String className() {
@@ -42,21 +42,21 @@ public final class GeneratorSource {
     }
 
     public String register(TypeMirror typeMirror) {
-        if(typeMirror.getKind() == TypeKind.DECLARED && typeMirror instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement typeElement) {
+        if (typeMirror.getKind() == TypeKind.DECLARED && typeMirror instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement typeElement) {
             return register(typeElement);
-        }else if(typeMirror.getKind() == TypeKind.TYPEVAR && typeMirror instanceof TypeVariable typeVariable && typeVariable.asElement() instanceof TypeParameterElement typeParameterElement) {
+        } else if (typeMirror.getKind() == TypeKind.TYPEVAR && typeMirror instanceof TypeVariable typeVariable && typeVariable.asElement() instanceof TypeParameterElement typeParameterElement) {
             return register(typeParameterElement.getBounds().getFirst());
-        }else if(typeMirror.getKind() == TypeKind.ARRAY && typeMirror instanceof ArrayType arrayType) {
+        } else if (typeMirror.getKind() == TypeKind.ARRAY && typeMirror instanceof ArrayType arrayType) {
             return register(arrayType.getComponentType()) + "[]";
-        }else if(typeMirror.getKind().isPrimitive()) {
+        } else if (typeMirror.getKind().isPrimitive()) {
             return typeMirror.toString();
-        }else {
+        } else {
             throw new RuntimeException("Unsupported type " + typeMirror);
         }
     }
 
     public String register(TypeElement typeElement) {
-        if(typeElement.getNestingKind() != NestingKind.TOP_LEVEL) {
+        if (typeElement.getNestingKind() != NestingKind.TOP_LEVEL) {
             throw new RuntimeException("Registered element must be top-level : " + typeElement.getSimpleName());
         }
         String packageName = env.getElementUtils().getPackageOf(typeElement).getQualifiedName().toString();
@@ -66,7 +66,7 @@ public final class GeneratorSource {
     }
 
     public String register(Class<?> clazz) {
-        if(clazz.isMemberClass()) {
+        if (clazz.isMemberClass()) {
             throw new RuntimeException("Registered class must be top-level : " + clazz.getSimpleName());
         }
         String packageName = clazz.getPackageName();
@@ -77,15 +77,15 @@ public final class GeneratorSource {
 
     private String register(String packageName, String fullName, String simpleName) {
         String current = references.get(simpleName);
-        if(current == null) {
-            if(!packageName.equals(sourcePackageName) && !packageName.equals("java.lang")) {
+        if (current == null) {
+            if (!packageName.equals(sourcePackageName) && !packageName.equals("java.lang")) {
                 imports.add(fullName);
             }
             references.put(simpleName, fullName);
             return simpleName;
-        }else if(fullName.equals(current)) {
+        } else if (fullName.equals(current)) {
             return simpleName;
-        }else {
+        } else {
             return fullName;
         }
     }
@@ -106,7 +106,7 @@ public final class GeneratorSource {
     public void writeToFiler() {
         try {
             JavaFileObject fo = env.getFiler().createSourceFile(sourceModuleName + "/" + sourcePackageName + "." + sourceClassName);
-            try(Writer writer = fo.openWriter()) {
+            try (Writer writer = fo.openWriter()) {
                 writer.write("package " + sourcePackageName + ";\n\n");
                 for (String im : imports) {
                     writer.write("import " + im + ";\n");

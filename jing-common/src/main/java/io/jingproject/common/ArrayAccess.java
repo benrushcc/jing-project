@@ -33,7 +33,7 @@ public final class ArrayAccess {
 
 
     public static short getShort(byte[] array, int offset, ByteOrder byteOrder) {
-        if(byteOrder == NATIVE_ORDER) {
+        if (byteOrder == NATIVE_ORDER) {
             return (short) SHORT.get(array, offset);
         } else {
             return (short) SHORT_OP.get(array, offset);
@@ -45,7 +45,7 @@ public final class ArrayAccess {
     }
 
     public static void setShort(byte[] array, int offset, short value, ByteOrder byteOrder) {
-        if(byteOrder == NATIVE_ORDER) {
+        if (byteOrder == NATIVE_ORDER) {
             SHORT.set(array, offset, value);
         } else {
             SHORT_OP.set(array, offset, value);

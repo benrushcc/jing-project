@@ -26,10 +26,10 @@ public interface EpollBindings {
     @Downcall(methodName = "jing_epoll_ctl_del", constant = true, critical = true)
     int epollDel();
 
-    @Downcall(methodName = "jing_epoll_cloexec",  constant = true, critical = true)
+    @Downcall(methodName = "jing_epoll_cloexec", constant = true, critical = true)
     int epollCloexec();
 
-    @Downcall(methodName = "jing_epoll_create",critical = true)
+    @Downcall(methodName = "jing_epoll_create", critical = true)
     int epollCreate();
 
     @Downcall(methodName = "jing_epoll_ctl", critical = true)

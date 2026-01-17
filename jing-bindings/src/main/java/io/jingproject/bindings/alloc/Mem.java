@@ -20,7 +20,7 @@ public final class Mem {
     public static MemorySegment malloc(long byteSize) {
         assert byteSize > 0L;
         MemorySegment r = VM_BINDINGS.malloc(byteSize);
-        if(r.address() == 0L) {
+        if (r.address() == 0L) {
             throw new OutOfMemoryError();
         }
         return NativeSegmentAccess.reinterpret(r, byteSize);
@@ -29,7 +29,7 @@ public final class Mem {
     public static MemorySegment realloc(MemorySegment segment, long newSize) {
         assert segment.isNative() && segment.address() != 0L && newSize > 0L;
         MemorySegment r = VM_BINDINGS.realloc(segment, newSize);
-        if(r.address() == 0L) {
+        if (r.address() == 0L) {
             free(segment);
             throw new OutOfMemoryError();
         }
@@ -64,6 +64,6 @@ public final class Mem {
 
     public static void memset(MemorySegment src, byte ch, long count) {
         assert src.isNative() && src.address() != 0L && count > 0L && src.byteSize() >= count;
-        MemorySegment _  = VM_BINDINGS.memset(src, Byte.toUnsignedInt(ch), count);
+        MemorySegment _ = VM_BINDINGS.memset(src, Byte.toUnsignedInt(ch), count);
     }
 }

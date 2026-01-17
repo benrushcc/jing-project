@@ -45,14 +45,14 @@ public final class LoggerFactory {
 
             @Override
             public void log(LogLevel level, String msg, Throwable throwable) {
-                if(enabled(level)) {
+                if (enabled(level)) {
                     String timestamp = LocalDateTime.now().format(formatter);
                     String threadName = Thread.currentThread().getName();
                     String className = clazz.getCanonicalName();
                     String logLine = String.format("%s [%s] %-5s %s - %s",
                             timestamp, threadName, level.name(), className, msg);
                     System.out.println(logLine);
-                    if(throwable != null) {
+                    if (throwable != null) {
                         throwable.printStackTrace(System.out);
                     }
                 }

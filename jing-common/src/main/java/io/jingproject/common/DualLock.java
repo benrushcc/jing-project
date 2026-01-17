@@ -15,8 +15,8 @@ import java.util.concurrent.locks.LockSupport;
  * The synchronization state is represented by the 'value' field:
  * - When it's a Record instance: The resource is unlocked/available
  * - When it's a Thread instance: Either:
- *   1. The thread that currently holds the lock (owner), OR
- *   2. A contending thread that is spinning or parked waiting for the lock
+ * 1. The thread that currently holds the lock (owner), OR
+ * 2. A contending thread that is spinning or parked waiting for the lock
  * <p>
  * This design relies on the fact that T extends Record, ensuring T cannot be
  * a Thread type, thus allowing clean type-based state discrimination.
@@ -73,7 +73,7 @@ public final class DualLock<T extends Record> {
     /**
      * Creates an Ex wrapper with the specified Record element and spin count.
      *
-     * @param element the Record to wrap
+     * @param element   the Record to wrap
      * @param spinCount number of spin attempts before parking (clamped to 0-{@link #MAX_SPIN_COUNT})
      *                  Use -1 for immediate parking (no spinning)
      */
@@ -91,9 +91,9 @@ public final class DualLock<T extends Record> {
      */
     @SuppressWarnings("unchecked")
     public T peek() {
-        for( ; ; ) {
+        for (; ; ) {
             Object current = handle.getVolatile(this);
-            if(current instanceof Thread) {
+            if (current instanceof Thread) {
                 Thread.onSpinWait();
             } else {
                 return (T) current;
@@ -107,8 +107,8 @@ public final class DualLock<T extends Record> {
      * When the value field contains a Thread:
      * - If it's the current thread: Already holds the lock (spurious wakeup scenario)
      * - If it's another thread: The current thread becomes a contender
-     *   - Spins for spinCount iterations (if configured)
-     *   - Then parks to wait for the owner to unlock
+     * - Spins for spinCount iterations (if configured)
+     * - Then parks to wait for the owner to unlock
      * <p>
      * IMPORTANT: This method assumes only two threads total. If a third thread
      * calls this method while two threads are already involved (owner + contender),
@@ -120,21 +120,21 @@ public final class DualLock<T extends Record> {
     public T lock() {
         Thread currentThread = Thread.currentThread();
         int spin = spinCount;
-        for( ; ; ) {
+        for (; ; ) {
             Object current = handle.getVolatile(this);
-            if(current instanceof Thread t) {
-                if(currentThread == t) {
+            if (current instanceof Thread t) {
+                if (currentThread == t) {
                     // Could be spurious wakeup
                     LockSupport.park(this);
-                } else if(spin-- > 0) {
+                } else if (spin-- > 0) {
                     Thread.onSpinWait();
                 } else {
-                    if(handle.compareAndSet(this, current, currentThread)) {
+                    if (handle.compareAndSet(this, current, currentThread)) {
                         LockSupport.park(this);
                     }
                 }
             } else {
-                if(handle.compareAndSet(this, current, currentThread)) {
+                if (handle.compareAndSet(this, current, currentThread)) {
                     return (T) current;
                 }
             }
@@ -147,28 +147,28 @@ public final class DualLock<T extends Record> {
      * Three possible scenarios:
      * 1. Current thread is the owner: Releases lock and sets new value
      * 2. Current thread is a contender: "Steals" the release by setting new value
-     *    and unparking the parked thread (could be owner or another contender)
+     * and unparking the parked thread (could be owner or another contender)
      * 3. Unexpected state: Neither Thread nor expected state (shouldn't happen)
      * <p>
      *
      * @param value the new Record value (must not be null)
      * @throws IllegalStateException if the value field doesn't contain a Thread
-     * @throws NullPointerException if value is null
+     * @throws NullPointerException  if value is null
      */
     public void unlock(T value) {
         Objects.requireNonNull(value, "value must not be null");
         Thread currentThread = Thread.currentThread();
-        for( ; ;) {
+        for (; ; ) {
             Object current = handle.getVolatile(this);
-            if(current instanceof Thread t) {
-                if(currentThread == t) {
-                    if(handle.compareAndSet(this, current, value)) {
-                        return ;
+            if (current instanceof Thread t) {
+                if (currentThread == t) {
+                    if (handle.compareAndSet(this, current, value)) {
+                        return;
                     }
                 } else {
-                    if(handle.compareAndSet(this, current, value)) {
+                    if (handle.compareAndSet(this, current, value)) {
                         LockSupport.unpark(t);
-                        return ;
+                        return;
                     }
                 }
             } else {

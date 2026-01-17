@@ -21,7 +21,7 @@ import java.util.concurrent.locks.ReentrantLock;
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 public class ExBenchmark {
-    
+
     record IntHolder(int value) {
 
     }
@@ -37,7 +37,7 @@ public class ExBenchmark {
             this.value = value;
         }
     }
-    
+
     @Benchmark
     @OperationsPerInvocation(10000)
     public void testEx(Blackhole blackhole) throws InterruptedException {
@@ -47,7 +47,7 @@ public class ExBenchmark {
         Thread t1 = Thread.ofPlatform().unstarted(() -> {
             try {
                 startLatch.await();
-                for(int i = 0; i < 5; i++) {
+                for (int i = 0; i < 5; i++) {
                     IntHolder intHolder = dualLock.lock();
                     int value = intHolder.value();
                     blackhole.consume(value);
@@ -61,7 +61,7 @@ public class ExBenchmark {
         Thread t2 = Thread.ofPlatform().unstarted(() -> {
             try {
                 startLatch.await();
-                for(int i = 0; i < 5; i++) {
+                for (int i = 0; i < 5; i++) {
                     IntHolder intHolder = dualLock.lock();
                     int value = intHolder.value();
                     blackhole.consume(value);
@@ -89,7 +89,7 @@ public class ExBenchmark {
         Thread t1 = Thread.ofPlatform().unstarted(() -> {
             try {
                 startLatch.await();
-                for(int i = 0; i < 10000; i++) {
+                for (int i = 0; i < 10000; i++) {
                     lock.lock();
                     try {
                         int value = intHolder.value();
@@ -107,7 +107,7 @@ public class ExBenchmark {
         Thread t2 = Thread.ofPlatform().unstarted(() -> {
             try {
                 startLatch.await();
-                for(int i = 0; i < 10000; i++) {
+                for (int i = 0; i < 10000; i++) {
                     lock.lock();
                     try {
                         int value = intHolder.value();
@@ -137,7 +137,7 @@ public class ExBenchmark {
         Thread t1 = Thread.ofPlatform().unstarted(() -> {
             try {
                 startLatch.await();
-                for(int i = 0; i < 10000; i++) {
+                for (int i = 0; i < 10000; i++) {
                     blackhole.consume(atomicInteger.getAndIncrement());
                 }
                 endLatch.countDown();
@@ -148,7 +148,7 @@ public class ExBenchmark {
         Thread t2 = Thread.ofPlatform().unstarted(() -> {
             try {
                 startLatch.await();
-                for(int i = 0; i < 10000; i++) {
+                for (int i = 0; i < 10000; i++) {
                     blackhole.consume(atomicInteger.getAndIncrement());
                 }
                 endLatch.countDown();

@@ -38,7 +38,7 @@ public final class JingMojo extends AbstractMojo {
             Path resourceDir = Paths.get(resource.getDirectory());
             getLog().debug("Searching for Jing-providers.json file: " + resourceDir.toAbsolutePath());
             Path targetPath = resourceDir.resolve(FILE_NAME);
-            if(Files.isRegularFile(targetPath)) {
+            if (Files.isRegularFile(targetPath)) {
                 getLog().debug("Found Jing-providers.json file: " + targetPath.toAbsolutePath());
                 processJingProviderFile(targetPath);
             }
@@ -76,7 +76,7 @@ public final class JingMojo extends AbstractMojo {
             }
         }
         Path moduleInfoPath = Path.of(project.getBuild().getOutputDirectory(), "module-info.class");
-        if(Files.isRegularFile(moduleInfoPath)) {
+        if (Files.isRegularFile(moduleInfoPath)) {
             getLog().debug("Found module-info class: " + moduleInfoPath.toAbsolutePath());
             byte[] bytecodes;
             try {
@@ -95,7 +95,7 @@ public final class JingMojo extends AbstractMojo {
         Set<String> set = new HashSet<>();
         int index = 0, nextIndex;
         index = searchByte(content, index, b -> b == (byte) '{');
-        for( ; ; ) {
+        for (; ; ) {
             index = searchByte(content, index, b -> b == (byte) '"');
             nextIndex = searchByte(content, index, b -> b == (byte) '"');
             key = new String(content, index, nextIndex - index - 1, StandardCharsets.UTF_8);
@@ -114,36 +114,36 @@ public final class JingMojo extends AbstractMojo {
             }
             set = new HashSet<>();
             searchByte(content, index, b -> b == (byte) ',' || b == (byte) '}');
-            if(content[index - 1] != (byte) '}') {
+            if (content[index - 1] != (byte) '}') {
                 return r;
             }
         }
     }
 
     @FunctionalInterface
-    interface ByteConsumer{
+    interface ByteConsumer {
         boolean accept(byte b);
     }
 
     private static int searchByte(byte[] content, int fromIndex, ByteConsumer consumer) throws MojoFailureException {
-        if(fromIndex < 0 || fromIndex >= content.length) {
+        if (fromIndex < 0 || fromIndex >= content.length) {
             throw new MojoFailureException("File format corrupted");
         }
-        for(int i = fromIndex; i < content.length; i++) {
-            if(consumer.accept(content[i])) {
+        for (int i = fromIndex; i < content.length; i++) {
+            if (consumer.accept(content[i])) {
                 return i + 1;
             }
         }
         throw new MojoFailureException("Invalid json structure");
     }
 
-    private static byte[] updateModuleInfoByteCodes(byte[] bytecodes, Map<String, Set<String>> data) throws MojoFailureException{
+    private static byte[] updateModuleInfoByteCodes(byte[] bytecodes, Map<String, Set<String>> data) throws MojoFailureException {
         ClassFile cf = ClassFile.of();
         ClassModel model = cf.parse(bytecodes);
         ModuleAttribute currentAttribute = model.findAttribute(Attributes.module()).orElseThrow(() -> new MojoFailureException("Failed to get module attributes"));
         List<ModuleProvideInfo> currentProvides = currentAttribute.provides();
         for (ModuleProvideInfo m : currentProvides) {
-            if(data.containsKey(m.provides().asSymbol().displayName())) {
+            if (data.containsKey(m.provides().asSymbol().displayName())) {
                 throw new MojoFailureException("Module-info already contains generated SPI directives");
             }
         }

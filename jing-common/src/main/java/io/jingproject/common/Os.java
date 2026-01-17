@@ -1,8 +1,8 @@
 package io.jingproject.common;
 
 /**
- *  Simple enum to represent the operating system type.
- *  Helps detect whether the app is running on Windows, Linux, or macOS.
+ * Simple enum to represent the operating system type.
+ * Helps detect whether the app is running on Windows, Linux, or macOS.
  */
 public enum Os {
     WINDOWS,
@@ -12,8 +12,8 @@ public enum Os {
     MACOS;
 
     /**
-     *  For now, to keep things simple, we only support Windows, Linux, and macOS.
-     *  Other platforms? We'll leave that fun challenge to whoever’s destined to do it :)
+     * For now, to keep things simple, we only support Windows, Linux, and macOS.
+     * Other platforms? We'll leave that fun challenge to whoever’s destined to do it :)
      */
     private static final Os CURRENT = detectCurrentOsType();
 
@@ -23,19 +23,19 @@ public enum Os {
      */
     private static Os detectCurrentOsType() {
         String osName = System.getProperty("os.name").toLowerCase();
-        if(osName.contains("windows")) {
+        if (osName.contains("windows")) {
             return Os.WINDOWS;
-        }else if(osName.contains("linux")) {
+        } else if (osName.contains("linux")) {
             return Os.LINUX;
-        }else if(osName.contains("mac") && osName.contains("os")) {
+        } else if (osName.contains("mac") && osName.contains("os")) {
             return Os.MACOS;
-        }else {
+        } else {
             throw new AssertionError("Unsupported OS detected: " + osName);
         }
     }
 
     /**
-     *   Return the current operating system
+     * Return the current operating system
      */
     public static Os current() {
         return CURRENT;

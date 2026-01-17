@@ -15,14 +15,14 @@ public final class KqueueMux implements Mux {
 
     @Override
     public void init() {
-        if(kqFd == Integer.MIN_VALUE) {
+        if (kqFd == Integer.MIN_VALUE) {
             throw new IllegalStateException("KqueueMux already closed");
         }
-        if(kqFd > 0) {
+        if (kqFd > 0) {
             throw new IllegalStateException("KqueueMux already initialized");
         }
         int v = KQUEUE_BINDINGS.kqueue();
-        if(v < 0) {
+        if (v < 0) {
             int err = Math.abs(v);
             throw new ForeignException("Failed to create kqueue instance, err : " + err);
         }
@@ -37,16 +37,16 @@ public final class KqueueMux implements Mux {
 
     @Override
     public void ctl(Descriptor descriptor, int from, int to, int data) {
-        if(kqFd == Integer.MIN_VALUE) {
+        if (kqFd == Integer.MIN_VALUE) {
             throw new IllegalStateException("KqueueMux already closed");
         }
-        if(kqFd == 0) {
+        if (kqFd == 0) {
             throw new IllegalStateException("KqueueMux not initialized");
         }
         int modRead = mod(from, to, Mux.MUX_READABLE_FLAG);
         int modWrite = mod(from, to, Mux.MUX_WRITEABLE_FLAG);
         int err = KQUEUE_BINDINGS.keventCtl(kqFd, descriptor.asInt(), modRead, modWrite, MemorySegment.ofAddress(data));
-        if(err > 0) {
+        if (err > 0) {
             throw new ForeignException("Failed to ctl kqueue instance, err : " + err);
         }
     }
@@ -58,14 +58,14 @@ public final class KqueueMux implements Mux {
 
     @Override
     public void close() {
-        if(kqFd == Integer.MIN_VALUE) {
+        if (kqFd == Integer.MIN_VALUE) {
             throw new IllegalStateException("KqueueMux already closed");
         }
-        if(kqFd == 0) {
-            return ;
+        if (kqFd == 0) {
+            return;
         }
         int err = SYS_POSIX_BINDINGS.posixClose(kqFd);
-        if(err > 0) {
+        if (err > 0) {
             throw new ForeignException("Failed to close kqueue instance, err : " + err);
         }
     }

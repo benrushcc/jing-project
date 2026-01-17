@@ -13,14 +13,14 @@ public class DualLockTest {
 
     @Test
     public void testEx() throws InterruptedException {
-        for(int times = 0; times < 1000; times++) {
+        for (int times = 0; times < 1000; times++) {
             DualLock<IntHolder> dualLock = new DualLock<>(new IntHolder(0));
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch endLatch = new CountDownLatch(2);
             Thread t1 = Thread.ofPlatform().unstarted(() -> {
                 try {
                     startLatch.await();
-                    for(int i = 0; i < 100000; i++) {
+                    for (int i = 0; i < 100000; i++) {
                         IntHolder intHolder = dualLock.lock();
                         dualLock.unlock(new IntHolder(intHolder.value() + 1));
                     }
@@ -32,7 +32,7 @@ public class DualLockTest {
             Thread t2 = Thread.ofPlatform().unstarted(() -> {
                 try {
                     startLatch.await();
-                    for(int i = 0; i < 100000; i++) {
+                    for (int i = 0; i < 100000; i++) {
                         IntHolder intHolder = dualLock.lock();
                         dualLock.unlock(new IntHolder(intHolder.value() + 1));
                     }

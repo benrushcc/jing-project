@@ -29,10 +29,10 @@ public interface LogBindings {
     @Downcall(methodName = "jing_flush_file")
     void flushFile(MemorySegment handle, MemorySegment jingResult);
 
-    @Downcall(methodName = "jing_stdout_fileno",constant = true, critical = true)
+    @Downcall(methodName = "jing_stdout_fileno", constant = true, critical = true)
     int stdOutputFileno();
 
-    @Downcall(methodName = "jing_stderr_fileno",constant = true, critical = true)
+    @Downcall(methodName = "jing_stderr_fileno", constant = true, critical = true)
     int stdErrorFileno();
 
     @Downcall(methodName = "jing_open_fd")

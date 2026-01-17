@@ -8,8 +8,8 @@ public final class LoggerFacadeImpl implements LoggerFacade, LifeCycle {
     private final Thread logThread;
 
     public LoggerFacadeImpl() {
-        this.level = LogLevel.fromString(ConfigurationFactory.item("jing.log.level", "INFO"));
-        this.queue = new BatchQueue<>(ConfigurationFactory.itemAsInt("jing.log.batchsize", BatchQueue.defaultBatchSize()));
+        this.level = LogLevel.fromString(ConfigurationFactory.conf("jing.log.level", "INFO"));
+        this.queue = new BatchQueue<>(ConfigurationFactory.confAsInt("jing.log.batchsize", BatchQueue.defaultBatchSize()));
         this.logThread = Thread.ofPlatform().unstarted(() -> {
 
         });

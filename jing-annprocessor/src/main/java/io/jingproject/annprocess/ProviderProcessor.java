@@ -36,7 +36,7 @@ public final class ProviderProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        if(roundEnv.processingOver()) {
+        if (roundEnv.processingOver()) {
             writeJsonConfigurationFile();
         } else {
             processSpiData(roundEnv);
@@ -49,9 +49,9 @@ public final class ProviderProcessor extends AbstractProcessor {
         lock.lock();
         try {
             FileObject fo = Objects.requireNonNull(processingEnv).getFiler().createResource(StandardLocation.SOURCE_OUTPUT, "", "jing-providers.json");
-            try(Writer writer = fo.openWriter()) {
+            try (Writer writer = fo.openWriter()) {
                 writer.write("{\n");
-                for (Iterator<Map.Entry<String, Set<String>>> it = data.entrySet().iterator(); it.hasNext();) {
+                for (Iterator<Map.Entry<String, Set<String>>> it = data.entrySet().iterator(); it.hasNext(); ) {
                     Map.Entry<String, Set<String>> entry = it.next();
                     String key = entry.getKey();
                     Set<String> value = entry.getValue();
@@ -89,19 +89,19 @@ public final class ProviderProcessor extends AbstractProcessor {
     private void processSpiData(RoundEnvironment roundEnv) {
         Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(Provider.class);
         for (Element element : elements) {
-            if(element instanceof TypeElement t) {
-                if(t.getNestingKind() != NestingKind.TOP_LEVEL) {
+            if (element instanceof TypeElement t) {
+                if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
                     throw new AnnotationProcessorException("Only top level element can be annotated with @Provider");
                 }
-                if(!t.getModifiers().contains(Modifier.FINAL)) {
+                if (!t.getModifiers().contains(Modifier.FINAL)) {
                     throw new AnnotationProcessorException("Only final element can be annotated with @Provider");
                 }
                 String targetInterfaceName;
                 try {
-                    targetInterfaceName = t.getAnnotation(Provider.class).target().getCanonicalName();
+                    targetInterfaceName = Objects.requireNonNull(t.getAnnotation(Provider.class)).target().getCanonicalName();
                 } catch (MirroredTypeException mte) {
                     TypeMirror mirror = mte.getTypeMirror();
-                    if(mirror instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement typeElement) {
+                    if (mirror instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement typeElement) {
                         targetInterfaceName = typeElement.getQualifiedName().toString();
                     } else {
                         throw new AnnotationProcessorException("Should never be reached");

@@ -100,6 +100,7 @@ public sealed interface Mmap permits WinMmap, PosixMmap {
      * - Windows: {@link WinMmap} (uses VirtualAlloc/VirtualFree API)
      * - Linux/MacOS: {@link PosixMmap} (uses mmap/munmap API)
      * <p>
+     *
      * @return the platform-specific {@link Mmap} instance
      */
     static Mmap getInstance() {

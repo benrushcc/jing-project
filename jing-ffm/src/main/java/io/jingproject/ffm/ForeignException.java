@@ -1,7 +1,7 @@
 package io.jingproject.ffm;
 
 /**
- *   Exception for FFM (Foreign Function & Memory) related errors
+ * Exception for FFM (Foreign Function & Memory) related errors
  */
 public final class ForeignException extends RuntimeException {
     public ForeignException(String message) {

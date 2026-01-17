@@ -6,8 +6,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 
 /**
- *   BatchQueue acts like a MPSC queue, it uses lock internally, but optimized for batch consuming
- *   the consumer could just fetch all the elements at once without busy polling mechanism
+ * BatchQueue acts like a MPSC queue, it uses lock internally, but optimized for batch consuming
+ * the consumer could just fetch all the elements at once without busy polling mechanism
  */
 public final class BatchQueue<T> {
     private static final int DEFAULT_BATCH_SIZE = Integer.getInteger("jing.common.defaultbatchsize", 256);
@@ -44,7 +44,7 @@ public final class BatchQueue<T> {
         try {
             Batch<T> t = tail;
             int index = t.index;
-            if(index == batchSize) {
+            if (index == batchSize) {
                 Batch<T> next = new Batch<>(batchSize);
                 t.next = next;
                 t = next;
@@ -61,7 +61,7 @@ public final class BatchQueue<T> {
         Batch<T> first;
         lock.lock();
         try {
-            if(head == tail && head.index == 0) {
+            if (head == tail && head.index == 0) {
                 return Stream.empty();
             }
             first = head;

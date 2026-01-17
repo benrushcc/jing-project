@@ -17,7 +17,7 @@ public final class SharedLibs {
     private static final List<String> SEARCH_PATH = createSearchPath();
 
     /**
-     *   Critical path could be disabled globally to ensure safepoint is always checked on each downcall
+     * Critical path could be disabled globally to ensure safepoint is always checked on each downcall
      */
     private static final Boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
 
@@ -28,11 +28,11 @@ public final class SharedLibs {
             r.add(argPath);
         }
         String envPath = System.getenv("JING_LIBRARY_PATH");
-        if(envPath != null && !envPath.isBlank() && Files.isDirectory(Paths.get(envPath))) {
+        if (envPath != null && !envPath.isBlank() && Files.isDirectory(Paths.get(envPath))) {
             r.add(envPath);
         }
         for (String p : System.getProperty("java.library.path", "").split(File.pathSeparator)) {
-            if(!p.isBlank() && Files.isDirectory(Paths.get(p))) {
+            if (!p.isBlank() && Files.isDirectory(Paths.get(p))) {
                 r.add(p);
             }
         }
@@ -98,7 +98,7 @@ public final class SharedLibs {
     public static MethodHandle getMethodHandleFromVM(String functionName, FunctionDescriptor descriptor, boolean critical) {
         Linker linker = Linker.nativeLinker();
         MemorySegment functionAddr = getFunctionAddressFromVM(functionName);
-        if(JING_CRITICAL && critical) {
+        if (JING_CRITICAL && critical) {
             return linker.downcallHandle(functionAddr, descriptor, Linker.Option.critical(false));
         } else {
             return linker.downcallHandle(functionAddr, descriptor);
@@ -111,19 +111,19 @@ public final class SharedLibs {
             throw new ForeignException("Library : " + libName + " not found");
         }
         MemorySegment segment = libDescriptor.functions().get(functionName);
-        if(segment.address() == 0L) {
+        if (segment.address() == 0L) {
             throw new ForeignException("Function : " + functionName + " not found");
         }
         return segment;
     }
 
     public static MethodHandle getMethodHandleFromLib(String libName, String functionName, FunctionDescriptor descriptor, boolean critical) {
-        if(libName.equals(FFM.VM)) {
+        if (libName.equals(FFM.VM)) {
             return getMethodHandleFromVM(functionName, descriptor, critical);
         }
         Linker linker = Linker.nativeLinker();
         MemorySegment segment = getFunctionAddressFromLib(libName, functionName);
-        if(JING_CRITICAL && critical) {
+        if (JING_CRITICAL && critical) {
             return linker.downcallHandle(segment, descriptor, Linker.Option.critical(false));
         } else {
             return linker.downcallHandle(segment, descriptor);
@@ -137,7 +137,7 @@ public final class SharedLibs {
     // TODO LazyConstants
     public static <T> T getImpl(Class<T> clazz) {
         Object o = IMPLS.get(clazz);
-        if(o == null) {
+        if (o == null) {
             throw new ForeignException("Impl for class : " + clazz + " not found");
         }
         return clazz.cast(o);

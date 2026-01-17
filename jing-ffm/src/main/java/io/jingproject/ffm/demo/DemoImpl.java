@@ -7,10 +7,19 @@ import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class DemoImpl implements DemoFacade {
 
     private static final String LIB_NAME = System.getProperty("jing.ffm.demo.libname", "demo");
+
+    private static final AtomicBoolean INSTANCE_CREATED = new AtomicBoolean(false);
+
+    public DemoImpl() {
+        if(!INSTANCE_CREATED.compareAndSet(false, true)) {
+            throw new IllegalStateException("DemoImpl instance has already been created");
+        }
+    }
 
     @Override
     public void empty() {
@@ -29,6 +38,7 @@ public final class DemoImpl implements DemoFacade {
         class Holder {
             static final MethodHandle MH = SharedLibs.getMethodHandleFromLib(LIB_NAME, "constant", FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT), false);
             static final int CACHED;
+
             static {
                 try {
                     CACHED = (int) MH.invokeExact();
