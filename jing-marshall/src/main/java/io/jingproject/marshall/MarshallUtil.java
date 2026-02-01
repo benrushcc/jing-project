@@ -2,20 +2,23 @@ package io.jingproject.marshall;
 
 import io.jingproject.common.ArrayAccess;
 import io.jingproject.common.anno.ProcessorApi;
+import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.IntVector;
+import jdk.incubator.vector.VectorOperators;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.Objects;
+import java.util.stream.IntStream;
 
 @ProcessorApi
 public final class MarshallUtil {
 
-    private static final int POWER_31_2 = Math.powExact(31, 2);
-    private static final int POWER_31_4 = Math.powExact(31, 4);
-    private static final int POWER_31_8 = Math.powExact(31, 8);
-    private static final int SWAR_OFFSET = Math.multiplyExact(Math.multiplyExact(-128, 32), Math.multiplyExact(Math.incrementExact(POWER_31_2), Math.incrementExact(POWER_31_4)));
+    private static final int P2 = 31 * 31;
+    private static final int P4 = P2 * P2;
+    private static final int P8 = P4 * P4;
+    private static final int U = -128 * (1 + 31) * (1 + P2) * (1 + P4);
 
     private MarshallUtil() {
         throw new AssertionError();
@@ -49,8 +52,8 @@ public final class MarshallUtil {
         for (; offset < end - Long.BYTES; offset += Long.BYTES) {
             long l = ArrayAccess.getLong(content, offset, ByteOrder.LITTLE_ENDIAN);
             l = 31 * (l & 0x00FF00FF00FF00FFL) + ((l >>> 8) & 0x00FF00FF00FF00FFL);
-            l = POWER_31_2 * (l & 0x0000FFFF0000FFFFL) + ((l >>> 16) & 0x0000FFFF0000FFFFL);
-            r = POWER_31_8 * r + POWER_31_4 * (int) l + (int) (l >>> 32) + SWAR_OFFSET;
+            l = P2 * (l & 0x0000FFFF0000FFFFL) + ((l >>> 16) & 0x0000FFFF0000FFFFL);
+            r = P8 * r + P4 * (int) l + (int) (l >>> 32) + U;
         }
         for (; offset < end; offset++) {
             r = 31 * r + Byte.toUnsignedInt(content[offset]);
@@ -65,6 +68,75 @@ public final class MarshallUtil {
             case 1 -> 31 + (content[0] & 0xFF);
             default -> hashSwar(content, offset, len);
         };
+    }
+
+    static final int L = ByteVector.SPECIES_PREFERRED.length();
+    static final int[] P = calculatePowers();
+    static final int V = -98 * (1 + 31) * (1 + P2);
+    static final int I = 0xbdef7bdf;
+    static final int[] F = calculateFactors();
+    static final IntVector W =
+            IntVector.fromArray(
+                    IntVector.SPECIES_PREFERRED,
+                    IntStream.range(0, IntVector.SPECIES_PREFERRED.length())
+                            .map(i -> P[L - (1 + i) * 4])
+                            .toArray(),
+                    0);
+    static final int PL = P[L];
+
+    static int[] calculatePowers() {
+        int[] result = new int[L + 1];
+        result[0] = 1;
+        for (int i = 1; i <= L; ++i) {
+            result[i] = result[i - 1] * 31;
+        }
+        return result;
+    }
+
+    static int[] calculateFactors() {
+        int[] factors = new int[L + 1];
+        factors[L] = 1;
+        for (int i = L; i > 0; --i) {
+            factors[i - 1] = factors[i] * I;
+        }
+        return factors;
+    }
+
+    public static int hashCodeSIMD(byte[] b) {
+        if (b == null) return 0;
+        if (b.length == 0) return 1;
+        if (b.length == 1) return 31 + b[0];
+        var a = IntVector.zero(IntVector.SPECIES_PREFERRED);
+        int remaining = b.length;
+        int k = 0;
+        while (remaining > L) {
+            var s =
+                    ByteVector.fromArray(ByteVector.SPECIES_PREFERRED, b, k)
+                            .lanewise(VectorOperators.XOR, (byte) 0x80)
+                            .reinterpretAsShorts();
+            var i = s.and((short) 0xFF).mul((short) 31).add(s.lanewise(VectorOperators.LSHR, 8)).reinterpretAsInts();
+            a = a.add(i.and(0xFFFF).mul(P2).add(i.lanewise(VectorOperators.LSHR, 16)));
+            a = a.add(V);
+            a = a.mul(PL);
+            k += L;
+            remaining -= L;
+        }
+        return finalizeSIMD(a, b, k, remaining);
+    }
+
+    static int finalizeSIMD(IntVector a, byte[] b, int k, int remaining) {
+        var s =
+                ByteVector.fromArray(
+                                ByteVector.SPECIES_PREFERRED,
+                                b,
+                                k,
+                                ByteVector.SPECIES_PREFERRED.indexInRange(0, remaining))
+                        .lanewise(VectorOperators.XOR, (byte) 0x80)
+                        .reinterpretAsShorts();
+        var i = s.and((short) 0xFF).mul((short) 31).add(s.lanewise(VectorOperators.LSHR, 8)).reinterpretAsInts();
+        a = a.add(i.and(0xFFFF).mul(P2).add(i.lanewise(VectorOperators.LSHR, 16)));
+        a = a.add(V);
+        return (1 + a.mul(W).reduceLanes(VectorOperators.ADD)) * F[remaining];
     }
 
     public static byte parseByte(MemorySegment segment, long offset, long len) {

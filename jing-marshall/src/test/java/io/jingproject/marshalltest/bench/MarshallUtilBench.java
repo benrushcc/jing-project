@@ -17,13 +17,15 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(value = Mode.AverageTime)
-@Warmup(iterations = 3, time = 200, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 1, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 1, time = 800, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 3, time = 800, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
+@Fork(8)
 public class MarshallUtilBench {
 
-    private static final int CAPACITY = 1024;
+    @Param({"1024", "4096", "16384"})
+    private int CAPACITY;
     private Arena arena;
     private MemorySegment seg;
 
