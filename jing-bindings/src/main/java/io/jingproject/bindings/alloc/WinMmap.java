@@ -67,7 +67,7 @@ public final class WinMmap implements Mmap {
         MemorySegment reserved = SYS_WIN_BINDINGS.winVirtualAlloc(MemorySegment.NULL, size, memReserve, pageReadWrite);
         if (NativeSegmentAccess.isErrPtr(reserved)) {
             int err = NativeSegmentAccess.errCode(reserved);
-            throw new ForeignException("Failed to reserve memory, err : " + err);
+            throw new ForeignException("failed to reserve memory, err : " + err);
         }
         return NativeSegmentAccess.reinterpret(reserved, size);
     }
@@ -88,7 +88,7 @@ public final class WinMmap implements Mmap {
         MemorySegment committed = SYS_WIN_BINDINGS.winVirtualAlloc(mem, mem.byteSize(), memCommit, pageReadWrite);
         if (NativeSegmentAccess.isErrPtr(committed)) {
             int err = NativeSegmentAccess.errCode(committed);
-            throw new ForeignException("Failed to commit memory, err : " + err);
+            throw new ForeignException("failed to commit memory, err : " + err);
         }
     }
 
@@ -106,7 +106,7 @@ public final class WinMmap implements Mmap {
         int memDecommit = SYS_WIN_BINDINGS.winMemDecommit();
         int v = SYS_WIN_BINDINGS.winVirtualFree(mem, mem.byteSize(), memDecommit);
         if (v > 0) {
-            throw new ForeignException("Failed to decommit memory, err : " + v);
+            throw new ForeignException("failed to decommit memory, err : " + v);
         }
     }
 
@@ -124,7 +124,7 @@ public final class WinMmap implements Mmap {
         int memRelease = SYS_WIN_BINDINGS.winMemRelease();
         int v = SYS_WIN_BINDINGS.winVirtualFree(mem, mem.byteSize(), memRelease);
         if (v > 0) {
-            throw new ForeignException("Failed to release memory, err : " + v);
+            throw new ForeignException("failed to release memory, err : " + v);
         }
     }
 }

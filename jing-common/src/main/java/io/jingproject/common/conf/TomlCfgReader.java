@@ -177,34 +177,34 @@ public final class TomlCfgReader {
                     case 'x' -> {
                         int codePoint = CfgUtil.readUnicode(input, 2);
                         if(!Character.isValidCodePoint(codePoint)) {
-                            throw new CfgException("Invalid code point: " + codePoint);
+                            throw new CfgException("invalid code point: " + codePoint);
                         }
                         if(codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
-                            throw new CfgException("Invalid surrogate code point: " + codePoint);
+                            throw new CfgException("invalid surrogate code point: " + codePoint);
                         }
                         CfgUtil.writeUnicodeInUtf8(output, codePoint);
                     }
                     case 'u' -> {
                         int codePoint = CfgUtil.readUnicode(input, 4);
                         if(!Character.isValidCodePoint(codePoint)) {
-                            throw new CfgException("Invalid code point: " + codePoint);
+                            throw new CfgException("invalid code point: " + codePoint);
                         }
                         if(codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
-                            throw new CfgException("Invalid surrogate code point: " + codePoint);
+                            throw new CfgException("invalid surrogate code point: " + codePoint);
                         }
                         CfgUtil.writeUnicodeInUtf8(output, codePoint);
                     }
                     case 'U' -> {
                         int codePoint = CfgUtil.readUnicode(input, 8);
                         if(!Character.isValidCodePoint(codePoint)) {
-                            throw new CfgException("Invalid code point: " + codePoint);
+                            throw new CfgException("invalid code point: " + codePoint);
                         }
                         if(codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
-                            throw new CfgException("Invalid surrogate code point: " + codePoint);
+                            throw new CfgException("invalid surrogate code point: " + codePoint);
                         }
                         CfgUtil.writeUnicodeInUtf8(output, codePoint);
                     }
-                    default -> throw new CfgException("Invalid escape sequence: " + b);
+                    default -> throw new CfgException("invalid escape sequence: " + b);
                 }
                 escaping = false;
             } else {

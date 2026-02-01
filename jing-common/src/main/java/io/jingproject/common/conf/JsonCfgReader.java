@@ -168,7 +168,7 @@ public final class JsonCfgReader {
                     case 'u' -> {
                         int codePoint = CfgUtil.readUnicode(input, 4);
                         if(!Character.isValidCodePoint(codePoint)) {
-                            throw new CfgException("Invalid code point: " + codePoint);
+                            throw new CfgException("invalid code point: " + codePoint);
                         }
                         if(codePoint instanceof char highSurrogate && Character.isHighSurrogate(highSurrogate)) {
                             CfgUtil.assume(input, '\\');
@@ -180,7 +180,7 @@ public final class JsonCfgReader {
                         }
                         CfgUtil.writeUnicodeInUtf8(output, codePoint);
                     }
-                    default -> throw new CfgException("Invalid escape sequence: " + b);
+                    default -> throw new CfgException("invalid escape sequence: " + b);
                 }
                 escaping = false;
             } else {

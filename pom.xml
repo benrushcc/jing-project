@@ -26,6 +26,8 @@
         <module>jing-log</module>
         <module>jing-net</module>
         <module>jing-bindings</module>
+        <module>jing-marshall</module>
+        <module>jing-marshall-processor</module>
     </modules>
 
     <properties>

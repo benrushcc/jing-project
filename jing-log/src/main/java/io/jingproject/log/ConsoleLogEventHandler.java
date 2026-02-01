@@ -12,23 +12,23 @@ import java.util.Map;
 public final class ConsoleLogEventHandler implements LogEventHandler {
     private static final LogBindings LOG_BINDINGS = SharedLibs.getImpl(LogBindings.class);
     private static final String IDEA_RUNTIME_TYPICAL_CLASS_NAME = "com.intellij.rt.compiler.JavacResourcesReader";
-    private static final Boolean USING_INTELLIJ_IDEA = checkIntellijIdeaEnvironment();
+    private static final boolean USING_INTELLIJ_IDEA = checkIntellijIdeaEnvironment();
 
     /**
      * Check if current environment is using IntelliJ IDEA, if so, the terminal support ansi color by default
      */
-    private static Boolean checkIntellijIdeaEnvironment() {
+    private static boolean checkIntellijIdeaEnvironment() {
         try {
             Class<?> _ = Class.forName(IDEA_RUNTIME_TYPICAL_CLASS_NAME);
         } catch (ClassNotFoundException e) {
-            return Boolean.FALSE;
+            return false;
         }
-        return Boolean.TRUE;
+        return true;
     }
 
-    private static Boolean checkAnsiColorEnabled() {
+    private static boolean checkAnsiColorEnabled() {
         if (USING_INTELLIJ_IDEA) {
-            return Boolean.TRUE;
+            return true;
         }
         switch (Os.current()) {
             case WINDOWS -> {
@@ -36,11 +36,11 @@ public final class ConsoleLogEventHandler implements LogEventHandler {
             }
             case LINUX, MACOS -> {
                 if (System.console() == null) {
-                    return Boolean.FALSE;
+                    return false;
                 }
                 return System.getenv("TERM") != null;
             }
-            default -> throw new AssertionError("Should never be reached");
+            default -> throw new AssertionError();
         }
     }
 

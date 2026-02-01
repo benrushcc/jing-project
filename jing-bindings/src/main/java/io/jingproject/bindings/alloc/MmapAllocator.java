@@ -61,7 +61,7 @@ public final class MmapAllocator implements Allocator {
     @Override
     public MemorySegment allocate(long byteSize, long byteAlignment) {
         if (scaleIndex == CLOSE_GUARD) {
-            throw new IllegalStateException("MmapAllocator already closed");
+            throw new IllegalStateException("mmapAllocator already closed");
         }
         if (scaleIndex == SCALE_GUARD) {
             scaleIndex = mmapSegment.scale();
@@ -82,7 +82,7 @@ public final class MmapAllocator implements Allocator {
     @Override
     public void close() {
         if (scaleIndex == CLOSE_GUARD) {
-            throw new IllegalStateException("MmapAllocator already closed");
+            throw new IllegalStateException("mmapAllocator already closed");
         }
         if (scaleIndex != SCALE_GUARD) {
             mmapSegment.unScale(scaleIndex);

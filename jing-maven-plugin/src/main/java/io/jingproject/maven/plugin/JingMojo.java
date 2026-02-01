@@ -134,13 +134,13 @@ public final class JingMojo extends AbstractMojo {
                 return i + 1;
             }
         }
-        throw new MojoFailureException("Invalid json structure");
+        throw new MojoFailureException("invalid json structure");
     }
 
     private static byte[] updateModuleInfoByteCodes(byte[] bytecodes, Map<String, Set<String>> data) throws MojoFailureException {
         ClassFile cf = ClassFile.of();
         ClassModel model = cf.parse(bytecodes);
-        ModuleAttribute currentAttribute = model.findAttribute(Attributes.module()).orElseThrow(() -> new MojoFailureException("Failed to get module attributes"));
+        ModuleAttribute currentAttribute = model.findAttribute(Attributes.module()).orElseThrow(() -> new MojoFailureException("failed to get module attributes"));
         List<ModuleProvideInfo> currentProvides = currentAttribute.provides();
         for (ModuleProvideInfo m : currentProvides) {
             if (data.containsKey(m.provides().asSymbol().displayName())) {

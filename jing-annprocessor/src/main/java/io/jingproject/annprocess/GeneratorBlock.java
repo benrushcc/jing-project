@@ -19,13 +19,13 @@ public final class GeneratorBlock {
 
     public GeneratorBlock indent() {
         int currentIndent = indent;
-        indent = Math.addExact(currentIndent, 1);
+        indent = Math.incrementExact(currentIndent);
         return this;
     }
 
     public GeneratorBlock unindent() {
         int currentIndent = indent;
-        indent = Math.subtractExact(currentIndent, 1);
+        indent = Math.decrementExact(currentIndent);
         return this;
     }
 

@@ -48,10 +48,10 @@ public final class Anchor {
      */
     public static <T1, T2> T2 assume(Class<T1> clazz, Class<T2> assumed) {
         if (!clazz.isInterface()) {
-            throw new IllegalArgumentException("Class " + clazz + " is not interface");
+            throw new IllegalArgumentException("class " + clazz + " is not interface");
         }
         if (clazz.isAssignableFrom(assumed)) {
-            throw new IllegalArgumentException("Class " + assumed + " is not a implementation");
+            throw new IllegalArgumentException("class " + assumed + " is not a implementation");
         }
         try {
             return assumed.cast(m.get(clazz));
@@ -76,7 +76,7 @@ public final class Anchor {
             created.set(true);
             T instance = supplier.get();
             if (instance == null) {
-                throw new LifecycleError("Failed to create instance");
+                throw new LifecycleError("failed to create instance");
             }
             return instance;
         });

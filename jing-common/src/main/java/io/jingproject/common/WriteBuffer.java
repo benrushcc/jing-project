@@ -11,6 +11,8 @@ public interface WriteBuffer {
 
     void writeBytes(byte b1, byte b2, byte b3);
 
+    void writeBytes(byte b1, byte b2, byte b3, byte b4);
+
     void writeBytes(byte[] bytes, int off, int len);
 
     default void writeBytes(byte[] bytes) {
@@ -62,13 +64,16 @@ public interface WriteBuffer {
         writeString(str, StandardCharsets.UTF_8);
     }
 
-    default void writeUtf8CodePoint(int codePoint) {
+    default void writeCodePointInUtf8(int codePoint) {
+        assert Character.isValidCodePoint(codePoint);
         if (codePoint < 0x80) {
             writeByte((byte) codePoint);
         } else if (codePoint < 0x800) {
             writeBytes((byte) (0xC0 | (codePoint >> 6)), (byte) (0x80 | (codePoint & 0x3F)));
-        } else {
+        } else if (codePoint < 0x10000) {
             writeBytes((byte) (0xE0 | (codePoint >> 12)), (byte) (0x80 | ((codePoint >> 6) & 0x3F)), (byte) (0x80 | (codePoint & 0x3F)));
+        } else {
+            writeBytes((byte) (0xF0 | (codePoint >> 18)), (byte) (0x80 | ((codePoint >> 12) & 0x3F)), (byte) (0x80 | ((codePoint >> 6) & 0x3F)), (byte) (0x80 | (codePoint & 0x3F)));
         }
     }
 

@@ -16,15 +16,15 @@ public final class EpollMux implements Mux {
     @Override
     public void init() {
         if (epfd == Integer.MIN_VALUE) {
-            throw new IllegalStateException("EpollMux already closed");
+            throw new IllegalStateException("epollMux already closed");
         }
         if (epfd > 0) {
-            throw new IllegalStateException("EpollMux already initialized");
+            throw new IllegalStateException("epollMux already initialized");
         }
         int v = EPOLL_BINDINGS.epollCreate();
         if (v < 0) {
             int err = Math.abs(v);
-            throw new ForeignException("Failed to create epoll instance, err : " + err);
+            throw new ForeignException("failed to create epoll instance, err : " + err);
         }
         epfd = v;
     }
@@ -57,16 +57,16 @@ public final class EpollMux implements Mux {
     @Override
     public void ctl(Descriptor descriptor, int from, int to, int data) {
         if (epfd == Integer.MIN_VALUE) {
-            throw new IllegalStateException("EpollMux already closed");
+            throw new IllegalStateException("epollMux already closed");
         }
         if (epfd == 0) {
-            throw new IllegalStateException("EpollMux not initialized");
+            throw new IllegalStateException("epollMux not initialized");
         }
         int op = getOp(from, to);
         int eventTypes = getEventTypes(op, to);
         int err = EPOLL_BINDINGS.epollCtl(epfd, descriptor.asInt(), op, eventTypes, data);
         if (err > 0) {
-            throw new ForeignException("Failed to ctl epoll instance, err : " + err);
+            throw new ForeignException("failed to ctl epoll instance, err : " + err);
         }
     }
 
@@ -85,7 +85,7 @@ public final class EpollMux implements Mux {
         }
         int err = SYS_POSIX_BINDINGS.posixClose(epfd);
         if (err > 0) {
-            throw new ForeignException("Failed to close epoll instance, err : " + err);
+            throw new ForeignException("failed to close epoll instance, err : " + err);
         }
     }
 }

@@ -84,7 +84,7 @@ public final class MallocAllocator implements Allocator {
     public MemorySegment allocate(long byteSize, long byteAlignment) {
         assert byteAlignment >= 1L && Long.bitCount(byteAlignment) == 1;
         if (addressArray == null) {
-            throw new IllegalStateException("MallocBumper already closed");
+            throw new IllegalStateException("mallocBumper already closed");
         }
         MemorySegment ptr;
         long storedAddr;
@@ -136,7 +136,7 @@ public final class MallocAllocator implements Allocator {
     @Override
     public void close() {
         if (addressArray == null) {
-            throw new IllegalStateException("MallocBumper already closed");
+            throw new IllegalStateException("mallocBumper already closed");
         }
         long count = Math.divideExact(addressIndex, ValueLayout.JAVA_LONG.byteSize());
         if (count > 0L) {

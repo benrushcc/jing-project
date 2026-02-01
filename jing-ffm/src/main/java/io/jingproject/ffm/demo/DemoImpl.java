@@ -29,7 +29,7 @@ public final class DemoImpl implements DemoFacade {
         try {
             Holder.MH.invokeExact();
         } catch (Throwable t) {
-            throw new RuntimeException("Failed to invoke empty method", t);
+            throw new RuntimeException("failed to invoke empty method", t);
         }
     }
 
@@ -43,7 +43,7 @@ public final class DemoImpl implements DemoFacade {
                 try {
                     CACHED = (int) MH.invokeExact();
                 } catch (Throwable e) {
-                    throw new RuntimeException("Failed to invoke constant method", e);
+                    throw new RuntimeException("failed to invoke constant method", e);
                 }
             }
         }
@@ -58,7 +58,7 @@ public final class DemoImpl implements DemoFacade {
         try {
             return (MemorySegment) Holder.MH.invokeExact(addr, size);
         } catch (Throwable t) {
-            throw new RuntimeException("Failed to invoke address method", t);
+            throw new RuntimeException("failed to invoke address method", t);
         }
     }
 }

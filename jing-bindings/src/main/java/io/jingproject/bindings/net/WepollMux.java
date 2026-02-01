@@ -15,15 +15,15 @@ public final class WepollMux implements Mux {
     @Override
     public void init() {
         if (epfd == null) {
-            throw new IllegalStateException("WepollMux already closed");
+            throw new IllegalStateException("wepollMux already closed");
         }
         if (epfd.address() != 0L) {
-            throw new IllegalStateException("WepollMux already initialized");
+            throw new IllegalStateException("wepollMux already initialized");
         }
         MemorySegment fd = WEPOLL_BINDINGS.wepollCreate();
         if (NativeSegmentAccess.isErrPtr(fd)) {
             int err = NativeSegmentAccess.errCode(fd);
-            throw new ForeignException("Failed to create wepoll instance, err : " + err);
+            throw new ForeignException("failed to create wepoll instance, err : " + err);
         }
         epfd = fd;
     }
@@ -56,16 +56,16 @@ public final class WepollMux implements Mux {
     @Override
     public void ctl(Descriptor descriptor, int from, int to, int data) {
         if (epfd == null) {
-            throw new IllegalStateException("WepollMux already closed");
+            throw new IllegalStateException("wepollMux already closed");
         }
         if (epfd.address() == 0L) {
-            throw new IllegalStateException("WepollMux not initialized");
+            throw new IllegalStateException("wepollMux not initialized");
         }
         int op = getOp(from, to);
         int eventTypes = getEventTypes(op, to);
         int err = WEPOLL_BINDINGS.wepollCtl(epfd, descriptor.asLong(), op, eventTypes, data);
         if (err > 0) {
-            throw new ForeignException("Failed to ctl wepoll instance, err : " + err);
+            throw new ForeignException("failed to ctl wepoll instance, err : " + err);
         }
     }
 
@@ -84,7 +84,7 @@ public final class WepollMux implements Mux {
         }
         int err = WEPOLL_BINDINGS.wepollClose(epfd);
         if (err != 0) {
-            throw new ForeignException("Failed to close wepoll instance, err : " + err);
+            throw new ForeignException("failed to close wepoll instance, err : " + err);
         }
     }
 }

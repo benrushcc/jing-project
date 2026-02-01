@@ -159,7 +159,7 @@ public final class MmapSegment implements AutoCloseable {
             scaleArray = Arrays.copyOf(scaleArray, Math.multiplyExact(currentScaleIndex, 2));
         }
         scaleArray[currentScaleIndex] = writeAddress;
-        scaleArrayIndex = Math.addExact(currentScaleIndex, 1);
+        scaleArrayIndex = Math.incrementExact(currentScaleIndex);
         return currentScaleIndex;
     }
 
@@ -179,7 +179,7 @@ public final class MmapSegment implements AutoCloseable {
         if (scaleArray == null) {
             throw new IllegalStateException("MmapSegment has never been scaled");
         }
-        if (scaleArrayIndex != Math.addExact(index, 1)) {
+        if (scaleArrayIndex != Math.incrementExact(index)) {
             throw new IllegalStateException("Corrupted scale index");
         }
         long lastWriteAddress = scaleArray[index];

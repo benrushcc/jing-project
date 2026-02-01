@@ -109,15 +109,15 @@ public final class FfmProcessor extends AbstractProcessor {
                     }
                 }
                 FfmData ffmData = new FfmData(t, f, d);
-                String implClassName = generateFFMImplSource(ffmData);
+                String implClassName = generateFfmImplSource(ffmData);
                 generateFFMProviderSource(ffmData, implClassName);
             } else {
-                throw new AnnotationProcessorException("Should never be reached");
+                throw new AssertionError();
             }
         }
     }
 
-    private String generateFFMImplSource(FfmData ffmData) {
+    private String generateFfmImplSource(FfmData ffmData) {
         GeneratorSource source = new GeneratorSource(processingEnv, ffmData.typeElement(), "LibImpl");
         String generatedClass = source.className();
         String targetClass = source.register(ffmData.typeElement());
@@ -168,7 +168,7 @@ public final class FfmProcessor extends AbstractProcessor {
                 }
                 b.addLine("static final " + returnType + " CACHED;").addLine("static {").indent()
                         .addLine("try {").indent().addLine("CACHED = (" + returnType + ") MH.invokeExact(" + shortParams + ");").unindent().addLine("} catch (Throwable t) {")
-                        .indent().addLine("throw new " + runtimeException + "(\"Failed to invoke " + methodName + " method\", t);").unindent().addLine("}")
+                        .indent().addLine("throw new " + runtimeException + "(\"failed to invoke " + methodName + " method\", t);").unindent().addLine("}")
                         .unindent().addLine("}").unindent().addLine("}").addLine("return Holder.CACHED;").unindent().addLine("}").newLine();
             } else {
                 String invokeStatement = "Holder.MH.invokeExact(" + shortParams + ");";
@@ -176,7 +176,7 @@ public final class FfmProcessor extends AbstractProcessor {
                     invokeStatement = "return (" + returnType + ") " + invokeStatement;
                 }
                 b.unindent().addLine("}").addLine("try {").indent().addLine(invokeStatement)
-                        .unindent().addLine("} catch (Throwable t) {").indent().addLine("throw new " + runtimeException + "(\"Failed to invoke " + methodName + " method\", t);")
+                        .unindent().addLine("} catch (Throwable t) {").indent().addLine("throw new " + runtimeException + "(\"failed to invoke " + methodName + " method\", t);")
                         .unindent().addLine("}").unindent().addLine("}").newLine();
             }
             blocks.add(b);

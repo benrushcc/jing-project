@@ -26,7 +26,7 @@ public final class GeneratorSource {
         ModuleElement moduleElement = elm.getModuleOf(el);
         PackageElement packageElement = elm.getPackageOf(el);
         if (moduleElement.isUnnamed() || elm.isAutomaticModule(moduleElement)) {
-            throw new RuntimeException("ModuleElement cannot be unnamed or automatic");
+            throw new RuntimeException("moduleElement cannot be unnamed or automatic");
         }
         sourceModuleName = moduleElement.getQualifiedName().toString();
         sourcePackageName = packageElement.getQualifiedName().toString();
@@ -51,13 +51,13 @@ public final class GeneratorSource {
         } else if (typeMirror.getKind().isPrimitive()) {
             return typeMirror.toString();
         } else {
-            throw new RuntimeException("Unsupported type " + typeMirror);
+            throw new RuntimeException("unsupported type " + typeMirror);
         }
     }
 
     public String register(TypeElement typeElement) {
         if (typeElement.getNestingKind() != NestingKind.TOP_LEVEL) {
-            throw new RuntimeException("Registered element must be top-level : " + typeElement.getSimpleName());
+            throw new RuntimeException("registered element must be top-level : " + typeElement.getSimpleName());
         }
         String packageName = env.getElementUtils().getPackageOf(typeElement).getQualifiedName().toString();
         String fullName = typeElement.getQualifiedName().toString();
@@ -67,7 +67,7 @@ public final class GeneratorSource {
 
     public String register(Class<?> clazz) {
         if (clazz.isMemberClass()) {
-            throw new RuntimeException("Registered class must be top-level : " + clazz.getSimpleName());
+            throw new RuntimeException("registered class must be top-level : " + clazz.getSimpleName());
         }
         String packageName = clazz.getPackageName();
         String fullName = clazz.getName();
@@ -120,7 +120,7 @@ public final class GeneratorSource {
                 writer.flush();
             }
         } catch (IOException e) {
-            throw new AnnotationProcessorException("Failed to write to filer", e);
+            throw new AnnotationProcessorException("failed to write to filer", e);
         }
     }
 }

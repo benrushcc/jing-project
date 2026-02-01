@@ -24,7 +24,7 @@ public final class CfgUtil {
             throw new CfgException("EOF reached");
         }
         if(b != target) {
-            throw new CfgException("Invalid target, assumed: " + target + " actual: " + b);
+            throw new CfgException("invalid target, assumed: " + target + " actual: " + b);
         }
     }
 
@@ -99,7 +99,7 @@ public final class CfgUtil {
         }
         for (byte b : content) {
             if(rejectKey(b) && b != (byte) '.') {
-                throw new CfgException("Invalid key byte: " + b);
+                throw new CfgException("invalid key byte: " + b);
             }
         }
         List<String> r = new ArrayList<>();
@@ -107,7 +107,7 @@ public final class CfgUtil {
         for(int i = 0; i < content.length; i++) {
             if(content[i] == '.') {
                 if(i == start) {
-                    throw new CfgException("Invalid consecutive delimiters");
+                    throw new CfgException("invalid consecutive delimiters");
                 }
                 r.add(new String(content, start, i - start, StandardCharsets.US_ASCII));
                 if(r.size() > MAX_DEPTH) {
@@ -123,7 +123,7 @@ public final class CfgUtil {
             }
             return r;
         }
-        throw new CfgException("Invalid delimiters");
+        throw new CfgException("invalid delimiters");
     }
 
     public static int readUnicode(InputStream input, int len) throws IOException {
@@ -154,7 +154,7 @@ public final class CfgUtil {
 
     public static void writeUnicodeInUtf8(ByteArrayOutputStream out, int codePoint) {
         if (!Character.isValidCodePoint(codePoint)) {
-            throw new CfgException("Invalid code point: " + codePoint);
+            throw new CfgException("invalid code point: " + codePoint);
         }
         if (codePoint < 0x80) {
             out.write(codePoint);

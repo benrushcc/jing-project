@@ -77,10 +77,10 @@ public final class ProviderProcessor extends AbstractProcessor {
                 }
                 writer.write("}\n");
             } catch (IOException e) {
-                throw new AnnotationProcessorException("Failed to open writer", e);
+                throw new AnnotationProcessorException("failed to open writer", e);
             }
         } catch (IOException e) {
-            throw new AnnotationProcessorException("Failed to write json configuration file", e);
+            throw new AnnotationProcessorException("failed to write json configuration file", e);
         } finally {
             lock.unlock();
         }
@@ -91,10 +91,10 @@ public final class ProviderProcessor extends AbstractProcessor {
         for (Element element : elements) {
             if (element instanceof TypeElement t) {
                 if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
-                    throw new AnnotationProcessorException("Only top level element can be annotated with @Provider");
+                    throw new AnnotationProcessorException("only top level element can be annotated with @Provider");
                 }
                 if (!t.getModifiers().contains(Modifier.FINAL)) {
-                    throw new AnnotationProcessorException("Only final element can be annotated with @Provider");
+                    throw new AnnotationProcessorException("only final element can be annotated with @Provider");
                 }
                 String targetInterfaceName;
                 try {
@@ -104,7 +104,7 @@ public final class ProviderProcessor extends AbstractProcessor {
                     if (mirror instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement typeElement) {
                         targetInterfaceName = typeElement.getQualifiedName().toString();
                     } else {
-                        throw new AnnotationProcessorException("Should never be reached");
+                        throw new AssertionError();
                     }
                 }
                 String targetProviderName = t.getQualifiedName().toString();
@@ -115,7 +115,7 @@ public final class ProviderProcessor extends AbstractProcessor {
                     lock.unlock();
                 }
             } else {
-                throw new AnnotationProcessorException("Should never be reached");
+                throw new AssertionError();
             }
         }
     }

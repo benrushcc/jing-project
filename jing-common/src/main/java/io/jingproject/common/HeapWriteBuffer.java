@@ -9,7 +9,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeByte(byte b) {
-        int nextPosition = Math.addExact(position, 1);
+        int nextPosition = Math.addExact(position, Byte.BYTES);
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
@@ -19,7 +19,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeBytes(byte b1, byte b2) {
-        int nextPosition = Math.addExact(position, 2);
+        int nextPosition = Math.addExact(position, Math.multiplyExact(2, Byte.BYTES));
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
@@ -30,13 +30,26 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeBytes(byte b1, byte b2, byte b3) {
-        int nextPosition = Math.addExact(position, 3);
+        int nextPosition = Math.addExact(position, Math.multiplyExact(3, Byte.BYTES));
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
         buffer[position] = b1;
         buffer[position + 1] = b2;
         buffer[position + 2] = b3;
+        position = nextPosition;
+    }
+
+    @Override
+    public void writeBytes(byte b1, byte b2, byte b3, byte b4) {
+        int nextPosition = Math.addExact(position, Math.multiplyExact(4, Byte.BYTES));
+        if (nextPosition > buffer.length) {
+            buffer = Arrays.copyOf(buffer, buffer.length << 1);
+        }
+        buffer[position] = b1;
+        buffer[position + 1] = b2;
+        buffer[position + 2] = b3;
+        buffer[position + 3] = b4;
         position = nextPosition;
     }
 

@@ -1,6 +1,8 @@
 package io.jingproject.ffm;
 
 import io.jingproject.common.Os;
+import io.jingproject.common.anno.ProcessorApi;
+import io.jingproject.common.anno.ProcessorMethod;
 
 import java.io.File;
 import java.lang.foreign.*;
@@ -12,6 +14,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+@ProcessorApi
 public final class SharedLibs {
 
     private static final List<String> SEARCH_PATH = createSearchPath();
@@ -19,7 +22,7 @@ public final class SharedLibs {
     /**
      * Critical path could be disabled globally to ensure safepoint is always checked on each downcall
      */
-    private static final Boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
+    private static final boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
 
     private static List<String> createSearchPath() {
         List<String> r = new ArrayList<>();
@@ -117,6 +120,7 @@ public final class SharedLibs {
         return segment;
     }
 
+    @ProcessorMethod
     public static MethodHandle getMethodHandleFromLib(String libName, String functionName, FunctionDescriptor descriptor, boolean critical) {
         if (libName.equals(FFM.VM)) {
             return getMethodHandleFromVM(functionName, descriptor, critical);

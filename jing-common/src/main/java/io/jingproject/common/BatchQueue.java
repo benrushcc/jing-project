@@ -51,7 +51,7 @@ public final class BatchQueue<T> {
                 tail = t;
             }
             t.elements[index] = element;
-            t.index = Math.addExact(index, 1);
+            t.index = Math.incrementExact(index);
         } finally {
             lock.unlock();
         }

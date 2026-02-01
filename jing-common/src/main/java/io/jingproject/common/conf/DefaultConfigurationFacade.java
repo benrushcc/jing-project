@@ -30,7 +30,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
         CfgObject r = null;
         for(String ext : fileExts) {
             if(!SUPPORTED_FILE_EXT.contains(fileExt)) {
-                throw new CfgException("Unsupported configuration file extension: " + ext);
+                throw new CfgException("unsupported configuration file extension: " + ext);
             }
             String fullName = fileName + "." + ext;
             InputStream rawStream = Thread.currentThread()
@@ -52,7 +52,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
             }
         }
         if (r == null) {
-            throw new CfgException("Configuration file not found, filename : " + fileName + " , exts: " + fileExts);
+            throw new CfgException("configuration file not found, filename : " + fileName + " , exts: " + fileExts);
         }
         return r;
     }
@@ -62,7 +62,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
         CfgObject cfgObject = getConfiguration();
         List<String> nestedkeys = CfgUtil.readCfgNestedKey(key.getBytes(StandardCharsets.UTF_8));
         switch (nestedkeys.size()) {
-            case 0 -> throw new CfgException("Invalid key: " + key);
+            case 0 -> throw new CfgException("invalid key: " + key);
             case 1 -> {
                 Cfg cfg = cfgObject.value().get(nestedkeys.getLast());
                 if(cfg == null) {
@@ -71,7 +71,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
                 if(cfg instanceof CfgItem(String value)) {
                     return value;
                 }
-                throw new CfgException("Invalid key : " + key + ", type : " + cfg.type());
+                throw new CfgException("invalid key : " + key + ", type : " + cfg.type());
             }
             default -> {
                 CfgObject current = cfgObject;
@@ -83,7 +83,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
                     if(cfg instanceof CfgObject co) {
                         current = co;
                     } else {
-                        throw new CfgException("Invalid key : " + key + ", current nested key: " + nestedKey + ", type : " + cfg.type());
+                        throw new CfgException("invalid key : " + key + ", current nested key: " + nestedKey + ", type : " + cfg.type());
                     }
                 }
                 Cfg cfg = current.value().get(nestedkeys.getLast());
@@ -93,7 +93,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
                 if(cfg instanceof CfgItem(String value)) {
                     return value;
                 }
-                throw new CfgException("Invalid key : " + key + ", type : " + cfg.type());
+                throw new CfgException("invalid key : " + key + ", type : " + cfg.type());
             }
         }
     }
@@ -103,7 +103,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
         CfgObject cfgObject = getConfiguration();
         List<String> nestedkeys = CfgUtil.readCfgNestedKey(key.getBytes(StandardCharsets.UTF_8));
         switch (nestedkeys.size()) {
-            case 0 -> throw new CfgException("Invalid key: " + key);
+            case 0 -> throw new CfgException("invalid key: " + key);
             case 1 -> {
                 Cfg cfg = cfgObject.value().get(nestedkeys.getLast());
                 if(cfg == null) {
@@ -112,7 +112,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
                 if(cfg instanceof CfgList(List<String> value)) {
                     return value;
                 }
-                throw new CfgException("Invalid key : " + key + ", type : " + cfg.type());
+                throw new CfgException("invalid key : " + key + ", type : " + cfg.type());
             }
             default -> {
                 CfgObject current = cfgObject;
@@ -124,7 +124,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
                     if(cfg instanceof CfgObject co) {
                         current = co;
                     } else {
-                        throw new CfgException("Invalid key : " + key + ", current nested key: " + nestedKey + ", type : " + cfg.type());
+                        throw new CfgException("invalid key : " + key + ", current nested key: " + nestedKey + ", type : " + cfg.type());
                     }
                 }
                 Cfg cfg = current.value().get(nestedkeys.getLast());
@@ -134,7 +134,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
                 if(cfg instanceof CfgList(List<String> value)) {
                     return value;
                 }
-                throw new CfgException("Invalid key : " + key + ", type : " + cfg.type());
+                throw new CfgException("invalid key : " + key + ", type : " + cfg.type());
             }
         }
     }

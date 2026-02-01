@@ -17,7 +17,7 @@ public final class NativeSegmentAccess {
         throw new UnsupportedOperationException("utility class");
     }
 
-    private static final Boolean JING_REMOVE_BOUNDARY_CHECKING = Boolean.getBoolean("JING_REMOVE_BOUNDARY_CHECKING");
+    private static final boolean JING_REMOVE_BOUNDARY_CHECKING = Boolean.getBoolean("JING_REMOVE_BOUNDARY_CHECKING");
 
     /**
      * Address is unsigned, so we can not represent raw address larger than Long.MAX_VALUE,
