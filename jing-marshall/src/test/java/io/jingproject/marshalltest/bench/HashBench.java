@@ -18,21 +18,22 @@ import java.util.zip.CRC32;
 @Measurement(iterations = 3, time = 800, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(8)
+@Fork(3)
 public class HashBench {
 
-    @Param({"64", "1024", "16384"})
+    @Param({"4", "8", "16"})
     private int size;
 
     private byte[] buffer;
 
-    private CRC32 crc32 = new CRC32();
+    private final CRC32 crc32 = new CRC32();
 
     @Setup
     public void setup() {
         buffer = new byte[size];
         ThreadLocalRandom random = ThreadLocalRandom.current();
         random.nextBytes(buffer);
+        crc32.reset();
     }
 
     @Benchmark
@@ -41,15 +42,15 @@ public class HashBench {
     }
 
     @Benchmark
-    public void vectorArrayHash(Blackhole bh) {
-        bh.consume(MarshallUtil.hashCodeSIMD(buffer));
-    }
-
-    @Benchmark
     public void crc32ArrayHash(Blackhole bh) {
         crc32.update(buffer);
         bh.consume(crc32.getValue());
         crc32.reset();
+    }
+
+    @Benchmark
+    public void simpleArrayHash(Blackhole bh) {
+        bh.consume(MarshallUtil.hash(buffer, 0, buffer.length));
     }
 
     @Benchmark
