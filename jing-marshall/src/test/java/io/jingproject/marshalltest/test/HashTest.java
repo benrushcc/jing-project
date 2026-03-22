@@ -44,7 +44,7 @@ public class HashTest {
         int maxCollisions = -1;
         for(int i = 0; i < BATCH; i++) {
             List<byte[]> bytes = generateRandomBytes(elements);
-            int collisions = HashUtil.checkLengthHashUsability(bytes);
+            int collisions = HashUtil.lengthHashCollisions(bytes);
             if(collisions > maxCollisions) {
                 maxCollisions = collisions;
             }
@@ -62,7 +62,7 @@ public class HashTest {
         int maxCollisions = -1;
         for(int i = 0; i < BATCH; i++) {
             List<byte[]> bytes = generateRandomBytes(elements);
-            int collisions = HashUtil.checkFirstByteHashUsability(bytes);
+            int collisions = HashUtil.firstByteHashCollisions(bytes);
             if(collisions > maxCollisions) {
                 maxCollisions = collisions;
             }

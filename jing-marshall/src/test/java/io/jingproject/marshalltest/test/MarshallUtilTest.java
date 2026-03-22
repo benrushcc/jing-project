@@ -17,7 +17,7 @@ public class MarshallUtilTest {
             String str = String.valueOf(i);
             MemorySegment seg = MemorySegment.ofArray(str.getBytes(StandardCharsets.UTF_8));
             byte b = MarshallUtil.parseByte(seg, 0L, seg.byteSize());
-            Assertions.assertEquals(i, b, () -> "parse byte failed");
+            Assertions.assertEquals(i, b, "parse byte failed");
         }
     }
 
@@ -32,9 +32,7 @@ public class MarshallUtilTest {
 
         for (String str : overflowValues) {
             MemorySegment seg = MemorySegment.ofArray(str.getBytes(StandardCharsets.UTF_8));
-            Assertions.assertThrows(ArithmeticException.class, () -> {
-                MarshallUtil.parseByte(seg, 0L, seg.byteSize());
-            }, () -> "parse byte should overflow for: " + str);
+            Assertions.assertThrows(ArithmeticException.class, () -> MarshallUtil.parseByte(seg, 0L, seg.byteSize()), () -> "parse byte should overflow for: " + str);
         }
     }
 
@@ -44,7 +42,7 @@ public class MarshallUtilTest {
             String str = String.valueOf(i);
             MemorySegment seg = MemorySegment.ofArray(str.getBytes(StandardCharsets.UTF_8));
             short s = MarshallUtil.parseShort(seg, 0L, seg.byteSize());
-            Assertions.assertEquals(i, s, () -> "parse short failed");
+            Assertions.assertEquals(i, s, "parse short failed");
         }
     }
 
@@ -59,9 +57,7 @@ public class MarshallUtilTest {
 
         for (String str : overflowValues) {
             MemorySegment seg = MemorySegment.ofArray(str.getBytes(StandardCharsets.UTF_8));
-            Assertions.assertThrows(ArithmeticException.class, () -> {
-                MarshallUtil.parseShort(seg, 0L, seg.byteSize());
-            }, () -> "parse short should overflow for: " + str);
+            Assertions.assertThrows(ArithmeticException.class, () -> MarshallUtil.parseShort(seg, 0L, seg.byteSize()), () -> "parse short should overflow for: " + str);
         }
     }
 
@@ -106,9 +102,7 @@ public class MarshallUtilTest {
 
         for (String str : overflowValues) {
             MemorySegment seg = MemorySegment.ofArray(str.getBytes(StandardCharsets.UTF_8));
-            Assertions.assertThrows(ArithmeticException.class, () -> {
-                MarshallUtil.parseInt(seg, 0L, seg.byteSize());
-            }, () -> "parse int should overflow for: " + str);
+            Assertions.assertThrows(ArithmeticException.class, () -> MarshallUtil.parseInt(seg, 0L, seg.byteSize()), () -> "parse int should overflow for: " + str);
         }
     }
 
@@ -155,9 +149,7 @@ public class MarshallUtilTest {
 
         for (String str : overflowValues) {
             MemorySegment seg = MemorySegment.ofArray(str.getBytes(StandardCharsets.UTF_8));
-            Assertions.assertThrows(ArithmeticException.class, () -> {
-                MarshallUtil.parseLong(seg, 0L, seg.byteSize());
-            }, () -> "parse long should overflow for: " + str);
+            Assertions.assertThrows(ArithmeticException.class, () -> MarshallUtil.parseLong(seg, 0L, seg.byteSize()), () -> "parse long should overflow for: " + str);
         }
     }
 }

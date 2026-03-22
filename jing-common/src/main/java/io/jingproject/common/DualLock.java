@@ -1,5 +1,7 @@
 package io.jingproject.common;
 
+import io.jingproject.common.anno.Fragile;
+
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.Objects;
@@ -23,6 +25,7 @@ import java.util.concurrent.locks.LockSupport;
  *
  * @param <T> The type of Record to be wrapped
  */
+@Fragile
 public final class DualLock<T extends Record> {
     /**
      * Maximum spin count before parking a contending thread.

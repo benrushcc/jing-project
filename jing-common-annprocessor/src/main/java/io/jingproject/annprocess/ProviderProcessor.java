@@ -31,7 +31,7 @@ public final class ProviderProcessor extends AbstractProcessor {
 
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        return Set.of(Provider.class.getCanonicalName());
+        return Set.of(io.jingproject.common.anno.Provider.class.getCanonicalName());
     }
 
     @Override
@@ -87,7 +87,7 @@ public final class ProviderProcessor extends AbstractProcessor {
     }
 
     private void processSpiData(RoundEnvironment roundEnv) {
-        Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(Provider.class);
+        Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(io.jingproject.common.anno.Provider.class);
         for (Element element : elements) {
             if (element instanceof TypeElement t) {
                 if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
@@ -98,7 +98,7 @@ public final class ProviderProcessor extends AbstractProcessor {
                 }
                 String targetInterfaceName;
                 try {
-                    targetInterfaceName = Objects.requireNonNull(t.getAnnotation(Provider.class)).target().getCanonicalName();
+                    targetInterfaceName = Objects.requireNonNull(t.getAnnotation(io.jingproject.common.anno.Provider.class)).target().getCanonicalName();
                 } catch (MirroredTypeException mte) {
                     TypeMirror mirror = mte.getTypeMirror();
                     if (mirror instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement typeElement) {

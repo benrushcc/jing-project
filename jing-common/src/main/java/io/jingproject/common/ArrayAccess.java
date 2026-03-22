@@ -5,6 +5,15 @@ import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 
 public final class ArrayAccess {
+
+    static {
+        try {
+            Class<?> _ = MethodHandles.lookup().ensureInitialized(Os.class);
+        } catch (IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     private ArrayAccess() {
         throw new UnsupportedOperationException("utility class");
     }

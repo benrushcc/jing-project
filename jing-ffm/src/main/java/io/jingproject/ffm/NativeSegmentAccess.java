@@ -1,13 +1,23 @@
 package io.jingproject.ffm;
 
+import io.jingproject.common.Os;
+
 import java.lang.foreign.*;
-import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 
 /**
  * Utility class for accessing native memorySegment and VM native functions TODO 绝大部分方法都是过度设计，可以直接砍掉
  */
 public final class NativeSegmentAccess {
+
+    static {
+        try {
+            Class<?> _ = MethodHandles.lookup().ensureInitialized(Os.class);
+        } catch (IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     /**
      * Private constructor to prevent instantiation.

@@ -1,5 +1,7 @@
 package io.jingproject.annprocess;
 
+import io.jingproject.common.Utils;
+
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.*;
 import javax.lang.model.type.*;
@@ -30,7 +32,7 @@ public final class GeneratorSource {
         }
         sourceModuleName = moduleElement.getQualifiedName().toString();
         sourcePackageName = packageElement.getQualifiedName().toString();
-        sourceClassName = "_" + el.getSimpleName() + "$$" + tag;
+        sourceClassName = Utils.generateClassName(el.getSimpleName().toString(), tag);
     }
 
     public String className() {

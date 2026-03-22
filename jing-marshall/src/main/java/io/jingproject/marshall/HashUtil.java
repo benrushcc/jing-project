@@ -10,7 +10,7 @@ public final class HashUtil {
         throw new AssertionError();
     }
 
-    public static int checkLengthHashUsability(List<byte[]> bytes) {
+    public static int lengthHashCollisions(List<byte[]> bytes) {
         Set<Integer> hashes = new HashSet<>();
         int collisions = 0;
         for (byte[] b : bytes) {
@@ -21,7 +21,7 @@ public final class HashUtil {
         return collisions;
     }
 
-    public static int checkFirstByteHashUsability(List<byte[]> bytes) {
+    public static int firstByteHashCollisions(List<byte[]> bytes) {
         Set<Integer> hashes = new HashSet<>();
         int collisions = 0;
         for (byte[] b : bytes) {

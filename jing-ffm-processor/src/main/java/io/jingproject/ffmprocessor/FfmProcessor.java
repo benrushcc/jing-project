@@ -3,7 +3,7 @@ package io.jingproject.ffmprocessor;
 import io.jingproject.annprocess.AnnotationProcessorException;
 import io.jingproject.annprocess.GeneratorBlock;
 import io.jingproject.annprocess.GeneratorSource;
-import io.jingproject.annprocess.Provider;
+import io.jingproject.common.anno.Provider;
 import io.jingproject.common.Os;
 import io.jingproject.ffm.Downcall;
 import io.jingproject.ffm.FFM;

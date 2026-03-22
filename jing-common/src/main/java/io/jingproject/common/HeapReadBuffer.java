@@ -1,10 +1,19 @@
 package io.jingproject.common;
 
 import java.lang.foreign.MemorySegment;
+import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 
 public final class HeapReadBuffer implements ReadBuffer {
+
+    static {
+        try {
+            Class<?> _ = MethodHandles.lookup().ensureInitialized(Os.class);
+        } catch (IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     private final byte[] buffer;
     private int position;

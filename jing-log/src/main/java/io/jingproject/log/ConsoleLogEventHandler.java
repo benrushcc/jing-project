@@ -1,10 +1,7 @@
 package io.jingproject.log;
 
-import io.jingproject.common.ConfigurationFactory;
 import io.jingproject.common.Os;
 import io.jingproject.ffm.SharedLibs;
-
-import java.util.Map;
 
 /**
  * ConsoleLogEventHandler is designed to output logs to stdout and stderr
@@ -15,7 +12,7 @@ public final class ConsoleLogEventHandler implements LogEventHandler {
     private static final boolean USING_INTELLIJ_IDEA = checkIntellijIdeaEnvironment();
 
     /**
-     * Check if current environment is using IntelliJ IDEA, if so, the terminal support ansi color by default
+     * Check if current runtime environment is IntelliJ IDEA IDE, if so, the terminal support ansi color by default
      */
     private static boolean checkIntellijIdeaEnvironment() {
         try {

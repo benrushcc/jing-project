@@ -1,5 +1,5 @@
 module jing.ffmprocessor {
-    requires transitive jing.annprocessor;
+    requires transitive jing.common.annprocessor;
     requires transitive jing.ffm;
     requires transitive java.compiler;
 
