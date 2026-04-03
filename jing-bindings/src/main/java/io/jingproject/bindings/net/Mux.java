@@ -1,9 +1,11 @@
 package io.jingproject.bindings.net;
 
 import io.jingproject.common.Descriptor;
+import io.jingproject.common.anno.Fragile;
 
 import java.lang.foreign.MemorySegment;
 
+@Fragile
 public interface Mux {
     int MUX_NONE_FLAG = 0x0000;
     int MUX_READABLE_FLAG = 0x0001;

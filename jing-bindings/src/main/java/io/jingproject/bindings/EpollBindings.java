@@ -4,8 +4,6 @@ import io.jingproject.common.Os;
 import io.jingproject.ffm.Downcall;
 import io.jingproject.ffm.FFM;
 
-import java.lang.foreign.MemorySegment;
-
 @FFM(libraryName = "jing", supportedOS = Os.LINUX)
 public interface EpollBindings {
     @Downcall(methodName = "jing_epoll_in", constant = true, critical = true)

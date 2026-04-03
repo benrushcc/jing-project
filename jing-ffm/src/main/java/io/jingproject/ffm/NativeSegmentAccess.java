@@ -7,13 +7,13 @@ import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 
 /**
- * Utility class for accessing native memorySegment and VM native functions TODO 绝大部分方法都是过度设计，可以直接砍掉
+ * Utility class for accessing native memorySegment and VM native functions TODO 绝大部分方法都是过度设计，可以直接砍掉，目前先把一部分访问逻辑拆分到SegmentAccess
  */
 public final class NativeSegmentAccess {
 
     static {
         try {
-            Class<?> _ = MethodHandles.lookup().ensureInitialized(Os.class);
+            Class<Os> _ = MethodHandles.lookup().ensureInitialized(Os.class);
         } catch (IllegalAccessException e) {
             throw new ExceptionInInitializerError(e);
         }

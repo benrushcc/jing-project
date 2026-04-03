@@ -9,7 +9,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
 
     static {
         try {
-            Class<?> _ = MethodHandles.lookup().ensureInitialized(Os.class);
+            Class<Os> _ = MethodHandles.lookup().ensureInitialized(Os.class);
         } catch (IllegalAccessException e) {
             throw new ExceptionInInitializerError(e);
         }

@@ -7,7 +7,6 @@ import java.lang.foreign.MemorySegment;
 
 public final class RecordEntityMarshallImpl implements MarshallFacade {
 
-
     @Override
     public int totalElements() {
         return 4;
@@ -39,22 +38,12 @@ public final class RecordEntityMarshallImpl implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo elementInfoByUtf8Bytes(byte[] bytes) {
-        return null;
-    }
-
-    @Override
     public MarshallInfo elementInfoByUtf8Bytes(byte[] bytes, int offset, int len) {
         return null;
     }
 
     @Override
-    public MarshallInfo elementInfoBySegment(MemorySegment segment) {
-        return null;
-    }
-
-    @Override
-    public MarshallInfo elementInfoBySegment(MemorySegment segment, long offset, long len) {
+    public MarshallInfo elementInfoByUtf8Segment(MemorySegment segment, long offset, long len) {
         return null;
     }
 }
