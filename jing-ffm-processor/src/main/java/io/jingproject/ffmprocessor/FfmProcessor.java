@@ -3,12 +3,12 @@ package io.jingproject.ffmprocessor;
 import io.jingproject.annprocess.AnnotationProcessorException;
 import io.jingproject.annprocess.GeneratorBlock;
 import io.jingproject.annprocess.GeneratorSource;
-import io.jingproject.common.anno.Provider;
 import io.jingproject.common.Os;
+import io.jingproject.common.anno.Provider;
 import io.jingproject.ffm.Downcall;
 import io.jingproject.ffm.FFM;
-import io.jingproject.ffm.SharedLib;
-import io.jingproject.ffm.SharedLibs;
+import io.jingproject.ffm.LibFacade;
+import io.jingproject.ffm.Libs;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -54,21 +54,6 @@ public final class FfmProcessor extends AbstractProcessor {
         return true;
     }
 
-    record FfmData(
-            TypeElement typeElement,
-            FFM ffm,
-            List<DowncallData> downcallDataList
-    ) {
-
-    }
-
-    record DowncallData(
-            ExecutableElement executableElement,
-            Downcall downcall
-    ) {
-
-    }
-
     private void processFFM(RoundEnvironment roundEnv) {
         for (Element element : roundEnv.getElementsAnnotatedWith(FFM.class)) {
             if (element instanceof TypeElement t) {
@@ -110,7 +95,7 @@ public final class FfmProcessor extends AbstractProcessor {
                 }
                 FfmData ffmData = new FfmData(t, f, d);
                 String implClassName = generateFfmImplSource(ffmData);
-                generateFFMProviderSource(ffmData, implClassName);
+                generateFfmFacade(ffmData, implClassName);
             } else {
                 throw new AssertionError();
             }
@@ -128,10 +113,10 @@ public final class FfmProcessor extends AbstractProcessor {
         String atomicBoolean = source.register(AtomicBoolean.class);
         String illegalStateException = source.register(IllegalStateException.class);
         blocks.add(new GeneratorBlock()
-                .addLine("private static final " + atomicBoolean + " FFM_PROVIDER_INSTANCE_CREATED = new " + atomicBoolean + "(false);")
+                .addLine("private static final " + atomicBoolean + " FFM_IMPL_INSTANCE_CREATED = new " + atomicBoolean + "(false);")
                 .newLine()
                 .addLine("public " + generatedClass + "() {")
-                .indent().addLine("if(!FFM_PROVIDER_INSTANCE_CREATED.compareAndSet(false, true)) {")
+                .indent().addLine("if(!FFM_IMPL_INSTANCE_CREATED.compareAndSet(false, true)) {")
                 .indent().addLine("throw new " + illegalStateException + "(\"" + generatedClass + " instance has already been created\");")
                 .unindent().addLine("}").unindent().addLine("}").newLine());
         String memorySegment = source.register(MemorySegment.class);
@@ -152,12 +137,12 @@ public final class FfmProcessor extends AbstractProcessor {
             } else {
                 p3 = functionDescriptor + ".of(" + Stream.concat(Stream.of(ex.getReturnType()), parameters.stream().map(VariableElement::asType)).map(v -> castValueLayout(valueLayout, v)).collect(Collectors.joining(", ")) + ")";
             }
-            String mh = String.join(", ", p1, p2, p3, downcallData.downcall().critical() ? "true" : "false");
+            String mh = String.join(", ", p1, p2, p3, Boolean.toString(downcallData.downcall().critical()));
             String methodHandle = source.register(MethodHandle.class);
-            String sharedLibs = source.register(SharedLibs.class);
+            String libs = source.register(Libs.class);
             GeneratorBlock b = new GeneratorBlock().addLine("@Override").addLine("public " + returnType + " " + methodName + "(" + fullParams + ") {")
                     .indent().addLine("class Holder {").indent()
-                    .addLine("static final " + methodHandle + " MH = " + sharedLibs + ".getMethodHandleFromLib(" + mh + ");");
+                    .addLine("static final " + methodHandle + " MH = " + libs + ".getMethodHandleFromLib(" + mh + ");");
             String runtimeException = source.register(RuntimeException.class);
             if (downcallData.downcall().constant()) {
                 if (!parameters.isEmpty()) {
@@ -201,7 +186,7 @@ public final class FfmProcessor extends AbstractProcessor {
                 if (processingEnv.getTypeUtils().isSameType(type, memorySegmentType)) {
                     yield memorySegment;
                 }
-                throw new UnsupportedOperationException("Unsupported type: " + type);
+                throw new UnsupportedOperationException("Unsupported declared type: " + type);
             }
             default -> throw new UnsupportedOperationException("Unsupported type: " + type);
         };
@@ -220,30 +205,30 @@ public final class FfmProcessor extends AbstractProcessor {
                 if (processingEnv.getTypeUtils().isSameType(type, memorySegmentType)) {
                     yield valueLayout + ".ADDRESS";
                 }
-                throw new UnsupportedOperationException("Unsupported type: " + type);
+                throw new UnsupportedOperationException("Unsupported declared type: " + type);
             }
             default -> throw new UnsupportedOperationException("Unsupported type: " + type);
         };
     }
 
-    private void generateFFMProviderSource(FfmData ffmData, String implClassName) {
-        GeneratorSource source = new GeneratorSource(processingEnv, ffmData.typeElement(), "LibProvider");
+    private void generateFfmFacade(FfmData ffmData, String implClassName) {
+        GeneratorSource source = new GeneratorSource(processingEnv, ffmData.typeElement(), "LibFacade");
         String provider = source.register(Provider.class);
         String targetClass = source.register(ffmData.typeElement());
         String generatedClass = source.className();
-        String sharedLib = source.register(SharedLib.class);
+        String libFacade = source.register(LibFacade.class);
         List<GeneratorBlock> blocks = new ArrayList<>();
         blocks.add(new GeneratorBlock()
                 .addLine("@" + provider + "(target = " + targetClass + ".class)")
-                .addLine("public final class " + generatedClass + " implements " + sharedLib + " {")
+                .addLine("public final class " + generatedClass + " implements " + libFacade + " {")
                 .indent().newLine());
         String atomicBoolean = source.register(AtomicBoolean.class);
         String illegalStateException = source.register(IllegalStateException.class);
         blocks.add(new GeneratorBlock()
-                .addLine("private static final " + atomicBoolean + " FFM_PROVIDER_INSTANCE_CREATED = new " + atomicBoolean + "(false);")
+                .addLine("private static final " + atomicBoolean + " FFM_FACADE_INSTANCE_CREATED = new " + atomicBoolean + "(false);")
                 .newLine()
                 .addLine("public " + generatedClass + "() {")
-                .indent().addLine("if(!FFM_PROVIDER_INSTANCE_CREATED.compareAndSet(false, true)) {")
+                .indent().addLine("if(!FFM_FACADE_INSTANCE_CREATED.compareAndSet(false, true)) {")
                 .indent().addLine("throw new " + illegalStateException + "(\"" + generatedClass + " instance has already been created\");")
                 .unindent().addLine("}").unindent().addLine("}").newLine());
         blocks.add(new GeneratorBlock()

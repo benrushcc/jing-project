@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 @ProcessorApi
-public final class SharedLibs {
+public final class Libs {
 
     private static final List<String> SEARCH_PATH = createSearchPath();
 
@@ -61,8 +61,8 @@ public final class SharedLibs {
     static {
         Map<String, LibDescriptorCache> descriptors = new HashMap<>();
         Map<Class<?>, Object> impls = new HashMap<>();
-        ServiceLoader<SharedLib> libs = ServiceLoader.load(SharedLib.class);
-        for (SharedLib lib : libs) {
+        ServiceLoader<LibFacade> libs = ServiceLoader.load(LibFacade.class);
+        for (LibFacade lib : libs) {
             if (impls.put(lib.target(), lib.supplier().get()) != null) {
                 throw new ForeignException("SharedLib : " + lib.target() + " already exists");
             }
@@ -86,7 +86,7 @@ public final class SharedLibs {
         IMPLS = Map.copyOf(impls);
     }
 
-    private SharedLibs() {
+    private Libs() {
         throw new UnsupportedOperationException("utility class");
     }
 

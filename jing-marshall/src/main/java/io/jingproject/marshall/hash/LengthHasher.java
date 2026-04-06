@@ -1,4 +1,4 @@
-package io.jingproject.marshall;
+package io.jingproject.marshall.hash;
 
 import java.lang.foreign.MemorySegment;
 import java.util.Objects;

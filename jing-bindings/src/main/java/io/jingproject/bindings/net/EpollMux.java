@@ -5,14 +5,14 @@ import io.jingproject.bindings.SysPosixBindings;
 import io.jingproject.common.Descriptor;
 import io.jingproject.common.anno.Fragile;
 import io.jingproject.ffm.ForeignException;
-import io.jingproject.ffm.SharedLibs;
+import io.jingproject.ffm.Libs;
 
 import java.lang.foreign.MemorySegment;
 
 @Fragile
 public final class EpollMux implements Mux {
-    private static final EpollBindings EPOLL_BINDINGS = SharedLibs.getImpl(EpollBindings.class);
-    private static final SysPosixBindings SYS_POSIX_BINDINGS = SharedLibs.getImpl(SysPosixBindings.class);
+    private static final EpollBindings EPOLL_BINDINGS = Libs.getImpl(EpollBindings.class);
+    private static final SysPosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(SysPosixBindings.class);
     private int epfd = 0;
 
     @Override

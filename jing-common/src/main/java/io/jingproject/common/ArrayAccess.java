@@ -42,7 +42,7 @@ public final class ArrayAccess {
     }
 
     public static short getShort(byte[] array, int offset, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 2) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 2, array.length) >= 0 && byteOrder != null;
         return (short) switch (byteOrder) {
             case LITTLE_ENDIAN -> SHORT_LE.get(array, offset);
             case BIG_ENDIAN ->  SHORT_BE.get(array, offset);
@@ -54,7 +54,7 @@ public final class ArrayAccess {
     }
 
     public static void setShort(byte[] array, int offset, short value, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 2) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 2, array.length) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> SHORT_LE.set(array, offset, value);
             case BIG_ENDIAN ->  SHORT_BE.set(array, offset, value);
@@ -66,7 +66,7 @@ public final class ArrayAccess {
     }
 
     public static char getChar(byte[] array, int offset, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 2) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 2, array.length) >= 0 && byteOrder != null;
         return (char) switch (byteOrder) {
             case LITTLE_ENDIAN -> CHAR_LE.get(array, offset);
             case BIG_ENDIAN -> CHAR_BE.get(array, offset);
@@ -78,7 +78,7 @@ public final class ArrayAccess {
     }
 
     public static void setChar(byte[] array, int offset, char value, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 2) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 2, array.length) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> CHAR_LE.set(array, offset, value);
             case BIG_ENDIAN -> CHAR_BE.set(array, offset, value);
@@ -90,7 +90,7 @@ public final class ArrayAccess {
     }
 
     public static int getInt(byte[] array, int offset, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 4) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 4, array.length) >= 0 && byteOrder != null;
         return (int) switch (byteOrder) {
             case LITTLE_ENDIAN -> INT_LE.get(array, offset);
             case BIG_ENDIAN -> INT_BE.get(array, offset);
@@ -102,7 +102,7 @@ public final class ArrayAccess {
     }
 
     public static void setInt(byte[] array, int offset, int value, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 4) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 4, array.length) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> INT_LE.set(array, offset, value);
             case BIG_ENDIAN -> INT_BE.set(array, offset, value);
@@ -114,7 +114,7 @@ public final class ArrayAccess {
     }
 
     public static long getLong(byte[] array, int offset, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 8) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 8, array.length) >= 0 && byteOrder != null;
         return (long) switch (byteOrder) {
             case LITTLE_ENDIAN -> LONG_LE.get(array, offset);
             case BIG_ENDIAN -> LONG_BE.get(array, offset);
@@ -126,7 +126,7 @@ public final class ArrayAccess {
     }
 
     public static void setLong(byte[] array, int offset, long value, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 8) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 8, array.length) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> LONG_LE.set(array, offset, value);
             case BIG_ENDIAN -> LONG_BE.set(array, offset, value);
@@ -138,7 +138,7 @@ public final class ArrayAccess {
     }
 
     public static float getFloat(byte[] array, int offset, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 4) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 4, array.length) >= 0 && byteOrder != null;
         return (float) switch (byteOrder) {
             case LITTLE_ENDIAN -> FLOAT_LE.get(array, offset);
             case BIG_ENDIAN -> FLOAT_BE.get(array, offset);
@@ -150,7 +150,7 @@ public final class ArrayAccess {
     }
 
     public static void setFloat(byte[] array, int offset, float value, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 4) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 4, array.length) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> FLOAT_LE.set(array, offset, value);
             case BIG_ENDIAN -> FLOAT_BE.set(array, offset, value);
@@ -162,7 +162,7 @@ public final class ArrayAccess {
     }
 
     public static double getDouble(byte[] array, int offset, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 8) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 8, array.length) >= 0 && byteOrder != null;
         return (double) switch (byteOrder) {
             case LITTLE_ENDIAN -> DOUBLE_LE.get(array, offset);
             case BIG_ENDIAN -> DOUBLE_BE.get(array, offset);
@@ -174,7 +174,7 @@ public final class ArrayAccess {
     }
 
     public static void setDouble(byte[] array, int offset, double value, ByteOrder byteOrder) {
-        assert array != null && Objects.checkFromIndexSize(offset, array.length, 8) >= 0 && byteOrder != null;
+        assert array != null && Objects.checkFromIndexSize(offset, 8, array.length) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> DOUBLE_LE.set(array, offset, value);
             case BIG_ENDIAN -> DOUBLE_BE.set(array, offset, value);

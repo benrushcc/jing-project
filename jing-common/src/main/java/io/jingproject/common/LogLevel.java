@@ -23,6 +23,6 @@ public enum LogLevel {
                 return v;
             }
         }
-        throw new IllegalArgumentException("Unsupported logging level : " + s);
+        throw new IllegalArgumentException("unsupported logging level : " + s);
     }
 }

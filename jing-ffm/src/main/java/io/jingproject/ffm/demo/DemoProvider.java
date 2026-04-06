@@ -1,14 +1,14 @@
 package io.jingproject.ffm.demo;
 
 import io.jingproject.common.Os;
-import io.jingproject.ffm.SharedLib;
+import io.jingproject.ffm.LibFacade;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 @SuppressWarnings("unused")
-public final class DemoProvider implements SharedLib {
+public final class DemoProvider implements LibFacade {
     private static final String LIB_NAME = System.getProperty("jing.ffm.demo.libname", "demo");
 
     private static final AtomicBoolean atomicBoolean = new AtomicBoolean(false);

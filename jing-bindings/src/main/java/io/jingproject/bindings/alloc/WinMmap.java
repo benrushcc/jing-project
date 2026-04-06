@@ -2,8 +2,8 @@ package io.jingproject.bindings.alloc;
 
 import io.jingproject.bindings.SysWinBindings;
 import io.jingproject.ffm.ForeignException;
+import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
-import io.jingproject.ffm.SharedLibs;
 
 import java.lang.foreign.MemorySegment;
 
@@ -22,7 +22,7 @@ public final class WinMmap implements Mmap {
     /**
      * Native bindings for Windows memory management APIs.
      */
-    private static final SysWinBindings SYS_WIN_BINDINGS = SharedLibs.getImpl(SysWinBindings.class);
+    private static final SysWinBindings SYS_WIN_BINDINGS = Libs.getImpl(SysWinBindings.class);
 
     /**
      * Returns the allocation granularity for Windows memory operations.

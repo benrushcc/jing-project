@@ -8,4 +8,9 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)
 public @interface Marshallable {
+    String name() default "";
+
+    NamingConvention from() default NamingConvention.ORIGINAL;
+
+    NamingConvention to() default NamingConvention.ORIGINAL;
 }

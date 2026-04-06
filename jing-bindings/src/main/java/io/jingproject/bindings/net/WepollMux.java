@@ -4,14 +4,14 @@ import io.jingproject.bindings.WepollBindings;
 import io.jingproject.common.Descriptor;
 import io.jingproject.common.anno.Fragile;
 import io.jingproject.ffm.ForeignException;
+import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
-import io.jingproject.ffm.SharedLibs;
 
 import java.lang.foreign.MemorySegment;
 
 @Fragile
 public final class WepollMux implements Mux {
-    private static final WepollBindings WEPOLL_BINDINGS = SharedLibs.getImpl(WepollBindings.class);
+    private static final WepollBindings WEPOLL_BINDINGS = Libs.getImpl(WepollBindings.class);
     private MemorySegment epfd = MemorySegment.NULL;
 
     @Override

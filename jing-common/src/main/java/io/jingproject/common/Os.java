@@ -14,6 +14,18 @@ public enum Os {
     MACOS;
 
     static {
+        long byteSize = ValueLayout.JAVA_BYTE.byteSize();
+        if(byteSize != 1L) {
+            throw new UnsupportedOperationException("Unsupported byte size: " + byteSize);
+        }
+        long shortSize = ValueLayout.JAVA_SHORT.byteSize();
+        if(shortSize != 2L) {
+            throw new UnsupportedOperationException("Unsupported short size: " + shortSize);
+        }
+        long charSize = ValueLayout.JAVA_CHAR.byteSize();
+        if(charSize != 2L) {
+            throw new UnsupportedOperationException("Unsupported short size: " + charSize);
+        }
         long intSize = ValueLayout.JAVA_INT.byteSize();
         if(intSize != 4L) {
             throw new ExceptionInInitializerError("Unsupported int layout size: " + intSize);

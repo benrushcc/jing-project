@@ -91,12 +91,12 @@ public final class SegmentAccess {
                     : ValueLayout.ADDRESS_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
 
     public static byte getByte(MemorySegment segment, long offset) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 1) >= 0;
+        assert segment != null && Objects.checkFromIndexSize(offset, 1, segment.byteSize()) >= 0;
         return segment.get(ValueLayout.JAVA_BYTE, offset);
     }
 
     public static void setByte(MemorySegment segment, long offset, byte b) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 1) >= 0;
+        assert segment != null && Objects.checkFromIndexSize(offset, 1, segment.byteSize()) >= 0;
         segment.set(ValueLayout.JAVA_BYTE, offset, b);
     }
 
@@ -105,7 +105,7 @@ public final class SegmentAccess {
     }
 
     public static short getShort(MemorySegment segment, long offset, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 2) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 2, segment.byteSize()) >= 0 && byteOrder != null;
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(SHORT_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(SHORT_UNALIGNED_BE, offset);
@@ -117,7 +117,7 @@ public final class SegmentAccess {
     }
 
     public static char getChar(MemorySegment segment, long offset, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 2) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 2, segment.byteSize()) >= 0 && byteOrder != null;
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(CHAR_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(CHAR_UNALIGNED_BE, offset);
@@ -129,7 +129,7 @@ public final class SegmentAccess {
     }
 
     public static void setChar(MemorySegment segment, long offset, char value, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 2) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 2, segment.byteSize()) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(CHAR_UNALIGNED_LE, offset, value);
             case BIG_ENDIAN -> segment.set(CHAR_UNALIGNED_BE, offset, value);
@@ -141,7 +141,7 @@ public final class SegmentAccess {
     }
 
     public static int getInt(MemorySegment segment, long offset, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 4) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 4, segment.byteSize()) >= 0 && byteOrder != null;
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(INT_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(INT_UNALIGNED_BE, offset);
@@ -153,7 +153,7 @@ public final class SegmentAccess {
     }
 
     public static void setInt(MemorySegment segment, long offset, int value, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 4) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 4, segment.byteSize()) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(INT_UNALIGNED_LE, offset, value);
             case BIG_ENDIAN -> segment.set(INT_UNALIGNED_BE, offset, value);
@@ -165,7 +165,7 @@ public final class SegmentAccess {
     }
 
     public static long getLong(MemorySegment segment, long offset, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 8) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 8, segment.byteSize()) >= 0 && byteOrder != null;
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(LONG_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(LONG_UNALIGNED_BE, offset);
@@ -177,7 +177,7 @@ public final class SegmentAccess {
     }
 
     public static void setLong(MemorySegment segment, long offset, long value, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 8) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 8, segment.byteSize()) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(LONG_UNALIGNED_LE, offset, value);
             case BIG_ENDIAN -> segment.set(LONG_UNALIGNED_BE, offset, value);
@@ -189,7 +189,7 @@ public final class SegmentAccess {
     }
 
     public static float getFloat(MemorySegment segment, long offset, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 4) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 4, segment.byteSize()) >= 0 && byteOrder != null;
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(FLOAT_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(FLOAT_UNALIGNED_BE, offset);
@@ -201,7 +201,7 @@ public final class SegmentAccess {
     }
 
     public static void setFloat(MemorySegment segment, long offset, float value, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 4) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 4, segment.byteSize()) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(FLOAT_UNALIGNED_LE, offset, value);
             case BIG_ENDIAN -> segment.set(FLOAT_UNALIGNED_BE, offset, value);
@@ -213,7 +213,7 @@ public final class SegmentAccess {
     }
 
     public static double getDouble(MemorySegment segment, long offset, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 8) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 8, segment.byteSize()) >= 0 && byteOrder != null;
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(DOUBLE_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(DOUBLE_UNALIGNED_BE, offset);
@@ -225,7 +225,7 @@ public final class SegmentAccess {
     }
 
     public static void setDouble(MemorySegment segment, long offset, double value, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 8) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 8, segment.byteSize()) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(DOUBLE_UNALIGNED_LE, offset, value);
             case BIG_ENDIAN -> segment.set(DOUBLE_UNALIGNED_BE, offset, value);
@@ -237,7 +237,7 @@ public final class SegmentAccess {
     }
 
     public static long getAddress(MemorySegment segment, long offset, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 8) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 8, segment.byteSize()) >= 0 && byteOrder != null;
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(LONG_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(LONG_UNALIGNED_BE, offset);
@@ -249,7 +249,7 @@ public final class SegmentAccess {
     }
 
     public static void setAddress(MemorySegment segment, long offset, long address, ByteOrder byteOrder) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), 8) >= 0 && byteOrder != null;
+        assert segment != null && Objects.checkFromIndexSize(offset, 8, segment.byteSize()) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(LONG_UNALIGNED_LE, offset, address);
             case BIG_ENDIAN -> segment.set(LONG_UNALIGNED_BE, offset, address);

@@ -7,7 +7,6 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public final class CfgUtil {
     private static final int MAX_DEPTH = 128;

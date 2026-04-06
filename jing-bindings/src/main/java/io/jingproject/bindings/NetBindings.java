@@ -3,8 +3,6 @@ package io.jingproject.bindings;
 import io.jingproject.ffm.Downcall;
 import io.jingproject.ffm.FFM;
 
-import java.lang.foreign.MemorySegment;
-
 @FFM(libraryName = "jing")
 public interface NetBindings {
     @Downcall(methodName = "jing_connect_blocked_errcode", constant = true, critical = true)

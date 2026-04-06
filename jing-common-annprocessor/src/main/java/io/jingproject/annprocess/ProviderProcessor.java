@@ -1,5 +1,7 @@
 package io.jingproject.annprocess;
 
+import io.jingproject.common.anno.Provider;
+
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
@@ -15,14 +17,10 @@ import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public final class ProviderProcessor extends AbstractProcessor {
-
+    private static final String INDENT = "    ";
     private final Map<String, Set<String>> data = new HashMap<>();
-
-    private final Lock lock = new ReentrantLock();
 
     @Override
     public SourceVersion getSupportedSourceVersion() {
@@ -31,7 +29,7 @@ public final class ProviderProcessor extends AbstractProcessor {
 
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        return Set.of(io.jingproject.common.anno.Provider.class.getCanonicalName());
+        return Set.of(Provider.class.getCanonicalName());
     }
 
     @Override
@@ -44,9 +42,8 @@ public final class ProviderProcessor extends AbstractProcessor {
         return true;
     }
 
-    // TODO After json API got stabled in JDK, replace it here
+    // TODO After json API got stablized into JDK, replace it here
     private void writeJsonConfigurationFile() {
-        lock.lock();
         try {
             FileObject fo = Objects.requireNonNull(processingEnv).getFiler().createResource(StandardLocation.SOURCE_OUTPUT, "", "jing-providers.json");
             try (Writer writer = fo.openWriter()) {
@@ -55,13 +52,13 @@ public final class ProviderProcessor extends AbstractProcessor {
                     Map.Entry<String, Set<String>> entry = it.next();
                     String key = entry.getKey();
                     Set<String> value = entry.getValue();
-                    writer.write("\t\"");
+                    writer.write(INDENT + "\"");
                     writer.write(key);
                     writer.write("\": [\n");
                     Iterator<String> valueIterator = value.iterator();
                     while (valueIterator.hasNext()) {
                         String val = valueIterator.next();
-                        writer.write("\t\t\"");
+                        writer.write(INDENT.repeat(2) + "\"");
                         writer.write(val);
                         writer.write("\"");
                         if (valueIterator.hasNext()) {
@@ -69,25 +66,24 @@ public final class ProviderProcessor extends AbstractProcessor {
                         }
                         writer.write("\n");
                     }
-                    writer.write("\t]");
+                    writer.write(INDENT + "]");
                     if (it.hasNext()) {
                         writer.write(",");
                     }
                     writer.write("\n");
                 }
                 writer.write("}\n");
+                writer.flush();
             } catch (IOException e) {
                 throw new AnnotationProcessorException("failed to open writer", e);
             }
         } catch (IOException e) {
             throw new AnnotationProcessorException("failed to write json configuration file", e);
-        } finally {
-            lock.unlock();
         }
     }
 
     private void processSpiData(RoundEnvironment roundEnv) {
-        Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(io.jingproject.common.anno.Provider.class);
+        Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(Provider.class);
         for (Element element : elements) {
             if (element instanceof TypeElement t) {
                 if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
@@ -98,7 +94,7 @@ public final class ProviderProcessor extends AbstractProcessor {
                 }
                 String targetInterfaceName;
                 try {
-                    targetInterfaceName = Objects.requireNonNull(t.getAnnotation(io.jingproject.common.anno.Provider.class)).target().getCanonicalName();
+                    targetInterfaceName = Objects.requireNonNull(t.getAnnotation(Provider.class)).target().getCanonicalName();
                 } catch (MirroredTypeException mte) {
                     TypeMirror mirror = mte.getTypeMirror();
                     if (mirror instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement typeElement) {
@@ -107,13 +103,7 @@ public final class ProviderProcessor extends AbstractProcessor {
                         throw new AssertionError();
                     }
                 }
-                String targetProviderName = t.getQualifiedName().toString();
-                lock.lock();
-                try {
-                    data.computeIfAbsent(targetInterfaceName, _ -> new HashSet<>()).add(targetProviderName);
-                } finally {
-                    lock.unlock();
-                }
+                data.computeIfAbsent(targetInterfaceName, _ -> new HashSet<>()).add(t.getQualifiedName().toString());
             } else {
                 throw new AssertionError();
             }

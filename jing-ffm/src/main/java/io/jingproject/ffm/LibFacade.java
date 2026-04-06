@@ -1,11 +1,13 @@
 package io.jingproject.ffm;
 
 import io.jingproject.common.Os;
+import io.jingproject.common.anno.ProcessorApi;
 
 import java.util.List;
 import java.util.function.Supplier;
 
-public interface SharedLib {
+@ProcessorApi
+public interface LibFacade {
     Class<?> target();
 
     List<Os> supportedOS();

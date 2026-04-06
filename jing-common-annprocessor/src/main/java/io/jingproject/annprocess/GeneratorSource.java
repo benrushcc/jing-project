@@ -12,23 +12,26 @@ import java.io.Writer;
 import java.util.*;
 
 public final class GeneratorSource {
-
+    private static final String INDENT = "    ";
     private final ProcessingEnvironment env;
     private final String sourceModuleName;
     private final String sourcePackageName;
     private final String sourceClassName;
-    private final Set<String> imports = new LinkedHashSet<>();
-    private final Map<String, String> references = new HashMap<>();
-    private final List<GeneratorLine> lines = new ArrayList<>();
+    private final Set<String> imports = new LinkedHashSet<>(Utils.avgCapacity());
+    private final Map<String, String> references = new HashMap<>(Utils.avgCapacity());
+    private final List<GeneratorLine> lines = new ArrayList<>(Utils.avgCapacity());
     private int indent = 0;
 
     public GeneratorSource(ProcessingEnvironment processingEnv, TypeElement el, String tag) {
+        if(processingEnv == null || el == null || tag == null) {
+            throw new AnnotationProcessorException("invalid generator source arguments");
+        }
         env = Objects.requireNonNull(processingEnv);
         Elements elm = env.getElementUtils();
         ModuleElement moduleElement = elm.getModuleOf(el);
         PackageElement packageElement = elm.getPackageOf(el);
         if (moduleElement.isUnnamed() || elm.isAutomaticModule(moduleElement)) {
-            throw new RuntimeException("moduleElement cannot be unnamed or automatic");
+            throw new AnnotationProcessorException("moduleElement cannot be unnamed or automatic");
         }
         sourceModuleName = moduleElement.getQualifiedName().toString();
         sourcePackageName = packageElement.getQualifiedName().toString();
@@ -40,10 +43,16 @@ public final class GeneratorSource {
     }
 
     public String register(VariableElement variableElement) {
+        if(variableElement == null) {
+            throw new AnnotationProcessorException("variableElement cannot be null");
+        }
         return register(variableElement.asType());
     }
 
     public String register(TypeMirror typeMirror) {
+        if(typeMirror == null) {
+            throw new AnnotationProcessorException("typeMirror cannot be null");
+        }
         if (typeMirror.getKind() == TypeKind.DECLARED && typeMirror instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement typeElement) {
             return register(typeElement);
         } else if (typeMirror.getKind() == TypeKind.TYPEVAR && typeMirror instanceof TypeVariable typeVariable && typeVariable.asElement() instanceof TypeParameterElement typeParameterElement) {
@@ -53,13 +62,19 @@ public final class GeneratorSource {
         } else if (typeMirror.getKind().isPrimitive()) {
             return typeMirror.toString();
         } else {
-            throw new RuntimeException("unsupported type " + typeMirror);
+            throw new AnnotationProcessorException("unsupported type registered : " + typeMirror);
         }
     }
 
     public String register(TypeElement typeElement) {
+        if(typeElement == null) {
+            throw new AnnotationProcessorException("typeElement cannot be null");
+        }
+        if(typeElement.asType().getKind().isPrimitive()) {
+            throw new AnnotationProcessorException("primitive type cannot be registered: " + typeElement);
+        }
         if (typeElement.getNestingKind() != NestingKind.TOP_LEVEL) {
-            throw new RuntimeException("registered element must be top-level : " + typeElement.getSimpleName());
+            throw new AnnotationProcessorException("registered class must be top-level : " + typeElement.getSimpleName());
         }
         String packageName = env.getElementUtils().getPackageOf(typeElement).getQualifiedName().toString();
         String fullName = typeElement.getQualifiedName().toString();
@@ -68,8 +83,17 @@ public final class GeneratorSource {
     }
 
     public String register(Class<?> clazz) {
+        if(clazz == null) {
+            throw new AnnotationProcessorException("class cannot be null");
+        }
+        if(clazz.isPrimitive()) {
+            throw new AnnotationProcessorException("primitive class cannot be registered: " + clazz);
+        }
+        if(clazz.isAnonymousClass()) {
+            throw new AnnotationProcessorException("anonymous class cannot be registered: " + clazz);
+        }
         if (clazz.isMemberClass()) {
-            throw new RuntimeException("registered class must be top-level : " + clazz.getSimpleName());
+            throw new AnnotationProcessorException("registered class must be top-level : " + clazz.getSimpleName());
         }
         String packageName = clazz.getPackageName();
         String fullName = clazz.getName();
@@ -78,6 +102,15 @@ public final class GeneratorSource {
     }
 
     private String register(String packageName, String fullName, String simpleName) {
+        if(packageName == null ||packageName.isEmpty()) {
+            throw new AnnotationProcessorException("packageName cannot be empty");
+        }
+        if(fullName == null ||fullName.isEmpty()) {
+            throw new AnnotationProcessorException("fullName cannot be empty");
+        }
+        if(simpleName == null ||simpleName.isEmpty()) {
+            throw new AnnotationProcessorException("simpleName cannot be empty");
+        }
         String current = references.get(simpleName);
         if (current == null) {
             if (!packageName.equals(sourcePackageName) && !packageName.equals("java.lang")) {
@@ -93,6 +126,9 @@ public final class GeneratorSource {
     }
 
     public void addBlock(GeneratorBlock b) {
+        if(b == null) {
+            throw new AnnotationProcessorException("block cannot be null");
+        }
         for (GeneratorLine l : b.lines()) {
             lines.add(new GeneratorLine(l.content(), Math.addExact(l.indent(), indent)));
         }
@@ -100,6 +136,9 @@ public final class GeneratorSource {
     }
 
     public void addBlocks(List<GeneratorBlock> blocks) {
+        if(blocks == null) {
+            throw new AnnotationProcessorException("blocks cannot be null");
+        }
         for (GeneratorBlock b : blocks) {
             addBlock(b);
         }
@@ -115,7 +154,7 @@ public final class GeneratorSource {
                 }
                 writer.write("\n");
                 for (GeneratorLine line : lines) {
-                    writer.write("\t".repeat(line.indent()));
+                    writer.write(INDENT.repeat(line.indent()));
                     writer.write(line.content());
                     writer.write("\n");
                 }

@@ -1,8 +1,8 @@
 package io.jingproject.bindings.alloc;
 
 import io.jingproject.bindings.VmBindings;
+import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
-import io.jingproject.ffm.SharedLibs;
 
 import java.lang.foreign.MemorySegment;
 
@@ -15,7 +15,7 @@ public final class Mem {
         throw new UnsupportedOperationException("utility class");
     }
 
-    private static final VmBindings VM_BINDINGS = SharedLibs.getImpl(VmBindings.class);
+    private static final VmBindings VM_BINDINGS = Libs.getImpl(VmBindings.class);
 
     public static MemorySegment malloc(long byteSize) {
         assert byteSize > 0L;

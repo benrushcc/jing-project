@@ -1,9 +1,9 @@
-package io.jingproject.marshall;
+package io.jingproject.marshall.hash;
 
 import java.lang.foreign.MemorySegment;
 import java.nio.charset.StandardCharsets;
 
-public interface Hasher {
+public sealed interface Hasher permits LengthHasher, OneByteHasher, TwoByteHasher, ThreeByteHasher, FourByteHasher, FnvHasher {
     int hash(MemorySegment segment, long offset, long len);
 
     default int hash(MemorySegment segment) {

@@ -6,9 +6,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 // 简化报错信息，可以分为几种，EOF，或者duplicate 或者corrupted 或者empty，核心就是这几个
 public final class DefaultConfigurationFacade implements ConfigurationFacade {

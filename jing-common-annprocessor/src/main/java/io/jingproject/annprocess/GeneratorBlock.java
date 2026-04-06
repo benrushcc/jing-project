@@ -8,6 +8,9 @@ public final class GeneratorBlock {
     private int indent = 0;
 
     public GeneratorBlock addLine(String content) {
+        if(content == null) {
+            throw new AnnotationProcessorException("content is null");
+        }
         lines.add(new GeneratorLine(content, indent));
         return this;
     }

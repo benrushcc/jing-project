@@ -1,8 +1,8 @@
 package io.jingproject.bindings.alloc;
 
 import io.jingproject.bindings.SysBindings;
+import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
-import io.jingproject.ffm.SharedLibs;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -32,7 +32,7 @@ public final class MallocAllocator implements Allocator {
     /**
      * System bindings for native memory operations.
      */
-    private static final SysBindings SYS_BINDINGS = SharedLibs.getImpl(SysBindings.class);
+    private static final SysBindings SYS_BINDINGS = Libs.getImpl(SysBindings.class);
 
     /**
      * Address of the free function obtained from the VM.
@@ -42,7 +42,7 @@ public final class MallocAllocator implements Allocator {
      * different malloc/free implementations (e.g., system malloc vs. library-specific
      * allocators), which can lead to memory corruption or undefined behavior.
      */
-    private static final MemorySegment FREE_FUNC_ADDR = SharedLibs.getFunctionAddressFromVM("free");
+    private static final MemorySegment FREE_FUNC_ADDR = Libs.getFunctionAddressFromVM("free");
 
     /**
      * Array tracking allocated pointers for batch deallocation.

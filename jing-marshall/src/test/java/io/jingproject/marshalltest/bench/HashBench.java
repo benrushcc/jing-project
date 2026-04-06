@@ -1,6 +1,6 @@
 package io.jingproject.marshalltest.bench;
 
-import io.jingproject.marshall.*;
+import io.jingproject.marshall.hash.*;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;

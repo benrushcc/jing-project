@@ -1,15 +1,25 @@
 package io.jingproject.common;
 
+import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 
 public final class HeapWriteBuffer implements WriteBuffer {
+
+    static {
+        try {
+            Class<Os> _ = MethodHandles.lookup().ensureInitialized(Os.class);
+        } catch (IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
     private byte[] buffer;
     private int position;
 
     @Override
     public void writeByte(byte b) {
-        int nextPosition = Math.addExact(position, Byte.BYTES);
+        int nextPosition = Math.addExact(position, 1);
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
@@ -19,7 +29,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeBytes(byte b1, byte b2) {
-        int nextPosition = Math.addExact(position, Math.multiplyExact(2, Byte.BYTES));
+        int nextPosition = Math.addExact(position, 2);
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
@@ -30,7 +40,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeBytes(byte b1, byte b2, byte b3) {
-        int nextPosition = Math.addExact(position, Math.multiplyExact(3, Byte.BYTES));
+        int nextPosition = Math.addExact(position, 3);
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
@@ -42,7 +52,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeBytes(byte b1, byte b2, byte b3, byte b4) {
-        int nextPosition = Math.addExact(position, Math.multiplyExact(4, Byte.BYTES));
+        int nextPosition = Math.addExact(position, 4);
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
@@ -63,7 +73,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeShort(short s, ByteOrder byteOrder) {
-        int nextPosition = Math.addExact(position, Short.BYTES);
+        int nextPosition = Math.addExact(position, 2);
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
@@ -73,7 +83,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeChar(char c, ByteOrder byteOrder) {
-        int nextPosition = Math.addExact(position, Character.BYTES);
+        int nextPosition = Math.addExact(position, 2);
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
@@ -83,7 +93,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeInt(int i, ByteOrder byteOrder) {
-        int nextPosition = Math.addExact(position, Integer.BYTES);
+        int nextPosition = Math.addExact(position, 4);
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
@@ -93,7 +103,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeLong(long l, ByteOrder byteOrder) {
-        int nextPosition = Math.addExact(position, Long.BYTES);
+        int nextPosition = Math.addExact(position, 8);
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
@@ -103,7 +113,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeFloat(float f, ByteOrder byteOrder) {
-        int nextPosition = Math.addExact(position, Float.BYTES);
+        int nextPosition = Math.addExact(position, 4);
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
@@ -113,7 +123,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeDouble(double d, ByteOrder byteOrder) {
-        int nextPosition = Math.addExact(position, Double.BYTES);
+        int nextPosition = Math.addExact(position, 8);
         if (nextPosition > buffer.length) {
             buffer = Arrays.copyOf(buffer, buffer.length << 1);
         }
