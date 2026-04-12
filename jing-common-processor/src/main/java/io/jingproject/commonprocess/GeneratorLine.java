@@ -1,4 +1,4 @@
-package io.jingproject.annprocess;
+package io.jingproject.commonprocess;
 
 public record GeneratorLine(
         String content,

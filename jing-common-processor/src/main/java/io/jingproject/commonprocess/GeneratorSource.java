@@ -1,4 +1,4 @@
-package io.jingproject.annprocess;
+package io.jingproject.commonprocess;
 
 import io.jingproject.common.Utils;
 
@@ -17,9 +17,9 @@ public final class GeneratorSource {
     private final String sourceModuleName;
     private final String sourcePackageName;
     private final String sourceClassName;
-    private final Set<String> imports = new LinkedHashSet<>(Utils.avgCapacity());
-    private final Map<String, String> references = new HashMap<>(Utils.avgCapacity());
-    private final List<GeneratorLine> lines = new ArrayList<>(Utils.avgCapacity());
+    private final Set<String> imports = new LinkedHashSet<>(64);
+    private final Map<String, String> references = new HashMap<>(64);
+    private final List<GeneratorLine> lines = new ArrayList<>(256);
     private int indent = 0;
 
     public GeneratorSource(ProcessingEnvironment processingEnv, TypeElement el, String tag) {
@@ -36,6 +36,14 @@ public final class GeneratorSource {
         sourceModuleName = moduleElement.getQualifiedName().toString();
         sourcePackageName = packageElement.getQualifiedName().toString();
         sourceClassName = Utils.generateClassName(el.getSimpleName().toString(), tag);
+    }
+
+    public String moduleName() {
+        return sourceModuleName;
+    }
+
+    public String packageName() {
+        return sourcePackageName;
     }
 
     public String className() {
@@ -98,6 +106,13 @@ public final class GeneratorSource {
         String packageName = clazz.getPackageName();
         String fullName = clazz.getName();
         String simpleName = clazz.getSimpleName();
+        return register(packageName, fullName, simpleName);
+    }
+
+    public String register(GeneratorSource generatorSource) {
+        String packageName = generatorSource.packageName();
+        String fullName = generatorSource.className();
+        String simpleName = fullName.substring( Math.incrementExact(fullName.lastIndexOf('.')));
         return register(packageName, fullName, simpleName);
     }
 

@@ -11,7 +11,9 @@ public record MarshallInfo(
     String fieldName,
     String mappedName,
     VarHandle vh,
-    int offset
+    Enum<?> enumValue,
+    boolean skipSerializing,
+    boolean skipDeserializing
 ) {
 
 }

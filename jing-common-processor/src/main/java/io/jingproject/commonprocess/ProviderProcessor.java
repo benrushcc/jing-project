@@ -1,4 +1,4 @@
-package io.jingproject.annprocess;
+package io.jingproject.commonprocess;
 
 import io.jingproject.common.anno.Provider;
 

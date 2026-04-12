@@ -1,7 +1,8 @@
-package io.jingproject.marshalltest.test;
+package io.jingproject.marshalltest.entity;
 
 import io.jingproject.marshall.MarshallFacade;
 import io.jingproject.marshall.MarshallInfo;
+import io.jingproject.marshall.MarshallSchema;
 import io.jingproject.marshall.MarshallUtil;
 import io.jingproject.marshall.hash.Hasher;
 
@@ -14,7 +15,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
-public final class RecordEntityMarshallImpl implements MarshallFacade {
+public final class BeanEntityMarshallFacade implements MarshallFacade {
     private static final MethodHandle CONSTRUCTOR_MH;
     private static final List<MarshallInfo> MARSHALLS;
     private static final Hasher MARSHALL_FIELDNAME_HASHER;
@@ -26,22 +27,24 @@ public final class RecordEntityMarshallImpl implements MarshallFacade {
 
     static {
         try {
-            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(RecordEntity.class, MethodHandles.lookup());
-            CONSTRUCTOR_MH = lookup.findConstructor(RecordEntity.class, MethodType.methodType(void.class, int.class, long.class, String.class, LocalDateTime.class));
-            VarHandle intValueVh = lookup.findVarHandle(RecordEntity.class, "intValue", int.class);
-            VarHandle longValueVh = lookup.findVarHandle(RecordEntity.class, "longValue", long.class);
-            VarHandle strValueVh = lookup.findVarHandle(RecordEntity.class, "strValue", String.class);
-            VarHandle timeValueVh = lookup.findVarHandle(RecordEntity.class, "timeValue", LocalDateTime.class);
-            MarshallInfo intValueMi = new MarshallInfo(int.class, 0, "intValue", "intValue", intValueVh, 0);
-            MarshallInfo longValueMi = new MarshallInfo(long.class, 1, "longValue", "longValue", longValueVh, 4);
-            MarshallInfo strValueMi = new MarshallInfo(String.class, 2, "strValue", "strValue", strValueVh, 0);
-            MarshallInfo timeValueMi = new MarshallInfo(LocalDateTime.class, 3, "timeValue", "timeValue", timeValueVh, 1);
+            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(BeanEntity.class, MethodHandles.lookup());
+            VarHandle intValueVh = lookup.findVarHandle(BeanEntity.class, "intValue", int.class);
+            VarHandle longValueVh = lookup.findVarHandle(BeanEntity.class, "longValue", long.class);
+            VarHandle strValueVh = lookup.findVarHandle(BeanEntity.class, "strValue", String.class);
+            VarHandle timeValueVh = lookup.findVarHandle(BeanEntity.class, "timeValue", LocalDateTime.class);
+            MarshallInfo intValueMi = new MarshallInfo(int.class, 0, "intValue", "intValue", intValueVh, null, false, false);
+            MarshallInfo longValueMi = new MarshallInfo(long.class, 1, "longValue", "longValue", longValueVh, null, false, false);
+            MarshallInfo strValueMi = new MarshallInfo(String.class, 2, "strValue", "strValue", strValueVh, null, false, false);
+            MarshallInfo timeValueMi = new MarshallInfo(LocalDateTime.class, 3, "timeValue", "timeValue", timeValueVh, null, false, false);
+            CONSTRUCTOR_MH = lookup.findConstructor(BeanEntity.class, MethodType.methodType(void.class));
             MARSHALLS = List.of(intValueMi, longValueMi, strValueMi, timeValueMi);
-            MARSHALL_FIELDNAME_HASHER = MarshallUtil.calcHasher(MARSHALLS, MarshallInfo::fieldName);
-            MARSHALL_FIELDNAME_BYTES = MarshallUtil.calcBytes(MARSHALLS, MarshallInfo::fieldName);
+            List<String> fieldNames = MARSHALLS.stream().map(MarshallInfo::fieldName).toList();
+            MARSHALL_FIELDNAME_HASHER = MarshallUtil.calcHasher(fieldNames);
+            MARSHALL_FIELDNAME_BYTES = MarshallUtil.calcBytes(fieldNames);
             MARSHALL_FIELDNAME_SEGMENT = MemorySegment.ofArray(MARSHALL_FIELDNAME_BYTES).asReadOnly();
-            MARSHALL_MAPPEDNAME_HASHER = MarshallUtil.calcHasher(MARSHALLS, MarshallInfo::mappedName);
-            MARSHALL_MAPPEDNAME_BYTES = MarshallUtil.calcBytes(MARSHALLS, MarshallInfo::mappedName);
+            List<String> mappedNames = MARSHALLS.stream().map(MarshallInfo::mappedName).toList();
+            MARSHALL_MAPPEDNAME_HASHER = MarshallUtil.calcHasher(mappedNames);
+            MARSHALL_MAPPEDNAME_BYTES = MarshallUtil.calcBytes(mappedNames);
             MARSHALL_MAPPEDNAME_SEGMENT =  MemorySegment.ofArray(MARSHALL_MAPPEDNAME_BYTES).asReadOnly();
         } catch (Exception e) {
             throw new ExceptionInInitializerError(e);
@@ -49,8 +52,8 @@ public final class RecordEntityMarshallImpl implements MarshallFacade {
     }
 
     @Override
-    public String marshallableName() {
-        return "RecordEntity";
+    public Class<?> marshallableType() {
+        return BeanEntity.class;
     }
 
     @Override
@@ -59,18 +62,16 @@ public final class RecordEntityMarshallImpl implements MarshallFacade {
     }
 
     @Override
-    public int objectElements() {
-        return 2;
+    public Object construct(MarshallSchema schema) {
+        if(schema instanceof BeanEntityMarshallSchema(_, BeanEntity instance)) {
+            return instance;
+        }
+        throw new IllegalArgumentException("wrong schema type");
     }
 
     @Override
-    public int primitiveElements() {
-        return 2;
-    }
-
-    @Override
-    public int primitiveBytes() {
-        return 12;
+    public int totalElements() {
+        return 4;
     }
 
     @Override
@@ -85,7 +86,7 @@ public final class RecordEntityMarshallImpl implements MarshallFacade {
             case "longValue" -> 1;
             case "strValue" -> 2;
             case "timeValue" -> 3;
-            default -> throw new IllegalArgumentException("FieldName not found: " + fieldName);
+            default -> throw new IllegalArgumentException("fieldName not found: " + fieldName);
         };
         return MARSHALLS.get(index);
     }
@@ -105,17 +106,17 @@ public final class RecordEntityMarshallImpl implements MarshallFacade {
                 }
             }
             case 115 -> {
-                if(Arrays.equals(MARSHALL_FIELDNAME_BYTES, 25, 33, bytes, offset, len)) {
+                if(Arrays.equals(MARSHALL_FIELDNAME_BYTES, 17, 25, bytes, offset, len)) {
                     return MARSHALLS.get(2);
                 }
             }
             case 116 -> {
-                if(Arrays.equals(MARSHALL_FIELDNAME_BYTES, 33, 42, bytes, offset, len)) {
+                if(Arrays.equals(MARSHALL_FIELDNAME_BYTES, 25, 34, bytes, offset, len)) {
                     return MARSHALLS.get(3);
                 }
             }
         }
-        throw new IllegalArgumentException("MarshallInfo not found by fieldName");
+        throw new IllegalArgumentException("marshallInfo not found by fieldName");
     }
 
     @Override
@@ -133,17 +134,17 @@ public final class RecordEntityMarshallImpl implements MarshallFacade {
                 }
             }
             case 115 -> {
-                if(MemorySegment.mismatch(MARSHALL_FIELDNAME_SEGMENT, 25L, 33L, segment, offset, len) == -1L) {
+                if(MemorySegment.mismatch(MARSHALL_FIELDNAME_SEGMENT, 17L, 25L, segment, offset, len) == -1L) {
                     return MARSHALLS.get(2);
                 }
             }
             case 116 -> {
-                if(MemorySegment.mismatch(MARSHALL_FIELDNAME_SEGMENT, 33L, 42L, segment, offset, len) == -1L) {
+                if(MemorySegment.mismatch(MARSHALL_FIELDNAME_SEGMENT, 25L, 34L, segment, offset, len) == -1L) {
                     return MARSHALLS.get(3);
                 }
             }
         }
-        throw new IllegalArgumentException("MarshallInfo not found by fieldName");
+        throw new IllegalArgumentException("marshallInfo not found by fieldName");
     }
 
     @Override
@@ -153,7 +154,7 @@ public final class RecordEntityMarshallImpl implements MarshallFacade {
             case "longValue" -> 1;
             case "strValue" -> 2;
             case "timeValue" -> 3;
-            default -> throw new IllegalArgumentException("MappedName not found: " + mappedName);
+            default -> throw new IllegalArgumentException("mappedName not found: " + mappedName);
         };
         return MARSHALLS.get(index);
     }
@@ -173,17 +174,17 @@ public final class RecordEntityMarshallImpl implements MarshallFacade {
                 }
             }
             case 115 -> {
-                if(Arrays.equals(MARSHALL_MAPPEDNAME_BYTES, 25, 33, bytes, offset, len)) {
+                if(Arrays.equals(MARSHALL_MAPPEDNAME_BYTES, 17, 25, bytes, offset, len)) {
                     return MARSHALLS.get(2);
                 }
             }
             case 116 -> {
-                if(Arrays.equals(MARSHALL_MAPPEDNAME_BYTES, 33, 42, bytes, offset, len)) {
+                if(Arrays.equals(MARSHALL_MAPPEDNAME_BYTES, 25, 34, bytes, offset, len)) {
                     return MARSHALLS.get(3);
                 }
             }
         }
-        throw new IllegalArgumentException("MarshallInfo not found by mappedName");
+        throw new IllegalArgumentException("marshallInfo not found by mappedName");
     }
 
     @Override
@@ -201,16 +202,22 @@ public final class RecordEntityMarshallImpl implements MarshallFacade {
                 }
             }
             case 115 -> {
-                if(MemorySegment.mismatch(MARSHALL_MAPPEDNAME_SEGMENT, 25L, 33L, segment, offset, len) == -1L) {
+                if(MemorySegment.mismatch(MARSHALL_MAPPEDNAME_SEGMENT, 17L, 25L, segment, offset, len) == -1L) {
                     return MARSHALLS.get(2);
                 }
             }
             case 116 -> {
-                if(MemorySegment.mismatch(MARSHALL_MAPPEDNAME_SEGMENT, 33L, 42L, segment, offset, len) == -1L) {
+                if(MemorySegment.mismatch(MARSHALL_MAPPEDNAME_SEGMENT, 25L, 34L, segment, offset, len) == -1L) {
                     return MARSHALLS.get(3);
                 }
             }
         }
-        throw new IllegalArgumentException("MarshallInfo not found by mappedName");
+        throw new IllegalArgumentException("marshallInfo not found by mappedName");
+    }
+
+    @Override
+    public MarshallSchema newSchema() {
+        BeanEntity instance = new BeanEntity();
+        return new BeanEntityMarshallSchema(this, instance);
     }
 }

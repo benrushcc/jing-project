@@ -3,9 +3,6 @@ package io.jingproject.common;
 public final class Utils {
     private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
-    private static final int MIN_CAPACITY = 4;
-    private static final int AVG_CAPACITY = 64;
-    private static final int MAX_CAPACITY = 4096;
 
     private Utils() {
         throw new AssertionError();
@@ -19,37 +16,37 @@ public final class Utils {
         return EMPTY_BYTE_ARRAY;
     }
 
-    public static int minCapacity() {
-        return MIN_CAPACITY;
+    // factor : 2
+    public static int grow(int currentCapacity) {
+        return Math.addExact(currentCapacity, currentCapacity);
     }
 
-    public static int avgCapacity() {
-        return AVG_CAPACITY;
+    // factor : 2
+    public static long grow(long currentCapacity) {
+        return Math.addExact(currentCapacity, currentCapacity);
     }
 
-    public static int maxCapacity() {
-        return MAX_CAPACITY;
-    }
-
+    // factor : 1.5
     public static int grow(int currentCapacity, int defaultCapacity) {
-        if(defaultCapacity < MIN_CAPACITY) {
-            throw new AssertionError();
+        if(defaultCapacity < 4) {
+            throw new IllegalArgumentException("defaultCapacity must be at least 4");
         }
-        if(currentCapacity <= defaultCapacity) {
+        if(currentCapacity < defaultCapacity) {
             return defaultCapacity;
         }
-        int half = Math.divideExact(currentCapacity, 2);
+        int half = currentCapacity >> 1;
         return Math.addExact(currentCapacity, half);
     }
 
+    // factor : 1.5
     public static long grow(long currentCapacity, long defaultCapacity) {
-        if(defaultCapacity < MIN_CAPACITY) {
-            throw new AssertionError();
+        if(defaultCapacity < 4) {
+            throw new IllegalArgumentException("defaultCapacity must be at least 4");
         }
-        if(currentCapacity <= defaultCapacity) {
+        if(currentCapacity < defaultCapacity) {
             return defaultCapacity;
         }
-        long half = Math.divideExact(currentCapacity, 2L);
+        long half = currentCapacity >> 1;
         return Math.addExact(currentCapacity, half);
     }
 

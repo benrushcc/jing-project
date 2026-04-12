@@ -5,10 +5,12 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Target(ElementType.TYPE)
+@Target(ElementType.FIELD)
 @Retention(RetentionPolicy.SOURCE)
-public @interface Marshallable {
-    NamingConvention from() default NamingConvention.ORIGINAL;
+public @interface MarshallAttr {
+    String mappedName() default "";
 
-    NamingConvention to() default NamingConvention.ORIGINAL;
+    boolean skipSerializing() default false;
+
+    boolean skipDeserializing() default false;
 }

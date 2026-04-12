@@ -1,6 +1,6 @@
 package io.jingproject.marshall;
 
-import io.jingproject.common.Utils;
+import io.jingproject.common.anno.ProcessorApi;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
@@ -8,21 +8,16 @@ import java.lang.invoke.MethodHandle;
 import java.nio.charset.Charset;
 import java.util.Objects;
 
+@ProcessorApi
 public interface MarshallFacade {
 
-    String marshallableName();
+    Class<?> marshallableType();
 
     MethodHandle constructor();
 
-    int objectElements();
+    Object construct(MarshallSchema schema);
 
-    int primitiveElements();
-
-    default int totalElements() {
-        return Math.addExact(objectElements(), primitiveElements());
-    }
-
-    int primitiveBytes();
+    int totalElements();
 
     MarshallInfo marshallInfoByIndex(int index);
 
@@ -106,18 +101,6 @@ public interface MarshallFacade {
         return marshallInfoByMappedName(mappedName);
     }
 
-    default MarshallSchema newSchema() {
-        Object[] objectArray = Utils.emptyObjectArray();
-        int objectElements = objectElements();
-        if(objectElements > 0) {
-            objectArray = new Object[objectElements];
-        }
-        byte[] primitiveArray = Utils.emptyByteArray();
-        int primitiveElements = primitiveElements();
-        if(primitiveElements > 0) {
-            primitiveArray = new byte[primitiveElements];
-        }
-        return new MarshallSchema(objectArray, primitiveArray, 0, 0, objectElements, primitiveElements);
-    }
+    MarshallSchema newSchema();
 
 }

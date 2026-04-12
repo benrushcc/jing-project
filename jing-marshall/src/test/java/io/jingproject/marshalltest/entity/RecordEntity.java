@@ -1,4 +1,4 @@
-package io.jingproject.marshalltest.test;
+package io.jingproject.marshalltest.entity;
 
 import java.time.LocalDateTime;
 

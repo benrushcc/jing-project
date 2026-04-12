@@ -1,121 +1,87 @@
 package io.jingproject.marshall;
 
-import io.jingproject.common.ArrayAccess;
-import io.jingproject.common.Os;
+import io.jingproject.common.anno.ProcessorApi;
 
-import java.lang.invoke.MethodHandles;
-import java.util.Objects;
+@ProcessorApi
+public interface MarshallSchema {
 
-public record MarshallSchema (
-        Object[] objectBuffer,
-        byte[] primitiveBuffer,
-        int objectIndex,
-        int primitiveIndex,
-        int objectElements,
-        int primitiveElements
-) {
-    static {
-        try {
-            Class<Os> _ = MethodHandles.lookup().ensureInitialized(Os.class);
-        } catch (IllegalAccessException e) {
-            throw new ExceptionInInitializerError(e);
-        }
+    default boolean getBoolean() {
+        throw new UnsupportedOperationException();
     }
 
-    public byte getByte(int offset) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 1, primitiveBuffer.length);
-        return primitiveBuffer[index];
+    default void setBoolean(boolean value) {
+        throw new UnsupportedOperationException();
     }
 
-    public void setByte(int offset, byte value) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 1, primitiveBuffer.length);
-        primitiveBuffer[index] = value;
+    default byte getByte(int offset) {
+        throw new UnsupportedOperationException();
     }
 
-    public short getShort(int offset) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 2, primitiveBuffer.length);
-        return ArrayAccess.getShort(primitiveBuffer, index);
+    default void setByte(int offset, byte value) {
+        throw new UnsupportedOperationException();
     }
 
-    public void setShort(int offset, short value) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 2, primitiveBuffer.length);
-        ArrayAccess.setShort(primitiveBuffer, index, value);
+    default short getShort(int offset) {
+        throw new UnsupportedOperationException();
     }
 
-    public char getChar(int offset) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 2, primitiveBuffer.length);
-        return ArrayAccess.getChar(primitiveBuffer, index);
+    default void setShort(int offset, short value) {
+        throw new UnsupportedOperationException();
     }
 
-    public void setChar(int offset, char value) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 2, primitiveBuffer.length);
-        ArrayAccess.setChar(primitiveBuffer, index, value);
+    default char getChar(int offset) {
+        throw new UnsupportedOperationException();
     }
 
-    public int getInt(int offset) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 4, primitiveBuffer.length);
-        return ArrayAccess.getInt(primitiveBuffer, index);
+    default void setChar(int offset, char value) {
+        throw new UnsupportedOperationException();
     }
 
-    public void setInt(int offset, int value) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 4, primitiveBuffer.length);
-        ArrayAccess.setInt(primitiveBuffer, index, value);
+    default int getInt(int offset) {
+        throw new UnsupportedOperationException();
     }
 
-    public long getLong(int offset) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 8, primitiveBuffer.length);
-        return ArrayAccess.getLong(primitiveBuffer, index);
+    default void setInt(int offset, int value) {
+        throw new UnsupportedOperationException();
     }
 
-    public void setLong(int offset, long value) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 8, primitiveBuffer.length);
-        ArrayAccess.setLong(primitiveBuffer, index, value);
+    default long getLong(int offset) {
+        throw new UnsupportedOperationException();
     }
 
-    public float getFloat(int offset) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 4, primitiveBuffer.length);
-        return ArrayAccess.getFloat(primitiveBuffer, index);
+    default void setLong(int offset, long value) {
+        throw new UnsupportedOperationException();
     }
 
-    public void setFloat(int offset, float value) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 4, primitiveBuffer.length);
-        ArrayAccess.setFloat(primitiveBuffer, index, value);
+    default float getFloat(int offset) {
+        throw new UnsupportedOperationException();
     }
 
-    public double getDouble(int offset) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 8, primitiveBuffer.length);
-        return ArrayAccess.getDouble(primitiveBuffer, index);
+    default void setFloat(int offset, float value) {
+        throw new UnsupportedOperationException();
     }
 
-    public void setDouble(int offset, double value) {
-        int index = Math.addExact(primitiveIndex, offset);
-        Objects.checkFromIndexSize(index, 8, primitiveBuffer.length);
-        ArrayAccess.setDouble(primitiveBuffer, index, value);
+    default double getDouble(int offset) {
+        throw new UnsupportedOperationException();
     }
 
-    public Object getObject(int offset) {
-        int index = Math.addExact(objectIndex, offset);
-        Objects.checkFromIndexSize(index, 1, objectBuffer.length);
-        return objectBuffer[index];
+    default void setDouble(int offset, double value) {
+        throw new UnsupportedOperationException();
     }
 
-    public void setObject(int offset, Object value) {
-        int index = Math.addExact(objectIndex, offset);
-        Objects.checkFromIndexSize(index, 1, objectBuffer.length);
-        objectBuffer[index] = value;
+    default Object getObject(int offset) {
+        throw new UnsupportedOperationException();
     }
 
+    default void setObject(int offset, Object value) {
+        throw new UnsupportedOperationException();
+    }
+
+    default String getEnum() {
+        throw new UnsupportedOperationException();
+    }
+
+    default void setEnum(String enumValue) {
+        throw new UnsupportedOperationException();
+    }
 }

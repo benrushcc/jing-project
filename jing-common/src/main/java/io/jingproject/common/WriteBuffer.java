@@ -77,5 +77,7 @@ public interface WriteBuffer {
         }
     }
 
-    long position();
+    int intPosition();
+
+    long longPosition();
 }

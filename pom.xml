@@ -20,7 +20,7 @@
     <modules>
         <module>jing-common</module>
         <module>jing-ffm</module>
-        <module>jing-common-annprocessor</module>
+        <module>jing-common-processor</module>
         <module>jing-ffm-processor</module>
         <module>jing-maven-plugin</module>
         <module>jing-log</module>

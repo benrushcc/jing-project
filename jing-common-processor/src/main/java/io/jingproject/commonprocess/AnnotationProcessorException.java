@@ -1,4 +1,4 @@
-package io.jingproject.annprocess;
+package io.jingproject.commonprocess;
 
 public final class AnnotationProcessorException extends RuntimeException {
     public AnnotationProcessorException(String message) {

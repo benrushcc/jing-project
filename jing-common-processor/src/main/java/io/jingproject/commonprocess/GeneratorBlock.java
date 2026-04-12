@@ -1,4 +1,4 @@
-package io.jingproject.annprocess;
+package io.jingproject.commonprocess;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 @ProcessorApi
 public final class MarshallUtil {
@@ -59,14 +60,14 @@ public final class MarshallUtil {
         return FNV_MUL_HASHER;
     }
 
-    public static Hasher calcHasher(List<MarshallInfo> mis, Function<MarshallInfo, String> func) {
+    public static Hasher calcHasher(List<String> names) {
         int maxCollisions = Integer.MAX_VALUE;
         Hasher fallback = FNV_MUL_HASHER;
         for (Hasher currentHasher : AVAILABLE_HASHERS) {
-            Set<Integer> hs = new HashSet<>(mis.size());
+            Set<Integer> hs = new HashSet<>(names.size());
             int collisions = 0;
-            for (MarshallInfo mi : mis) {
-                int hash = currentHasher.hash(func.apply(mi));
+            for (String name : names) {
+                int hash = currentHasher.hash(name);
                 if(!hs.add(hash)) {
                     collisions = Math.incrementExact(collisions);
                 }
@@ -82,10 +83,10 @@ public final class MarshallUtil {
         return fallback;
     }
 
-    public static byte[] calcBytes(List<MarshallInfo> mis, Function<MarshallInfo, String> func) {
+    public static byte[] calcBytes(List<String> names) {
         try(ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            for (MarshallInfo mi : mis) {
-                baos.write(func.apply(mi).getBytes(StandardCharsets.UTF_8));
+            for (String name : names) {
+                baos.write(name.getBytes(StandardCharsets.UTF_8));
             }
             return baos.toByteArray();
         } catch (IOException e) {

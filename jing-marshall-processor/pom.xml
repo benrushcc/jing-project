@@ -20,7 +20,7 @@
     <dependencies>
         <dependency>
             <groupId>io.jingproject</groupId>
-            <artifactId>jing-common-annprocessor</artifactId>
+            <artifactId>jing-common-processor</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>

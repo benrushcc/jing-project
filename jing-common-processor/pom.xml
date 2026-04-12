@@ -9,7 +9,7 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>jing-common-annprocessor</artifactId>
+    <artifactId>jing-common-processor</artifactId>
 
     <properties>
         <maven.compiler.source>${java.version}</maven.compiler.source>
