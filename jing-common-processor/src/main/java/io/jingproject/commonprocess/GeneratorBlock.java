@@ -4,18 +4,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class GeneratorBlock {
-    private final List<GeneratorLine> lines = new ArrayList<>();
+    private List<GeneratorLine> lines;
     private int indent = 0;
 
     public GeneratorBlock addLine(String content) {
         if(content == null) {
             throw new AnnotationProcessorException("content is null");
         }
+        if(lines == null) {
+            lines = new ArrayList<>();
+        }
         lines.add(new GeneratorLine(content, indent));
         return this;
     }
 
     public GeneratorBlock newLine() {
+        if(lines == null) {
+            lines = new ArrayList<>();
+        }
         lines.add(new GeneratorLine("", indent));
         return this;
     }
@@ -38,6 +44,10 @@ public final class GeneratorBlock {
 
     public List<GeneratorLine> lines() {
         return lines;
+    }
+
+    public boolean isEmpty() {
+        return lines == null || lines.isEmpty();
     }
 }
 

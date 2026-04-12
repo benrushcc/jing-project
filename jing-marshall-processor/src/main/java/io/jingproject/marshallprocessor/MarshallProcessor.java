@@ -602,4 +602,54 @@ public final class MarshallProcessor extends AbstractProcessor {
         }
         return b.unindent().addLine("}").newLine();
     }
+
+    private GeneratorBlock buildConstructMethod(GeneratorSource facadeSource, MarshallGenInfo genInfo) {
+        String objectClassName = facadeSource.register(Object.class);
+        String marshallSchemaClassName = facadeSource.register(MarshallSchema.class);
+        GeneratorBlock b = new GeneratorBlock().addLine("@Override")
+                .addLine("public " + objectClassName + " construct(" + marshallSchemaClassName + " schema) {")
+                .indent();
+        TypeElement targetElement = genInfo.typeElements().getLast();
+        switch (targetElement.getKind()) {
+            case CLASS -> {
+                String facadeClassName = facadeSource.className();
+                String targetClassName = facadeSource.register(targetElement);
+                String iaeClassName = facadeSource.register(IllegalArgumentException.class);
+                b.addLine("if(schema instanceof " + facadeClassName + "(_, " + targetClassName + " instance)) {")
+                        .indent().addLine("return instance;").unindent().addLine("}")
+                        .addLine("throw new " + iaeClassName + "(\"wrong schema type\");")
+                        .unindent().addLine("}").newLine();
+            }
+            case RECORD -> {
+                String targetClassName = facadeSource.register(targetElement);
+                for (MarshallFieldInfo fieldInfo : genInfo.fieldInfos()) {
+                    VariableElement fieldElement = fieldInfo.fieldElement();
+                    int marshallIndex = fieldInfo.marshallIndex();
+                    switch (fieldElement.asType().getKind()) {
+                        case BOOLEAN -> b.addLine("boolean v" + marshallIndex + " = schema.getBoolean(" + marshallIndex + ");");
+                        case BYTE -> b.addLine("byte v" + marshallIndex + " = schema.getByte(" + marshallIndex + ");");
+                        case SHORT -> b.addLine("short v" + marshallIndex + " = schema.getShort(" + marshallIndex + ");");
+                        case CHAR -> b.addLine("char v" + marshallIndex + " = schema.getChar(" + marshallIndex + ");");
+                        case INT -> b.addLine("int v" + marshallIndex + " = schema.getInt(" + marshallIndex + ");");
+                        case LONG -> b.addLine("long v" + marshallIndex + " = schema.getLong(" + marshallIndex + ");");
+                        case FLOAT -> b.addLine("float v" + marshallIndex + " = schema.getFloat(" + marshallIndex + ");");
+                        case DOUBLE -> b.addLine("double v" + marshallIndex + " = schema.getDouble(" + marshallIndex + ");");
+                        default -> {
+                            String fieldTypeClassName = facadeSource.register(fieldElement);
+                            b.addLine(fieldTypeClassName + " v" + marshallIndex + " = (" + fieldTypeClassName + ") schema.getObject(" + marshallIndex + ");");
+                        }
+                    }
+                }
+                b.addLine("return new " + targetClassName + "(" + IntStream.range(0, genInfo.fieldInfos().size()).mapToObj(i -> "v" + i).collect(Collectors.joining(", ")) + ");")
+                        .unindent().addLine("}").newLine();
+            }
+            case ENUM -> {
+                String uoeClassName = facadeSource.register(UnsupportedOperationException.class);
+                b.addLine("throw new " + uoeClassName + "();")
+                        .unindent().addLine("}").newLine();
+            }
+            default -> throw new AssertionError();
+        }
+        return b;
+    }
 }

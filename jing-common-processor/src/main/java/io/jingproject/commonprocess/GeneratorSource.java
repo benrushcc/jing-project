@@ -34,8 +34,19 @@ public final class GeneratorSource {
             throw new AnnotationProcessorException("moduleElement cannot be unnamed or automatic");
         }
         sourceModuleName = moduleElement.getQualifiedName().toString();
+        if(sourceModuleName == null || sourceModuleName.isBlank()) {
+            throw new AnnotationProcessorException("moduleName not found");
+        }
         sourcePackageName = packageElement.getQualifiedName().toString();
-        sourceClassName = Utils.generateClassName(el.getSimpleName().toString(), tag);
+        if(sourcePackageName == null || sourcePackageName.isBlank()) {
+            throw new AnnotationProcessorException("packageName not found");
+        }
+        String targetClassName = el.getSimpleName().toString();
+        if(targetClassName == null || targetClassName.isBlank()) {
+            throw new AnnotationProcessorException("className not found");
+        }
+        sourceClassName = Utils.generateClassName(targetClassName, tag);
+        references.put(sourceClassName, sourcePackageName + "." + sourceClassName);
     }
 
     public String moduleName() {
@@ -111,8 +122,8 @@ public final class GeneratorSource {
 
     public String register(GeneratorSource generatorSource) {
         String packageName = generatorSource.packageName();
-        String fullName = generatorSource.className();
-        String simpleName = fullName.substring( Math.incrementExact(fullName.lastIndexOf('.')));
+        String simpleName = generatorSource.className();
+        String fullName = packageName + "." + simpleName;
         return register(packageName, fullName, simpleName);
     }
 
@@ -143,6 +154,9 @@ public final class GeneratorSource {
     public void addBlock(GeneratorBlock b) {
         if(b == null) {
             throw new AnnotationProcessorException("block cannot be null");
+        }
+        if(b.isEmpty()) {
+            return ;
         }
         for (GeneratorLine l : b.lines()) {
             lines.add(new GeneratorLine(l.content(), Math.addExact(l.indent(), indent)));
