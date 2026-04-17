@@ -17,6 +17,12 @@ public final class Mem {
 
     private static final VmBindings VM_BINDINGS = Libs.getImpl(VmBindings.class);
 
+    static {
+        if(VM_BINDINGS == null) {
+            throw new ExceptionInInitializerError("cannot initialize vm bindings");
+        }
+    }
+
     public static MemorySegment malloc(long byteSize) {
         assert byteSize > 0L;
         MemorySegment r = VM_BINDINGS.malloc(byteSize);

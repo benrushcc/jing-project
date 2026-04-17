@@ -10,11 +10,11 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.TYPE)
 public @interface FFM {
-    String VM = "vm";
+    String VM = "jvm";
 
     /**
      * Specifies the shared library name. Defaults to JVM's internal lookup.
-     * Don't name your library "vm".
+     * Don't name your library "jvm".
      */
     String libraryName() default VM;
 

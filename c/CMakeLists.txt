@@ -45,6 +45,9 @@ target_sources(jing PRIVATE
     src/jing_posix_net.c
 )
 
+add_library(jing_demo SHARED)
+target_sources(jing_demo PRIVATE src/jing_demo.c)
+
 set(JING_WEPOLL_VERSION    "v1.5.8"       CACHE STRING "wepoll library version"    FORCE)
 # set(JING_BORINGSSL_VERSION "0.20251002.0" CACHE STRING "boringssl library version" FORCE)
 

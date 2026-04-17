@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 public class MarshallTest {
 
@@ -33,17 +34,20 @@ public class MarshallTest {
         MarshallSchema schema = marshallFacade.newSchema();
         LocalDateTime now = LocalDateTime.now();
         Duration duration = Duration.ofDays(7355608);
+        Map<Integer, String> m = Map.of();
         schema.setInt(0, 123);
         schema.setLong(1, 456L);
         schema.setObject(2, "hello world");
         schema.setObject(3, now);
         schema.setObject(4, duration);
+        schema.setObject(5, m);
         ExtendEntity extendEntity = (ExtendEntity) marshallFacade.construct(schema);
         Assertions.assertEquals(123, extendEntity.intValue());
         Assertions.assertEquals(456L, extendEntity.longValue());
         Assertions.assertEquals("hello world", extendEntity.strValue());
         Assertions.assertEquals(now, extendEntity.timeValue());
         Assertions.assertEquals(duration, extendEntity.durationValue());
+        Assertions.assertEquals(m, extendEntity.mapValue());
     }
 
     @Test

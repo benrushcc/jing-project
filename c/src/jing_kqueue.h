@@ -2,9 +2,9 @@
 #define JING_KQUEUE_H
 
 #include "jing_common.h"
-#include <sys/event.h>
 
 #if defined(JING_OS_MACOS)
+#include <sys/event.h>
 JING_EXPORT_SYMBOL int jing_kqueue_in(void);
 
 JING_EXPORT_SYMBOL int jing_kqueue_out(void);

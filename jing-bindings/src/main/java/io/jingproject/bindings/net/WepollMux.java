@@ -14,6 +14,12 @@ public final class WepollMux implements Mux {
     private static final WepollBindings WEPOLL_BINDINGS = Libs.getImpl(WepollBindings.class);
     private MemorySegment epfd = MemorySegment.NULL;
 
+    static {
+        if(WEPOLL_BINDINGS == null) {
+            throw new ExceptionInInitializerError("cannot initialize WepollMux");
+        }
+    }
+
     @Override
     public void init() {
         if (epfd == null) {

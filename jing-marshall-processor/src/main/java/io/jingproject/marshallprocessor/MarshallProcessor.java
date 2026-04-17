@@ -49,8 +49,8 @@ public final class MarshallProcessor extends AbstractProcessor {
                 if (element instanceof TypeElement t) {
                     checkMarshallableElement(t);
                     MarshallGenInfo genInfo = createMarshallGenInfo(t);
-                    GeneratorSource schemaSource = new GeneratorSource(processingEnv, t, "MarshallSchema");
-                    GeneratorSource facadeSource = new GeneratorSource(processingEnv, t, "MarshallFacade");
+                    GeneratorSource schemaSource = new GeneratorSource(t, "MarshallSchema");
+                    GeneratorSource facadeSource = new GeneratorSource(t, "MarshallFacade");
                     writeMarshallSchemaSource(schemaSource, facadeSource, genInfo);
                     writeMarshallFacadeSource(schemaSource, facadeSource, genInfo);
                 } else {
@@ -102,21 +102,39 @@ public final class MarshallProcessor extends AbstractProcessor {
                 throw new AssertionError();
             }
         }
-        // must have fields
-        List<? extends Element> enclosedElements = t.getEnclosedElements();
-        if(enclosedElements.isEmpty()) {
-            throw new AnnotationProcessorException("enclosed elements can not be empty");
-        }
-        // must have no-arg constructor
-        for (Element enclosedElement : enclosedElements) {
-            if(enclosedElement.getKind().equals(ElementKind.CONSTRUCTOR)
-                    && enclosedElement instanceof ExecutableElement executableElement
-                    && executableElement.getParameters().isEmpty()
-                    && executableElement.getModifiers().contains(Modifier.PUBLIC)) {
-                return ;
+        // must have no-arg constructor, fields cannot be final
+        boolean foundNoArgConstructor = false;
+        boolean foundFieldElement = false;
+        for (Element enclosedElement : t.getEnclosedElements()) {
+            if(enclosedElement.getKind().equals(ElementKind.CONSTRUCTOR)) {
+                if(enclosedElement instanceof ExecutableElement ex) {
+                    if(ex.getParameters().isEmpty() && ex.getModifiers().contains(Modifier.PUBLIC)) {
+                        foundNoArgConstructor = true;
+                    }
+                } else {
+                    throw new AssertionError();
+                }
+            }
+            if(enclosedElement.getKind().equals(ElementKind.FIELD)) {
+                if(enclosedElement instanceof VariableElement va) {
+                    if(va.getModifiers().contains(Modifier.STATIC)) {
+                        continue ;
+                    }
+                    if(va.getModifiers().contains(Modifier.FINAL)) {
+                        throw new AnnotationProcessorException("only non-final fields could appear in normal classes");
+                    }
+                    foundFieldElement = true;
+                } else {
+                    throw new AssertionError();
+                }
             }
         }
-        throw new AnnotationProcessorException("no-arg constructor not found");
+        if(!foundNoArgConstructor) {
+            throw new AnnotationProcessorException("no-arg constructor not found");
+        }
+        if(!foundFieldElement) {
+            throw new AnnotationProcessorException("field not found");
+        }
     }
 
     private void checkMarshallableRecordElement(TypeElement t) {
@@ -400,7 +418,7 @@ public final class MarshallProcessor extends AbstractProcessor {
             default -> throw new AssertionError();
         }
         schemaSource.addBlocks(blocks);
-        schemaSource.writeToFiler();
+        schemaSource.writeToFiler(processingEnv);
     }
 
     private void writeMarshallFacadeSource(GeneratorSource schemaSource, GeneratorSource facadeSource, MarshallGenInfo genInfo) {

@@ -42,7 +42,16 @@ public final class MallocAllocator implements Allocator {
      * different malloc/free implementations (e.g., system malloc vs. library-specific
      * allocators), which can lead to memory corruption or undefined behavior.
      */
-    private static final MemorySegment FREE_FUNC_ADDR = Libs.getFunctionAddressFromVM("free");
+    private static final MemorySegment FREE_FUNC_ADDR = Libs.addrFromVM("free");
+
+    static {
+        if(SYS_BINDINGS == null) {
+            throw new ExceptionInInitializerError("cannot initialize SYS_BINDINGS");
+        }
+        if(FREE_FUNC_ADDR == null || FREE_FUNC_ADDR.address() == 0L) {
+            throw new ExceptionInInitializerError("cannot initialize FREE_FUNC_ADDR");
+        }
+    }
 
     /**
      * Array tracking allocated pointers for batch deallocation.

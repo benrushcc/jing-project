@@ -2,18 +2,24 @@ package io.jingproject.ffm;
 
 import io.jingproject.common.Os;
 import io.jingproject.common.anno.ProcessorApi;
-import io.jingproject.common.anno.ProcessorMethod;
 
 import java.io.File;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
+/**
+ * Libs is a unified entry for managing dynamic library loading, providing a standardized implementation across different operating systems.
+ * The dynamic library search path is first checked using the property specified by '-D' as jing.library.path.
+ * Then, it looks for directories specified by the JING_LIBRARY_PATH environment variable.
+ * Finally, it searches the default directories specified by java.library.path, which is the default loadLibrary() behavior of the JDK.
+ * If a library or function is not found, the program can still start normally as long as the invalid functions are not called.
+ */
 @ProcessorApi
 public final class Libs {
 
@@ -24,6 +30,9 @@ public final class Libs {
      */
     private static final boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
 
+    /**
+     * @return the available dynamic library serach paths on current machine
+     */
     private static List<String> createSearchPath() {
         List<String> r = new ArrayList<>();
         String argPath = System.getProperty("jing.library.path");
@@ -39,111 +48,217 @@ public final class Libs {
                 r.add(p);
             }
         }
+        if(r.isEmpty()) {
+            throw new ExceptionInInitializerError("cannot initialize library search path");
+        }
         return List.copyOf(r);
     }
 
-    private static final ConcurrentMap<String, MemorySegment> VM_FUNCTIONS = new ConcurrentHashMap<>();
-    private static final Map<String, LibDescriptor> DESCRIPTORS;
-    private static final Map<Class<?>, Object> IMPLS;
-
-    record LibDescriptorCache(
-            String mappedName,
-            SymbolLookup lookup,
-            Map<String, MemorySegment> functions
-    ) {
-        public void registerFunctions(List<String> functionNames) {
-            for (String functionName : functionNames) {
-                functions.computeIfAbsent(functionName, k -> lookup.find(k).orElse(MemorySegment.NULL));
+    /**
+     * @return the first searched path for given library name after mapping, or {@code null} if not found
+     */
+    private static Path searchLibrary(String mappedLibraryName) {
+        for (String searchPath : SEARCH_PATH) {
+            Path p = Paths.get(searchPath, mappedLibraryName);
+            if(Files.isRegularFile(p)) {
+                return p;
             }
         }
+        return null;
     }
 
+    private static final Map<Class<?>, LibDescriptor<?>> DESCRIPTORS;
+
     static {
-        Map<String, LibDescriptorCache> descriptors = new HashMap<>();
-        Map<Class<?>, Object> impls = new HashMap<>();
-        ServiceLoader<LibFacade> libs = ServiceLoader.load(LibFacade.class);
-        for (LibFacade lib : libs) {
-            if (impls.put(lib.target(), lib.supplier().get()) != null) {
-                throw new ForeignException("SharedLib : " + lib.target() + " already exists");
-            }
-            if (lib.supportedOS().contains(Os.current())) {
-                String libName = lib.libName();
-                LibDescriptorCache cache = descriptors.get(libName);
-                if (cache == null) {
-                    String mappedLibraryName = System.mapLibraryName(libName);
-                    Path libPath = SEARCH_PATH.stream().map(p -> Paths.get(p, mappedLibraryName))
-                            .filter(Files::exists).findFirst().orElseThrow(() -> new ForeignException("Library : " + libName + " not found"));
+        List<LibFacade> facades = ServiceLoader.load(LibFacade.class).stream().map(ServiceLoader.Provider::get).toList();
+        Map<Class<?>, LibDescriptor<?>> tempDescriptors = new HashMap<>();
+        for (LibFacade facade : facades) {
+            if (facade.supportedOS().contains(Os.current())) {
+                Class<?> target = facade.target();
+                String libName = facade.libName();
+                LibDescriptor<?> desc = tempDescriptors.get(target);
+                if (desc == null) {
+                    String mappedName = System.mapLibraryName(libName);
+                    Path libPath = searchLibrary(mappedName);
+                    if(libPath == null) {
+                        continue ;
+                    }
                     SymbolLookup lookup = SymbolLookup.libraryLookup(libPath, Arena.global());
-                    cache = new LibDescriptorCache(mappedLibraryName, lookup, new HashMap<>());
-                    descriptors.put(libName, cache);
+                    Object impl = facade.supplier().get();
+                    desc = new LibDescriptor<>(libName, mappedName, lookup, libPath, new HashMap<>(), impl);
+                    tempDescriptors.put(target, desc);
                 }
-                cache.registerFunctions(lib.methodNames());
+                for (String methodName : facade.methodNames()) {
+                    if(!desc.functions().containsKey(methodName)) {
+                        MemorySegment methodAddress = desc.lookup().find(methodName).orElse(MemorySegment.NULL);
+                        desc.functions().put(methodName, methodAddress);
+                    }
+                }
             }
         }
-        Map<String, LibDescriptor> temp = new HashMap<>();
-        descriptors.forEach((k, v) -> temp.put(k, new LibDescriptor(k, v.mappedName(), v.lookup(), Map.copyOf(v.functions()))));
-        DESCRIPTORS = Map.copyOf(temp);
-        IMPLS = Map.copyOf(impls);
+        DESCRIPTORS = tempDescriptors.entrySet().stream().collect(Collectors.toUnmodifiableMap(
+                Map.Entry::getKey,
+                entry -> {
+                    LibDescriptor<?> desc = entry.getValue();
+                    Map<String, MemorySegment> immutableFunctions =
+                            Map.copyOf(desc.functions());
+                    return new LibDescriptor<>(desc.libName(), desc.mappedName(), desc.lookup(), desc.libPath(), immutableFunctions, desc.impl());
+                }
+        ));
     }
 
     private Libs() {
         throw new UnsupportedOperationException("utility class");
     }
 
-    public static MemorySegment getFunctionAddressFromVM(String functionName) {
-        return VM_FUNCTIONS.computeIfAbsent(functionName, k -> {
-            Linker linker = Linker.nativeLinker();
-            SymbolLookup lookup = linker.defaultLookup();
-            return lookup.find(k).orElseThrow(() -> new ForeignException("Function : " + functionName + " not found in vm"));
-        });
-    }
-
-    public static MethodHandle getMethodHandleFromVM(String functionName, FunctionDescriptor descriptor, boolean critical) {
+    public static MemorySegment addrFromVM(String methodName) {
+        if(methodName == null || methodName.isBlank()) {
+            throw new IllegalArgumentException("methodName cannot be null or blank");
+        }
         Linker linker = Linker.nativeLinker();
-        MemorySegment functionAddr = getFunctionAddressFromVM(functionName);
-        if (JING_CRITICAL && critical) {
-            return linker.downcallHandle(functionAddr, descriptor, Linker.Option.critical(false));
-        } else {
-            return linker.downcallHandle(functionAddr, descriptor);
-        }
+        SymbolLookup lookup = linker.defaultLookup();
+        return lookup.find(methodName).orElse(MemorySegment.NULL);
     }
 
-    public static MemorySegment getFunctionAddressFromLib(String libName, String functionName) {
-        LibDescriptor libDescriptor = DESCRIPTORS.get(libName);
+    public static MethodHandle mhFromVM(String methodName, List<Class<?>> types, boolean critical, boolean constant) {
+        MemorySegment addr = addrFromVM(methodName);
+        return makeDowncallMethodHandle(addr, types, critical, constant);
+    }
+
+    public static MemorySegment addrFromLib(Class<?> libType, String methodName) {
+        LibDescriptor<?> libDescriptor = DESCRIPTORS.get(libType);
         if (libDescriptor == null) {
-            throw new ForeignException("Library : " + libName + " not found");
+            return MemorySegment.NULL;
         }
-        MemorySegment segment = libDescriptor.functions().get(functionName);
-        if (segment.address() == 0L) {
-            throw new ForeignException("Function : " + functionName + " not found");
+        MemorySegment segment = libDescriptor.functions().get(methodName);
+        if (segment == null || segment.address() == 0L) {
+            return MemorySegment.NULL;
         }
         return segment;
     }
 
-    @ProcessorMethod
-    public static MethodHandle getMethodHandleFromLib(String libName, String functionName, FunctionDescriptor descriptor, boolean critical) {
-        if (libName.equals(FFM.VM)) {
-            return getMethodHandleFromVM(functionName, descriptor, critical);
+    public static MethodHandle mhFromLib(Class<?> libType, String methodName, List<Class<?>> types, boolean critical, boolean constant) {
+        MemorySegment addr = addrFromLib(libType, methodName);
+        return makeDowncallMethodHandle(addr, types, critical, constant);
+    }
+
+    private static MethodHandle makeDowncallMethodHandle(MemorySegment addr, List<Class<?>> types, boolean critical, boolean constant) {
+        if(types == null || types.isEmpty()) {
+            throw new IllegalArgumentException("types cannot be null or empty");
         }
+        if(constant && types.size() > 1) {
+            throw new IllegalArgumentException("constant method cannot have parameters");
+        }
+        if(addr.address() == 0L) {
+            return MethodHandles.throwException(types.getFirst(), ForeignException.class).bindTo(new ForeignException("function address not found"));
+        }
+        FunctionDescriptor descriptor = castFunctionDescriptor(types);
         Linker linker = Linker.nativeLinker();
-        MemorySegment segment = getFunctionAddressFromLib(libName, functionName);
-        if (JING_CRITICAL && critical) {
-            return linker.downcallHandle(segment, descriptor, Linker.Option.critical(false));
+        MethodHandle mh = (JING_CRITICAL && critical) ?
+                linker.downcallHandle(addr, descriptor, Linker.Option.critical(false)) :
+                linker.downcallHandle(addr, descriptor);
+        if(constant) {
+            return makeConstantMethodHandle(types, mh);
+        }
+        return mh;
+    }
+
+    private static MethodHandle makeConstantMethodHandle(List<Class<?>> types, MethodHandle mh) {
+        try {
+            Class<?> returnType = types.getFirst();
+            if(returnType.equals(byte.class)) {
+                byte r = (byte) mh.invokeExact();
+                return MethodHandles.constant(byte.class, r);
+            } else if (boolean.class.equals(returnType)) {
+                boolean r = (boolean) mh.invokeExact();
+                return MethodHandles.constant(boolean.class, r);
+            } else if (short.class.equals(returnType)) {
+                short r = (short) mh.invokeExact();
+                return MethodHandles.constant(short.class, r);
+            } else if (char.class.equals(returnType)) {
+                char r = (char) mh.invokeExact();
+                return MethodHandles.constant(char.class, r);
+            } else if (int.class.equals(returnType)) {
+                int r = (int) mh.invokeExact();
+                return MethodHandles.constant(int.class, r);
+            } else if (long.class.equals(returnType)) {
+                long r = (long) mh.invokeExact();
+                return MethodHandles.constant(long.class, r);
+            } else if (float.class.equals(returnType)) {
+                float r = (float) mh.invokeExact();
+                return MethodHandles.constant(float.class, r);
+            } else if (double.class.equals(returnType)) {
+                double r = (double) mh.invokeExact();
+                return MethodHandles.constant(double.class, r);
+            } else if (MemorySegment.class.equals(returnType)) {
+                MemorySegment r = (MemorySegment) mh.invokeExact();
+                return MethodHandles.constant(MemorySegment.class, r);
+            } else {
+                throw new ForeignException("unsupported constant foreign method return type: " + returnType);
+            }
+        } catch (Throwable t) {
+            throw new ForeignException("failed to invoke constant foreign method", t);
+        }
+    }
+    
+    private static FunctionDescriptor castFunctionDescriptor(List<Class<?>> types) {
+        MemoryLayout[] layouts = new MemoryLayout[types.size() - 1];
+        for (int i = 1; i < types.size(); i++) {
+            layouts[i - 1] = castMemoryLayout(types.get(i));
+        }
+        Class<?> firstType = types.getFirst();
+        if (firstType.equals(void.class)) {
+            return FunctionDescriptor.ofVoid(layouts);
         } else {
-            return linker.downcallHandle(segment, descriptor);
+            MemoryLayout resLayout = castMemoryLayout(firstType);
+            return FunctionDescriptor.of(resLayout, layouts);
+        }
+    }
+    
+    private static MemoryLayout castMemoryLayout(Class<?> type) {
+        if (byte.class.equals(type)) {
+            return ValueLayout.JAVA_BYTE;
+        } else if (boolean.class.equals(type)) {
+            return ValueLayout.JAVA_BOOLEAN;
+        } else if (short.class.equals(type)) {
+            return ValueLayout.JAVA_SHORT;
+        } else if (char.class.equals(type)) {
+            return ValueLayout.JAVA_CHAR;
+        } else if (int.class.equals(type)) {
+            return ValueLayout.JAVA_INT;
+        } else if (long.class.equals(type)) {
+            return ValueLayout.JAVA_LONG;
+        } else if (float.class.equals(type)) {
+            return ValueLayout.JAVA_FLOAT;
+        } else if (double.class.equals(type)) {
+            return ValueLayout.JAVA_DOUBLE;
+        } else if (MemorySegment.class.equals(type)) {
+            return ValueLayout.ADDRESS;
+        } else {
+            throw new ForeignException("unknown type : " + type);
         }
     }
 
-    public static LibDescriptor getLibDescriptor(String libName) {
-        return DESCRIPTORS.get(libName);
+    /**
+     * find target libDecriptor by given type
+     * @return the library descriptor for the given type, or {@code null} if the library is missing or unsupported on current operating system
+     * for optimal performance, callers should store the return value in a {@code static final} field
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> LibDescriptor<T> getLibDescriptor(Class<T> type) {
+        return (LibDescriptor<T>) DESCRIPTORS.get(type);
     }
 
-    // TODO LazyConstants
-    public static <T> T getImpl(Class<T> clazz) {
-        Object o = IMPLS.get(clazz);
-        if (o == null) {
-            throw new ForeignException("Impl for class : " + clazz + " not found");
+    /**
+     * find target impl by given type
+     * @return the library impl for the given type, or {@code null} if the library is missing or unsupported on current operating system
+     * for optimal performance, callers should store the return value in a {@code static final} field
+     */
+    public static <T> T getImpl(Class<T> type) {
+        LibDescriptor<T> libDescriptor = getLibDescriptor(type);
+        if (libDescriptor == null) {
+            return null;
         }
-        return clazz.cast(o);
+        return libDescriptor.impl();
     }
 }

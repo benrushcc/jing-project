@@ -12,11 +12,11 @@
     <artifactId>jing-maven-plugin</artifactId>
     <packaging>maven-plugin</packaging>
 
+    <!--  based on https://maven.apache.org/guides/plugin/guide-java-plugin-development.html  -->
     <properties>
-        <maven-plugin.java.version>24</maven-plugin.java.version> <!-- currently only 24 are supported -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven-plugin-api.version>3.9.11</maven-plugin-api.version>
-        <maven-plugin-tools.version>3.15.1</maven-plugin-tools.version>
+        <maven-plugin-api.version>3.9.14</maven-plugin-api.version>
+        <maven-plugin-tools.version>3.15.2</maven-plugin-tools.version>
     </properties>
 
     <dependencies>
@@ -40,7 +40,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <release>${maven-plugin.java.version}</release>
+                    <release>${java.version}</release>
                     <enablePreview>false</enablePreview>
                 </configuration>
             </plugin>

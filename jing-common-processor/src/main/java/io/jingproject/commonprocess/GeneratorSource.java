@@ -3,9 +3,9 @@ package io.jingproject.commonprocess;
 import io.jingproject.common.Utils;
 
 import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.*;
-import javax.lang.model.type.*;
-import javax.lang.model.util.Elements;
+import javax.lang.model.element.ModuleElement;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.io.Writer;
@@ -13,141 +13,107 @@ import java.util.*;
 
 public final class GeneratorSource {
     private static final String INDENT = "    ";
-    private final ProcessingEnvironment env;
-    private final String sourceModuleName;
-    private final String sourcePackageName;
-    private final String sourceClassName;
+    private static final String SUPER = "super";
+    private static final String EXTENDS = "extends";
+    private static final String JAVA_LANG = Object.class.getPackageName();
+    private final TypeElement targetElement;
+    private final String packageName;
+    private final String simpleName;
     private final Set<String> imports = new LinkedHashSet<>(64);
-    private final Map<String, String> references = new HashMap<>(64);
+    private final Map<String, String> packageReferences = new HashMap<>(64);
     private final List<GeneratorLine> lines = new ArrayList<>(256);
     private int indent = 0;
 
-    public GeneratorSource(ProcessingEnvironment processingEnv, TypeElement el, String tag) {
-        if(processingEnv == null || el == null || tag == null) {
-            throw new AnnotationProcessorException("invalid generator source arguments");
+    public GeneratorSource(TypeElement t, String tag) {
+        AnnoUtil.checkTypeElementForRegister(t);
+        if(tag == null || tag.isBlank()) {
+            throw new AnnotationProcessorException("empty tag");
         }
-        env = Objects.requireNonNull(processingEnv);
-        Elements elm = env.getElementUtils();
-        ModuleElement moduleElement = elm.getModuleOf(el);
-        PackageElement packageElement = elm.getPackageOf(el);
-        if (moduleElement.isUnnamed() || elm.isAutomaticModule(moduleElement)) {
-            throw new AnnotationProcessorException("moduleElement cannot be unnamed or automatic");
-        }
-        sourceModuleName = moduleElement.getQualifiedName().toString();
-        if(sourceModuleName == null || sourceModuleName.isBlank()) {
-            throw new AnnotationProcessorException("moduleName not found");
-        }
-        sourcePackageName = packageElement.getQualifiedName().toString();
-        if(sourcePackageName == null || sourcePackageName.isBlank()) {
-            throw new AnnotationProcessorException("packageName not found");
-        }
-        String targetClassName = el.getSimpleName().toString();
-        if(targetClassName == null || targetClassName.isBlank()) {
-            throw new AnnotationProcessorException("className not found");
-        }
-        sourceClassName = Utils.generateClassName(targetClassName, tag);
-        references.put(sourceClassName, sourcePackageName + "." + sourceClassName);
-    }
-
-    public String moduleName() {
-        return sourceModuleName;
+        String fullName = t.toString();
+        targetElement = t;
+        packageName = AnnoUtil.packageName(fullName);
+        simpleName = Utils.generateClassName(AnnoUtil.simpleName(fullName), tag);
+        packageReferences.put(simpleName, packageName); // register itself first
     }
 
     public String packageName() {
-        return sourcePackageName;
+        return packageName;
     }
 
     public String className() {
-        return sourceClassName;
+        return simpleName;
     }
 
     public String register(VariableElement variableElement) {
-        if(variableElement == null) {
-            throw new AnnotationProcessorException("variableElement cannot be null");
+        AnnoUtil.checkVariableElementForRegister(variableElement);
+        String qualifiedName = variableElement.asType().toString();
+        StringBuilder sb = new StringBuilder();
+        for(char c : qualifiedName.toCharArray()) {
+            // & is not possible if enclosing typeElement is not generified
+            if(c == '<' || c == '>' || c == '[' || c == ']' || c == '?') {
+                sb.append(' ');
+            } else {
+                sb.append(c);
+            }
         }
-        return register(variableElement.asType());
+        List<Map.Entry<String, String>> entries = new ArrayList<>();
+        for (String s : sb.toString().split("\\s+")) {
+            if(s.equals(EXTENDS) || s.equals(SUPER)) {
+                continue ;
+            }
+            String packageName = AnnoUtil.packageName(s);
+            String simpleName = AnnoUtil.simpleName(s);
+            String registeredName = register(packageName, simpleName);
+            if(!registeredName.equals(s)) {
+                entries.add(Map.entry(s, registeredName));
+            }
+        }
+        for (Map.Entry<String, String> entry : entries) {
+            qualifiedName = qualifiedName.replace(entry.getKey(), entry.getValue());
+        }
+        return qualifiedName;
     }
 
-    public String register(TypeMirror typeMirror) {
-        if(typeMirror == null) {
-            throw new AnnotationProcessorException("typeMirror cannot be null");
-        }
-        if (typeMirror.getKind() == TypeKind.DECLARED && typeMirror instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement typeElement) {
-            return register(typeElement);
-        } else if (typeMirror.getKind() == TypeKind.TYPEVAR && typeMirror instanceof TypeVariable typeVariable && typeVariable.asElement() instanceof TypeParameterElement typeParameterElement) {
-            return register(typeParameterElement.getBounds().getFirst());
-        } else if (typeMirror.getKind() == TypeKind.ARRAY && typeMirror instanceof ArrayType arrayType) {
-            return register(arrayType.getComponentType()) + "[]";
-        } else if (typeMirror.getKind().isPrimitive()) {
-            return typeMirror.toString();
-        } else {
-            throw new AnnotationProcessorException("unsupported type registered : " + typeMirror);
-        }
+    public String register(Class<?> cls) {
+        AnnoUtil.checkClassForRegister(cls);
+        String packageName = cls.getPackageName();
+        String simpleName = cls.getSimpleName();
+        return register(packageName, simpleName);
     }
 
     public String register(TypeElement typeElement) {
-        if(typeElement == null) {
-            throw new AnnotationProcessorException("typeElement cannot be null");
-        }
-        if(typeElement.asType().getKind().isPrimitive()) {
-            throw new AnnotationProcessorException("primitive type cannot be registered: " + typeElement);
-        }
-        if (typeElement.getNestingKind() != NestingKind.TOP_LEVEL) {
-            throw new AnnotationProcessorException("registered class must be top-level : " + typeElement.getSimpleName());
-        }
-        String packageName = env.getElementUtils().getPackageOf(typeElement).getQualifiedName().toString();
-        String fullName = typeElement.getQualifiedName().toString();
-        String simpleName = typeElement.getSimpleName().toString();
-        return register(packageName, fullName, simpleName);
-    }
-
-    public String register(Class<?> clazz) {
-        if(clazz == null) {
-            throw new AnnotationProcessorException("class cannot be null");
-        }
-        if(clazz.isPrimitive()) {
-            throw new AnnotationProcessorException("primitive class cannot be registered: " + clazz);
-        }
-        if(clazz.isAnonymousClass()) {
-            throw new AnnotationProcessorException("anonymous class cannot be registered: " + clazz);
-        }
-        if (clazz.isMemberClass()) {
-            throw new AnnotationProcessorException("registered class must be top-level : " + clazz.getSimpleName());
-        }
-        String packageName = clazz.getPackageName();
-        String fullName = clazz.getName();
-        String simpleName = clazz.getSimpleName();
-        return register(packageName, fullName, simpleName);
+        AnnoUtil.checkTypeElementForRegister(typeElement);
+        String fullName = typeElement.toString();
+        String packageName = AnnoUtil.packageName(fullName);
+        String simpleName = AnnoUtil.simpleName(fullName);
+        return register(packageName, simpleName);
     }
 
     public String register(GeneratorSource generatorSource) {
-        String packageName = generatorSource.packageName();
-        String simpleName = generatorSource.className();
-        String fullName = packageName + "." + simpleName;
-        return register(packageName, fullName, simpleName);
+        return register(generatorSource.packageName(), generatorSource.className());
     }
 
-    private String register(String packageName, String fullName, String simpleName) {
+    private String register(String packageName, String simpleName) {
         if(packageName == null ||packageName.isEmpty()) {
             throw new AnnotationProcessorException("packageName cannot be empty");
-        }
-        if(fullName == null ||fullName.isEmpty()) {
-            throw new AnnotationProcessorException("fullName cannot be empty");
         }
         if(simpleName == null ||simpleName.isEmpty()) {
             throw new AnnotationProcessorException("simpleName cannot be empty");
         }
-        String current = references.get(simpleName);
-        if (current == null) {
-            if (!packageName.equals(sourcePackageName) && !packageName.equals("java.lang")) {
-                imports.add(fullName);
+        String currentPackage = packageReferences.get(simpleName);
+        if (currentPackage == null) {
+            // not referenced yet, we could do import
+            if (!packageName.equals(this.packageName) && !packageName.equals(JAVA_LANG)) {
+                imports.add(AnnoUtil.buildClassName(packageName, simpleName));
             }
-            references.put(simpleName, fullName);
+            packageReferences.put(simpleName, packageName);
             return simpleName;
-        } else if (fullName.equals(current)) {
+        } else if (currentPackage.equals(packageName)) {
+            // already imported, directly return
             return simpleName;
         } else {
-            return fullName;
+            // imported but with name conflict, use fullname instead
+            return AnnoUtil.buildClassName(packageName, simpleName);
         }
     }
 
@@ -173,12 +139,24 @@ public final class GeneratorSource {
         }
     }
 
-    public void writeToFiler() {
+    public void writeToFiler(ProcessingEnvironment env) {
+        ModuleElement moduleElement = env.getElementUtils().getModuleOf(targetElement);
+        if(moduleElement == null) {
+            throw new AnnotationProcessorException("moduleElement not found");
+        }
+        String name;
+        if(moduleElement.isUnnamed()) {
+            name = AnnoUtil.buildClassName(packageName, simpleName);
+        } else {
+            String moduleName = moduleElement.getQualifiedName().toString();
+            name = AnnoUtil.buildClassName(moduleName, packageName, simpleName);
+        }
         try {
-            JavaFileObject fo = env.getFiler().createSourceFile(sourceModuleName + "/" + sourcePackageName + "." + sourceClassName);
+            JavaFileObject fo = env.getFiler().createSourceFile(name);
             try (Writer writer = fo.openWriter()) {
-                writer.write("package " + sourcePackageName + ";\n\n");
-                for (String im : imports) {
+                writer.write("package " + packageName + ";\n\n");
+                List<String> sortedImports = imports.stream().sorted().toList();
+                for (String im : sortedImports) {
                     writer.write("import " + im + ";\n");
                 }
                 writer.write("\n");
@@ -190,7 +168,7 @@ public final class GeneratorSource {
                 writer.flush();
             }
         } catch (IOException e) {
-            throw new AnnotationProcessorException("failed to write to filer", e);
+            throw new AnnotationProcessorException("failed to write source code to filer : " + name, e);
         }
     }
 }

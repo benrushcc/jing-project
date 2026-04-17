@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public class ExtendEntityMarshallFacade implements MarshallFacade {
     private static final MethodHandle CONSTRUCTOR_MH;
@@ -36,13 +37,15 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
             VarHandle vh2 = lookup0.findVarHandle(BeanEntity.class, "strValue", String.class);
             VarHandle vh3 = lookup0.findVarHandle(BeanEntity.class, "timeValue", LocalDateTime.class);
             VarHandle vh4 = lookup1.findVarHandle(ExtendEntity.class, "durationValue", Duration.class);
+            VarHandle vh5 = lookup1.findVarHandle(ExtendEntity.class, "mapValue", Map.class);
             MarshallInfo mi0 = new MarshallInfo(int.class, 0, "intValue", "intValue", vh0, null, false, false);
             MarshallInfo mi1 = new MarshallInfo(long.class, 1, "longValue", "longValue", vh1, null, false, false);
             MarshallInfo mi2 = new MarshallInfo(String.class, 2, "strValue", "strValue", vh2, null, false, false);
             MarshallInfo mi3 = new MarshallInfo(LocalDateTime.class, 3, "timeValue", "timeValue", vh3, null, false, false);
             MarshallInfo mi4 = new MarshallInfo(Duration.class, 4, "durationValue", "durationValue", vh4, null, false, false);
+            MarshallInfo mi5 = new MarshallInfo(Map.class, 5, "mapValue", "mapValue", vh5, null, false, false);
             CONSTRUCTOR_MH = lookup1.findConstructor(ExtendEntity.class, MethodType.methodType(void.class));
-            MARSHALLS = List.of(mi0, mi1, mi2, mi3, mi4);
+            MARSHALLS = List.of(mi0, mi1, mi2, mi3, mi4, mi5);
             List<String> fieldNames = MARSHALLS.stream().map(MarshallInfo::fieldName).toList();
             MARSHALL_FIELDNAME_HASHER = MarshallUtil.calcHasher(fieldNames);
             MARSHALL_FIELDNAME_BYTES = MarshallUtil.calcBytes(fieldNames);
@@ -76,7 +79,7 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public int totalElements() {
-        return 5;
+        return 6;
     }
 
     @Override
@@ -92,6 +95,7 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
             case "strValue" -> 2;
             case "timeValue" -> 3;
             case "durationValue" -> 4;
+            case "mapValue" -> 5;
             default -> throw new IllegalArgumentException("fieldName not found: " + fieldName);
         };
         return MARSHALLS.get(index);
@@ -124,6 +128,11 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
             case 100 -> {
                 if(Arrays.equals(MARSHALL_FIELDNAME_BYTES, 34, 47, bytes, offset, len)) {
                     return MARSHALLS.get(4);
+                }
+            }
+            case 109 -> {
+                if(Arrays.equals(MARSHALL_FIELDNAME_BYTES, 47, 55, bytes, offset, len)) {
+                    return MARSHALLS.get(5);
                 }
             }
         }
@@ -159,6 +168,11 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
                     return MARSHALLS.get(4);
                 }
             }
+            case 109 -> {
+                if(MemorySegment.mismatch(MARSHALL_FIELDNAME_SEGMENT, 47L, 55L, segment, offset, len) == -1L) {
+                    return MARSHALLS.get(5);
+                }
+            }
         }
         throw new IllegalArgumentException("marshallInfo not found by fieldName");
     }
@@ -171,6 +185,7 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
             case "strValue" -> 2;
             case "timeValue" -> 3;
             case "durationValue" -> 4;
+            case "mapValue" -> 5;
             default -> throw new IllegalArgumentException("mappedName not found: " + mappedName);
         };
         return MARSHALLS.get(index);
@@ -201,8 +216,13 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
                 }
             }
             case 100 -> {
-                if(Arrays.equals(MARSHALL_FIELDNAME_BYTES, 34, 47, bytes, offset, len)) {
+                if(Arrays.equals(MARSHALL_MAPPEDNAME_BYTES, 34, 47, bytes, offset, len)) {
                     return MARSHALLS.get(4);
+                }
+            }
+            case 109 -> {
+                if(Arrays.equals(MARSHALL_MAPPEDNAME_BYTES, 47, 55, bytes, offset, len)) {
+                    return MARSHALLS.get(5);
                 }
             }
         }
@@ -234,8 +254,13 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
                 }
             }
             case 100 -> {
-                if(MemorySegment.mismatch(MARSHALL_FIELDNAME_SEGMENT, 34L, 47L, segment, offset, len) == -1L) {
+                if(MemorySegment.mismatch(MARSHALL_MAPPEDNAME_SEGMENT, 34L, 47L, segment, offset, len) == -1L) {
                     return MARSHALLS.get(4);
+                }
+            }
+            case 109 -> {
+                if(MemorySegment.mismatch(MARSHALL_MAPPEDNAME_SEGMENT, 47L, 55L, segment, offset, len) == -1L) {
+                    return MARSHALLS.get(5);
                 }
             }
         }

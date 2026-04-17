@@ -53,6 +53,13 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>require-native-library</excludedGroups>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 

@@ -15,6 +15,15 @@ public final class EpollMux implements Mux {
     private static final SysPosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(SysPosixBindings.class);
     private int epfd = 0;
 
+    static {
+        if(EPOLL_BINDINGS == null) {
+            throw new ExceptionInInitializerError("cannot initialize epoll bindings");
+        }
+        if(SYS_POSIX_BINDINGS == null) {
+            throw new ExceptionInInitializerError("cannot initialize sys_posix bindings");
+        }
+    }
+
     @Override
     public void init() {
         if (epfd == Integer.MIN_VALUE) {

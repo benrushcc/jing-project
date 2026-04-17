@@ -24,6 +24,12 @@ public final class PosixMmap implements Mmap {
      */
     private static final SysPosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(SysPosixBindings.class);
 
+    static {
+        if(SYS_POSIX_BINDINGS == null) {
+            throw new ExceptionInInitializerError("cannot initialize sys_posix bindings");
+        }
+    }
+
     /**
      * Returns the allocation granularity for POSIX systems.
      * <p>

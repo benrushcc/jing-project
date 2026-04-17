@@ -36,32 +36,32 @@ public final class JingMojo extends AbstractMojo {
     public void execute() throws MojoExecutionException, MojoFailureException {
         for (Resource resource : project.getResources()) {
             Path resourceDir = Paths.get(resource.getDirectory());
-            getLog().debug("Searching for Jing-providers.json file: " + resourceDir.toAbsolutePath());
+            getLog().debug("searching for Jing-providers.json file : " + resourceDir.toAbsolutePath());
             Path targetPath = resourceDir.resolve(FILE_NAME);
             if (Files.isRegularFile(targetPath)) {
-                getLog().debug("Found Jing-providers.json file: " + targetPath.toAbsolutePath());
+                getLog().debug("found Jing-providers.json file : " + targetPath.toAbsolutePath());
                 processJingProviderFile(targetPath);
             }
         }
-        getLog().debug("Jing-providers.json file not found, skipping process Jing-providers.json");
+        getLog().debug("jing-providers.json file not found, skipping process jing-providers.json");
     }
 
     private void processJingProviderFile(Path path) throws MojoExecutionException, MojoFailureException {
         if (!Files.isReadable(path)) {
-            throw new MojoExecutionException("Jing-providers.json is not readable");
+            throw new MojoExecutionException("jing-providers.json is not readable");
         }
         byte[] content;
         try {
             content = Files.readAllBytes(path);
         } catch (IOException e) {
-            throw new MojoExecutionException("Cannot read from Jing-providers.json", e);
+            throw new MojoExecutionException("Cannot read from jing-providers.json", e);
         }
         Map<String, Set<String>> data = parseProviderData(content);
         Path targetDirPath = Path.of(project.getBuild().getOutputDirectory(), "META-INF", "services");
         try {
             Files.createDirectories(targetDirPath);
         } catch (IOException e) {
-            throw new MojoExecutionException("Cannot create META-INF/services directory", e);
+            throw new MojoExecutionException("cannot create META-INF/services directory", e);
         }
         for (Map.Entry<String, Set<String>> entry : data.entrySet()) {
             String key = entry.getKey();
@@ -72,19 +72,19 @@ public final class JingMojo extends AbstractMojo {
             try {
                 Files.write(targetPath, lines, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
             } catch (IOException e) {
-                throw new MojoExecutionException("Cannot write SPI file: " + targetPath.toAbsolutePath(), e);
+                throw new MojoExecutionException("cannot write SPI file : " + targetPath.toAbsolutePath(), e);
             }
         }
         Path moduleInfoPath = Path.of(project.getBuild().getOutputDirectory(), "module-info.class");
         if (Files.isRegularFile(moduleInfoPath)) {
-            getLog().debug("Found module-info class: " + moduleInfoPath.toAbsolutePath());
+            getLog().debug("found module-info class: " + moduleInfoPath.toAbsolutePath());
             byte[] bytecodes;
             try {
                 bytecodes = Files.readAllBytes(moduleInfoPath);
                 bytecodes = updateModuleInfoByteCodes(bytecodes, data);
                 Files.write(moduleInfoPath, bytecodes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
             } catch (IOException e) {
-                throw new MojoExecutionException("Cannot perform IO operations", e);
+                throw new MojoExecutionException("cannot perform IO operations", e);
             }
         }
     }
