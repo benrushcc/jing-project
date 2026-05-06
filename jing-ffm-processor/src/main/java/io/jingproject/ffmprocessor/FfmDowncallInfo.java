@@ -2,7 +2,7 @@ package io.jingproject.ffmprocessor;
 
 import javax.lang.model.element.ExecutableElement;
 
-public record DowncallInfo (
+public record FfmDowncallInfo(
         int index,
         ExecutableElement element,
         String methodName,

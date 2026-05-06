@@ -10,10 +10,10 @@ public record MarshallFieldInfo (
         String fieldName,
         String mappedName,
         int marshallIndex,
-        int fieldNameStartIndex,
-        int fieldNameEndIndex,
-        int mappedNameStartIndex,
-        int mappedNameEndIndex,
+        int fieldNameOffset,
+        int fieldNameLen,
+        int mappedNameOffset,
+        int mappedNameLen,
         boolean skipSerializing,
         boolean skipDeserializing
 ) {

@@ -1,14 +1,13 @@
 package io.jingproject.common;
 
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
-import java.util.Arrays;
 import java.util.Objects;
 
-public final class HeapWriteBuffer implements WriteBuffer {
-
+public final class SegmentWriteBuffer implements WriteBuffer {
     static {
         try {
             Class<Os> _ = MethodHandles.lookup().ensureInitialized(Os.class);
@@ -17,39 +16,36 @@ public final class HeapWriteBuffer implements WriteBuffer {
         }
     }
 
-    private byte[] buffer;
-    private int position;
+    private final SegmentAllocator alloc;
+    private MemorySegment seg;
+    private long position;
 
-    public HeapWriteBuffer(byte[] buf) {
-        if(buf == null || buf.length == 0) {
-            throw new IllegalArgumentException("empty buffer");
-        }
-        buffer = buf;
-        position = 0;
+    public SegmentWriteBuffer(SegmentAllocator allocator, long initialSize) {
+        alloc = allocator;
+        seg = allocator.allocate(initialSize);
+        assert seg.isNative();
+        position = 0L;
     }
 
-    public HeapWriteBuffer(int size) {
-        buffer = new byte[size];
-        position = 0;
-    }
-
-    private void growBufferIfNeeded(int requiredCapacity) {
-        int currentCapacity = buffer.length;
+    private void growBufferIfNeeded(long requiredCapacity) {
+        long currentCapacity = seg.byteSize();
         if(currentCapacity < requiredCapacity) {
-            int growedCapacity = Math.addExact(currentCapacity, currentCapacity);
-            int newLength = Math.max(growedCapacity, requiredCapacity);
-            buffer = Arrays.copyOf(buffer, newLength);
+            long growedCapacity = Math.addExact(seg.byteSize(), seg.byteSize());
+            long newLength = Math.max(growedCapacity, requiredCapacity);
+            MemorySegment newSegment = alloc.allocate(newLength);
+            MemorySegment.copy(seg, 0L, newSegment, 0L, position);
+            seg = newSegment;
         }
     }
 
     @Override
     public int intPosition() {
-        return position;
+        return Math.toIntExact(position);
     }
 
     @Override
     public void setPosition(int newPosition) {
-        assert newPosition >= 0 && newPosition <= buffer.length;
+        assert newPosition >= 0 && newPosition <= seg.byteSize();
         position = newPosition;
     }
 
@@ -60,8 +56,8 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void setPosition(long newPosition) {
-        assert newPosition >= 0L && Math.toIntExact(newPosition) <= buffer.length;
-        position = Math.toIntExact(newPosition);
+        assert newPosition >= 0 && newPosition <= seg.byteSize();
+        position = newPosition;
     }
 
     @Override
@@ -71,122 +67,121 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void ensureCapacity(long capacity) {
-        growBufferIfNeeded(Math.toIntExact(capacity));
+        growBufferIfNeeded(capacity);
     }
 
     @Override
     public void writeByte(byte b) {
-        int newPosition = Math.incrementExact(position);
+        long newPosition = Math.incrementExact(position);
         growBufferIfNeeded(newPosition);
-        buffer[position] = b;
+        SegmentAccess.setByte(seg, position, b);
         position = newPosition;
     }
 
     @Override
     public void writeBytes(byte b1, byte b2) {
-        int newPosition = Math.addExact(position, 2);
+        long newPosition = Math.addExact(position, 2);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setShort(buffer, position, Utils.compact(b1, b2));
+        SegmentAccess.setShort(seg, position, Utils.compact(b1, b2));
         position = newPosition;
     }
 
     @Override
     public void writeBytes(byte b1, byte b2, byte b3) {
-        int newPosition = Math.addExact(position, 3);
+        long newPosition = Math.addExact(position, 3);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setShort(buffer, position, Utils.compact(b1, b2));
-        buffer[position + 2] = b3;
+        SegmentAccess.setShort(seg, position, Utils.compact(b1, b2));
+        SegmentAccess.setByte(seg, position + 2, b3);
         position = newPosition;
     }
 
     @Override
     public void writeBytes(byte b1, byte b2, byte b3, byte b4) {
-        int newPosition = Math.addExact(position, 4);
+        long newPosition = Math.addExact(position, 4);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setInt(buffer, position, Utils.compact(Utils.compact(b1, b2), Utils.compact(b3, b4)));
+        SegmentAccess.setInt(seg, position, Utils.compact(Utils.compact(b1, b2), Utils.compact(b3, b4)));
         position = newPosition;
     }
 
     @Override
     public void writeBytes(byte[] bytes, int offset, int length) {
         assert bytes != null && Objects.checkFromIndexSize(offset, length, bytes.length) >= 0;
-        int newPosition = Math.addExact(position, length);
+        long newPosition = Math.addExact(position, length);
         growBufferIfNeeded(newPosition);
-        System.arraycopy(bytes, offset, buffer, position, length);
+        MemorySegment.copy(bytes, offset, seg, ValueLayout.JAVA_BYTE, position, length);
         position = newPosition;
     }
 
     @Override
     public void writeSegment(MemorySegment segment, long offset, long length) {
-        assert segment != null && Objects.checkFromIndexSize(offset, length, segment.byteSize()) >= 0;
-        int intLength = Math.toIntExact(length);
-        int newPosition = Math.addExact(position, intLength);
+        assert segment != null && Objects.checkFromIndexSize(offset, length, segment.byteSize()) >= 0L;
+        long newPosition = Math.addExact(position, length);
         growBufferIfNeeded(newPosition);
-        MemorySegment.copy(segment, ValueLayout.JAVA_BYTE, offset, buffer, position, intLength);
+        MemorySegment.copy(segment, offset, seg, position, length);
         position = newPosition;
     }
 
     @Override
     public void writeShort(short s, ByteOrder byteOrder) {
-        int newPosition = Math.addExact(position, 2);
+        long newPosition = Math.addExact(position, 2);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setShort(buffer, position, s, byteOrder);
+        SegmentAccess.setShort(seg, position, s, byteOrder);
         position = newPosition;
     }
 
     @Override
     public void writeChar(char c, ByteOrder byteOrder) {
-        int newPosition = Math.addExact(position, 2);
+        long newPosition = Math.addExact(position, 2);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setChar(buffer, position, c, byteOrder);
+        SegmentAccess.setChar(seg, position, c, byteOrder);
         position = newPosition;
     }
 
     @Override
     public void writeInt(int i, ByteOrder byteOrder) {
-        int newPosition = Math.addExact(position, 4);
+        long newPosition = Math.addExact(position, 4);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setInt(buffer, position, i, byteOrder);
+        SegmentAccess.setInt(seg, position, i, byteOrder);
         position = newPosition;
     }
 
     @Override
     public void writeLong(long l, ByteOrder byteOrder) {
-        int newPosition = Math.addExact(position, 8);
+        long newPosition = Math.addExact(position, 8);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setLong(buffer, position, l, byteOrder);
+        SegmentAccess.setLong(seg, position, l, byteOrder);
         position = newPosition;
     }
 
     @Override
     public void writeFloat(float f, ByteOrder byteOrder) {
-        int newPosition = Math.addExact(position, 4);
+        long newPosition = Math.addExact(position, 4);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setFloat(buffer, position, f, byteOrder);
+        SegmentAccess.setFloat(seg, position, f, byteOrder);
         position = newPosition;
     }
 
     @Override
     public void writeDouble(double d, ByteOrder byteOrder) {
-        int newPosition = Math.addExact(position, 8);
+        long newPosition = Math.addExact(position, 8);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setDouble(buffer, position, d, byteOrder);
+        SegmentAccess.setDouble(seg, position, d, byteOrder);
         position = newPosition;
     }
 
-    public byte[] rawByteArray() {
-        return buffer;
+    public MemorySegment rawSegment() {
+        return seg;
     }
 
     @Override
     public byte[] toByteArray() {
-        if (position == buffer.length) {
-            return buffer;
+        if(position == 0L) {
+            return Utils.emptyByteArray();
         }
-        return Arrays.copyOf(buffer, position);
+        return seg.asSlice(0L, position).toArray(ValueLayout.JAVA_BYTE);
     }
 
     public void reset() {
-        position = 0;
+        position = 0L;
     }
 }

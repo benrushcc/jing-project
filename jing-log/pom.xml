@@ -12,8 +12,7 @@
     <artifactId>jing-log</artifactId>
 
     <properties>
-        <maven.compiler.source>${java.version}</maven.compiler.source>
-        <maven.compiler.target>${java.version}</maven.compiler.target>
+
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -23,21 +22,45 @@
             <artifactId>jing-common</artifactId>
             <version>${revision}</version>
         </dependency>
+
         <dependency>
             <groupId>io.jingproject</groupId>
             <artifactId>jing-ffm</artifactId>
             <version>${revision}</version>
         </dependency>
+
         <dependency>
             <groupId>io.jingproject</groupId>
             <artifactId>jing-common-processor</artifactId>
             <version>${revision}</version>
             <scope>provided</scope>
         </dependency>
+
         <dependency>
             <groupId>io.jingproject</groupId>
             <artifactId>jing-ffm-processor</artifactId>
             <version>${revision}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>${jmh.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>${jmh.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
@@ -49,20 +72,33 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler-plugin.version}</version>
                 <configuration>
-                    <proc>full</proc>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>io.jingproject</groupId>
-                            <artifactId>jing-common-processor</artifactId>
-                            <version>${revision}</version>
-                        </path>
-                        <path>
-                            <groupId>io.jingproject</groupId>
-                            <artifactId>jing-ffm-processor</artifactId>
-                            <version>${revision}</version>
-                        </path>
-                    </annotationProcessorPaths>
+                    <release>${java.version}</release>
+                    <encoding>UTF-8</encoding>
+                    <enablePreview>true</enablePreview>
+                    <proc>none</proc>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>default-testCompile</id>
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <configuration>
+                            <release>${java.version}</release>
+                            <encoding>UTF-8</encoding>
+                            <enablePreview>true</enablePreview>
+                            <proc>full</proc>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>org.openjdk.jmh</groupId>
+                                    <artifactId>jmh-generator-annprocess</artifactId>
+                                    <version>${jmh.version}</version>
+                                </path>
+                            </annotationProcessorPaths>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <plugin>

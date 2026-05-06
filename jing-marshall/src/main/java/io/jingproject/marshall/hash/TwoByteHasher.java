@@ -9,7 +9,7 @@ import java.util.Objects;
 
 public final class TwoByteHasher implements Hasher {
     static {
-        try{
+        try {
             Class<Os> _ = MethodHandles.lookup().ensureInitialized(Os.class);
         } catch (IllegalAccessException e) {
             throw new ExceptionInInitializerError(e);

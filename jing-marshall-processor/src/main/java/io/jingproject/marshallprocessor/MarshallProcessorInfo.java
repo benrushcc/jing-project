@@ -4,7 +4,7 @@ import javax.lang.model.element.TypeElement;
 import java.util.List;
 import java.util.Map;
 
-public record MarshallGenInfo (
+public record MarshallProcessorInfo(
         List<TypeElement> typeElements,
         List<MarshallFieldInfo> fieldInfos,
         Map<Integer, List<MarshallFieldInfo>> fieldHash,

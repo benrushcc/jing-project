@@ -38,9 +38,9 @@ public enum NamingConvention {
             case CAMEL_CASE -> bytes -> {
                 HeapWriteBuffer buffer = new HeapWriteBuffer(Math.addExact(bytes.length, bytes.length));
                 for (byte b : bytes) {
-                    if(b >= BYTE_a && b <= BYTE_z) {
+                    if (b >= BYTE_a && b <= BYTE_z) {
                         buffer.writeByte(b);
-                    } else if(b >= BYTE_A && b <= BYTE_Z) {
+                    } else if (b >= BYTE_A && b <= BYTE_Z) {
                         buffer.writeByte(BYTE_NULL);
                         buffer.writeByte((byte) (b + BYTE_DIFF));
                     } else {
@@ -51,14 +51,14 @@ public enum NamingConvention {
                 return buffer;
             };
             case SNAKE_CASE -> bytes -> {
-                if(bytes[0] == BYTE_UNDERSCORE || bytes[Math.decrementExact(bytes.length)] == BYTE_UNDERSCORE) {
+                if (bytes[0] == BYTE_UNDERSCORE || bytes[Math.decrementExact(bytes.length)] == BYTE_UNDERSCORE) {
                     throw new IllegalArgumentException("Invalid snake case input");
                 }
                 HeapWriteBuffer buffer = new HeapWriteBuffer(Math.incrementExact(bytes.length));
                 for (byte b : bytes) {
-                    if(b >= BYTE_a && b <= BYTE_z) {
+                    if (b >= BYTE_a && b <= BYTE_z) {
                         buffer.writeByte(b);
-                    } else if(b == BYTE_UNDERSCORE) {
+                    } else if (b == BYTE_UNDERSCORE) {
                         buffer.writeByte(BYTE_NULL);
                     } else {
                         throw new IllegalArgumentException("Invalid byte: " + b);
@@ -68,14 +68,14 @@ public enum NamingConvention {
                 return buffer;
             };
             case KEBAB_CASE -> bytes -> {
-                if(bytes[0] == BYTE_MINUS || bytes[Math.decrementExact(bytes.length)] == BYTE_MINUS) {
+                if (bytes[0] == BYTE_MINUS || bytes[Math.decrementExact(bytes.length)] == BYTE_MINUS) {
                     throw new IllegalArgumentException("Invalid kebab case input");
                 }
                 HeapWriteBuffer buffer = new HeapWriteBuffer(Math.incrementExact(bytes.length));
                 for (byte b : bytes) {
-                    if(b >= BYTE_a && b <= BYTE_z) {
+                    if (b >= BYTE_a && b <= BYTE_z) {
                         buffer.writeByte(b);
-                    } else if(b == BYTE_MINUS) {
+                    } else if (b == BYTE_MINUS) {
                         buffer.writeByte(BYTE_NULL);
                     } else {
                         throw new IllegalArgumentException("Invalid byte: " + b);
@@ -86,12 +86,12 @@ public enum NamingConvention {
             };
             case PASCAL_CASE -> bytes -> {
                 HeapWriteBuffer buffer = new HeapWriteBuffer(Math.addExact(bytes.length, bytes.length));
-                for(int i = 0; i < bytes.length; i++) {
+                for (int i = 0; i < bytes.length; i++) {
                     byte b = bytes[i];
-                    if(b >= BYTE_a && b <= BYTE_z) {
+                    if (b >= BYTE_a && b <= BYTE_z) {
                         buffer.writeByte(b);
-                    } else if(b >= BYTE_A && b <= BYTE_Z) {
-                        if(i != 0) {
+                    } else if (b >= BYTE_A && b <= BYTE_Z) {
+                        if (i != 0) {
                             buffer.writeByte(BYTE_NULL);
                         }
                         buffer.writeByte((byte) (b + BYTE_DIFF));
@@ -105,9 +105,9 @@ public enum NamingConvention {
             case UPPER_SNAKE_CASE -> bytes -> {
                 HeapWriteBuffer buffer = new HeapWriteBuffer(Math.incrementExact(bytes.length));
                 for (byte b : bytes) {
-                    if(b >= BYTE_A && b <= BYTE_Z) {
+                    if (b >= BYTE_A && b <= BYTE_Z) {
                         buffer.writeByte((byte) (b + BYTE_DIFF));
-                    } else if(b == BYTE_UNDERSCORE) {
+                    } else if (b == BYTE_UNDERSCORE) {
                         buffer.writeByte(BYTE_NULL);
                     } else {
                         throw new IllegalArgumentException("Invalid byte: " + b);
@@ -119,9 +119,9 @@ public enum NamingConvention {
             case UPPER_KEBAB_CASE -> bytes -> {
                 HeapWriteBuffer buffer = new HeapWriteBuffer(Math.incrementExact(bytes.length));
                 for (byte b : bytes) {
-                    if(b >= BYTE_A && b <= BYTE_Z) {
+                    if (b >= BYTE_A && b <= BYTE_Z) {
                         buffer.writeByte((byte) (b + BYTE_DIFF));
-                    } else if(b == BYTE_MINUS) {
+                    } else if (b == BYTE_MINUS) {
                         buffer.writeByte(BYTE_NULL);
                     } else {
                         throw new IllegalArgumentException("Invalid byte: " + b);
@@ -134,19 +134,19 @@ public enum NamingConvention {
     }
 
     public static String cast(NamingConvention from, NamingConvention to, String name) {
-        if(name == null || name.isBlank()) {
+        if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Invalid name: " + name);
         }
         byte[] normalized = toBufferFunc(from).apply(name.getBytes(StandardCharsets.UTF_8)).toByteArray();
         HeapWriteBuffer buffer = new HeapWriteBuffer(normalized.length);
         int index = 0;
-        for(int i = 0; i < normalized.length; i++) {
+        for (int i = 0; i < normalized.length; i++) {
             byte b = normalized[i];
-            if(b == BYTE_NULL) {
+            if (b == BYTE_NULL) {
                 switch (to) {
                     case ORIGINAL -> throw new UnsupportedOperationException();
                     case CAMEL_CASE -> {
-                        if(buffer.intPosition() == 0) {
+                        if (buffer.intPosition() == 0) {
                             buffer.writeBytes(normalized, index, i - index);
                         } else {
                             byte[] temp = Arrays.copyOfRange(normalized, index, i);
@@ -156,13 +156,13 @@ public enum NamingConvention {
                     }
                     case SNAKE_CASE -> {
                         buffer.writeBytes(normalized, index, i - index);
-                        if(i != normalized.length - 1) {
+                        if (i != normalized.length - 1) {
                             buffer.writeByte(BYTE_UNDERSCORE);
                         }
                     }
                     case KEBAB_CASE -> {
                         buffer.writeBytes(normalized, index, i - index);
-                        if(i != normalized.length - 1) {
+                        if (i != normalized.length - 1) {
                             buffer.writeByte(BYTE_MINUS);
                         }
                     }
@@ -176,7 +176,7 @@ public enum NamingConvention {
                         for (byte t : temp) {
                             buffer.writeByte((byte) (t - BYTE_DIFF));
                         }
-                        if(i != normalized.length - 1) {
+                        if (i != normalized.length - 1) {
                             buffer.writeByte(BYTE_UNDERSCORE);
                         }
                     }
@@ -185,7 +185,7 @@ public enum NamingConvention {
                         for (byte t : temp) {
                             buffer.writeByte((byte) (t - BYTE_DIFF));
                         }
-                        if(i != normalized.length - 1) {
+                        if (i != normalized.length - 1) {
                             buffer.writeByte(BYTE_MINUS);
                         }
                     }

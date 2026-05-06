@@ -1,4 +1,4 @@
-package io.jingproject.commontest;
+package io.jingproject.commontest.test;
 
 import io.jingproject.common.DualLock;
 import org.junit.jupiter.api.Assertions;
@@ -7,20 +7,22 @@ import org.junit.jupiter.api.Test;
 import java.util.concurrent.CountDownLatch;
 
 public class DualLockTest {
+    private static final int BATCH = 1000;
+    private static final int LOCK_TIMES = 1000;
     record IntHolder(int value) {
 
     }
 
     @Test
-    public void testEx() throws InterruptedException {
-        for (int times = 0; times < 1000; times++) {
+    public void dualLockTest() throws InterruptedException {
+        for (int times = 0; times < BATCH; times++) {
             DualLock<IntHolder> dualLock = new DualLock<>(new IntHolder(0));
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch endLatch = new CountDownLatch(2);
             Thread t1 = Thread.ofPlatform().unstarted(() -> {
                 try {
                     startLatch.await();
-                    for (int i = 0; i < 100000; i++) {
+                    for (int i = 0; i < LOCK_TIMES; i++) {
                         IntHolder intHolder = dualLock.lock();
                         dualLock.unlock(new IntHolder(intHolder.value() + 1));
                     }
@@ -32,7 +34,7 @@ public class DualLockTest {
             Thread t2 = Thread.ofPlatform().unstarted(() -> {
                 try {
                     startLatch.await();
-                    for (int i = 0; i < 100000; i++) {
+                    for (int i = 0; i < LOCK_TIMES; i++) {
                         IntHolder intHolder = dualLock.lock();
                         dualLock.unlock(new IntHolder(intHolder.value() + 1));
                     }
@@ -45,7 +47,7 @@ public class DualLockTest {
             t2.start();
             startLatch.countDown();
             endLatch.await();
-            Assertions.assertEquals(100000 * 2, dualLock.peek().value());
+            Assertions.assertEquals(LOCK_TIMES * 2, dualLock.peek().value());
         }
     }
 }

@@ -1,10 +1,23 @@
 package io.jingproject.common;
 
+import java.lang.foreign.MemorySegment;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
-public interface WriteBuffer {
+public sealed interface WriteBuffer permits HeapWriteBuffer, SegmentWriteBuffer {
+    int intPosition();
+
+    void setPosition(int newPosition);
+
+    long longPosition();
+
+    void setPosition(long newPosition);
+
+    void ensureCapacity(int capacity);
+
+    void ensureCapacity(long capacity);
+
     void writeByte(byte b);
 
     void writeBytes(byte b1, byte b2);
@@ -13,10 +26,16 @@ public interface WriteBuffer {
 
     void writeBytes(byte b1, byte b2, byte b3, byte b4);
 
-    void writeBytes(byte[] bytes, int off, int len);
+    void writeBytes(byte[] bytes, int offset, int length);
 
     default void writeBytes(byte[] bytes) {
         writeBytes(bytes, 0, bytes.length);
+    }
+
+    void writeSegment(MemorySegment segment, long offset, long length);
+
+    default void writeSegment(MemorySegment segment) {
+        writeSegment(segment, 0L, segment.byteSize());
     }
 
     void writeShort(short s, ByteOrder byteOrder);
@@ -55,6 +74,8 @@ public interface WriteBuffer {
         writeDouble(d, ByteOrder.nativeOrder());
     }
 
+    byte[] toByteArray();
+
     default void writeString(String str, Charset charset) {
         byte[] bytes = str.getBytes(charset);
         writeBytes(bytes, 0, bytes.length);
@@ -65,7 +86,9 @@ public interface WriteBuffer {
     }
 
     default void writeCodePointInUtf8(int codePoint) {
-        assert Character.isValidCodePoint(codePoint);
+        if (!Character.isValidCodePoint(codePoint)) {
+            throw new IllegalArgumentException("not a valid code point: " + codePoint);
+        }
         if (codePoint < 0x80) {
             writeByte((byte) codePoint);
         } else if (codePoint < 0x800) {
@@ -77,7 +100,4 @@ public interface WriteBuffer {
         }
     }
 
-    int intPosition();
-
-    long longPosition();
 }

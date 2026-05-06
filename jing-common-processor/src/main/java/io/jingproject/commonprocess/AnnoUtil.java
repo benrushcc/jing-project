@@ -3,6 +3,10 @@ package io.jingproject.commonprocess;
 import io.jingproject.common.anno.ProcessorApi;
 
 import javax.lang.model.element.*;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 
 @ProcessorApi
 public final class AnnoUtil {
@@ -53,28 +57,11 @@ public final class AnnoUtil {
         return moduleName + "/" + packageName + "." + className;
     }
 
-    public static String makeNewExpression(String typeName) {
+    public static boolean isGenericType(String typeName) {
         if(typeName == null || typeName.isBlank()) {
             throw new AnnotationProcessorException("typeName is illegal");
         }
-        int index = typeName.indexOf('<');
-        if(index == -1) {
-            return typeName;
-        } else {
-            return typeName.substring(0, index) + "<>";
-        }
-    }
-
-    public static String makeRawTypeExpression(String typeName) {
-        if(typeName == null || typeName.isBlank()) {
-            throw new AnnotationProcessorException("typeName is illegal");
-        }
-        int index = typeName.indexOf('<');
-        if(index == -1) {
-            return typeName;
-        } else {
-            return typeName.substring(0, index);
-        }
+        return typeName.contains("<") && typeName.contains(">");
     }
 
     public static TypeElement castTypeElement(Element element) {
@@ -98,6 +85,22 @@ public final class AnnoUtil {
             return e;
         } else {
             throw new AssertionError("not an executableElement : " + element.asType());
+        }
+    }
+
+    public static DeclaredType castDeclaredType(TypeMirror typeMirror) {
+        if(typeMirror instanceof DeclaredType d) {
+            return d;
+        } else {
+            throw new AssertionError("not a declaredType : " + typeMirror);
+        }
+    }
+
+    public static ArrayType castArrayType(TypeMirror typeMirror) {
+        if(typeMirror instanceof ArrayType a) {
+            return a;
+        } else {
+            throw new AssertionError("not an arrayType : " + typeMirror);
         }
     }
 
@@ -135,15 +138,19 @@ public final class AnnoUtil {
         if(variableElement == null) {
             throw new AnnotationProcessorException("variableElement cannot be null");
         }
-        if(variableElement.asType().getKind().isPrimitive()) {
-            throw new AnnotationProcessorException("variableElement cannot be primitive : " + variableElement);
-        }
         TypeElement enclosingElement = castTypeElement(variableElement.getEnclosingElement());
         if(enclosingElement.getNestingKind() != NestingKind.TOP_LEVEL) {
             throw new AnnotationProcessorException("enclosing typeElement must be top-level : " + enclosingElement);
         }
         if(!enclosingElement.getTypeParameters().isEmpty()) {
             throw new AnnotationProcessorException("enclosing typeElement must not have any type parameters : " + enclosingElement);
+        }
+        TypeMirror tm = variableElement.asType();
+        if(tm.getKind() == TypeKind.ARRAY) {
+            ArrayType arrayType = castArrayType(tm);
+            if(arrayType.getComponentType().getKind() == TypeKind.ARRAY) {
+                throw new AnnotationProcessorException("multi dimensional arrayType not supported: " + arrayType);
+            }
         }
     }
 }

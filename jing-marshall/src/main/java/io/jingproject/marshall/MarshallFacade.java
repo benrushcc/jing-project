@@ -1,5 +1,6 @@
 package io.jingproject.marshall;
 
+import io.jingproject.common.WriteBuffer;
 import io.jingproject.common.anno.ProcessorApi;
 
 import java.lang.foreign.MemorySegment;
@@ -18,6 +19,10 @@ public interface MarshallFacade {
     Object construct(MarshallSchema schema);
 
     int totalElements();
+
+    void writeFieldNameByIndex(WriteBuffer writeBuffer, int index);
+
+    void writeMappedNameByIndex(WriteBuffer writeBuffer, int index);
 
     MarshallInfo marshallInfoByIndex(int index);
 

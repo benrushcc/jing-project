@@ -1,5 +1,6 @@
 package io.jingproject.common;
 
+// TODO add warn
 public enum LogLevel {
     DEBUG(-7355608),
 

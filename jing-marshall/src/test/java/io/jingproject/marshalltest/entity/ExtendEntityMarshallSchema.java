@@ -26,8 +26,8 @@ public record ExtendEntityMarshallSchema (
         }
     }
 
-    @Override
     @SuppressWarnings("unchecked")
+    @Override
     public void setObject(int offset, Object value) {
         switch (offset) {
             case 2 -> facade.marshallInfoByIndex(2).vh().set(instance, (String) value);

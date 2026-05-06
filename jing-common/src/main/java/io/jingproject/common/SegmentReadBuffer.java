@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
+import java.util.Objects;
 
 public final class SegmentReadBuffer implements ReadBuffer {
 
@@ -15,125 +16,151 @@ public final class SegmentReadBuffer implements ReadBuffer {
         }
     }
 
-    private final MemorySegment segment;
+    private final MemorySegment buffer;
     private long position;
 
     public SegmentReadBuffer(MemorySegment segment) {
-        this.segment = segment.isReadOnly() ? segment : segment.asReadOnly();
+        this.buffer = segment.isReadOnly() ? segment : segment.asReadOnly();
+        this.position = 0L;
+    }
+
+    @Override
+    public int intPosition() {
+        return Math.toIntExact(position);
+    }
+
+    @Override
+    public int intLength() {
+        return Math.toIntExact(buffer.byteSize());
+    }
+
+    @Override
+    public void setPosition(int newPosition) {
+        assert newPosition >= 0L && newPosition <= buffer.byteSize();
+        position = Math.toIntExact(newPosition);
+    }
+
+    @Override
+    public long longPosition() {
+        return position;
+    }
+
+    @Override
+    public long longLength() {
+        return buffer.byteSize();
+    }
+
+    @Override
+    public void setPosition(long newPosition) {
+        assert newPosition >= 0L && newPosition <= buffer.byteSize();
+        position = newPosition;
     }
 
     @Override
     public byte readByte() {
-        long newPosition = Math.addExact(position, ValueLayout.JAVA_BYTE.byteSize());
-        if (newPosition > segment.byteSize()) {
+        long newPosition = Math.incrementExact(position);
+        if (newPosition > buffer.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
-        byte r = segment.get(ValueLayout.JAVA_BYTE, position);
+        byte r = SegmentAccess.getByte(buffer, position);
         position = newPosition;
         return r;
     }
 
     @Override
-    public byte[] readBytes(int len) {
-        long newPosition = Math.addExact(position, Math.multiplyExact(len, ValueLayout.JAVA_BYTE.byteSize()));
-        if (newPosition > segment.byteSize()) {
+    public void readBytes(byte[] bytes, int offset, int length) {
+        assert bytes != null && Objects.checkFromIndexSize(offset, bytes.length, length) >= 0;
+        long newPosition = Math.addExact(position, length);
+        if (newPosition > buffer.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
-        byte[] r = new byte[len];
-        MemorySegment.copy(segment, ValueLayout.JAVA_BYTE, position, r, 0, len);
+        MemorySegment.copy(buffer, ValueLayout.JAVA_BYTE, position, bytes, offset, length);
         position = newPosition;
-        return r;
     }
 
     @Override
-    public MemorySegment readSegment(long len) {
-        byte[] r = readBytes(Math.toIntExact(len));
-        return MemorySegment.ofArray(r);
+    public void readSegment(MemorySegment segment, long offset, long length) {
+        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), length) >= 0;
+        long newPosition = Math.addExact(position, length);
+        if(newPosition > buffer.byteSize()) {
+            throw new IndexOutOfBoundsException();
+        }
+        MemorySegment.copy(buffer, position, segment, offset, length);
+        position = newPosition;
     }
 
     @Override
     public short readShort(ByteOrder byteOrder) {
-        long newPosition = Math.addExact(position, ValueLayout.JAVA_SHORT.byteSize());
-        if (newPosition > segment.byteSize()) {
+        long newPosition = Math.addExact(position, 2);
+        if (newPosition > buffer.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
-        short r = segment.get(ValueLayout.JAVA_SHORT, position);
+        short r = SegmentAccess.getShort(buffer, position, byteOrder);
         position = newPosition;
         return r;
     }
 
     @Override
     public char readChar(ByteOrder byteOrder) {
-        long newPosition = Math.addExact(position, ValueLayout.JAVA_CHAR.byteSize());
-        if (newPosition > segment.byteSize()) {
+        long newPosition = Math.addExact(position, 2);
+        if (newPosition > buffer.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
-        char r = segment.get(ValueLayout.JAVA_CHAR, position);
+        char r = SegmentAccess.getChar(buffer, position, byteOrder);
         position = newPosition;
         return r;
     }
 
     @Override
     public int readInt(ByteOrder byteOrder) {
-        long newPosition = Math.addExact(position, ValueLayout.JAVA_INT.byteSize());
-        if (newPosition > segment.byteSize()) {
+        long newPosition = Math.addExact(position, 4);
+        if (newPosition > buffer.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
-        int r = segment.get(ValueLayout.JAVA_INT, position);
+        int r = SegmentAccess.getInt(buffer, position, byteOrder);
         position = newPosition;
         return r;
     }
 
     @Override
     public long readLong(ByteOrder byteOrder) {
-        long newPosition = Math.addExact(position, ValueLayout.JAVA_LONG.byteSize());
-        if (newPosition > segment.byteSize()) {
+        long newPosition = Math.addExact(position, 8);
+        if (newPosition > buffer.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
-        long r = segment.get(ValueLayout.JAVA_LONG, position);
+        long r = SegmentAccess.getLong(buffer, position, byteOrder);
         position = newPosition;
         return r;
     }
 
     @Override
     public float readFloat(ByteOrder byteOrder) {
-        long newPosition = Math.addExact(position, ValueLayout.JAVA_FLOAT.byteSize());
-        if (newPosition > segment.byteSize()) {
+        long newPosition = Math.addExact(position, 4);
+        if (newPosition > buffer.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
-        float r = segment.get(ValueLayout.JAVA_FLOAT, position);
+        float r = SegmentAccess.getFloat(buffer, position, byteOrder);
         position = newPosition;
         return r;
     }
 
     @Override
     public double readDouble(ByteOrder byteOrder) {
-        long newPosition = Math.addExact(position, ValueLayout.JAVA_DOUBLE.byteSize());
-        if (newPosition > segment.byteSize()) {
+        long newPosition = Math.addExact(position, 8);
+        if (newPosition > buffer.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
-        double r = segment.get(ValueLayout.JAVA_DOUBLE, position);
+        double r = SegmentAccess.getDouble(buffer, position, byteOrder);
         position = newPosition;
         return r;
     }
 
     @Override
-    public int intIndex() {
-        return Math.toIntExact(position);
+    public void reset() {
+        position = 0L;
     }
 
-    @Override
-    public long longIndex() {
-        return position;
-    }
-
-    @Override
-    public int intLength() {
-        return Math.toIntExact(segment.byteSize());
-    }
-
-    @Override
-    public long longLength() {
-        return segment.byteSize();
+    public MemorySegment rawSegment() {
+        return buffer;
     }
 }

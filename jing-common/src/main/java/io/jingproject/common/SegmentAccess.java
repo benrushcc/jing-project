@@ -112,6 +112,18 @@ public final class SegmentAccess {
         };
     }
 
+    public static void setShort(MemorySegment segment, long offset, short s) {
+        setShort(segment, offset, s, ByteOrder.nativeOrder());
+    }
+
+    public static void setShort(MemorySegment segment, long offset, short s, ByteOrder byteOrder) {
+        assert segment != null && Objects.checkFromIndexSize(offset, 2, segment.byteSize()) >= 0 && byteOrder != null;
+        switch (byteOrder) {
+            case LITTLE_ENDIAN -> segment.set(SHORT_UNALIGNED_LE, offset, s);
+            case BIG_ENDIAN -> segment.set(SHORT_UNALIGNED_BE, offset, s);
+        }
+    }
+
     public static char getChar(MemorySegment segment, long offset) {
         return getChar(segment, offset, ByteOrder.nativeOrder());
     }

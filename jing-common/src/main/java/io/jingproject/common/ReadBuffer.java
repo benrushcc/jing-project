@@ -5,11 +5,31 @@ import java.nio.ByteOrder;
 
 public sealed interface ReadBuffer permits HeapReadBuffer, SegmentReadBuffer {
 
+    int intPosition();
+
+    int intLength();
+
+    void setPosition(int newPosition);
+
+    long longPosition();
+
+    long longLength();
+
+    void setPosition(long newPosition);
+
     byte readByte();
 
-    byte[] readBytes(int len);
+    void readBytes(byte[] bytes, int offset, int length);
 
-    MemorySegment readSegment(long len);
+    default void readBytes(byte[] bytes) {
+        readBytes(bytes, 0, bytes.length);
+    }
+
+    void readSegment(MemorySegment segment, long offset, long length);
+
+    default void readSegment(MemorySegment segment) {
+        readSegment(segment, 0L, segment.byteSize());
+    }
 
     short readShort(ByteOrder byteOrder);
 
@@ -56,11 +76,5 @@ public sealed interface ReadBuffer permits HeapReadBuffer, SegmentReadBuffer {
         return readAddress(ByteOrder.nativeOrder());
     }
 
-    int intIndex();
-
-    long longIndex();
-
-    int intLength();
-
-    long longLength();
+    void reset();
 }

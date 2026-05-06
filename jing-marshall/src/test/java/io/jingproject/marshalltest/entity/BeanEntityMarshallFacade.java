@@ -1,10 +1,10 @@
 package io.jingproject.marshalltest.entity;
 
+import io.jingproject.common.WriteBuffer;
 import io.jingproject.marshall.MarshallFacade;
+import io.jingproject.marshall.MarshallFacadeInfo;
 import io.jingproject.marshall.MarshallInfo;
 import io.jingproject.marshall.MarshallSchema;
-import io.jingproject.marshall.MarshallUtil;
-import io.jingproject.marshall.hash.Hasher;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
@@ -12,40 +12,26 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 
 public final class BeanEntityMarshallFacade implements MarshallFacade {
     private static final MethodHandle CONSTRUCTOR_MH;
-    private static final List<MarshallInfo> MARSHALLS;
-    private static final Hasher MARSHALL_FIELDNAME_HASHER;
-    private static final byte[] MARSHALL_FIELDNAME_BYTES;
-    private static final MemorySegment MARSHALL_FIELDNAME_SEGMENT;
-    private static final Hasher MARSHALL_MAPPEDNAME_HASHER;
-    private static final byte[] MARSHALL_MAPPEDNAME_BYTES;
-    private static final MemorySegment MARSHALL_MAPPEDNAME_SEGMENT;
+    private static final MarshallFacadeInfo FACADE_INFO;
 
     static {
         try {
-            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(BeanEntity.class, MethodHandles.lookup());
-            VarHandle intValueVh = lookup.findVarHandle(BeanEntity.class, "intValue", int.class);
-            VarHandle longValueVh = lookup.findVarHandle(BeanEntity.class, "longValue", long.class);
-            VarHandle strValueVh = lookup.findVarHandle(BeanEntity.class, "strValue", String.class);
-            VarHandle timeValueVh = lookup.findVarHandle(BeanEntity.class, "timeValue", LocalDateTime.class);
-            MarshallInfo intValueMi = new MarshallInfo(int.class, 0, "intValue", "intValue", intValueVh, null, false, false);
-            MarshallInfo longValueMi = new MarshallInfo(long.class, 1, "longValue", "longValue", longValueVh, null, false, false);
-            MarshallInfo strValueMi = new MarshallInfo(String.class, 2, "strValue", "strValue", strValueVh, null, false, false);
-            MarshallInfo timeValueMi = new MarshallInfo(LocalDateTime.class, 3, "timeValue", "timeValue", timeValueVh, null, false, false);
-            CONSTRUCTOR_MH = lookup.findConstructor(BeanEntity.class, MethodType.methodType(void.class));
-            MARSHALLS = List.of(intValueMi, longValueMi, strValueMi, timeValueMi);
-            List<String> fieldNames = MARSHALLS.stream().map(MarshallInfo::fieldName).toList();
-            MARSHALL_FIELDNAME_HASHER = MarshallUtil.calcHasher(fieldNames);
-            MARSHALL_FIELDNAME_BYTES = MarshallUtil.calcBytes(fieldNames);
-            MARSHALL_FIELDNAME_SEGMENT = MemorySegment.ofArray(MARSHALL_FIELDNAME_BYTES).asReadOnly();
-            List<String> mappedNames = MARSHALLS.stream().map(MarshallInfo::mappedName).toList();
-            MARSHALL_MAPPEDNAME_HASHER = MarshallUtil.calcHasher(mappedNames);
-            MARSHALL_MAPPEDNAME_BYTES = MarshallUtil.calcBytes(mappedNames);
-            MARSHALL_MAPPEDNAME_SEGMENT =  MemorySegment.ofArray(MARSHALL_MAPPEDNAME_BYTES).asReadOnly();
+            MethodHandles.Lookup lookup = MethodHandles.lookup();
+            MethodHandles.Lookup lookup0 = MethodHandles.privateLookupIn(BeanEntity.class, lookup);
+            VarHandle vh0 = lookup0.findVarHandle(BeanEntity.class, "intValue", int.class);
+            VarHandle vh1 = lookup0.findVarHandle(BeanEntity.class, "longValue", long.class);
+            VarHandle vh2 = lookup0.findVarHandle(BeanEntity.class, "strValue", String.class);
+            VarHandle vh3 = lookup0.findVarHandle(BeanEntity.class, "timeValue", LocalDateTime.class);
+            MarshallInfo mi0 = new MarshallInfo(int.class, null, null, 0, "intValue", "intValue", vh0, null, false, false);
+            MarshallInfo mi1 = new MarshallInfo(long.class, null, null, 1, "longValue", "longValue", vh1, null, false, false);
+            MarshallInfo mi2 = new MarshallInfo(String.class, null, null, 2, "strValue", "strValue", vh2, null, false, false);
+            MarshallInfo mi3 = new MarshallInfo(LocalDateTime.class, null, null, 3, "timeValue", "timeValue", vh3, null, false, false);
+            CONSTRUCTOR_MH = lookup0.findConstructor(BeanEntity.class, MethodType.methodType(void.class));
+            FACADE_INFO = new MarshallFacadeInfo(List.of(mi0, mi1, mi2, mi3));
         } catch (Exception e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -66,7 +52,7 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
         if(schema instanceof BeanEntityMarshallSchema(_, BeanEntity instance)) {
             return instance;
         }
-        throw new IllegalArgumentException("wrong schema type");
+        throw new IllegalArgumentException("wrong schema rawType");
     }
 
     @Override
@@ -75,8 +61,30 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
+    public void writeFieldNameByIndex(WriteBuffer writeBuffer, int index) {
+        switch (index) {
+            case 0 -> writeBuffer.writeBytes(FACADE_INFO.fieldNameBytes(), 0, 8);
+            case 1 -> writeBuffer.writeBytes(FACADE_INFO.fieldNameBytes(), 8, 9);
+            case 2 -> writeBuffer.writeBytes(FACADE_INFO.fieldNameBytes(), 17, 8);
+            case 3 -> writeBuffer.writeBytes(FACADE_INFO.fieldNameBytes(), 25, 9);
+            default -> throw new IllegalArgumentException("wrong index");
+        }
+    }
+
+    @Override
+    public void writeMappedNameByIndex(WriteBuffer writeBuffer, int index) {
+        switch (index) {
+            case 0 -> writeBuffer.writeBytes(FACADE_INFO.mappedNameBytes(), 0, 8);
+            case 1 -> writeBuffer.writeBytes(FACADE_INFO.mappedNameBytes(), 8, 9);
+            case 2 -> writeBuffer.writeBytes(FACADE_INFO.mappedNameBytes(), 17, 8);
+            case 3 -> writeBuffer.writeBytes(FACADE_INFO.mappedNameBytes(), 25, 9);
+            default -> throw new IllegalArgumentException("wrong index");
+        }
+    }
+
+    @Override
     public MarshallInfo marshallInfoByIndex(int index) {
-        return MARSHALLS.get(index);
+        return FACADE_INFO.infos().get(index);
     }
 
     @Override
@@ -88,31 +96,31 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
             case "timeValue" -> 3;
             default -> throw new IllegalArgumentException("fieldName not found: " + fieldName);
         };
-        return MARSHALLS.get(index);
+        return FACADE_INFO.infos().get(index);
     }
 
     @Override
     public MarshallInfo marshallInfoByFieldName(byte[] bytes, int offset, int len) {
-        int hash = MARSHALL_FIELDNAME_HASHER.hash(bytes, offset, len);
+        int hash = FACADE_INFO.fieldNameHasher().hash(bytes, offset, len);
         switch (hash) {
             case 105 -> {
-                if(Arrays.equals(MARSHALL_FIELDNAME_BYTES, 0, 8, bytes, offset, len)) {
-                    return MARSHALLS.get(0);
+                if(FACADE_INFO.fieldNameEquals(0, 8, bytes, offset, len)) {
+                    return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(Arrays.equals(MARSHALL_FIELDNAME_BYTES, 8, 17, bytes, offset, len)) {
-                    return MARSHALLS.get(1);
+                if(FACADE_INFO.fieldNameEquals( 8, 9, bytes, offset, len)) {
+                    return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(Arrays.equals(MARSHALL_FIELDNAME_BYTES, 17, 25, bytes, offset, len)) {
-                    return MARSHALLS.get(2);
+                if(FACADE_INFO.fieldNameEquals( 17, 8, bytes, offset, len)) {
+                    return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(Arrays.equals(MARSHALL_FIELDNAME_BYTES, 25, 34, bytes, offset, len)) {
-                    return MARSHALLS.get(3);
+                if(FACADE_INFO.fieldNameEquals( 25, 9, bytes, offset, len)) {
+                    return FACADE_INFO.infos().get(3);
                 }
             }
         }
@@ -121,26 +129,26 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByFieldName(MemorySegment segment, long offset, long len) {
-        int hash = MARSHALL_FIELDNAME_HASHER.hash(segment, offset, len);
+        int hash = FACADE_INFO.fieldNameHasher().hash(segment, offset, len);
         switch (hash) {
             case 105 -> {
-                if(MemorySegment.mismatch(MARSHALL_FIELDNAME_SEGMENT, 0L, 8L, segment, offset, len) == -1L) {
-                    return MARSHALLS.get(0);
+                if(FACADE_INFO.fieldNameEquals( 0, 8, segment, offset, len)) {
+                    return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(MemorySegment.mismatch(MARSHALL_FIELDNAME_SEGMENT, 8L, 17L, segment, offset, len) == -1L) {
-                    return MARSHALLS.get(1);
+                if(FACADE_INFO.fieldNameEquals( 8, 9, segment, offset, len)) {
+                    return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(MemorySegment.mismatch(MARSHALL_FIELDNAME_SEGMENT, 17L, 25L, segment, offset, len) == -1L) {
-                    return MARSHALLS.get(2);
+                if(FACADE_INFO.fieldNameEquals( 17, 8, segment, offset, len)) {
+                    return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(MemorySegment.mismatch(MARSHALL_FIELDNAME_SEGMENT, 25L, 34L, segment, offset, len) == -1L) {
-                    return MARSHALLS.get(3);
+                if(FACADE_INFO.fieldNameEquals( 25, 9, segment, offset, len)) {
+                    return FACADE_INFO.infos().get(3);
                 }
             }
         }
@@ -156,31 +164,31 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
             case "timeValue" -> 3;
             default -> throw new IllegalArgumentException("mappedName not found: " + mappedName);
         };
-        return MARSHALLS.get(index);
+        return FACADE_INFO.infos().get(index);
     }
 
     @Override
     public MarshallInfo marshallInfoByMappedName(byte[] bytes, int offset, int len) {
-        int hash = MARSHALL_MAPPEDNAME_HASHER.hash(bytes, offset, len);
+        int hash = FACADE_INFO.mappedNameHasher().hash(bytes, offset, len);
         switch (hash) {
             case 105 -> {
-                if(Arrays.equals(MARSHALL_MAPPEDNAME_BYTES, 0, 8, bytes, offset, len)) {
-                    return MARSHALLS.get(0);
+                if(FACADE_INFO.mappedNameEquals( 0, 8, bytes, offset, len)) {
+                    return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(Arrays.equals(MARSHALL_MAPPEDNAME_BYTES, 8, 17, bytes, offset, len)) {
-                    return MARSHALLS.get(1);
+                if(FACADE_INFO.mappedNameEquals( 8, 9, bytes, offset, len)) {
+                    return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(Arrays.equals(MARSHALL_MAPPEDNAME_BYTES, 17, 25, bytes, offset, len)) {
-                    return MARSHALLS.get(2);
+                if(FACADE_INFO.mappedNameEquals( 17, 8, bytes, offset, len)) {
+                    return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(Arrays.equals(MARSHALL_MAPPEDNAME_BYTES, 25, 34, bytes, offset, len)) {
-                    return MARSHALLS.get(3);
+                if(FACADE_INFO.mappedNameEquals( 25, 9, bytes, offset, len)) {
+                    return FACADE_INFO.infos().get(3);
                 }
             }
         }
@@ -189,26 +197,26 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByMappedName(MemorySegment segment, long offset, long len) {
-        int hash = MARSHALL_MAPPEDNAME_HASHER.hash(segment, offset, len);
+        int hash = FACADE_INFO.mappedNameHasher().hash(segment, offset, len);
         switch (hash) {
             case 105 -> {
-                if(MemorySegment.mismatch(MARSHALL_MAPPEDNAME_SEGMENT, 0L, 8L, segment, offset, len) == -1L) {
-                    return MARSHALLS.get(0);
+                if(FACADE_INFO.mappedNameEquals(0, 8, segment, offset, len)) {
+                    return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(MemorySegment.mismatch(MARSHALL_MAPPEDNAME_SEGMENT, 8L, 17L, segment, offset, len) == -1L) {
-                    return MARSHALLS.get(1);
+                if(FACADE_INFO.mappedNameEquals(8, 9, segment, offset, len)) {
+                    return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(MemorySegment.mismatch(MARSHALL_MAPPEDNAME_SEGMENT, 17L, 25L, segment, offset, len) == -1L) {
-                    return MARSHALLS.get(2);
+                if(FACADE_INFO.mappedNameEquals(17, 8, segment, offset, len)) {
+                    return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(MemorySegment.mismatch(MARSHALL_MAPPEDNAME_SEGMENT, 25L, 34L, segment, offset, len) == -1L) {
-                    return MARSHALLS.get(3);
+                if(FACADE_INFO.mappedNameEquals(25, 9, segment, offset, len)) {
+                    return FACADE_INFO.infos().get(3);
                 }
             }
         }

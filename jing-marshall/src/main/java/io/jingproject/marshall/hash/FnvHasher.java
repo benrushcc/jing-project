@@ -28,7 +28,7 @@ public final class FnvHasher implements Hasher {
         Objects.checkFromIndexSize(offset, len, segment.byteSize());
         int hash = FNV_OFFSET_BASIS;
         long index = 0L;
-        for( ; index <= len - 8L; index += 8L) {
+        for (; index <= len - 8L; index += 8L) {
             long v = SegmentAccess.getLong(segment, offset + index, ByteOrder.BIG_ENDIAN);
             hash ^= (int) (v >>> 32);
             hash *= FNV_PRIME;
@@ -39,7 +39,7 @@ public final class FnvHasher implements Hasher {
             hash ^= SegmentAccess.getInt(segment, offset + index, ByteOrder.BIG_ENDIAN);
             hash *= FNV_PRIME;
         }
-        for( ; index < len; index++) {
+        for (; index < len; index++) {
             hash ^= Byte.toUnsignedInt(segment.get(ValueLayout.JAVA_BYTE, offset + index));
             hash *= FNV_PRIME;
         }
@@ -52,18 +52,18 @@ public final class FnvHasher implements Hasher {
         Objects.checkFromIndexSize(offset, len, bytes.length);
         int hash = FNV_OFFSET_BASIS;
         int index = 0;
-        for( ; index <= len - 8; index += 8) {
+        for (; index <= len - 8; index += 8) {
             long v = ArrayAccess.getLong(bytes, offset + index, ByteOrder.BIG_ENDIAN);
             hash ^= (int) (v >>> 32);
             hash *= FNV_PRIME;
             hash ^= (int) (v);
             hash *= FNV_PRIME;
         }
-        for( ; index <= len - 4; index += 4) {
+        for (; index <= len - 4; index += 4) {
             hash ^= ArrayAccess.getInt(bytes, offset + index, ByteOrder.BIG_ENDIAN);
             hash *= FNV_PRIME;
         }
-        for( ; index < len; index++) {
+        for (; index < len; index++) {
             hash ^= Byte.toUnsignedInt(bytes[offset + index]);
             hash *= FNV_PRIME;
         }

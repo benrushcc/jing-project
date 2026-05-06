@@ -5,11 +5,7 @@ import io.jingproject.common.anno.Provider;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.NestingKind;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
+import javax.lang.model.element.*;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.FileObject;
@@ -42,7 +38,7 @@ public final class ProviderProcessor extends AbstractProcessor {
         return true;
     }
 
-    // TODO After json API got stablized into JDK, replace it here
+    // TODO after json API got stablized into JDK, could replace it here to reduce the complexity
     private void writeJsonConfigurationFile() {
         try {
             FileObject fo = Objects.requireNonNull(processingEnv).getFiler().createResource(StandardLocation.SOURCE_OUTPUT, "", "jing-providers.json");
@@ -85,28 +81,29 @@ public final class ProviderProcessor extends AbstractProcessor {
     private void processSpiData(RoundEnvironment roundEnv) {
         Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(Provider.class);
         for (Element element : elements) {
-            if (element instanceof TypeElement t) {
-                if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
-                    throw new AnnotationProcessorException("only top level element can be annotated with @Provider");
-                }
-                if (!t.getModifiers().contains(Modifier.FINAL)) {
-                    throw new AnnotationProcessorException("only final element can be annotated with @Provider");
-                }
-                String targetInterfaceName;
-                try {
-                    targetInterfaceName = Objects.requireNonNull(t.getAnnotation(Provider.class)).target().getCanonicalName();
-                } catch (MirroredTypeException mte) {
-                    TypeMirror mirror = mte.getTypeMirror();
-                    if (mirror instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement typeElement) {
-                        targetInterfaceName = typeElement.getQualifiedName().toString();
-                    } else {
-                        throw new AssertionError();
-                    }
-                }
-                data.computeIfAbsent(targetInterfaceName, _ -> new HashSet<>()).add(t.getQualifiedName().toString());
-            } else {
-                throw new AssertionError();
+            TypeElement t = AnnoUtil.castTypeElement(element);
+            if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
+                throw new AnnotationProcessorException("only top level element can be annotated with @Provider");
             }
+            if (!t.getModifiers().contains(Modifier.FINAL)) {
+                throw new AnnotationProcessorException("only final element can be annotated with @Provider");
+            }
+            String targetImplName = t.getQualifiedName().toString();
+            String targetInterfaceName;
+            try {
+                targetInterfaceName = Objects.requireNonNull(t.getAnnotation(Provider.class)).target().getCanonicalName();
+            } catch (MirroredTypeException mte) {
+                TypeMirror mirror = mte.getTypeMirror();
+                if(mirror == null) {
+                    throw new AnnotationProcessorException("failed to get spi type mirror");
+                }
+                TypeElement targetInterfaceTypeElement = AnnoUtil.castTypeElement(processingEnv.getTypeUtils().asElement(mirror));
+                if(targetInterfaceTypeElement.getKind() != ElementKind.INTERFACE) {
+                    throw new AnnotationProcessorException("only interface element can be assigned to @Provider annotation");
+                }
+                targetInterfaceName = targetInterfaceTypeElement.getQualifiedName().toString();
+            }
+            data.computeIfAbsent(targetInterfaceName, _ -> new HashSet<>()).add(targetImplName);
         }
     }
 }

@@ -6,6 +6,7 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.io.Writer;
@@ -44,22 +45,42 @@ public final class GeneratorSource {
         return simpleName;
     }
 
+    public String registerRaw(VariableElement variableElement) {
+        AnnoUtil.checkVariableElementForRegister(variableElement);
+        TypeMirror tm = variableElement.asType();
+        String qualifiedName = tm.toString();
+        if(tm.getKind().isPrimitive()) {
+            return qualifiedName;
+        }
+        int firstGenericIndex = qualifiedName.indexOf('<');
+        String rawName = firstGenericIndex == -1 ? qualifiedName : qualifiedName.substring(0, firstGenericIndex);
+        String packageName = AnnoUtil.packageName(rawName);
+        String simpleName = AnnoUtil.simpleName(rawName);
+        return register(packageName, simpleName);
+    }
+
     public String register(VariableElement variableElement) {
         AnnoUtil.checkVariableElementForRegister(variableElement);
-        String qualifiedName = variableElement.asType().toString();
+        TypeMirror tm = variableElement.asType();
+        String qualifiedName = tm.toString();
+        if(tm.getKind().isPrimitive()) {
+            return qualifiedName;
+        }
         StringBuilder sb = new StringBuilder();
         for(char c : qualifiedName.toCharArray()) {
             // & is not possible if enclosing typeElement is not generified
-            if(c == '<' || c == '>' || c == '[' || c == ']' || c == '?') {
+            if(c == '<' || c == '>' || c == '[' || c == ']' || c == '?' || c == ',') {
                 sb.append(' ');
-            } else {
+            } else if(c == '&') {
+                throw new AssertionError();
+            }else {
                 sb.append(c);
             }
         }
         List<Map.Entry<String, String>> entries = new ArrayList<>();
         for (String s : sb.toString().split("\\s+")) {
             if(s.equals(EXTENDS) || s.equals(SUPER)) {
-                continue ;
+                throw new AnnotationProcessorException("super and extends are not supported for registration");
             }
             String packageName = AnnoUtil.packageName(s);
             String simpleName = AnnoUtil.simpleName(s);
@@ -125,7 +146,11 @@ public final class GeneratorSource {
             return ;
         }
         for (GeneratorLine l : b.lines()) {
-            lines.add(new GeneratorLine(l.content(), Math.addExact(l.indent(), indent)));
+            int newIndent = Math.addExact(l.indent(), indent);
+            if(newIndent < 0) {
+                throw new AnnotationProcessorException("invalid indent for : " + l.content());
+            }
+            lines.add(new GeneratorLine(l.content(), newIndent));
         }
         indent = Math.addExact(indent, b.currentIndent());
     }

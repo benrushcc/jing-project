@@ -12,8 +12,7 @@
     <artifactId>jing-marshall</artifactId>
 
     <properties>
-        <maven.compiler.source>${java.version}</maven.compiler.source>
-        <maven.compiler.target>${java.version}</maven.compiler.target>
+
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -27,19 +26,22 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>
+            <version>${jmh.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-generator-annprocess</artifactId>
-            <scope>test</scope>
+            <version>${jmh.version}</version>
+            <scope>provided</scope>
         </dependency>
 
     </dependencies>
@@ -49,21 +51,30 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <release>${java.version}</release>
+                    <encoding>UTF-8</encoding>
+                    <enablePreview>true</enablePreview>
+                    <proc>none</proc>
+                </configuration>
                 <executions>
                     <execution>
-                        <id>test-compile</id>
+                        <id>default-testCompile</id>
                         <phase>test-compile</phase>
                         <goals>
                             <goal>testCompile</goal>
                         </goals>
                         <configuration>
                             <release>${java.version}</release>
+                            <encoding>UTF-8</encoding>
                             <enablePreview>true</enablePreview>
-                            <useModulePath>true</useModulePath>
+                            <proc>full</proc>
                             <annotationProcessorPaths>
                                 <path>
                                     <groupId>org.openjdk.jmh</groupId>
                                     <artifactId>jmh-generator-annprocess</artifactId>
+                                    <version>${jmh.version}</version>
                                 </path>
                             </annotationProcessorPaths>
                         </configuration>
@@ -73,8 +84,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire-plugin.version}</version>
                 <configuration>
                     <argLine>--enable-preview</argLine>
+                    <excludedGroups>view-output, exhaustive</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>
