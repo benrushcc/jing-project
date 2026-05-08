@@ -12,8 +12,10 @@ public final class DemoBindingLibImpl implements DemoBinding {
     private static MethodHandle makeMHS(int index) {
         return switch (index) {
             case 0 -> DemoLibs.mhFromLib(DemoBinding.class, "single_int", List.of(int.class), true, true);
-            case 1 -> DemoLibs.mhFromLib(DemoBinding.class, "compute_add", List.of(int.class, int.class, int.class), true, false);
-            case 2 -> DemoLibs.mhFromLib(DemoBinding.class, "compute_pointer", List.of(int.class, MemorySegment.class, MemorySegment.class), true, false);
+            case 1 ->
+                    DemoLibs.mhFromLib(DemoBinding.class, "compute_add", List.of(int.class, int.class, int.class), true, false);
+            case 2 ->
+                    DemoLibs.mhFromLib(DemoBinding.class, "compute_pointer", List.of(int.class, MemorySegment.class, MemorySegment.class), true, false);
             default -> throw new AssertionError();
         };
     }

@@ -26,16 +26,16 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
         String fileExt = System.getProperty("jing.config.ext", "").trim();
         List<String> fileExts = fileExt.isBlank() ? SUPPORTED_FILE_EXT : List.of(fileExt);
         CfgObject r = null;
-        for(String ext : fileExts) {
-            if(!SUPPORTED_FILE_EXT.contains(fileExt)) {
+        for (String ext : fileExts) {
+            if (!SUPPORTED_FILE_EXT.contains(fileExt)) {
                 throw new CfgException("unsupported configuration file extension: " + ext);
             }
             String fullName = fileName + "." + ext;
             InputStream rawStream = Thread.currentThread()
                     .getContextClassLoader()
                     .getResourceAsStream(fullName);
-            if(rawStream == null) {
-                continue ;
+            if (rawStream == null) {
+                continue;
             }
             try (InputStream stream = new BufferedInputStream(rawStream)) {
                 r = switch (ext) {
@@ -63,10 +63,10 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
             case 0 -> throw new CfgException("invalid key: " + key);
             case 1 -> {
                 Cfg cfg = cfgObject.value().get(nestedkeys.getLast());
-                if(cfg == null) {
+                if (cfg == null) {
                     return null;
                 }
-                if(cfg instanceof CfgItem(String value)) {
+                if (cfg instanceof CfgItem(String value)) {
                     return value;
                 }
                 throw new CfgException("invalid key : " + key + ", type : " + cfg.type());
@@ -75,20 +75,20 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
                 CfgObject current = cfgObject;
                 for (String nestedKey : nestedkeys.subList(1, Math.subtractExact(nestedkeys.size(), 1))) {
                     Cfg cfg = current.value().get(nestedKey);
-                    if(cfg == null) {
+                    if (cfg == null) {
                         return null;
                     }
-                    if(cfg instanceof CfgObject co) {
+                    if (cfg instanceof CfgObject co) {
                         current = co;
                     } else {
                         throw new CfgException("invalid key : " + key + ", current nested key: " + nestedKey + ", type : " + cfg.type());
                     }
                 }
                 Cfg cfg = current.value().get(nestedkeys.getLast());
-                if(cfg == null) {
+                if (cfg == null) {
                     return null;
                 }
-                if(cfg instanceof CfgItem(String value)) {
+                if (cfg instanceof CfgItem(String value)) {
                     return value;
                 }
                 throw new CfgException("invalid key : " + key + ", type : " + cfg.type());
@@ -104,10 +104,10 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
             case 0 -> throw new CfgException("invalid key: " + key);
             case 1 -> {
                 Cfg cfg = cfgObject.value().get(nestedkeys.getLast());
-                if(cfg == null) {
+                if (cfg == null) {
                     return null;
                 }
-                if(cfg instanceof CfgList(List<String> value)) {
+                if (cfg instanceof CfgList(List<String> value)) {
                     return value;
                 }
                 throw new CfgException("invalid key : " + key + ", type : " + cfg.type());
@@ -116,20 +116,20 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
                 CfgObject current = cfgObject;
                 for (String nestedKey : nestedkeys.subList(1, Math.subtractExact(nestedkeys.size(), 1))) {
                     Cfg cfg = current.value().get(nestedKey);
-                    if(cfg == null) {
+                    if (cfg == null) {
                         return null;
                     }
-                    if(cfg instanceof CfgObject co) {
+                    if (cfg instanceof CfgObject co) {
                         current = co;
                     } else {
                         throw new CfgException("invalid key : " + key + ", current nested key: " + nestedKey + ", type : " + cfg.type());
                     }
                 }
                 Cfg cfg = current.value().get(nestedkeys.getLast());
-                if(cfg == null) {
+                if (cfg == null) {
                     return null;
                 }
-                if(cfg instanceof CfgList(List<String> value)) {
+                if (cfg instanceof CfgList(List<String> value)) {
                     return value;
                 }
                 throw new CfgException("invalid key : " + key + ", type : " + cfg.type());

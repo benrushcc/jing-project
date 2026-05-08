@@ -25,7 +25,7 @@ public final class WinMmap implements Mmap {
     private static final SysWinBindings SYS_WIN_BINDINGS = Libs.getImpl(SysWinBindings.class);
 
     static {
-        if(SYS_WIN_BINDINGS == null) {
+        if (SYS_WIN_BINDINGS == null) {
             throw new ExceptionInInitializerError("cannot initialize sys_win bindings");
         }
     }

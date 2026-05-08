@@ -19,6 +19,7 @@ import java.util.Map;
 public class ExtendEntityMarshallFacade implements MarshallFacade {
     private static final MethodHandle CONSTRUCTOR_MH;
     private static final MarshallFacadeInfo FACADE_INFO;
+
     static {
         try {
             MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -55,7 +56,7 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public Object construct(MarshallSchema schema) {
-        if(schema instanceof ExtendEntityMarshallSchema(_, ExtendEntity instance)) {
+        if (schema instanceof ExtendEntityMarshallSchema(_, ExtendEntity instance)) {
             return instance;
         }
         throw new IllegalArgumentException("wrong schema rawType");
@@ -116,32 +117,32 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
         int hash = FACADE_INFO.fieldNameHasher().hash(bytes, offset, len);
         switch (hash) {
             case 105 -> {
-                if(FACADE_INFO.fieldNameEquals( 0, 8, bytes, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(0, 8, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(FACADE_INFO.fieldNameEquals( 8, 9, bytes, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(8, 9, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(FACADE_INFO.fieldNameEquals( 17, 8, bytes, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(17, 8, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(FACADE_INFO.fieldNameEquals( 25, 9, bytes, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(25, 9, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(3);
                 }
             }
             case 100 -> {
-                if(FACADE_INFO.fieldNameEquals( 34, 13, bytes, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(34, 13, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(4);
                 }
             }
             case 109 -> {
-                if(FACADE_INFO.fieldNameEquals( 47, 8, bytes, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(47, 8, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(5);
                 }
             }
@@ -154,32 +155,32 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
         int hash = FACADE_INFO.fieldNameHasher().hash(segment, offset, len);
         switch (hash) {
             case 105 -> {
-                if(FACADE_INFO.fieldNameEquals( 0, 8, segment, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(0, 8, segment, offset, len)) {
                     return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(FACADE_INFO.fieldNameEquals( 8, 9, segment, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(8, 9, segment, offset, len)) {
                     return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(FACADE_INFO.fieldNameEquals( 17, 8, segment, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(17, 8, segment, offset, len)) {
                     return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(FACADE_INFO.fieldNameEquals( 25, 9, segment, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(25, 9, segment, offset, len)) {
                     return FACADE_INFO.infos().get(3);
                 }
             }
             case 100 -> {
-                if(FACADE_INFO.fieldNameEquals( 34, 13, segment, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(34, 13, segment, offset, len)) {
                     return FACADE_INFO.infos().get(4);
                 }
             }
             case 109 -> {
-                if(FACADE_INFO.fieldNameEquals( 47, 8, segment, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(47, 8, segment, offset, len)) {
                     return FACADE_INFO.infos().get(5);
                 }
             }
@@ -206,32 +207,32 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
         int hash = FACADE_INFO.mappedNameHasher().hash(bytes, offset, len);
         switch (hash) {
             case 105 -> {
-                if(FACADE_INFO.mappedNameEquals( 0, 8, bytes, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(0, 8, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(FACADE_INFO.mappedNameEquals( 8, 17, bytes, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(8, 17, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(FACADE_INFO.mappedNameEquals( 17, 25, bytes, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(17, 25, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(FACADE_INFO.mappedNameEquals( 25, 34, bytes, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(25, 34, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(3);
                 }
             }
             case 100 -> {
-                if(FACADE_INFO.mappedNameEquals( 34, 47, bytes, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(34, 47, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(4);
                 }
             }
             case 109 -> {
-                if(FACADE_INFO.mappedNameEquals( 47, 55, bytes, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(47, 55, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(5);
                 }
             }
@@ -244,32 +245,32 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
         int hash = FACADE_INFO.mappedNameHasher().hash(segment, offset, len);
         switch (hash) {
             case 105 -> {
-                if(FACADE_INFO.mappedNameEquals( 0, 8, segment, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(0, 8, segment, offset, len)) {
                     return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(FACADE_INFO.mappedNameEquals( 8, 9, segment, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(8, 9, segment, offset, len)) {
                     return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(FACADE_INFO.mappedNameEquals( 17, 8, segment, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(17, 8, segment, offset, len)) {
                     return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(FACADE_INFO.mappedNameEquals( 25, 9, segment, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(25, 9, segment, offset, len)) {
                     return FACADE_INFO.infos().get(3);
                 }
             }
             case 100 -> {
-                if(FACADE_INFO.mappedNameEquals( 34, 13, segment, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(34, 13, segment, offset, len)) {
                     return FACADE_INFO.infos().get(4);
                 }
             }
             case 109 -> {
-                if(FACADE_INFO.mappedNameEquals( 47, 8, segment, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(47, 8, segment, offset, len)) {
                     return FACADE_INFO.infos().get(5);
                 }
             }

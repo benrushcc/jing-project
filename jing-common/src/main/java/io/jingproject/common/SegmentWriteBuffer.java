@@ -29,7 +29,7 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     private void growBufferIfNeeded(long requiredCapacity) {
         long currentCapacity = seg.byteSize();
-        if(currentCapacity < requiredCapacity) {
+        if (currentCapacity < requiredCapacity) {
             long growedCapacity = Math.addExact(seg.byteSize(), seg.byteSize());
             long newLength = Math.max(growedCapacity, requiredCapacity);
             MemorySegment newSegment = alloc.allocate(newLength);
@@ -175,7 +175,7 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public byte[] toByteArray() {
-        if(position == 0L) {
+        if (position == 0L) {
             return Utils.emptyByteArray();
         }
         return seg.asSlice(0L, position).toArray(ValueLayout.JAVA_BYTE);

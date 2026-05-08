@@ -8,10 +8,10 @@ public final class GeneratorBlock {
     private int indent = 0;
 
     public GeneratorBlock addLine(String content) {
-        if(content == null) {
+        if (content == null) {
             throw new AnnotationProcessorException("content is null");
         }
-        if(lines == null) {
+        if (lines == null) {
             lines = new ArrayList<>();
         }
         lines.add(new GeneratorLine(content, indent));
@@ -19,7 +19,7 @@ public final class GeneratorBlock {
     }
 
     public GeneratorBlock newLine() {
-        if(lines == null) {
+        if (lines == null) {
             lines = new ArrayList<>();
         }
         lines.add(new GeneratorLine("", indent));

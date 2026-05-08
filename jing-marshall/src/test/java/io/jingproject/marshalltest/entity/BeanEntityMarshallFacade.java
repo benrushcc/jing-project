@@ -49,7 +49,7 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public Object construct(MarshallSchema schema) {
-        if(schema instanceof BeanEntityMarshallSchema(_, BeanEntity instance)) {
+        if (schema instanceof BeanEntityMarshallSchema(_, BeanEntity instance)) {
             return instance;
         }
         throw new IllegalArgumentException("wrong schema rawType");
@@ -104,22 +104,22 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
         int hash = FACADE_INFO.fieldNameHasher().hash(bytes, offset, len);
         switch (hash) {
             case 105 -> {
-                if(FACADE_INFO.fieldNameEquals(0, 8, bytes, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(0, 8, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(FACADE_INFO.fieldNameEquals( 8, 9, bytes, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(8, 9, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(FACADE_INFO.fieldNameEquals( 17, 8, bytes, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(17, 8, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(FACADE_INFO.fieldNameEquals( 25, 9, bytes, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(25, 9, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(3);
                 }
             }
@@ -132,22 +132,22 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
         int hash = FACADE_INFO.fieldNameHasher().hash(segment, offset, len);
         switch (hash) {
             case 105 -> {
-                if(FACADE_INFO.fieldNameEquals( 0, 8, segment, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(0, 8, segment, offset, len)) {
                     return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(FACADE_INFO.fieldNameEquals( 8, 9, segment, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(8, 9, segment, offset, len)) {
                     return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(FACADE_INFO.fieldNameEquals( 17, 8, segment, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(17, 8, segment, offset, len)) {
                     return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(FACADE_INFO.fieldNameEquals( 25, 9, segment, offset, len)) {
+                if (FACADE_INFO.fieldNameEquals(25, 9, segment, offset, len)) {
                     return FACADE_INFO.infos().get(3);
                 }
             }
@@ -172,22 +172,22 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
         int hash = FACADE_INFO.mappedNameHasher().hash(bytes, offset, len);
         switch (hash) {
             case 105 -> {
-                if(FACADE_INFO.mappedNameEquals( 0, 8, bytes, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(0, 8, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(FACADE_INFO.mappedNameEquals( 8, 9, bytes, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(8, 9, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(FACADE_INFO.mappedNameEquals( 17, 8, bytes, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(17, 8, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(FACADE_INFO.mappedNameEquals( 25, 9, bytes, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(25, 9, bytes, offset, len)) {
                     return FACADE_INFO.infos().get(3);
                 }
             }
@@ -200,22 +200,22 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
         int hash = FACADE_INFO.mappedNameHasher().hash(segment, offset, len);
         switch (hash) {
             case 105 -> {
-                if(FACADE_INFO.mappedNameEquals(0, 8, segment, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(0, 8, segment, offset, len)) {
                     return FACADE_INFO.infos().get(0);
                 }
             }
             case 108 -> {
-                if(FACADE_INFO.mappedNameEquals(8, 9, segment, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(8, 9, segment, offset, len)) {
                     return FACADE_INFO.infos().get(1);
                 }
             }
             case 115 -> {
-                if(FACADE_INFO.mappedNameEquals(17, 8, segment, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(17, 8, segment, offset, len)) {
                     return FACADE_INFO.infos().get(2);
                 }
             }
             case 116 -> {
-                if(FACADE_INFO.mappedNameEquals(25, 9, segment, offset, len)) {
+                if (FACADE_INFO.mappedNameEquals(25, 9, segment, offset, len)) {
                     return FACADE_INFO.infos().get(3);
                 }
             }

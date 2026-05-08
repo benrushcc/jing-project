@@ -94,11 +94,11 @@ public final class ProviderProcessor extends AbstractProcessor {
                 targetInterfaceName = Objects.requireNonNull(t.getAnnotation(Provider.class)).target().getCanonicalName();
             } catch (MirroredTypeException mte) {
                 TypeMirror mirror = mte.getTypeMirror();
-                if(mirror == null) {
+                if (mirror == null) {
                     throw new AnnotationProcessorException("failed to get spi type mirror");
                 }
                 TypeElement targetInterfaceTypeElement = AnnoUtil.castTypeElement(processingEnv.getTypeUtils().asElement(mirror));
-                if(targetInterfaceTypeElement.getKind() != ElementKind.INTERFACE) {
+                if (targetInterfaceTypeElement.getKind() != ElementKind.INTERFACE) {
                     throw new AnnotationProcessorException("only interface element can be assigned to @Provider annotation");
                 }
                 targetInterfaceName = targetInterfaceTypeElement.getQualifiedName().toString();

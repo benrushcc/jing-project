@@ -40,14 +40,14 @@ public class WriteFloatBench {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         for (int i = 0; i < BATCH_SIZE; ) {
             float f = Float.intBitsToFloat(random.nextInt());
-            if(Float.isFinite(f)) {
+            if (Float.isFinite(f)) {
                 floats[i] = f;
                 i++;
             }
         }
         for (int i = 0; i < BATCH_SIZE; ) {
             double f = Double.longBitsToDouble(random.nextLong());
-            if(Double.isFinite(f)) {
+            if (Double.isFinite(f)) {
                 doubles[i] = f;
                 i++;
             }
@@ -66,7 +66,7 @@ public class WriteFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkHeapWriteFloat(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             float f = floats[index];
             byte[] bytes = Float.toString(f).getBytes(StandardCharsets.US_ASCII);
             heapWriteBuffer.writeBytes(bytes);
@@ -78,7 +78,7 @@ public class WriteFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkSegmentWriteFloat(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             float f = floats[index];
             byte[] bytes = Float.toString(f).getBytes(StandardCharsets.US_ASCII);
             segmentWriteBuffer.writeBytes(bytes);
@@ -90,7 +90,7 @@ public class WriteFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkHeapWriteDouble(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             double f = doubles[index];
             byte[] bytes = Double.toString(f).getBytes(StandardCharsets.US_ASCII);
             heapWriteBuffer.writeBytes(bytes);
@@ -102,7 +102,7 @@ public class WriteFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkSegmentWriteDouble(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             double f = doubles[index];
             byte[] bytes = Double.toString(f).getBytes(StandardCharsets.US_ASCII);
             segmentWriteBuffer.writeBytes(bytes);
@@ -114,7 +114,7 @@ public class WriteFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void uscaleHeapWriteFloat(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             float f = floats[index];
             MarshallUtil.writeFloat(f, heapWriteBuffer);
             blackhole.consume(heapWriteBuffer);
@@ -125,7 +125,7 @@ public class WriteFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void uscaleSegmentWriteFloat(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             float f = floats[index];
             MarshallUtil.writeFloat(f, segmentWriteBuffer);
             blackhole.consume(segmentWriteBuffer);
@@ -136,7 +136,7 @@ public class WriteFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void uscaleHeapWriteDouble(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             double f = doubles[index];
             MarshallUtil.writeDouble(f, heapWriteBuffer);
             blackhole.consume(heapWriteBuffer);
@@ -147,7 +147,7 @@ public class WriteFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void uscaleSegmentWriteDouble(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             double f = doubles[index];
             MarshallUtil.writeDouble(f, segmentWriteBuffer);
             blackhole.consume(segmentWriteBuffer);

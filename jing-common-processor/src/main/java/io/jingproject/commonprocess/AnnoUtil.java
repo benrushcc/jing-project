@@ -16,7 +16,7 @@ public final class AnnoUtil {
 
     public static String packageName(String fullName) {
         int index = fullName.lastIndexOf(".");
-        if(index == -1) {
+        if (index == -1) {
             throw new AnnotationProcessorException("empty package name not supported");
         }
         return fullName.substring(0, index);
@@ -24,48 +24,48 @@ public final class AnnoUtil {
 
     public static String simpleName(String fullName) {
         int index = fullName.lastIndexOf(".");
-        if(index == -1) {
+        if (index == -1) {
             throw new AnnotationProcessorException("empty package name not supported");
         }
         String r = fullName.substring(Math.incrementExact(index));
-        if(r.isEmpty()) {
+        if (r.isEmpty()) {
             throw new AnnotationProcessorException("empty simple name not supported");
         }
         return r;
     }
 
     public static String buildClassName(String packageName, String className) {
-        if(packageName == null || packageName.isBlank()) {
+        if (packageName == null || packageName.isBlank()) {
             throw new AnnotationProcessorException("packageName is illegal");
         }
-        if(className == null || className.isBlank()) {
+        if (className == null || className.isBlank()) {
             throw new AnnotationProcessorException("className is illegal");
         }
         return packageName + "." + className;
     }
 
     public static String buildClassName(String moduleName, String packageName, String className) {
-        if(moduleName == null || moduleName.isBlank()) {
+        if (moduleName == null || moduleName.isBlank()) {
             throw new AnnotationProcessorException("moduleName is illegal");
         }
-        if(packageName == null || packageName.isBlank()) {
+        if (packageName == null || packageName.isBlank()) {
             throw new AnnotationProcessorException("packageName is illegal");
         }
-        if(className == null || className.isBlank()) {
+        if (className == null || className.isBlank()) {
             throw new AnnotationProcessorException("className is illegal");
         }
         return moduleName + "/" + packageName + "." + className;
     }
 
     public static boolean isGenericType(String typeName) {
-        if(typeName == null || typeName.isBlank()) {
+        if (typeName == null || typeName.isBlank()) {
             throw new AnnotationProcessorException("typeName is illegal");
         }
         return typeName.contains("<") && typeName.contains(">");
     }
 
     public static TypeElement castTypeElement(Element element) {
-        if(element instanceof TypeElement t) {
+        if (element instanceof TypeElement t) {
             return t;
         } else {
             throw new AssertionError("not a typeElement : " + element.asType());
@@ -73,7 +73,7 @@ public final class AnnoUtil {
     }
 
     public static VariableElement castVariableElement(Element element) {
-        if(element instanceof VariableElement v) {
+        if (element instanceof VariableElement v) {
             return v;
         } else {
             throw new AssertionError("not a variableElement : " + element.asType());
@@ -81,7 +81,7 @@ public final class AnnoUtil {
     }
 
     public static ExecutableElement castExecutableElement(Element element) {
-        if(element instanceof ExecutableElement e) {
+        if (element instanceof ExecutableElement e) {
             return e;
         } else {
             throw new AssertionError("not an executableElement : " + element.asType());
@@ -89,7 +89,7 @@ public final class AnnoUtil {
     }
 
     public static DeclaredType castDeclaredType(TypeMirror typeMirror) {
-        if(typeMirror instanceof DeclaredType d) {
+        if (typeMirror instanceof DeclaredType d) {
             return d;
         } else {
             throw new AssertionError("not a declaredType : " + typeMirror);
@@ -97,7 +97,7 @@ public final class AnnoUtil {
     }
 
     public static ArrayType castArrayType(TypeMirror typeMirror) {
-        if(typeMirror instanceof ArrayType a) {
+        if (typeMirror instanceof ArrayType a) {
             return a;
         } else {
             throw new AssertionError("not an arrayType : " + typeMirror);
@@ -105,50 +105,50 @@ public final class AnnoUtil {
     }
 
     public static void checkClassForRegister(Class<?> cls) {
-        if(cls == null) {
+        if (cls == null) {
             throw new AnnotationProcessorException("class cannot be null");
         }
-        if(cls.isPrimitive()) {
+        if (cls.isPrimitive()) {
             throw new AnnotationProcessorException("primitive class cannot be registered : " + cls);
         }
-        if(cls.isAnonymousClass()) {
+        if (cls.isAnonymousClass()) {
             throw new AnnotationProcessorException("anonymous class cannot be registered : " + cls);
         }
-        if(cls.isMemberClass()) {
+        if (cls.isMemberClass()) {
             throw new AnnotationProcessorException("registered class must be top-level : " + cls.getSimpleName());
         }
     }
 
     public static void checkTypeElementForRegister(TypeElement typeElement) {
-        if(typeElement == null) {
+        if (typeElement == null) {
             throw new AnnotationProcessorException("typeElement cannot be null");
         }
-        if(typeElement.asType().getKind().isPrimitive()) {
+        if (typeElement.asType().getKind().isPrimitive()) {
             throw new AnnotationProcessorException("typeElement cannot be primitive: " + typeElement);
         }
-        if(typeElement.getNestingKind() != NestingKind.TOP_LEVEL) {
+        if (typeElement.getNestingKind() != NestingKind.TOP_LEVEL) {
             throw new AnnotationProcessorException("typeElement must be top-level : " + typeElement);
         }
-        if(!typeElement.getTypeParameters().isEmpty()) {
+        if (!typeElement.getTypeParameters().isEmpty()) {
             throw new AnnotationProcessorException("typeElement must not have any type parameters : " + typeElement);
         }
     }
 
     public static void checkVariableElementForRegister(VariableElement variableElement) {
-        if(variableElement == null) {
+        if (variableElement == null) {
             throw new AnnotationProcessorException("variableElement cannot be null");
         }
         TypeElement enclosingElement = castTypeElement(variableElement.getEnclosingElement());
-        if(enclosingElement.getNestingKind() != NestingKind.TOP_LEVEL) {
+        if (enclosingElement.getNestingKind() != NestingKind.TOP_LEVEL) {
             throw new AnnotationProcessorException("enclosing typeElement must be top-level : " + enclosingElement);
         }
-        if(!enclosingElement.getTypeParameters().isEmpty()) {
+        if (!enclosingElement.getTypeParameters().isEmpty()) {
             throw new AnnotationProcessorException("enclosing typeElement must not have any type parameters : " + enclosingElement);
         }
         TypeMirror tm = variableElement.asType();
-        if(tm.getKind() == TypeKind.ARRAY) {
+        if (tm.getKind() == TypeKind.ARRAY) {
             ArrayType arrayType = castArrayType(tm);
-            if(arrayType.getComponentType().getKind() == TypeKind.ARRAY) {
+            if (arrayType.getComponentType().getKind() == TypeKind.ARRAY) {
                 throw new AnnotationProcessorException("multi dimensional arrayType not supported: " + arrayType);
             }
         }

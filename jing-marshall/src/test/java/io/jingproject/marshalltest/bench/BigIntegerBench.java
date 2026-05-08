@@ -32,7 +32,7 @@ public class BigIntegerBench {
         long1 = new long[BATCH];
         long2 = new long[BATCH];
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for(int i = 0; i < BATCH; i++) {
+        for (int i = 0; i < BATCH; i++) {
             long l1 = random.nextLong();
             long l2 = random.nextLong();
             long high = Math.multiplyHigh(l1, l2);
@@ -41,7 +41,7 @@ public class BigIntegerBench {
             bi1[i] = v;
             long1[i] = low;
         }
-        for(int i = 0; i < BATCH; i++) {
+        for (int i = 0; i < BATCH; i++) {
             long l1 = random.nextLong();
             long l2 = random.nextLong();
             long high = Math.multiplyHigh(l1, l2);
@@ -55,7 +55,7 @@ public class BigIntegerBench {
     @Benchmark
     @OperationsPerInvocation(BATCH)
     public void longMultiply(Blackhole bh) {
-        for(int i = 0; i < BATCH; i++) {
+        for (int i = 0; i < BATCH; i++) {
             long l1 = long1[i];
             long l2 = long2[i];
             bh.consume(l1 * l2);
@@ -65,7 +65,7 @@ public class BigIntegerBench {
     @Benchmark
     @OperationsPerInvocation(BATCH)
     public void bigIntegerMultiply(Blackhole bh) {
-        for(int i = 0; i < BATCH; i++) {
+        for (int i = 0; i < BATCH; i++) {
             BigInteger b1 = bi1[i];
             BigInteger b2 = bi2[i];
             bh.consume(b1.multiply(b2));

@@ -5,7 +5,7 @@ import java.lang.foreign.SymbolLookup;
 import java.nio.file.Path;
 import java.util.Map;
 
-public record LibDescriptor<T> (
+public record LibDescriptor<T>(
         String libName,
         String mappedName,
         SymbolLookup lookup,

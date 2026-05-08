@@ -33,27 +33,27 @@ public final class JsonCfgReader {
     public CfgObject parse() throws IOException {
         State state = State.INITIAL;
         int b;
-        try(ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            for( ; ; ) {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            for (; ; ) {
                 switch (state) {
                     case INITIAL -> {
                         b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                        if(b != '{') {
+                        if (b != '{') {
                             throw new CfgException("Corrupted json configuration");
                         }
                         state = State.OBJ_START;
                     }
                     case OBJ_START -> {
-                        if(key != null) {
+                        if (key != null) {
                             keys.addLast(key);
                             key = null;
                             previous.addLast(current);
                             current = new HashMap<>();
                         }
                         b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                        if(b == '}') {
+                        if (b == '}') {
                             state = State.STR_ARR_OBJ_END;
-                        } else if(b == '"') {
+                        } else if (b == '"') {
                             state = State.KEY_START;
                         } else {
                             throw new CfgException("Corrupted json configuration");
@@ -61,7 +61,7 @@ public final class JsonCfgReader {
                     }
                     case STR_ARR_OBJ_END -> {
                         Map<String, Cfg> parent = previous.pollLast();
-                        if(parent == null) {
+                        if (parent == null) {
                             return new CfgObject(current);
                         } else {
                             key = keys.pollLast();
@@ -71,16 +71,16 @@ public final class JsonCfgReader {
                             current = parent;
                             key = null;
                             b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                            if(b == ',') {
+                            if (b == ',') {
                                 state = State.EXPECT_KEY;
-                            } else if(b != '}') {
+                            } else if (b != '}') {
                                 throw new CfgException("Corrupted json configuration");
                             }
                         }
                     }
                     case EXPECT_KEY -> {
                         b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                        if(b == '"') {
+                        if (b == '"') {
                             state = State.KEY_START;
                         } else {
                             throw new CfgException("Corrupted json configuration");
@@ -95,18 +95,18 @@ public final class JsonCfgReader {
                     }
                     case KEY_END -> {
                         b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                        if(b != ':') {
+                        if (b != ':') {
                             throw new CfgException("Corrupted json configuration");
                         }
                         state = State.EXPECT_VALUE;
                     }
                     case EXPECT_VALUE -> {
                         b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                        if(b == '"') {
+                        if (b == '"') {
                             state = State.STR_START;
-                        } else if(b == '[') {
+                        } else if (b == '[') {
                             state = State.ARR_START;
-                        } else if(b == '{') {
+                        } else if (b == '{') {
                             state = State.OBJ_START;
                         } else {
                             throw new CfgException("Corrupted json configuration");
@@ -124,23 +124,23 @@ public final class JsonCfgReader {
                     }
                     case ARR_START -> {
                         List<String> strList = new ArrayList<>();
-                        for( ; ; ) {
+                        for (; ; ) {
                             b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                            if(b != '"') {
+                            if (b != '"') {
                                 throw new CfgException("Corrupted json configuration");
                             }
                             readJsonStrValue(input, output);
                             strList.add(output.toString(StandardCharsets.UTF_8));
                             output.reset();
                             b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                            if(b == ']') {
+                            if (b == ']') {
                                 if (current.putIfAbsent(key, new CfgList(strList)) != null) {
                                     throw new CfgException("Duplicate key: " + key);
                                 }
                                 key = null;
                                 state = State.STR_ARR_OBJ_END;
-                                break ;
-                            } else if(b != ',') {
+                                break;
+                            } else if (b != ',') {
                                 throw new CfgException("Corrupted json configuration");
                             }
                         }
@@ -167,14 +167,14 @@ public final class JsonCfgReader {
                     case 't' -> output.write('\t');
                     case 'u' -> {
                         int codePoint = CfgUtil.readUnicode(input, 4);
-                        if(!Character.isValidCodePoint(codePoint)) {
+                        if (!Character.isValidCodePoint(codePoint)) {
                             throw new CfgException("invalid code point: " + codePoint);
                         }
-                        if(codePoint instanceof char highSurrogate && Character.isHighSurrogate(highSurrogate)) {
+                        if (codePoint instanceof char highSurrogate && Character.isHighSurrogate(highSurrogate)) {
                             CfgUtil.assume(input, '\\');
                             CfgUtil.assume(input, 'u');
                             int lowSurrogateCodePoint = CfgUtil.readUnicode(input, 4);
-                            if(lowSurrogateCodePoint instanceof char lowSurrogate && Character.isLowSurrogate(lowSurrogate) && Character.isSurrogatePair(highSurrogate, lowSurrogate)) {
+                            if (lowSurrogateCodePoint instanceof char lowSurrogate && Character.isLowSurrogate(lowSurrogate) && Character.isSurrogatePair(highSurrogate, lowSurrogate)) {
                                 codePoint = Character.toCodePoint(highSurrogate, lowSurrogate);
                             }
                         }
@@ -187,7 +187,7 @@ public final class JsonCfgReader {
                 if (b == '\\') {
                     escaping = true;
                 } else if (b == '"') {
-                    return ;
+                    return;
                 } else {
                     output.write(b);
                 }

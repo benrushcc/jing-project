@@ -26,7 +26,7 @@ public class DemoTest {
     @Test
     public void testComputeAdd() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for(int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 1000; i++) {
             int a = random.nextInt(0, Integer.MAX_VALUE);
             int b = random.nextInt(-Integer.MAX_VALUE, 0);
             Assertions.assertEquals(JAVA_IMPL.computeAdd(a, b), NATIVE_IMPL.computeAdd(a, b));
@@ -36,7 +36,7 @@ public class DemoTest {
     @Test
     public void testComputePointer() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for(int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 1000; i++) {
             int a = random.nextInt(0, Integer.MAX_VALUE);
             int b = random.nextInt(0, Integer.MAX_VALUE);
             MemorySegment m1 = Arena.ofAuto().allocateFrom(ValueLayout.JAVA_INT, a);

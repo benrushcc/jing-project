@@ -10,25 +10,26 @@ import java.util.List;
 
 public final class CfgUtil {
     private static final int MAX_DEPTH = 128;
+
     private CfgUtil() {
         throw new AssertionError();
     }
 
     public static void assume(InputStream input, int target) throws IOException {
-        if(input == null) {
+        if (input == null) {
             throw new AssertionError();
         }
         int b = input.read();
-        if(b == -1) {
+        if (b == -1) {
             throw new CfgException("EOF reached");
         }
-        if(b != target) {
+        if (b != target) {
             throw new CfgException("invalid target, assumed: " + target + " actual: " + b);
         }
     }
 
     public static int search(InputStream input, OutputStream output, int... targets) throws IOException {
-        if(input == null) {
+        if (input == null) {
             throw new AssertionError();
         }
         int b;
@@ -38,7 +39,7 @@ public final class CfgUtil {
                     return target;
                 }
             }
-            if(output != null) {
+            if (output != null) {
                 output.write(b);
             }
         }
@@ -46,7 +47,7 @@ public final class CfgUtil {
     }
 
     public static int ignore(InputStream input, int... targets) throws IOException {
-        if(input == null) {
+        if (input == null) {
             throw new AssertionError();
         }
         int b;
@@ -66,7 +67,7 @@ public final class CfgUtil {
     }
 
     public static int ignoreTillEOF(InputStream input, int... targets) throws IOException {
-        if(input == null) {
+        if (input == null) {
             throw new AssertionError();
         }
         int b = ignore(input, targets);
@@ -81,7 +82,7 @@ public final class CfgUtil {
     }
 
     public static String readCfgKey(byte[] content) {
-        if(content == null || content.length == 0) {
+        if (content == null || content.length == 0) {
             throw new AssertionError();
         }
         for (byte b : content) {
@@ -93,23 +94,23 @@ public final class CfgUtil {
     }
 
     public static List<String> readCfgNestedKey(byte[] content) {
-        if(content == null || content.length == 0) {
+        if (content == null || content.length == 0) {
             throw new AssertionError();
         }
         for (byte b : content) {
-            if(rejectKey(b) && b != (byte) '.') {
+            if (rejectKey(b) && b != (byte) '.') {
                 throw new CfgException("invalid key byte: " + b);
             }
         }
         List<String> r = new ArrayList<>();
         int start = 0;
-        for(int i = 0; i < content.length; i++) {
-            if(content[i] == '.') {
-                if(i == start) {
+        for (int i = 0; i < content.length; i++) {
+            if (content[i] == '.') {
+                if (i == start) {
                     throw new CfgException("invalid consecutive delimiters");
                 }
                 r.add(new String(content, start, i - start, StandardCharsets.US_ASCII));
-                if(r.size() > MAX_DEPTH) {
+                if (r.size() > MAX_DEPTH) {
                     throw new CfgException("Maximum nesting depth exceeded");
                 }
                 start = i + 1;
@@ -117,7 +118,7 @@ public final class CfgUtil {
         }
         if (start < content.length) {
             r.add(new String(content, start, content.length - start, StandardCharsets.US_ASCII));
-            if(r.size() > MAX_DEPTH) {
+            if (r.size() > MAX_DEPTH) {
                 throw new CfgException("Maximum nesting depth exceeded");
             }
             return r;
@@ -126,23 +127,23 @@ public final class CfgUtil {
     }
 
     public static int readUnicode(InputStream input, int len) throws IOException {
-        if(input == null) {
+        if (input == null) {
             throw new AssertionError();
         }
-        if(len < 0 || len > Math.divideExact(Integer.SIZE, 4)) {
+        if (len < 0 || len > Math.divideExact(Integer.SIZE, 4)) {
             throw new AssertionError();
         }
         int r = 0;
         for (int i = 0; i < len; i++) {
             int b = input.read();
-            if(b == -1) {
+            if (b == -1) {
                 throw new CfgException("EOF reached");
             }
-            if((b >= '0' && b <= '9')) {
+            if ((b >= '0' && b <= '9')) {
                 r = (r << 4) | (b - '0');
-            } else if((b >= 'a' && b <= 'f')) {
+            } else if ((b >= 'a' && b <= 'f')) {
                 r = (r << 4) | (b - 'a' + 10);
-            }  else if((b >= 'A' && b <= 'F')) {
+            } else if ((b >= 'A' && b <= 'F')) {
                 r = (r << 4) | (b - 'A' + 10);
             } else {
                 throw new CfgException("Bad hex character: " + b);

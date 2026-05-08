@@ -12,6 +12,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,67 +32,51 @@ public class ReadIntegerBench {
     private static final int HUGE_SIZE = 1000;
     private static final int BATCH_SIZE = SMALL_SIZE + MEDIUM_SIZE + HUGE_SIZE;
     private Arena arena;
-    private List<byte[]> intBytes;
     private List<byte[]> longBytes;
-    private List<MemorySegment> intSegments;
     private List<MemorySegment> longSegments;
 
-    @Setup
+    @Setup(Level.Iteration)
     public void setup() {
         arena = Arena.ofConfined();
-        intBytes = new ArrayList<>(BATCH_SIZE);
         longBytes = new ArrayList<>(BATCH_SIZE);
-        intSegments = new ArrayList<>(BATCH_SIZE);
         longSegments = new ArrayList<>(BATCH_SIZE);
         ThreadLocalRandom random = ThreadLocalRandom.current();
         for (int i = 0; i < SMALL_SIZE; i++) {
-            intBytes.add(String.valueOf(random.nextInt(-1000, 1000)).getBytes(StandardCharsets.UTF_8));
-            longBytes.add(String.valueOf(random.nextLong(-1000L, 1000L)).getBytes(StandardCharsets.UTF_8));
-            intSegments.add(arena.allocateFrom(String.valueOf(random.nextInt(-1000, 1000)), StandardCharsets.UTF_8));
-            longSegments.add(arena.allocateFrom(String.valueOf(random.nextLong(-1000L, 1000L)), StandardCharsets.UTF_8));
+            byte[] bytes = String.valueOf(random.nextLong(-1000L, 1000L)).getBytes(StandardCharsets.UTF_8);
+            longBytes.add(bytes);
+            MemorySegment segment = arena.allocate(ValueLayout.JAVA_BYTE, bytes.length);
+            MemorySegment.copy(bytes, 0, segment, ValueLayout.JAVA_BYTE, 0L, bytes.length);
+            longSegments.add(segment);
         }
         for (int i = 0; i < MEDIUM_SIZE; i++) {
-            intBytes.add(String.valueOf(random.nextInt(-100000, 100000)).getBytes(StandardCharsets.UTF_8));
-            longBytes.add(String.valueOf(random.nextLong(-100000L, 100000L)).getBytes(StandardCharsets.UTF_8));
-            intSegments.add(arena.allocateFrom(String.valueOf(random.nextInt(-100000, 100000)), StandardCharsets.UTF_8));
-            longSegments.add(arena.allocateFrom(String.valueOf(random.nextLong(-100000L, 100000L)), StandardCharsets.UTF_8));
+            byte[] bytes = String.valueOf(random.nextLong(-100000L, 100000L)).getBytes(StandardCharsets.UTF_8);
+            longBytes.add(bytes);
+            MemorySegment segment = arena.allocate(ValueLayout.JAVA_BYTE, bytes.length);
+            MemorySegment.copy(bytes, 0, segment, ValueLayout.JAVA_BYTE, 0L, bytes.length);
+            longSegments.add(segment);
         }
         for (int i = 0; i < HUGE_SIZE; i++) {
-            intBytes.add(String.valueOf(random.nextInt()).getBytes(StandardCharsets.UTF_8));
-            longBytes.add(String.valueOf(random.nextLong()).getBytes(StandardCharsets.UTF_8));
-            intSegments.add(arena.allocateFrom(String.valueOf(random.nextInt()), StandardCharsets.UTF_8));
-            longSegments.add(arena.allocateFrom(String.valueOf(random.nextLong()), StandardCharsets.UTF_8));
+            byte[] bytes = String.valueOf(random.nextLong()).getBytes(StandardCharsets.UTF_8);
+            longBytes.add(bytes);
+            MemorySegment segment = arena.allocate(ValueLayout.JAVA_BYTE, bytes.length);
+            MemorySegment.copy(bytes, 0, segment, ValueLayout.JAVA_BYTE, 0L, bytes.length);
+            longSegments.add(segment);
         }
-        Collections.shuffle(intBytes);
         Collections.shuffle(longBytes);
-        Collections.shuffle(intSegments);
         Collections.shuffle(longSegments);
     }
 
-    @TearDown
+    @TearDown(Level.Iteration)
     public void tearDown() {
         arena.close();
-        intBytes = null;
         longBytes = null;
-        intSegments = null;
         longSegments = null;
     }
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkReadInteger(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
-            byte[] bytes = intBytes.get(index);
-            String s = new String(bytes, StandardCharsets.UTF_8);
-            int value = Integer.parseInt(s);
-            blackhole.consume(value);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkReadLong(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+    public void jdkReadHeapLong(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = longBytes.get(index);
             String s = new String(bytes, StandardCharsets.UTF_8);
             long value = Long.parseLong(s);
@@ -101,19 +86,19 @@ public class ReadIntegerBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void heapReadInteger(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
-            byte[] bytes = intBytes.get(index);
-            HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            int value = MarshallUtil.readInt(heapReadBuffer);
+    public void jdkReadSegmentLong(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            byte[] bytes = longSegments.get(index).toArray(ValueLayout.JAVA_BYTE);
+            String s = new String(bytes, StandardCharsets.UTF_8);
+            long value = Long.parseLong(s);
             blackhole.consume(value);
         }
     }
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void heapReadLong(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+    public void readHeapLong(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = longBytes.get(index);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             long value = MarshallUtil.readLong(heapReadBuffer);
@@ -123,19 +108,8 @@ public class ReadIntegerBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void segmentReadInteger(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
-            MemorySegment segment = intSegments.get(index);
-            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
-            int value = MarshallUtil.readInt(segmentReadBuffer);
-            blackhole.consume(value);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void segmentReadLong(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+    public void readSegmentLong(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = longSegments.get(index);
             SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
             long value = MarshallUtil.readLong(segmentReadBuffer);

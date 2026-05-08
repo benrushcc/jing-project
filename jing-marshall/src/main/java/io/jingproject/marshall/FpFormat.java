@@ -1,6 +1,6 @@
 package io.jingproject.marshall;
 
-public record FpFormat (
+public record FpFormat(
         boolean negative,
         long d,
         int dLen,

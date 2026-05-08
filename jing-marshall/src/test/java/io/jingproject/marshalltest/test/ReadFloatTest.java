@@ -1,16 +1,13 @@
 package io.jingproject.marshalltest.test;
 
 import io.jingproject.common.HeapReadBuffer;
-import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.common.SegmentReadBuffer;
-import io.jingproject.common.SegmentWriteBuffer;
 import io.jingproject.marshall.MarshallUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -63,9 +60,9 @@ public class ReadFloatTest {
     public void readRandomFloatTest() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         List<String> strList = new ArrayList<>();
-        for(int i = 0; i < BATCH; ) {
+        for (int i = 0; i < BATCH; ) {
             float f = Float.intBitsToFloat(random.nextInt());
-            if(Float.isFinite(f)) {
+            if (Float.isFinite(f)) {
                 strList.add(Float.toString(f));
                 i++;
             }
@@ -78,7 +75,7 @@ public class ReadFloatTest {
     @Timeout(value = 1, unit = TimeUnit.HOURS)
     public void readAllFloatTest() {
         final int SEGMENT_SIZE = 10000;
-        final int BATCH_SIZE   = 100;
+        final int BATCH_SIZE = 100;
         final int THREAD_COUNT = Math.max(Runtime.getRuntime().availableProcessors(), 4);
         try (ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT)) {
             List<Future<Void>> futures = new ArrayList<>();
@@ -133,9 +130,9 @@ public class ReadFloatTest {
     public void readRandomDoubleTest() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         List<String> strList = new ArrayList<>();
-        for(int i = 0; i < BATCH; ) {
+        for (int i = 0; i < BATCH; ) {
             double f = Double.longBitsToDouble(random.nextLong());
-            if(Double.isFinite(f)) {
+            if (Double.isFinite(f)) {
                 strList.add(Double.toString(f));
                 i++;
             }

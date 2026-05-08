@@ -21,7 +21,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
     private int position;
 
     public HeapWriteBuffer(byte[] buf) {
-        if(buf == null || buf.length == 0) {
+        if (buf == null || buf.length == 0) {
             throw new IllegalArgumentException("empty buffer");
         }
         buffer = buf;
@@ -35,7 +35,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     private void growBufferIfNeeded(int requiredCapacity) {
         int currentCapacity = buffer.length;
-        if(currentCapacity < requiredCapacity) {
+        if (currentCapacity < requiredCapacity) {
             int growedCapacity = Math.addExact(currentCapacity, currentCapacity);
             int newLength = Math.max(growedCapacity, requiredCapacity);
             buffer = Arrays.copyOf(buffer, newLength);

@@ -31,16 +31,16 @@ public final class TomlCfgReader {
     public CfgObject parse() throws IOException {
         State state = State.INITIAL;
         int b;
-        try(ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            for( ; ; ) {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            for (; ; ) {
                 switch (state) {
                     case INITIAL -> {
                         b = CfgUtil.ignore(input, ' ', '\t', '\r', '\n');
-                        if(b == -1) {
+                        if (b == -1) {
                             return root;
-                        } else if(b == '#') {
+                        } else if (b == '#') {
                             state = State.COMMENT;
-                        } else if(b == '[') {
+                        } else if (b == '[') {
                             state = State.TABLE_START;
                         } else {
                             output.write(b);
@@ -63,18 +63,18 @@ public final class TomlCfgReader {
                         CfgUtil.search(input, output, ']');
                         byte[] nestedKeyBytes = output.toByteArray();
                         String nestedKeyStr = new String(nestedKeyBytes, StandardCharsets.US_ASCII);
-                        if(!tables.add(nestedKeyStr)) {
+                        if (!tables.add(nestedKeyStr)) {
                             throw new CfgException("Duplicate table: " + nestedKeyStr);
                         }
                         output.reset();
                         for (String nestedKey : CfgUtil.readCfgNestedKey(nestedKeyBytes)) {
                             Map<String, Cfg> currentMap = current.value();
                             Cfg currentObj = currentMap.get(nestedKey);
-                            if(currentObj == null) {
+                            if (currentObj == null) {
                                 CfgObject cm = new CfgObject(new HashMap<>());
                                 currentMap.put(nestedKey, cm);
                                 current = cm;
-                            } else if(currentObj instanceof CfgObject cm) {
+                            } else if (currentObj instanceof CfgObject cm) {
                                 current = cm;
                             } else {
                                 throw new CfgException("Duplicate table: " + nestedKeyStr);
@@ -84,11 +84,11 @@ public final class TomlCfgReader {
                     }
                     case VALUE_END -> {
                         b = CfgUtil.ignore(input, '\r', '\n', '#');
-                        if(b == -1) {
+                        if (b == -1) {
                             return root;
-                        } else if(b == '\r' || b == '\n') {
+                        } else if (b == '\r' || b == '\n') {
                             state = State.INITIAL;
-                        } else if(b == '#') {
+                        } else if (b == '#') {
                             state = State.COMMENT;
                         } else {
                             throw new AssertionError();
@@ -99,9 +99,9 @@ public final class TomlCfgReader {
                         byte[] keyBytes = output.toByteArray();
                         output.reset();
                         key = CfgUtil.readCfgKey(keyBytes);
-                        if(b != '=') {
+                        if (b != '=') {
                             b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-                            if(b != '=') {
+                            if (b != '=') {
                                 throw new CfgException("Corrupt toml configuration");
                             }
                         }
@@ -109,9 +109,9 @@ public final class TomlCfgReader {
                     }
                     case VALUE_START -> {
                         b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-                        if(b == '"') {
+                        if (b == '"') {
                             state = State.STR_START;
-                        } else if(b == '[') {
+                        } else if (b == '[') {
                             state = State.ARR_START;
                         } else {
                             throw new CfgException("Corrupt toml configuration");
@@ -129,23 +129,23 @@ public final class TomlCfgReader {
                     }
                     case ARR_START -> {
                         List<String> strList = new ArrayList<>();
-                        for( ; ; ) {
+                        for (; ; ) {
                             b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-                            if(b != '"') {
+                            if (b != '"') {
                                 throw new CfgException("Corrupt toml configuration");
                             }
                             readTomlStrValue(input, output);
                             strList.add(output.toString(StandardCharsets.UTF_8));
                             output.reset();
                             b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-                            if(b == ']') {
+                            if (b == ']') {
                                 if (current.value().putIfAbsent(key, new CfgList(strList)) != null) {
                                     throw new CfgException("Duplicate key: " + key);
                                 }
                                 key = null;
                                 state = State.VALUE_END;
-                                break ;
-                            } else if(b != ',') {
+                                break;
+                            } else if (b != ',') {
                                 throw new CfgException("Corrupt toml configuration");
                             }
                         }
@@ -164,7 +164,7 @@ public final class TomlCfgReader {
         boolean escaping = false;
         int b;
         while ((b = input.read()) != -1) {
-            if(escaping) {
+            if (escaping) {
                 switch (b) {
                     case 'b' -> output.write('\b');
                     case 't' -> output.write('\t');
@@ -176,30 +176,30 @@ public final class TomlCfgReader {
                     case '\\' -> output.write('\\');
                     case 'x' -> {
                         int codePoint = CfgUtil.readUnicode(input, 2);
-                        if(!Character.isValidCodePoint(codePoint)) {
+                        if (!Character.isValidCodePoint(codePoint)) {
                             throw new CfgException("invalid code point: " + codePoint);
                         }
-                        if(codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
+                        if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
                             throw new CfgException("invalid surrogate code point: " + codePoint);
                         }
                         CfgUtil.writeUnicodeInUtf8(output, codePoint);
                     }
                     case 'u' -> {
                         int codePoint = CfgUtil.readUnicode(input, 4);
-                        if(!Character.isValidCodePoint(codePoint)) {
+                        if (!Character.isValidCodePoint(codePoint)) {
                             throw new CfgException("invalid code point: " + codePoint);
                         }
-                        if(codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
+                        if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
                             throw new CfgException("invalid surrogate code point: " + codePoint);
                         }
                         CfgUtil.writeUnicodeInUtf8(output, codePoint);
                     }
                     case 'U' -> {
                         int codePoint = CfgUtil.readUnicode(input, 8);
-                        if(!Character.isValidCodePoint(codePoint)) {
+                        if (!Character.isValidCodePoint(codePoint)) {
                             throw new CfgException("invalid code point: " + codePoint);
                         }
-                        if(codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
+                        if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
                             throw new CfgException("invalid surrogate code point: " + codePoint);
                         }
                         CfgUtil.writeUnicodeInUtf8(output, codePoint);
@@ -211,7 +211,7 @@ public final class TomlCfgReader {
                 if (b == '\\') {
                     escaping = true;
                 } else if (b == '"') {
-                    return ;
+                    return;
                 } else {
                     output.write(b);
                 }

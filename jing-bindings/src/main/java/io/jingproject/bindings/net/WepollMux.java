@@ -15,7 +15,7 @@ public final class WepollMux implements Mux {
     private MemorySegment epfd = MemorySegment.NULL;
 
     static {
-        if(WEPOLL_BINDINGS == null) {
+        if (WEPOLL_BINDINGS == null) {
             throw new ExceptionInInitializerError("cannot initialize WepollMux");
         }
     }

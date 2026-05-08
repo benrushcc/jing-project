@@ -48,7 +48,7 @@ public final class Libs {
                 r.add(p);
             }
         }
-        if(r.isEmpty()) {
+        if (r.isEmpty()) {
             throw new ExceptionInInitializerError("cannot initialize library search path");
         }
         return List.copyOf(r);
@@ -60,7 +60,7 @@ public final class Libs {
     private static Path searchLibrary(String mappedLibraryName) {
         for (String searchPath : SEARCH_PATH) {
             Path p = Paths.get(searchPath, mappedLibraryName);
-            if(Files.isRegularFile(p)) {
+            if (Files.isRegularFile(p)) {
                 return p;
             }
         }
@@ -80,8 +80,8 @@ public final class Libs {
                 if (desc == null) {
                     String mappedName = System.mapLibraryName(libName);
                     Path libPath = searchLibrary(mappedName);
-                    if(libPath == null) {
-                        continue ;
+                    if (libPath == null) {
+                        continue;
                     }
                     SymbolLookup lookup = SymbolLookup.libraryLookup(libPath, Arena.global());
                     Object impl = facade.supplier().get();
@@ -89,7 +89,7 @@ public final class Libs {
                     tempDescriptors.put(target, desc);
                 }
                 for (String methodName : facade.methodNames()) {
-                    if(!desc.functions().containsKey(methodName)) {
+                    if (!desc.functions().containsKey(methodName)) {
                         MemorySegment methodAddress = desc.lookup().find(methodName).orElse(MemorySegment.NULL);
                         desc.functions().put(methodName, methodAddress);
                     }
@@ -112,7 +112,7 @@ public final class Libs {
     }
 
     public static MemorySegment addrFromVM(String methodName) {
-        if(methodName == null || methodName.isBlank()) {
+        if (methodName == null || methodName.isBlank()) {
             throw new IllegalArgumentException("methodName cannot be null or blank");
         }
         Linker linker = Linker.nativeLinker();
@@ -143,13 +143,13 @@ public final class Libs {
     }
 
     private static MethodHandle makeDowncallMethodHandle(MemorySegment addr, List<Class<?>> types, boolean critical, boolean constant) {
-        if(types == null || types.isEmpty()) {
+        if (types == null || types.isEmpty()) {
             throw new IllegalArgumentException("types cannot be null or empty");
         }
-        if(constant && types.size() > 1) {
+        if (constant && types.size() > 1) {
             throw new IllegalArgumentException("constant method cannot have parameters");
         }
-        if(addr.address() == 0L) {
+        if (addr.address() == 0L) {
             return MethodHandles.throwException(types.getFirst(), ForeignException.class).bindTo(new ForeignException("function address not found"));
         }
         FunctionDescriptor descriptor = castFunctionDescriptor(types);
@@ -157,7 +157,7 @@ public final class Libs {
         MethodHandle mh = (JING_CRITICAL && critical) ?
                 linker.downcallHandle(addr, descriptor, Linker.Option.critical(false)) :
                 linker.downcallHandle(addr, descriptor);
-        if(constant) {
+        if (constant) {
             return makeConstantMethodHandle(types, mh);
         }
         return mh;
@@ -166,7 +166,7 @@ public final class Libs {
     private static MethodHandle makeConstantMethodHandle(List<Class<?>> types, MethodHandle mh) {
         try {
             Class<?> returnType = types.getFirst();
-            if(returnType.equals(byte.class)) {
+            if (returnType.equals(byte.class)) {
                 byte r = (byte) mh.invokeExact();
                 return MethodHandles.constant(byte.class, r);
             } else if (boolean.class.equals(returnType)) {
@@ -200,7 +200,7 @@ public final class Libs {
             throw new ForeignException("failed to invoke constant foreign method", t);
         }
     }
-    
+
     private static FunctionDescriptor castFunctionDescriptor(List<Class<?>> types) {
         MemoryLayout[] layouts = new MemoryLayout[types.size() - 1];
         for (int i = 1; i < types.size(); i++) {
@@ -214,7 +214,7 @@ public final class Libs {
             return FunctionDescriptor.of(resLayout, layouts);
         }
     }
-    
+
     private static MemoryLayout castMemoryLayout(Class<?> type) {
         if (byte.class.equals(type)) {
             return ValueLayout.JAVA_BYTE;
@@ -241,6 +241,7 @@ public final class Libs {
 
     /**
      * find target libDecriptor by given type
+     *
      * @return the library descriptor for the given type, or {@code null} if the library is missing or unsupported on current operating system
      * for optimal performance, callers should store the return value in a {@code static final} field
      */
@@ -251,6 +252,7 @@ public final class Libs {
 
     /**
      * find target impl by given type
+     *
      * @return the library impl for the given type, or {@code null} if the library is missing or unsupported on current operating system
      * for optimal performance, callers should store the return value in a {@code static final} field
      */

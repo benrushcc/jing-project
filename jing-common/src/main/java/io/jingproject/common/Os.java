@@ -15,35 +15,35 @@ public enum Os {
 
     static {
         long byteSize = ValueLayout.JAVA_BYTE.byteSize();
-        if(byteSize != 1L) {
+        if (byteSize != 1L) {
             throw new UnsupportedOperationException("Unsupported byte size: " + byteSize);
         }
         long shortSize = ValueLayout.JAVA_SHORT.byteSize();
-        if(shortSize != 2L) {
+        if (shortSize != 2L) {
             throw new UnsupportedOperationException("Unsupported short size: " + shortSize);
         }
         long charSize = ValueLayout.JAVA_CHAR.byteSize();
-        if(charSize != 2L) {
+        if (charSize != 2L) {
             throw new UnsupportedOperationException("Unsupported short size: " + charSize);
         }
         long intSize = ValueLayout.JAVA_INT.byteSize();
-        if(intSize != 4L) {
+        if (intSize != 4L) {
             throw new ExceptionInInitializerError("Unsupported int layout size: " + intSize);
         }
         long longSize = ValueLayout.JAVA_LONG.byteSize();
-        if(longSize != 8L) {
+        if (longSize != 8L) {
             throw new ExceptionInInitializerError("Unsupported long layout size: " + longSize);
         }
         long floatSize = ValueLayout.JAVA_FLOAT.byteSize();
-        if(floatSize != 4L) {
+        if (floatSize != 4L) {
             throw new ExceptionInInitializerError("Unsupported float layout size: " + floatSize);
         }
         long doubleSize = ValueLayout.JAVA_DOUBLE.byteSize();
-        if(doubleSize != 8L) {
+        if (doubleSize != 8L) {
             throw new ExceptionInInitializerError("Unsupported double layout size: " + doubleSize);
         }
         long addressSize = ValueLayout.ADDRESS.byteSize();
-        if(addressSize != 8L) {
+        if (addressSize != 8L) {
             throw new ExceptionInInitializerError("Unsupported address layout size: " + addressSize);
         }
     }

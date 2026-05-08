@@ -19,9 +19,9 @@ public final class Utils {
     }
 
     /**
-     *   Generate annotation processor generated class name.
-     *   The naming strategy is arbitrarily defined, as long as it ensures proper loading and distinguishes from regular class names.
-     *   This strategy may change in future versions, but the Jing library will aim to maintain this approach as much as possible, unless there is a compelling need for change.
+     * Generate annotation processor generated class name.
+     * The naming strategy is arbitrarily defined, as long as it ensures proper loading and distinguishes from regular class names.
+     * This strategy may change in future versions, but the Jing library will aim to maintain this approach as much as possible, unless there is a compelling need for change.
      */
     public static String generateClassName(String base, String tag) {
         return "_" + base + "$$" + tag;
@@ -37,10 +37,8 @@ public final class Utils {
 
     public static int compact(short s0, short s1) {
         return switch (ByteOrder.nativeOrder()) {
-            case LITTLE_ENDIAN ->
-                    ((s1 & 0xFFFF) << 16) | (s0 & 0xFFFF);
-            case BIG_ENDIAN ->
-                    ((s0 & 0xFFFF) << 16) | (s1 & 0xFFFF);
+            case LITTLE_ENDIAN -> ((s1 & 0xFFFF) << 16) | (s0 & 0xFFFF);
+            case BIG_ENDIAN -> ((s0 & 0xFFFF) << 16) | (s1 & 0xFFFF);
         };
     }
 

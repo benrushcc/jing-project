@@ -32,7 +32,7 @@ public class HashBench {
     private static final Hasher TWOBYTE_HASHER = new TwoByteHasher();
     private static final Hasher THREEBYTE_HASHER = new ThreeByteHasher();
     private static final Hasher FOURBYTE_HASHER = new FourByteHasher();
-    private static final Hasher FNV_MUL_HASHER= new FnvHasher();
+    private static final Hasher FNV_MUL_HASHER = new FnvHasher();
 
     @Setup(Level.Iteration)
     public void setup() {

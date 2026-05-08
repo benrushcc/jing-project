@@ -43,7 +43,7 @@ public class DemoBenchmark {
         m1 = arena.allocate(ValueLayout.JAVA_INT, BATCH_SIZE);
         m2 = arena.allocate(ValueLayout.JAVA_INT, BATCH_SIZE);
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for(int i = 0; i < BATCH_SIZE; i++) {
+        for (int i = 0; i < BATCH_SIZE; i++) {
             int i1 = random.nextInt(0, Integer.MAX_VALUE);
             int i2 = random.nextInt(0, Integer.MAX_VALUE);
             a[i] = i1;
@@ -61,7 +61,7 @@ public class DemoBenchmark {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testJavaSingleInt(Blackhole blackhole) {
-        for(int i = 0; i < BATCH_SIZE; i++) {
+        for (int i = 0; i < BATCH_SIZE; i++) {
             blackhole.consume(JAVA_IMPL.singleInt());
         }
     }
@@ -69,7 +69,7 @@ public class DemoBenchmark {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testJavaComputeAdd(Blackhole blackhole) {
-        for(int i = 0; i < BATCH_SIZE; i++) {
+        for (int i = 0; i < BATCH_SIZE; i++) {
             int i1 = a[i];
             int i2 = b[i];
             blackhole.consume(JAVA_IMPL.computeAdd(i1, i2));
@@ -79,7 +79,7 @@ public class DemoBenchmark {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testJavaComputePointer(Blackhole blackhole) {
-        for(int i = 0; i < BATCH_SIZE; i++) {
+        for (int i = 0; i < BATCH_SIZE; i++) {
             MemorySegment s1 = m1.asSlice(i * ValueLayout.JAVA_INT.byteSize(), ValueLayout.JAVA_INT.byteSize());
             MemorySegment s2 = m2.asSlice(i * ValueLayout.JAVA_INT.byteSize(), ValueLayout.JAVA_INT.byteSize());
             blackhole.consume(JAVA_IMPL.computePointer(s1, s2));
@@ -89,7 +89,7 @@ public class DemoBenchmark {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testNativeSingleInt(Blackhole blackhole) {
-        for(int i = 0; i < BATCH_SIZE; i++) {
+        for (int i = 0; i < BATCH_SIZE; i++) {
             blackhole.consume(NATIVE_IMPL.singleInt());
         }
     }
@@ -97,7 +97,7 @@ public class DemoBenchmark {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testNativeComputeAdd(Blackhole blackhole) {
-        for(int i = 0; i < BATCH_SIZE; i++) {
+        for (int i = 0; i < BATCH_SIZE; i++) {
             int i1 = a[i];
             int i2 = b[i];
             blackhole.consume(NATIVE_IMPL.computeAdd(i1, i2));
@@ -107,7 +107,7 @@ public class DemoBenchmark {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testNativeComputePointer(Blackhole blackhole) {
-        for(int i = 0; i < BATCH_SIZE; i++) {
+        for (int i = 0; i < BATCH_SIZE; i++) {
             MemorySegment s1 = m1.asSlice(i * ValueLayout.JAVA_INT.byteSize(), ValueLayout.JAVA_INT.byteSize());
             MemorySegment s2 = m2.asSlice(i * ValueLayout.JAVA_INT.byteSize(), ValueLayout.JAVA_INT.byteSize());
             blackhole.consume(NATIVE_IMPL.computePointer(s1, s2));

@@ -70,13 +70,14 @@ public final class MarshallProcessor extends AbstractProcessor {
             case CLASS -> checkMarshallableClassElement(t);
             case RECORD -> checkMarshallableRecordElement(t);
             case ENUM -> checkMarshallableEnumElement(t);
-            default -> throw new UnsupportedOperationException("only class, record or enum are supported by marshall processor");
+            default ->
+                    throw new UnsupportedOperationException("only class, record or enum are supported by marshall processor");
         }
     }
 
     private void checkMarshallableClassElement(TypeElement t) {
         // must be top-level class
-        if(t.getNestingKind() != NestingKind.TOP_LEVEL) {
+        if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
             throw new AnnotationProcessorException("only top level fieldElement can be annotated with @Marshallable");
         }
         // must be public class
@@ -84,7 +85,7 @@ public final class MarshallProcessor extends AbstractProcessor {
             throw new AnnotationProcessorException("only public fieldElement can be annotated with @Marshallable");
         }
         // must be non-abstract class
-        if(t.getModifiers().contains(Modifier.ABSTRACT)) {
+        if (t.getModifiers().contains(Modifier.ABSTRACT)) {
             throw new AnnotationProcessorException("abstract class can not be annotated with @Marshallable");
         }
         // if using inheritance, must be annotationed with @Marshallable in the same module
@@ -94,12 +95,12 @@ public final class MarshallProcessor extends AbstractProcessor {
         TypeMirror superType = t.getSuperclass();
         while (!typeUtils.isSameType(superType, objectType)) {
             Marshallable superTypeAnnotation = superType.getAnnotation(Marshallable.class);
-            if(superTypeAnnotation == null) {
+            if (superTypeAnnotation == null) {
                 throw new AnnotationProcessorException("super rawType must be annotated with @Marshallable");
             }
             Element superElement = typeUtils.asElement(superType);
             ModuleElement superModule = elements.getModuleOf(superElement);
-            if(!rootModule.equals(superModule)) {
+            if (!rootModule.equals(superModule)) {
                 throw new AnnotationProcessorException("super rawType must be within the same module");
             }
             superType = AnnoUtil.castTypeElement(superElement).getSuperclass();
@@ -108,18 +109,18 @@ public final class MarshallProcessor extends AbstractProcessor {
         boolean foundNoArgConstructor = false;
         boolean foundFieldElement = false;
         for (Element e : t.getEnclosedElements()) {
-            if(!foundNoArgConstructor && e.getKind().equals(ElementKind.CONSTRUCTOR)) {
+            if (!foundNoArgConstructor && e.getKind().equals(ElementKind.CONSTRUCTOR)) {
                 ExecutableElement ex = AnnoUtil.castExecutableElement(e);
-                if(ex.getParameters().isEmpty() && ex.getModifiers().contains(Modifier.PUBLIC)) {
+                if (ex.getParameters().isEmpty() && ex.getModifiers().contains(Modifier.PUBLIC)) {
                     foundNoArgConstructor = true;
                 }
             }
-            if(e.getKind().equals(ElementKind.FIELD)) {
+            if (e.getKind().equals(ElementKind.FIELD)) {
                 VariableElement va = AnnoUtil.castVariableElement(e);
-                if(va.getModifiers().contains(Modifier.STATIC)) {
-                    continue ;
+                if (va.getModifiers().contains(Modifier.STATIC)) {
+                    continue;
                 }
-                if(va.getModifiers().contains(Modifier.FINAL)) {
+                if (va.getModifiers().contains(Modifier.FINAL)) {
                     throw new AnnotationProcessorException("only non-final fields could appear in normal classes");
                 }
                 // check variable element type
@@ -127,26 +128,26 @@ public final class MarshallProcessor extends AbstractProcessor {
                 foundFieldElement = true;
             }
         }
-        if(!foundNoArgConstructor) {
+        if (!foundNoArgConstructor) {
             throw new AnnotationProcessorException("no-arg constructor not found");
         }
-        if(!foundFieldElement) {
+        if (!foundFieldElement) {
             throw new AnnotationProcessorException("field not found");
         }
     }
 
     private void checkMarshallableRecordElement(TypeElement t) {
         // must be top-level record
-        if(t.getNestingKind() != NestingKind.TOP_LEVEL) {
+        if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
             throw new AnnotationProcessorException("only top level fieldElement can be annotated with @Marshallable");
         }
         // must be public record
-        if(!t.getModifiers().contains(Modifier.PUBLIC)) {
+        if (!t.getModifiers().contains(Modifier.PUBLIC)) {
             throw new AnnotationProcessorException("only public fieldElement can be annotated with @Marshallable");
         }
         // must have fields
         List<? extends Element> fields = t.getEnclosedElements().stream().filter(e -> e.getKind().equals(ElementKind.RECORD_COMPONENT)).toList();
-        if(fields.isEmpty()) {
+        if (fields.isEmpty()) {
             throw new AnnotationProcessorException("enclosed elements can not be empty");
         }
         // check variable element type
@@ -158,31 +159,31 @@ public final class MarshallProcessor extends AbstractProcessor {
 
     private void checkMarshallableEnumElement(TypeElement t) {
         // must be top-level enum
-        if(t.getNestingKind() != NestingKind.TOP_LEVEL) {
+        if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
             throw new AnnotationProcessorException("only top level fieldElement can be annotated with @Marshallable");
         }
         // must be public enum
-        if(!t.getModifiers().contains(Modifier.PUBLIC)) {
+        if (!t.getModifiers().contains(Modifier.PUBLIC)) {
             throw new AnnotationProcessorException("only public fieldElement can be annotated with @Marshallable");
         }
         // must have enum constants
-        if(t.getEnclosedElements().stream().noneMatch(e -> e.getKind().equals(ElementKind.ENUM_CONSTANT))) {
+        if (t.getEnclosedElements().stream().noneMatch(e -> e.getKind().equals(ElementKind.ENUM_CONSTANT))) {
             throw new AnnotationProcessorException("enum constants can not be empty");
         }
     }
 
     private void checkVariableElementType(VariableElement va) {
         TypeMirror tm = va.asType();
-        if(tm.getKind() == TypeKind.DECLARED) {
+        if (tm.getKind() == TypeKind.DECLARED) {
             DeclaredType d = AnnoUtil.castDeclaredType(tm);
             List<? extends TypeMirror> typeArguments = d.getTypeArguments();
-            if(typeArguments.size() > 2) {
+            if (typeArguments.size() > 2) {
                 throw new AnnotationProcessorException("generic type arguments cannot be more than 2");
             }
             for (TypeMirror typeArgument : typeArguments) {
-                if(typeArgument.getKind() == TypeKind.DECLARED) {
+                if (typeArgument.getKind() == TypeKind.DECLARED) {
                     DeclaredType dt = AnnoUtil.castDeclaredType(typeArgument);
-                    if(!dt.getTypeArguments().isEmpty()) {
+                    if (!dt.getTypeArguments().isEmpty()) {
                         throw new AnnotationProcessorException("generic type arguments cannot have type arguments");
                     }
                 }
@@ -197,15 +198,15 @@ public final class MarshallProcessor extends AbstractProcessor {
         boolean skipSerializing = false;
         boolean skipDeserializing = false;
         MarshallAttr attr = v.getAnnotation(MarshallAttr.class);
-        if(attr != null) {
+        if (attr != null) {
             String attrMappedName = attr.mappedName();
-            if(!attrMappedName.isBlank()) {
+            if (!attrMappedName.isBlank()) {
                 mappedName = attrMappedName;
             }
         }
         NamingConvention from = marshallable.from();
         NamingConvention to = marshallable.to();
-        if(from != NamingConvention.ORIGINAL && to != NamingConvention.ORIGINAL && mappedName.equals(fieldName)) {
+        if (from != NamingConvention.ORIGINAL && to != NamingConvention.ORIGINAL && mappedName.equals(fieldName)) {
             mappedName = NamingConvention.cast(from, to, fieldName);
         }
         int fieldNameLen = fieldName.getBytes(StandardCharsets.UTF_8).length;
@@ -217,7 +218,7 @@ public final class MarshallProcessor extends AbstractProcessor {
     }
 
     private MarshallProcessorInfo createMarshallProcessorInfo(TypeElement t) {
-        if(t.getKind() == ElementKind.CLASS && processingEnv.getTypeUtils().isSameType(t.getSuperclass(), objectType)) {
+        if (t.getKind() == ElementKind.CLASS && processingEnv.getTypeUtils().isSameType(t.getSuperclass(), objectType)) {
             return createMarshallExtendedProcessorInfo(t);
         } else {
             return createMarshallNormalProcessorInfo(t);
@@ -238,7 +239,7 @@ public final class MarshallProcessor extends AbstractProcessor {
             default -> throw new AssertionError();
         };
         for (Element e : t.getEnclosedElements()) {
-            if(e.getKind().equals(targetKind)) {
+            if (e.getKind().equals(targetKind)) {
                 VariableElement v = AnnoUtil.castVariableElement(e);
                 MarshallFieldInfo fi = createMarshallFieldInfo(t, 0, v, marshallIndex, fieldNameIndex, mappedNameIndex);
                 marshallIndex = Math.incrementExact(marshallIndex);
@@ -276,7 +277,7 @@ public final class MarshallProcessor extends AbstractProcessor {
         for (int typeIndex = 0; typeIndex < ts.size(); typeIndex++) {
             TypeElement te = ts.get(typeIndex);
             for (Element e : te.getEnclosedElements()) {
-                if(e.getKind().equals(ElementKind.FIELD)) {
+                if (e.getKind().equals(ElementKind.FIELD)) {
                     VariableElement v = AnnoUtil.castVariableElement(e);
                     MarshallFieldInfo fi = createMarshallFieldInfo(te, typeIndex, v, marshallIndex, fieldNameIndex, mappedNameIndex);
                     marshallIndex = Math.incrementExact(marshallIndex);
@@ -299,9 +300,9 @@ public final class MarshallProcessor extends AbstractProcessor {
 
     private void writeMarshallSchemaSource(GeneratorSource schemaSource, GeneratorSource facadeSource, MarshallProcessorInfo info) {
         TypeElement targetElement = info.typeElements().getLast();
-        if(targetElement.getKind().equals(ElementKind.ENUM)) {
+        if (targetElement.getKind().equals(ElementKind.ENUM)) {
             // enum don't need schemas
-            return ;
+            return;
         }
         List<GeneratorBlock> blocks = new ArrayList<>();
         String schemaClassName = schemaSource.className();
@@ -325,7 +326,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                 for (Map.Entry<Class<?>, List<MarshallFieldInfo>> entry : switchMap.entrySet()) {
                     Class<?> cls = entry.getKey();
                     List<MarshallFieldInfo> fis = entry.getValue();
-                    if(cls == Object.class) {
+                    if (cls == Object.class) {
                         boolean marked = false;
                         String objectClassName = schemaSource.register(Object.class);
                         GeneratorBlock b = new GeneratorBlock()
@@ -337,7 +338,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                         for (MarshallFieldInfo fieldInfo : fis) {
                             int marshallIndex = fieldInfo.marshallIndex();
                             String fieldType = schemaSource.register(fieldInfo.fieldElement());
-                            if(!marked && AnnoUtil.isGenericType(fieldType)) {
+                            if (!marked && AnnoUtil.isGenericType(fieldType)) {
                                 marked = true;
                             }
                             b.addLine("case " + marshallIndex + " -> facade.marshallInfoByIndex(" +
@@ -349,7 +350,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                                 .unindent()
                                 .addLine("}")
                                 .newLine();
-                        if(marked) {
+                        if (marked) {
                             String suppressWarningsClassName = schemaSource.register(SuppressWarnings.class);
                             blocks.add(new GeneratorBlock().addLine("@" + suppressWarningsClassName + "(\"unchecked\")"));
                         }
@@ -381,7 +382,7 @@ public final class MarshallProcessor extends AbstractProcessor {
             case RECORD -> {
                 GeneratorBlock b = new GeneratorBlock()
                         .addLine("public final class " + schemaClassName +
-                        " implements " + marshallSchemaClassName + " {")
+                                " implements " + marshallSchemaClassName + " {")
                         .indent();
                 for (MarshallFieldInfo fieldInfo : info.fieldInfos()) {
                     String fieldType = schemaSource.register(fieldInfo.fieldElement());
@@ -391,7 +392,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                 for (Map.Entry<Class<?>, List<MarshallFieldInfo>> entry : switchMap.entrySet()) {
                     Class<?> cls = entry.getKey();
                     List<MarshallFieldInfo> fis = entry.getValue();
-                    if(cls == Object.class) {
+                    if (cls == Object.class) {
                         boolean marked = false;
                         String objectClassName = schemaSource.register(Object.class);
                         GeneratorBlock objectGetBlock = new GeneratorBlock().addLine("@" + overrideClassName)
@@ -403,7 +404,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                         for (MarshallFieldInfo fieldInfo : fis) {
                             int marshallIndex = fieldInfo.marshallIndex();
                             String fieldType = schemaSource.register(fieldInfo.fieldElement());
-                            if(!marked && AnnoUtil.isGenericType(fieldType)) {
+                            if (!marked && AnnoUtil.isGenericType(fieldType)) {
                                 marked = true;
                             }
                             objectGetBlock.addLine("case " + marshallIndex + " -> {")
@@ -416,7 +417,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                         objectSetBlock.addLine("default -> throw new " + unsupportedOperationExceptionClassName + "();")
                                 .unindent().addLine("}").unindent().addLine("}").newLine();
                         blocks.add(objectGetBlock);
-                        if(marked) {
+                        if (marked) {
                             String suppressWarningsClassName = schemaSource.register(SuppressWarnings.class);
                             blocks.add(new GeneratorBlock().addLine("@" + suppressWarningsClassName + "(\"unchecked\")"));
                         }
@@ -505,7 +506,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                 .addLine("@" + providerClassName + "(target = " + marshallFacadeClassName + ".class)")
                 .addLine("public final class " + facadeClassName + " implements " + marshallFacadeClassName + " {")
                 .indent();
-        if(info.typeElements().getLast().getKind() != ElementKind.ENUM) {
+        if (info.typeElements().getLast().getKind() != ElementKind.ENUM) {
             String methodHandleClassName = facadeSource.register(MethodHandle.class);
             b.addLine("private static final " + methodHandleClassName + " CONSTRUCTOR_MH;");
         }
@@ -538,7 +539,7 @@ public final class MarshallProcessor extends AbstractProcessor {
 
     private GeneratorBlock buildVarhandleInitializationBlock(GeneratorSource facadeSource, MarshallProcessorInfo info) {
         GeneratorBlock b = new GeneratorBlock();
-        if(info.typeElements().getLast().getKind() == ElementKind.ENUM) {
+        if (info.typeElements().getLast().getKind() == ElementKind.ENUM) {
             // enum don't need varhandle
             return b;
         }
@@ -565,19 +566,19 @@ public final class MarshallProcessor extends AbstractProcessor {
             String fieldSecondGenericTypeClassName = "";
             String vhValue = "null";
             String enumValue = "null";
-            if(fieldInfo.typeElement().getKind() == ElementKind.ENUM) {
+            if (fieldInfo.typeElement().getKind() == ElementKind.ENUM) {
                 enumValue = facadeSource.register(fieldInfo.typeElement()) + "." + fieldInfo.fieldName();
             } else {
                 vhValue = "vh" + fieldInfo.marshallIndex();
                 TypeMirror tm = fieldElement.asType();
-                if(tm.getKind() == TypeKind.DECLARED) {
+                if (tm.getKind() == TypeKind.DECLARED) {
                     DeclaredType d = AnnoUtil.castDeclaredType(tm);
                     List<? extends TypeMirror> typeArguments = d.getTypeArguments();
-                    if(!typeArguments.isEmpty()) {
+                    if (!typeArguments.isEmpty()) {
                         TypeElement firstGenericTypeElement = AnnoUtil.castTypeElement(typeUtils.asElement(typeArguments.getFirst()));
                         fieldFirstGenericTypeClassName = facadeSource.register(firstGenericTypeElement);
                     }
-                    if(typeArguments.size() == 2) {
+                    if (typeArguments.size() == 2) {
                         TypeElement secondGenericTypeElement = AnnoUtil.castTypeElement(typeUtils.asElement(typeArguments.get(1)));
                         fieldSecondGenericTypeClassName = facadeSource.register(secondGenericTypeElement);
                     }
@@ -610,10 +611,10 @@ public final class MarshallProcessor extends AbstractProcessor {
         String listClassName = facadeSource.register(List.class);
         boolean isEnum = targetElement.getKind() == ElementKind.ENUM;
         boolean isRecord = targetElement.getKind() == ElementKind.RECORD;
-        if(!isEnum) {
+        if (!isEnum) {
             List<String> constructorParams = new ArrayList<>();
             constructorParams.add("void.class");
-            if(isRecord) {
+            if (isRecord) {
                 for (MarshallFieldInfo fieldInfo : info.fieldInfos()) {
                     String fieldRawClassName = facadeSource.registerRaw(fieldInfo.fieldElement());
                     constructorParams.add(fieldRawClassName + ".class");
@@ -625,7 +626,7 @@ public final class MarshallProcessor extends AbstractProcessor {
         }
         b.addLine("FACADE_INFO = new " + marshallFacadeInfoClassName + "(" + listClassName +
                 ".of(" + IntStream.range(0, info.fieldInfos().size()).mapToObj(i -> "mi" + i).collect(Collectors.joining(", ")) + "));");
-        if(isEnum) {
+        if (isEnum) {
             b.unindent().addLine("}").newLine();
         } else {
             String exceptionClassName = facadeSource.register(Exception.class);
@@ -652,7 +653,7 @@ public final class MarshallProcessor extends AbstractProcessor {
         String methodHandleClassName = facadeSource.register(MethodHandle.class);
         GeneratorBlock b = new GeneratorBlock().addLine("@" + overrideClassName)
                 .addLine("public " + methodHandleClassName + " constructor() {").indent();
-        if(info.typeElements().getLast().getKind() == ElementKind.ENUM) {
+        if (info.typeElements().getLast().getKind() == ElementKind.ENUM) {
             String uoeClassName = facadeSource.register(UnsupportedOperationException.class);
             b.addLine("throw new " + uoeClassName + "();");
         } else {
@@ -684,17 +685,21 @@ public final class MarshallProcessor extends AbstractProcessor {
                     VariableElement fieldElement = fieldInfo.fieldElement();
                     int marshallIndex = fieldInfo.marshallIndex();
                     switch (fieldElement.asType().getKind()) {
-                        case BOOLEAN -> b.addLine("boolean v" + marshallIndex + " = schema.getBoolean(" + marshallIndex + ");");
+                        case BOOLEAN ->
+                                b.addLine("boolean v" + marshallIndex + " = schema.getBoolean(" + marshallIndex + ");");
                         case BYTE -> b.addLine("byte v" + marshallIndex + " = schema.getByte(" + marshallIndex + ");");
-                        case SHORT -> b.addLine("short v" + marshallIndex + " = schema.getShort(" + marshallIndex + ");");
+                        case SHORT ->
+                                b.addLine("short v" + marshallIndex + " = schema.getShort(" + marshallIndex + ");");
                         case CHAR -> b.addLine("char v" + marshallIndex + " = schema.getChar(" + marshallIndex + ");");
                         case INT -> b.addLine("int v" + marshallIndex + " = schema.getInt(" + marshallIndex + ");");
                         case LONG -> b.addLine("long v" + marshallIndex + " = schema.getLong(" + marshallIndex + ");");
-                        case FLOAT -> b.addLine("float v" + marshallIndex + " = schema.getFloat(" + marshallIndex + ");");
-                        case DOUBLE -> b.addLine("double v" + marshallIndex + " = schema.getDouble(" + marshallIndex + ");");
+                        case FLOAT ->
+                                b.addLine("float v" + marshallIndex + " = schema.getFloat(" + marshallIndex + ");");
+                        case DOUBLE ->
+                                b.addLine("double v" + marshallIndex + " = schema.getDouble(" + marshallIndex + ");");
                         default -> {
                             String fieldTypeClassName = facadeSource.register(fieldElement);
-                            if(AnnoUtil.isGenericType(fieldTypeClassName)) {
+                            if (AnnoUtil.isGenericType(fieldTypeClassName)) {
                                 String suppressWarningsClassName = facadeSource.register(SuppressWarnings.class);
                                 b.addLine("@" + suppressWarningsClassName + "(\"unchecked\")");
                             }
@@ -768,7 +773,7 @@ public final class MarshallProcessor extends AbstractProcessor {
             b.addLine("case \"" + (f ? fieldInfo.fieldName() : fieldInfo.mappedName()) + "\" -> " + fieldInfo.marshallIndex() + ";");
         }
         return b.addLine("default -> throw new " + illegalArgumentExceptionClassName + "(\"" + lowerType +
-                " not found: \" + " + lowerType + ");").unindent().addLine("};")
+                        " not found: \" + " + lowerType + ");").unindent().addLine("};")
                 .addLine("return FACADE_INFO.infos().get(index);").unindent().addLine("}").newLine();
     }
 

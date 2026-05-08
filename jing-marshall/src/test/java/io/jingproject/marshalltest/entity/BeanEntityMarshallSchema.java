@@ -4,7 +4,7 @@ import io.jingproject.marshall.MarshallSchema;
 
 import java.time.LocalDateTime;
 
-public record BeanEntityMarshallSchema (
+public record BeanEntityMarshallSchema(
         BeanEntityMarshallFacade facade,
         BeanEntity instance
 ) implements MarshallSchema {

@@ -45,7 +45,7 @@ public final class ArrayAccess {
         assert array != null && Objects.checkFromIndexSize(offset, 2, array.length) >= 0 && byteOrder != null;
         return (short) switch (byteOrder) {
             case LITTLE_ENDIAN -> SHORT_LE.get(array, offset);
-            case BIG_ENDIAN ->  SHORT_BE.get(array, offset);
+            case BIG_ENDIAN -> SHORT_BE.get(array, offset);
         };
     }
 
@@ -57,7 +57,7 @@ public final class ArrayAccess {
         assert array != null && Objects.checkFromIndexSize(offset, 2, array.length) >= 0 && byteOrder != null;
         switch (byteOrder) {
             case LITTLE_ENDIAN -> SHORT_LE.set(array, offset, value);
-            case BIG_ENDIAN ->  SHORT_BE.set(array, offset, value);
+            case BIG_ENDIAN -> SHORT_BE.set(array, offset, value);
         }
     }
 

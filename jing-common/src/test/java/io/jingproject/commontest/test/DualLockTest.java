@@ -9,6 +9,7 @@ import java.util.concurrent.CountDownLatch;
 public class DualLockTest {
     private static final int BATCH = 1000;
     private static final int LOCK_TIMES = 1000;
+
     record IntHolder(int value) {
 
     }

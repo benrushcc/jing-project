@@ -60,7 +60,9 @@ public class MarshallTest {
         schema.setObject(2, "hello world");
         schema.setObject(3, now);
         Object constructed = marshallFacade.construct(schema);
-        if(constructed instanceof RecordEntity(int intValue, long longValue, String strValue, LocalDateTime timeValue)) {
+        if (constructed instanceof RecordEntity(
+                int intValue, long longValue, String strValue, LocalDateTime timeValue
+        )) {
             Assertions.assertEquals(123, intValue);
             Assertions.assertEquals(456L, longValue);
             Assertions.assertEquals("hello world", strValue);

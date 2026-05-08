@@ -12,7 +12,7 @@ import java.lang.annotation.Target;
  * The source code of this class should never be manually modified.</p>
  *
  * <p>The generated class name should follow a specific naming convention. You can refer to the {@link io.jingproject.common.Utils#generateClassName generateClassName}
- *  method for details on how jing library generate the class name.</p>
+ * method for details on how jing library generate the class name.</p>
  */
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.TYPE)

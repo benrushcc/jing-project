@@ -11,7 +11,7 @@ public final class DemoBindingLibFacade implements LibFacade {
     private static final AtomicBoolean GUARD = new AtomicBoolean(false);
 
     public DemoBindingLibFacade() {
-        if(!GUARD.compareAndSet(false, true)) {
+        if (!GUARD.compareAndSet(false, true)) {
             throw new IllegalStateException();
         }
     }

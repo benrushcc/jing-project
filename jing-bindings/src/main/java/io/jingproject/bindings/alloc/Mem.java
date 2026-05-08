@@ -18,7 +18,7 @@ public final class Mem {
     private static final VmBindings VM_BINDINGS = Libs.getImpl(VmBindings.class);
 
     static {
-        if(VM_BINDINGS == null) {
+        if (VM_BINDINGS == null) {
             throw new ExceptionInInitializerError("cannot initialize vm bindings");
         }
     }

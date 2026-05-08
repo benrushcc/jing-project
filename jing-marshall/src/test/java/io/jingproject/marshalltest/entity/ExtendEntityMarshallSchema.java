@@ -6,7 +6,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-public record ExtendEntityMarshallSchema (
+public record ExtendEntityMarshallSchema(
         ExtendEntityMarshallFacade facade,
         ExtendEntity instance
 ) implements MarshallSchema {

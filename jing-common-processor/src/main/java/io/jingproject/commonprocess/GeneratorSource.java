@@ -27,7 +27,7 @@ public final class GeneratorSource {
 
     public GeneratorSource(TypeElement t, String tag) {
         AnnoUtil.checkTypeElementForRegister(t);
-        if(tag == null || tag.isBlank()) {
+        if (tag == null || tag.isBlank()) {
             throw new AnnotationProcessorException("empty tag");
         }
         String fullName = t.toString();
@@ -49,7 +49,7 @@ public final class GeneratorSource {
         AnnoUtil.checkVariableElementForRegister(variableElement);
         TypeMirror tm = variableElement.asType();
         String qualifiedName = tm.toString();
-        if(tm.getKind().isPrimitive()) {
+        if (tm.getKind().isPrimitive()) {
             return qualifiedName;
         }
         int firstGenericIndex = qualifiedName.indexOf('<');
@@ -63,29 +63,29 @@ public final class GeneratorSource {
         AnnoUtil.checkVariableElementForRegister(variableElement);
         TypeMirror tm = variableElement.asType();
         String qualifiedName = tm.toString();
-        if(tm.getKind().isPrimitive()) {
+        if (tm.getKind().isPrimitive()) {
             return qualifiedName;
         }
         StringBuilder sb = new StringBuilder();
-        for(char c : qualifiedName.toCharArray()) {
+        for (char c : qualifiedName.toCharArray()) {
             // & is not possible if enclosing typeElement is not generified
-            if(c == '<' || c == '>' || c == '[' || c == ']' || c == '?' || c == ',') {
+            if (c == '<' || c == '>' || c == '[' || c == ']' || c == '?' || c == ',') {
                 sb.append(' ');
-            } else if(c == '&') {
+            } else if (c == '&') {
                 throw new AssertionError();
-            }else {
+            } else {
                 sb.append(c);
             }
         }
         List<Map.Entry<String, String>> entries = new ArrayList<>();
         for (String s : sb.toString().split("\\s+")) {
-            if(s.equals(EXTENDS) || s.equals(SUPER)) {
+            if (s.equals(EXTENDS) || s.equals(SUPER)) {
                 throw new AnnotationProcessorException("super and extends are not supported for registration");
             }
             String packageName = AnnoUtil.packageName(s);
             String simpleName = AnnoUtil.simpleName(s);
             String registeredName = register(packageName, simpleName);
-            if(!registeredName.equals(s)) {
+            if (!registeredName.equals(s)) {
                 entries.add(Map.entry(s, registeredName));
             }
         }
@@ -115,10 +115,10 @@ public final class GeneratorSource {
     }
 
     private String register(String packageName, String simpleName) {
-        if(packageName == null ||packageName.isEmpty()) {
+        if (packageName == null || packageName.isEmpty()) {
             throw new AnnotationProcessorException("packageName cannot be empty");
         }
-        if(simpleName == null ||simpleName.isEmpty()) {
+        if (simpleName == null || simpleName.isEmpty()) {
             throw new AnnotationProcessorException("simpleName cannot be empty");
         }
         String currentPackage = packageReferences.get(simpleName);
@@ -139,15 +139,15 @@ public final class GeneratorSource {
     }
 
     public void addBlock(GeneratorBlock b) {
-        if(b == null) {
+        if (b == null) {
             throw new AnnotationProcessorException("block cannot be null");
         }
-        if(b.isEmpty()) {
-            return ;
+        if (b.isEmpty()) {
+            return;
         }
         for (GeneratorLine l : b.lines()) {
             int newIndent = Math.addExact(l.indent(), indent);
-            if(newIndent < 0) {
+            if (newIndent < 0) {
                 throw new AnnotationProcessorException("invalid indent for : " + l.content());
             }
             lines.add(new GeneratorLine(l.content(), newIndent));
@@ -156,7 +156,7 @@ public final class GeneratorSource {
     }
 
     public void addBlocks(List<GeneratorBlock> blocks) {
-        if(blocks == null) {
+        if (blocks == null) {
             throw new AnnotationProcessorException("blocks cannot be null");
         }
         for (GeneratorBlock b : blocks) {
@@ -166,11 +166,11 @@ public final class GeneratorSource {
 
     public void writeToFiler(ProcessingEnvironment env) {
         ModuleElement moduleElement = env.getElementUtils().getModuleOf(targetElement);
-        if(moduleElement == null) {
+        if (moduleElement == null) {
             throw new AnnotationProcessorException("moduleElement not found");
         }
         String name;
-        if(moduleElement.isUnnamed()) {
+        if (moduleElement.isUnnamed()) {
             name = AnnoUtil.buildClassName(packageName, simpleName);
         } else {
             String moduleName = moduleElement.getQualifiedName().toString();

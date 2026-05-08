@@ -50,13 +50,13 @@ public final class DemoLibs {
     }
 
     private static MethodHandle makeDowncallMethodHandle(MemorySegment funcAddr, List<Class<?>> types, boolean critical, boolean constant) {
-        if(types == null || types.isEmpty()) {
+        if (types == null || types.isEmpty()) {
             throw new IllegalArgumentException("types cannot be null or empty");
         }
-        if(constant && types.size() > 1) {
+        if (constant && types.size() > 1) {
             throw new IllegalArgumentException("constant method cannot have parameters");
         }
-        if(funcAddr.address() == 0L) {
+        if (funcAddr.address() == 0L) {
             return MethodHandles.throwException(types.getFirst(), ForeignException.class).bindTo(new ForeignException("function address not found"));
         }
         FunctionDescriptor descriptor = castFunctionDescriptor(types);
@@ -64,7 +64,7 @@ public final class DemoLibs {
         MethodHandle mh = (critical) ?
                 linker.downcallHandle(funcAddr, descriptor, Linker.Option.critical(false)) :
                 linker.downcallHandle(funcAddr, descriptor);
-        if(constant) {
+        if (constant) {
             return makeConstantMethodHandle(types, mh);
         }
         return mh;
@@ -73,7 +73,7 @@ public final class DemoLibs {
     private static MethodHandle makeConstantMethodHandle(List<Class<?>> types, MethodHandle mh) {
         try {
             Class<?> returnType = types.getFirst();
-            if(returnType.equals(byte.class)) {
+            if (returnType.equals(byte.class)) {
                 byte r = (byte) mh.invokeExact();
                 return MethodHandles.constant(byte.class, r);
             } else if (boolean.class.equals(returnType)) {

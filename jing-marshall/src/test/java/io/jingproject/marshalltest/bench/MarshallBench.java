@@ -45,7 +45,7 @@ public class MarshallBench {
         durationArray = new Duration[BATCH_SIZE];
         long start = LocalDateTime.of(2000, 1, 1, 0, 0, 0).atZone(ZoneId.systemDefault()).toEpochSecond();
         long end = LocalDateTime.of(2026, 1, 1, 0, 0, 0).atZone(ZoneId.systemDefault()).toEpochSecond();
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             intArray[index] = random.nextInt();
             longArray[index] = random.nextLong();
             long randTime = random.nextLong(start, end);
@@ -59,7 +59,7 @@ public class MarshallBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testBeanDirect(Blackhole blackhole) {
-        for(int i = 0; i < BATCH_SIZE; i++) {
+        for (int i = 0; i < BATCH_SIZE; i++) {
             int intValue = intArray[i];
             long longValue = longArray[i];
             String strValue = strArray[i];
@@ -82,7 +82,7 @@ public class MarshallBench {
             Method setLongValue = BeanEntity.class.getMethod("setLongValue", long.class);
             Method setStrValue = BeanEntity.class.getMethod("setStrValue", String.class);
             Method setTimeValue = BeanEntity.class.getMethod("setTimeValue", LocalDateTime.class);
-            for(int i = 0; i < BATCH_SIZE; i++) {
+            for (int i = 0; i < BATCH_SIZE; i++) {
                 int intValue = intArray[i];
                 long longValue = longArray[i];
                 String strValue = strArray[i];
@@ -103,7 +103,7 @@ public class MarshallBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void testBeanMarshall(Blackhole blackhole) {
         MarshallFacade marshallFacade = new BeanEntityMarshallFacade();
-        for(int i = 0; i < BATCH_SIZE; i++) {
+        for (int i = 0; i < BATCH_SIZE; i++) {
             MarshallSchema marshallSchema = marshallFacade.newSchema();
             int intValue = intArray[i];
             long longValue = longArray[i];
@@ -190,7 +190,7 @@ public class MarshallBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testRecordDirect(Blackhole blackhole) {
-        for(int i = 0; i < BATCH_SIZE; i++) {
+        for (int i = 0; i < BATCH_SIZE; i++) {
             int intValue = intArray[i];
             long longValue = longArray[i];
             String strValue = strArray[i];
@@ -205,7 +205,7 @@ public class MarshallBench {
     public void testRecordReflection(Blackhole blackhole) {
         try {
             Constructor<RecordEntity> CONSTRUCTOR = RecordEntity.class.getConstructor(int.class, long.class, String.class, LocalDateTime.class);
-            for(int i = 0; i < BATCH_SIZE; i++) {
+            for (int i = 0; i < BATCH_SIZE; i++) {
                 int intValue = intArray[i];
                 long longValue = longArray[i];
                 String strValue = strArray[i];
@@ -222,7 +222,7 @@ public class MarshallBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void testRecordMarshall(Blackhole blackhole) {
         MarshallFacade marshallFacade = new RecordEntityMarshallFacade();
-        for(int i = 0; i < BATCH_SIZE; i++) {
+        for (int i = 0; i < BATCH_SIZE; i++) {
             MarshallSchema marshallSchema = marshallFacade.newSchema();
             int intValue = intArray[i];
             long longValue = longArray[i];

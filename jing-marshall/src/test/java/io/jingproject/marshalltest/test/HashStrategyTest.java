@@ -18,10 +18,10 @@ import java.util.concurrent.ThreadLocalRandom;
 public class HashStrategyTest {
     private static final List<byte[]> WORDS = createWords();
     private static final int BATCH = 1000;
-    
+
     private static List<byte[]> createWords() {
-        try(InputStream rawStream = Thread.currentThread().getContextClassLoader().getResourceAsStream("words.txt")) {
-            if(rawStream == null) {
+        try (InputStream rawStream = Thread.currentThread().getContextClassLoader().getResourceAsStream("words.txt")) {
+            if (rawStream == null) {
                 throw new AssertionError("words.txt file not found from resources");
             }
             try (InputStreamReader reader = new InputStreamReader(rawStream, StandardCharsets.UTF_8)) {
@@ -38,7 +38,7 @@ public class HashStrategyTest {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         int successfulCount = 0;
         int maxCollisions = -1;
-        for(int i = 0; i < BATCH; i++) {
+        for (int i = 0; i < BATCH; i++) {
             Set<byte[]> selectedWords = new LinkedHashSet<>();
             while (selectedWords.size() < elements) {
                 int index = random.nextInt(WORDS.size());
@@ -49,14 +49,14 @@ public class HashStrategyTest {
             int collisions = 0;
             for (byte[] selectedWord : selectedWords) {
                 int hash = hasher.hash(selectedWord);
-                if(!hashes.add(hash)) {
+                if (!hashes.add(hash)) {
                     collisions = Math.incrementExact(collisions);
                 }
             }
-            if(collisions > maxCollisions) {
+            if (collisions > maxCollisions) {
                 maxCollisions = collisions;
             }
-            if(collisions == 0) {
+            if (collisions == 0) {
                 successfulCount = Math.incrementExact(successfulCount);
             }
         }

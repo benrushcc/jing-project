@@ -82,7 +82,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
     public void readSegment(MemorySegment segment, long offset, long length) {
         assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), length) >= 0;
         long newPosition = Math.addExact(position, length);
-        if(newPosition > buffer.byteSize()) {
+        if (newPosition > buffer.byteSize()) {
             throw new IndexOutOfBoundsException();
         }
         MemorySegment.copy(buffer, position, segment, offset, length);

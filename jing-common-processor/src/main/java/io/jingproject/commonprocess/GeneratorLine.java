@@ -6,7 +6,7 @@ package io.jingproject.commonprocess;
  * @param content the actual source code content of this line
  * @param indent  the number of indentation levels before the content, where each level equals 4 spaces
  */
-public record GeneratorLine (
+public record GeneratorLine(
         String content,
         int indent
 ) {

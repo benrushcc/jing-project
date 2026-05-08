@@ -19,7 +19,7 @@ public class WriteFloatTest {
     private static final int BATCH = 1000000;
 
     private static void stringToFloatTest(List<String> strList) {
-        try(Arena arena = Arena.ofConfined()) {
+        try (Arena arena = Arena.ofConfined()) {
             HeapWriteBuffer heapWriteBuffer = new HeapWriteBuffer(BUFFER_SIZE);
             SegmentWriteBuffer segmentWriteBuffer = new SegmentWriteBuffer(arena, BUFFER_SIZE);
             for (String str : strList) {
@@ -38,7 +38,7 @@ public class WriteFloatTest {
     }
 
     private static void stringToDoubleTest(List<String> strList) {
-        try(Arena arena = Arena.ofConfined()) {
+        try (Arena arena = Arena.ofConfined()) {
             HeapWriteBuffer heapWriteBuffer = new HeapWriteBuffer(BUFFER_SIZE);
             SegmentWriteBuffer segmentWriteBuffer = new SegmentWriteBuffer(arena, BUFFER_SIZE);
             for (String str : strList) {
@@ -57,20 +57,20 @@ public class WriteFloatTest {
     }
 
     private static void checkFloatString(String expected, String actual) {
-        if(!expected.equals(actual)) {
+        if (!expected.equals(actual)) {
             float f1 = Float.parseFloat(expected);
             float f2 = Float.parseFloat(actual);
-            if(Float.floatToRawIntBits(f1) != Float.floatToRawIntBits(f2)) {
+            if (Float.floatToRawIntBits(f1) != Float.floatToRawIntBits(f2)) {
                 Assertions.fail("Float values do not match, expected " + expected + ", actual " + actual);
             }
         }
     }
 
     private static void checkDoubleString(String expected, String actual) {
-        if(!expected.equals(actual)) {
+        if (!expected.equals(actual)) {
             double f1 = Double.parseDouble(expected);
             double f2 = Double.parseDouble(actual);
-            if(Double.doubleToRawLongBits(f1) != Double.doubleToRawLongBits(f2)) {
+            if (Double.doubleToRawLongBits(f1) != Double.doubleToRawLongBits(f2)) {
                 Assertions.fail("Double values do not match, expected " + expected + ", actual " + actual);
             }
         }
@@ -104,9 +104,9 @@ public class WriteFloatTest {
     public void writeRandomFloatTest() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         List<String> strList = new ArrayList<>();
-        for(int i = 0; i < BATCH;) {
+        for (int i = 0; i < BATCH; ) {
             float f = Float.intBitsToFloat(random.nextInt());
-            if(Float.isFinite(f)) {
+            if (Float.isFinite(f)) {
                 strList.add(Float.toString(f));
                 i++;
             }
@@ -119,7 +119,7 @@ public class WriteFloatTest {
     @Timeout(value = 1, unit = TimeUnit.HOURS)
     public void writeAllFloatTest() {
         final int SEGMENT_SIZE = 10000;
-        final int BATCH_SIZE   = 100;
+        final int BATCH_SIZE = 100;
         final int THREAD_COUNT = Math.max(Runtime.getRuntime().availableProcessors(), 4);
         try (ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT)) {
             List<Future<Void>> futures = new ArrayList<>();
@@ -163,9 +163,9 @@ public class WriteFloatTest {
     public void writeRandomDoubleTest() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         List<String> strList = new ArrayList<>();
-        for(int i = 0; i < BATCH;) {
+        for (int i = 0; i < BATCH; ) {
             double f = Double.longBitsToDouble(random.nextLong());
-            if(Double.isFinite(f)) {
+            if (Double.isFinite(f)) {
                 strList.add(Double.toString(f));
                 i++;
             }

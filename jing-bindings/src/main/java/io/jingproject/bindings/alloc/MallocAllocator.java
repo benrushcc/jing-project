@@ -45,10 +45,10 @@ public final class MallocAllocator implements Allocator {
     private static final MemorySegment FREE_FUNC_ADDR = Libs.addrFromVM("free");
 
     static {
-        if(SYS_BINDINGS == null) {
+        if (SYS_BINDINGS == null) {
             throw new ExceptionInInitializerError("cannot initialize SYS_BINDINGS");
         }
-        if(FREE_FUNC_ADDR == null || FREE_FUNC_ADDR.address() == 0L) {
+        if (FREE_FUNC_ADDR == null || FREE_FUNC_ADDR.address() == 0L) {
             throw new ExceptionInInitializerError("cannot initialize FREE_FUNC_ADDR");
         }
     }

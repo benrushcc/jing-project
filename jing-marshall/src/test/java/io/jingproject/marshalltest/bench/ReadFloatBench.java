@@ -42,9 +42,9 @@ public class ReadFloatBench {
         floatSegments = new ArrayList<>(BATCH_SIZE);
         doubleSegments = new ArrayList<>(BATCH_SIZE);
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for(int i = 0; i < BATCH_SIZE; ) {
+        for (int i = 0; i < BATCH_SIZE; ) {
             float f = Float.intBitsToFloat(random.nextInt());
-            if(Float.isFinite(f)) {
+            if (Float.isFinite(f)) {
                 byte[] bytes = String.valueOf(f).getBytes(StandardCharsets.US_ASCII);
                 floatBytes.add(bytes);
                 MemorySegment segment = arena.allocate(ValueLayout.JAVA_BYTE, bytes.length);
@@ -53,9 +53,9 @@ public class ReadFloatBench {
                 i++;
             }
         }
-        for(int i = 0; i < BATCH_SIZE; ) {
+        for (int i = 0; i < BATCH_SIZE; ) {
             double f = Double.longBitsToDouble(random.nextLong());
-            if(Double.isFinite(f)) {
+            if (Double.isFinite(f)) {
                 byte[] bytes = String.valueOf(f).getBytes(StandardCharsets.US_ASCII);
                 doubleBytes.add(bytes);
                 MemorySegment segment = arena.allocate(ValueLayout.JAVA_BYTE, bytes.length);
@@ -82,7 +82,7 @@ public class ReadFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkHeapReadFloat(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = floatBytes.get(index);
             float f = Float.parseFloat(new String(bytes, StandardCharsets.US_ASCII));
             blackhole.consume(f);
@@ -92,7 +92,7 @@ public class ReadFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkHeapReadDouble(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = doubleBytes.get(index);
             double f = Double.parseDouble(new String(bytes, StandardCharsets.US_ASCII));
             blackhole.consume(f);
@@ -102,7 +102,7 @@ public class ReadFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkSegmentReadFloat(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = floatSegments.get(index);
             float f = Float.parseFloat(new String(segment.toArray(ValueLayout.JAVA_BYTE), StandardCharsets.US_ASCII));
             blackhole.consume(f);
@@ -112,7 +112,7 @@ public class ReadFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkSegmentReadDouble(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = doubleSegments.get(index);
             double f = Double.parseDouble(new String(segment.toArray(ValueLayout.JAVA_BYTE), StandardCharsets.US_ASCII));
             blackhole.consume(f);
@@ -122,7 +122,7 @@ public class ReadFloatBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void uscaleHeapReadFloat(Blackhole blackhole) {
-        for(int index = 0; index < BATCH_SIZE; index++) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = floatBytes.get(index);
             float f = MarshallUtil.readFloat(new HeapReadBuffer(bytes));
             blackhole.consume(f);
