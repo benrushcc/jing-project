@@ -11,7 +11,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
-// Same source as io.jingproject.ffm.Libs built only for testing purpose
+// same source as io.jingproject.ffm.Libs built only for testing purpose
 public final class DemoLibs {
     private static final Map<Class<?>, LibDescriptor<?>> DESCRIPTORS;
 

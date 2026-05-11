@@ -12,13 +12,17 @@ import java.util.Arrays;
 public final class MarshallUtil {
 
     // byte constants
-    private static final byte BYTE_ZERO = (byte) '0';
-    private static final byte BYTE_NINE = (byte) '9';
-    private static final byte BYTE_MINUS = (byte) '-';
-    private static final byte BYTE_PLUS = (byte) '+';
-    private static final byte BYTE_PERIOD = (byte) '.';
-    private static final byte BYTE_e = (byte) 'e';
-    private static final byte BYTE_E = (byte) 'E';
+    public static final byte BYTE_ZERO = (byte) '0';
+    public static final byte BYTE_NINE = (byte) '9';
+    public static final byte BYTE_MINUS = (byte) '-';
+    public static final byte BYTE_PLUS = (byte) '+';
+    public static final byte BYTE_PERIOD = (byte) '.';
+    public static final byte BYTE_e = (byte) 'e';
+    public static final byte BYTE_E = (byte) 'E';
+    public static final byte BYTE_a = (byte) 'a';
+    public static final byte BYTE_z = (byte) 'z';
+    public static final byte BYTE_A = (byte) 'A';
+    public static final byte BYTE_Z = (byte) 'Z';
 
     // integer to string constants
     private static final byte[] MIN_INT_BYTES = String.valueOf(Integer.MIN_VALUE).getBytes(StandardCharsets.US_ASCII);

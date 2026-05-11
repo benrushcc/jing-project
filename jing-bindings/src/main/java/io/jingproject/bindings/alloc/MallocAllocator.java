@@ -1,6 +1,6 @@
 package io.jingproject.bindings.alloc;
 
-import io.jingproject.bindings.SysBindings;
+import io.jingproject.bindings.CommonBinding;
 import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
 
@@ -32,7 +32,7 @@ public final class MallocAllocator implements Allocator {
     /**
      * System bindings for native memory operations.
      */
-    private static final SysBindings SYS_BINDINGS = Libs.getImpl(SysBindings.class);
+    private static final CommonBinding SYS_BINDINGS = Libs.getImpl(CommonBinding.class);
 
     /**
      * Address of the free function obtained from the VM.

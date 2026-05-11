@@ -7,6 +7,7 @@ import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import java.util.List;
 
 @ProcessorApi
 public final class AnnoUtil {
@@ -117,6 +118,9 @@ public final class AnnoUtil {
         if (cls.isMemberClass()) {
             throw new AnnotationProcessorException("registered class must be top-level : " + cls.getSimpleName());
         }
+        if (cls.isHidden()) {
+            throw new AnnotationProcessorException("hidden class cannot be registered : " + cls);
+        }
     }
 
     public static void checkTypeElementForRegister(TypeElement typeElement) {
@@ -126,8 +130,11 @@ public final class AnnoUtil {
         if (typeElement.asType().getKind().isPrimitive()) {
             throw new AnnotationProcessorException("typeElement cannot be primitive: " + typeElement);
         }
-        if (typeElement.getNestingKind() != NestingKind.TOP_LEVEL) {
+        if (!typeElement.getNestingKind().equals(NestingKind.TOP_LEVEL)) {
             throw new AnnotationProcessorException("typeElement must be top-level : " + typeElement);
+        }
+        if(!typeElement.getModifiers().contains(Modifier.PUBLIC)) {
+            throw new AnnotationProcessorException("typeElement must be public : " + typeElement);
         }
         if (!typeElement.getTypeParameters().isEmpty()) {
             throw new AnnotationProcessorException("typeElement must not have any type parameters : " + typeElement);
@@ -135,22 +142,55 @@ public final class AnnoUtil {
     }
 
     public static void checkVariableElementForRegister(VariableElement variableElement) {
-        if (variableElement == null) {
+        if(variableElement == null) {
             throw new AnnotationProcessorException("variableElement cannot be null");
         }
-        TypeElement enclosingElement = castTypeElement(variableElement.getEnclosingElement());
-        if (enclosingElement.getNestingKind() != NestingKind.TOP_LEVEL) {
-            throw new AnnotationProcessorException("enclosing typeElement must be top-level : " + enclosingElement);
+        TypeElement enclosingTypeElement = castTypeElement(variableElement.getEnclosingElement());
+        if(!enclosingTypeElement.getNestingKind().equals(NestingKind.TOP_LEVEL)) {
+            throw new AnnotationProcessorException("enclosing typeElement must be top-level : " + enclosingTypeElement);
         }
-        if (!enclosingElement.getTypeParameters().isEmpty()) {
-            throw new AnnotationProcessorException("enclosing typeElement must not have any type parameters : " + enclosingElement);
+        if(!enclosingTypeElement.getModifiers().contains(Modifier.PUBLIC)) {
+            throw new AnnotationProcessorException("enclosing typeElement must be public : " + enclosingTypeElement);
+        }
+        if(!enclosingTypeElement.getTypeParameters().isEmpty()) {
+            throw new AnnotationProcessorException("enclosing typeElement must not have any type parameters : " + enclosingTypeElement);
         }
         TypeMirror tm = variableElement.asType();
-        if (tm.getKind() == TypeKind.ARRAY) {
+        if(tm.getKind().equals(TypeKind.ARRAY)) {
             ArrayType arrayType = castArrayType(tm);
-            if (arrayType.getComponentType().getKind() == TypeKind.ARRAY) {
+            if (arrayType.getComponentType().getKind().equals(TypeKind.ARRAY)) {
                 throw new AnnotationProcessorException("multi dimensional arrayType not supported: " + arrayType);
             }
+        }
+    }
+
+    public static void validateTypeArgs(List<? extends TypeMirror> typeArgs) {
+        for (TypeMirror typeArg : typeArgs) {
+            if (typeArg.getKind().equals(TypeKind.DECLARED)) {
+                DeclaredType dt = castDeclaredType(typeArg);
+                TypeElement te = castTypeElement(dt.asElement());
+                if(!te.getTypeParameters().isEmpty()) {
+                    throw new AnnotationProcessorException("generic type args cannot have any type args : " + te);
+                }
+            } else {
+                throw new AnnotationProcessorException("type arg must be declared : " + typeArg);
+            }
+        }
+    }
+
+    public static void validateArray(ArrayType arrayType) {
+        TypeMirror tm = arrayType.getComponentType();
+        TypeKind tmKind = tm.getKind();
+        if (tmKind.equals(TypeKind.DECLARED)) {
+            DeclaredType componentDeclaredType = AnnoUtil.castDeclaredType(tm);
+            TypeElement componentTypeElement = AnnoUtil.castTypeElement(componentDeclaredType.asElement());
+            if(!componentTypeElement.getTypeParameters().isEmpty()) {
+                throw new AnnotationProcessorException("generic array not supported : " + componentTypeElement);
+            }
+        } else if(tmKind.equals(TypeKind.ARRAY)) {
+            throw new AnnotationProcessorException("multi dimension array not supported : " + tm);
+        } else if(!tmKind.isPrimitive()) {
+            throw new AnnotationProcessorException("unknown array type : " + tm);
         }
     }
 }

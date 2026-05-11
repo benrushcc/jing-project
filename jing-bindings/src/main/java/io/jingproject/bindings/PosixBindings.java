@@ -4,7 +4,7 @@ import io.jingproject.ffm.Downcall;
 
 import java.lang.foreign.MemorySegment;
 
-public interface SysPosixBindings {
+public interface PosixBindings {
     @Downcall(methodName = "jing_posix_page_size", constant = true, critical = true)
     long posixPageSize();
 
@@ -38,5 +38,6 @@ public interface SysPosixBindings {
     @Downcall(methodName = "jing_posix_munmap", critical = true)
     int posixMunmap(MemorySegment addr, long size);
 
+    @Downcall(methodName = "jing_posix_close", critical = true)
     int posixClose(int fd);
 }

@@ -1,6 +1,6 @@
 package io.jingproject.bindings.alloc;
 
-import io.jingproject.bindings.SysWinBindings;
+import io.jingproject.bindings.WinBindings;
 import io.jingproject.ffm.ForeignException;
 import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
@@ -22,10 +22,10 @@ public final class WinMmap implements Mmap {
     /**
      * Native bindings for Windows memory management APIs.
      */
-    private static final SysWinBindings SYS_WIN_BINDINGS = Libs.getImpl(SysWinBindings.class);
+    private static final WinBindings WIN_BINDINGS = Libs.getImpl(WinBindings.class);
 
     static {
-        if (SYS_WIN_BINDINGS == null) {
+        if (WIN_BINDINGS == null) {
             throw new ExceptionInInitializerError("cannot initialize sys_win bindings");
         }
     }
@@ -40,7 +40,7 @@ public final class WinMmap implements Mmap {
      */
     @Override
     public long granularity() {
-        return SYS_WIN_BINDINGS.winAllocateGranularity();
+        return WIN_BINDINGS.winAllocateGranularity();
     }
 
     /**
@@ -53,7 +53,7 @@ public final class WinMmap implements Mmap {
      */
     @Override
     public long pageSize() {
-        return SYS_WIN_BINDINGS.winPageSize();
+        return WIN_BINDINGS.winPageSize();
     }
 
     /**
@@ -68,9 +68,9 @@ public final class WinMmap implements Mmap {
      */
     @Override
     public MemorySegment reserve(long size) {
-        int memReserve = SYS_WIN_BINDINGS.winMemReserve();
-        int pageReadWrite = SYS_WIN_BINDINGS.winPageReadWrite();
-        MemorySegment reserved = SYS_WIN_BINDINGS.winVirtualAlloc(MemorySegment.NULL, size, memReserve, pageReadWrite);
+        int memReserve = WIN_BINDINGS.winMemReserve();
+        int pageReadWrite = WIN_BINDINGS.winPageReadWrite();
+        MemorySegment reserved = WIN_BINDINGS.winVirtualAlloc(MemorySegment.NULL, size, memReserve, pageReadWrite);
         if (NativeSegmentAccess.isErrPtr(reserved)) {
             int err = NativeSegmentAccess.errCode(reserved);
             throw new ForeignException("failed to reserve memory, err : " + err);
@@ -89,9 +89,9 @@ public final class WinMmap implements Mmap {
      */
     @Override
     public void commit(MemorySegment mem) {
-        int memCommit = SYS_WIN_BINDINGS.winMemCommit();
-        int pageReadWrite = SYS_WIN_BINDINGS.winPageReadWrite();
-        MemorySegment committed = SYS_WIN_BINDINGS.winVirtualAlloc(mem, mem.byteSize(), memCommit, pageReadWrite);
+        int memCommit = WIN_BINDINGS.winMemCommit();
+        int pageReadWrite = WIN_BINDINGS.winPageReadWrite();
+        MemorySegment committed = WIN_BINDINGS.winVirtualAlloc(mem, mem.byteSize(), memCommit, pageReadWrite);
         if (NativeSegmentAccess.isErrPtr(committed)) {
             int err = NativeSegmentAccess.errCode(committed);
             throw new ForeignException("failed to commit memory, err : " + err);
@@ -109,8 +109,8 @@ public final class WinMmap implements Mmap {
      */
     @Override
     public void uncommit(MemorySegment mem) {
-        int memDecommit = SYS_WIN_BINDINGS.winMemDecommit();
-        int v = SYS_WIN_BINDINGS.winVirtualFree(mem, mem.byteSize(), memDecommit);
+        int memDecommit = WIN_BINDINGS.winMemDecommit();
+        int v = WIN_BINDINGS.winVirtualFree(mem, mem.byteSize(), memDecommit);
         if (v > 0) {
             throw new ForeignException("failed to decommit memory, err : " + v);
         }
@@ -127,8 +127,8 @@ public final class WinMmap implements Mmap {
      */
     @Override
     public void release(MemorySegment mem) {
-        int memRelease = SYS_WIN_BINDINGS.winMemRelease();
-        int v = SYS_WIN_BINDINGS.winVirtualFree(mem, mem.byteSize(), memRelease);
+        int memRelease = WIN_BINDINGS.winMemRelease();
+        int v = WIN_BINDINGS.winVirtualFree(mem, mem.byteSize(), memRelease);
         if (v > 0) {
             throw new ForeignException("failed to release memory, err : " + v);
         }

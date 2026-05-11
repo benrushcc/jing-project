@@ -1,0 +1,34 @@
+BasedOnStyle: llvm
+TabWidth: 4
+IndentWidth: 4
+UseTab: ForIndentation
+Language: Cpp
+Standard: Cpp11
+PointerAlignment: Left
+AccessModifierOffset: 0
+AlignAfterOpenBracket: true
+AlignConsecutiveAssignments: true
+AlignOperands: DontAlign
+AlignTrailingComments:
+  Kind: Always
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakBeforeMultilineStrings: false
+BreakBeforeBraces: Attach
+BreakBeforeTernaryOperators: false
+ColumnLimit: 80
+IndentCaseLabels: true
+MaxEmptyLinesToKeep: 1
+SpaceAfterCStyleCast: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+SpacesBeforeTrailingComments: 3
+SpacesInAngles: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SortIncludes: Never

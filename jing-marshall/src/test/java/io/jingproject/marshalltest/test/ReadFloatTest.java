@@ -139,4 +139,33 @@ public class ReadFloatTest {
         }
         doubleToStringTest(strList);
     }
+
+    @Test
+    public void parseTargetFpFormatTest() {
+        String str = "12.3.4"; // no exception thrown
+        HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
+        Assertions.assertNotNull(MarshallUtil.parseFpFormat(heapReadBuffer));
+    }
+
+    @Test
+    public void parseWrongFpFormatTest() {
+        List<String> strList = List.of(
+                "--123",
+                "-+123",
+                "1e--2",
+                "abc",
+                "00",
+                "01",
+                "01.5",
+                "-01",
+                "-01.5",
+                "123e-",
+                "123e-01",
+                "123e+01"
+        );
+        for (String str : strList) {
+            HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
+            Assertions.assertThrows(NumberFormatException.class, () -> MarshallUtil.parseFpFormat(heapReadBuffer), "str : " + str);
+        }
+    }
 }

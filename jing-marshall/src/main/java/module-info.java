@@ -8,4 +8,5 @@ module jing.marshall {
     exports io.jingproject.marshall.json;
 
     uses io.jingproject.marshall.MarshallFacade;
+    uses io.jingproject.marshall.MarshallTransformerFacade;
 }

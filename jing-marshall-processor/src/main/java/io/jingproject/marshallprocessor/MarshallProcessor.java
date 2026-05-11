@@ -15,6 +15,7 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.*;
+import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -66,6 +67,8 @@ public final class MarshallProcessor extends AbstractProcessor {
     }
 
     private void checkMarshallableElement(TypeElement t) {
+        // check registration
+        AnnoUtil.checkTypeElementForRegister(t);
         switch (t.getKind()) {
             case CLASS -> checkMarshallableClassElement(t);
             case RECORD -> checkMarshallableRecordElement(t);
@@ -76,10 +79,6 @@ public final class MarshallProcessor extends AbstractProcessor {
     }
 
     private void checkMarshallableClassElement(TypeElement t) {
-        // must be top-level class
-        if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
-            throw new AnnotationProcessorException("only top level fieldElement can be annotated with @Marshallable");
-        }
         // must be public class
         if (!t.getModifiers().contains(Modifier.PUBLIC)) {
             throw new AnnotationProcessorException("only public fieldElement can be annotated with @Marshallable");
@@ -123,7 +122,6 @@ public final class MarshallProcessor extends AbstractProcessor {
                 if (va.getModifiers().contains(Modifier.FINAL)) {
                     throw new AnnotationProcessorException("only non-final fields could appear in normal classes");
                 }
-                // check variable element type
                 checkVariableElementType(va);
                 foundFieldElement = true;
             }
@@ -137,10 +135,6 @@ public final class MarshallProcessor extends AbstractProcessor {
     }
 
     private void checkMarshallableRecordElement(TypeElement t) {
-        // must be top-level record
-        if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
-            throw new AnnotationProcessorException("only top level fieldElement can be annotated with @Marshallable");
-        }
         // must be public record
         if (!t.getModifiers().contains(Modifier.PUBLIC)) {
             throw new AnnotationProcessorException("only public fieldElement can be annotated with @Marshallable");
@@ -158,10 +152,6 @@ public final class MarshallProcessor extends AbstractProcessor {
     }
 
     private void checkMarshallableEnumElement(TypeElement t) {
-        // must be top-level enum
-        if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
-            throw new AnnotationProcessorException("only top level fieldElement can be annotated with @Marshallable");
-        }
         // must be public enum
         if (!t.getModifiers().contains(Modifier.PUBLIC)) {
             throw new AnnotationProcessorException("only public fieldElement can be annotated with @Marshallable");
@@ -172,22 +162,18 @@ public final class MarshallProcessor extends AbstractProcessor {
         }
     }
 
+    // variable can have at most two type args, and type args cannot have any more type args
     private void checkVariableElementType(VariableElement va) {
         TypeMirror tm = va.asType();
         if (tm.getKind() == TypeKind.DECLARED) {
-            DeclaredType d = AnnoUtil.castDeclaredType(tm);
-            List<? extends TypeMirror> typeArguments = d.getTypeArguments();
-            if (typeArguments.size() > 2) {
-                throw new AnnotationProcessorException("generic type arguments cannot be more than 2");
+            List<? extends TypeMirror> typeArgs = AnnoUtil.castDeclaredType(tm).getTypeArguments();
+            // by design, at most 2 generic types are supported
+            if (typeArgs.size() > 2) {
+                throw new AnnotationProcessorException("field cannot have more than 2 type args");
             }
-            for (TypeMirror typeArgument : typeArguments) {
-                if (typeArgument.getKind() == TypeKind.DECLARED) {
-                    DeclaredType dt = AnnoUtil.castDeclaredType(typeArgument);
-                    if (!dt.getTypeArguments().isEmpty()) {
-                        throw new AnnotationProcessorException("generic type arguments cannot have type arguments");
-                    }
-                }
-            }
+            AnnoUtil.validateTypeArgs(typeArgs);
+        } else if(tm.getKind() == TypeKind.ARRAY) {
+            AnnoUtil.validateArray(AnnoUtil.castArrayType(tm));
         }
     }
 
@@ -498,8 +484,8 @@ public final class MarshallProcessor extends AbstractProcessor {
     }
 
     private GeneratorBlock buildStaticHeadBlock(GeneratorSource facadeSource, MarshallProcessorInfo info) {
-        String facadeClassName = facadeSource.className();
         String providerClassName = facadeSource.register(Provider.class);
+        String facadeClassName = facadeSource.className();
         String marshallFacadeClassName = facadeSource.register(MarshallFacade.class);
         String marshallFacadeInfoClassName = facadeSource.register(MarshallFacadeInfo.class);
         GeneratorBlock b = new GeneratorBlock()
@@ -556,7 +542,6 @@ public final class MarshallProcessor extends AbstractProcessor {
 
     private GeneratorBlock buildMarshallInfoInitializationBlock(GeneratorSource facadeSource, MarshallProcessorInfo info) {
         GeneratorBlock b = new GeneratorBlock();
-        Types typeUtils = processingEnv.getTypeUtils();
         String marshallInfoClassName = facadeSource.register(MarshallInfo.class);
 
         for (MarshallFieldInfo fieldInfo : info.fieldInfos()) {
@@ -573,14 +558,27 @@ public final class MarshallProcessor extends AbstractProcessor {
                 TypeMirror tm = fieldElement.asType();
                 if (tm.getKind() == TypeKind.DECLARED) {
                     DeclaredType d = AnnoUtil.castDeclaredType(tm);
-                    List<? extends TypeMirror> typeArguments = d.getTypeArguments();
-                    if (!typeArguments.isEmpty()) {
-                        TypeElement firstGenericTypeElement = AnnoUtil.castTypeElement(typeUtils.asElement(typeArguments.getFirst()));
-                        fieldFirstGenericTypeClassName = facadeSource.register(firstGenericTypeElement);
-                    }
-                    if (typeArguments.size() == 2) {
-                        TypeElement secondGenericTypeElement = AnnoUtil.castTypeElement(typeUtils.asElement(typeArguments.get(1)));
-                        fieldSecondGenericTypeClassName = facadeSource.register(secondGenericTypeElement);
+                    List<? extends TypeMirror> typeArgs = d.getTypeArguments();
+                    if (!typeArgs.isEmpty()) {
+                        TypeMirror firstGenericTypeMirror = typeArgs.get(0);
+                        if(firstGenericTypeMirror.getKind() == TypeKind.DECLARED) {
+                            DeclaredType firstGenericDeclaredType = AnnoUtil.castDeclaredType(firstGenericTypeMirror);
+                            TypeElement firstGenericTypeElement = AnnoUtil.castTypeElement(firstGenericDeclaredType.asElement());
+                            fieldFirstGenericTypeClassName = facadeSource.register(firstGenericTypeElement);
+                        } else {
+                            throw new AnnotationProcessorException("not a declared generic type : " + firstGenericTypeMirror);
+                        }
+                        // at most 2 typeArgs
+                        if (typeArgs.size() == 2) {
+                            TypeMirror secondGenericTypeMirror = typeArgs.get(1);
+                            if(secondGenericTypeMirror.getKind() == TypeKind.DECLARED) {
+                                DeclaredType secondGenericDeclaredType = AnnoUtil.castDeclaredType(secondGenericTypeMirror);
+                                TypeElement secondGenericTypeElement = AnnoUtil.castTypeElement(secondGenericDeclaredType.asElement());
+                                fieldSecondGenericTypeClassName = facadeSource.register(secondGenericTypeElement);
+                            } else {
+                                throw new AnnotationProcessorException("not a declared generic type : " + secondGenericTypeMirror);
+                            }
+                        }
                     }
                 }
             }

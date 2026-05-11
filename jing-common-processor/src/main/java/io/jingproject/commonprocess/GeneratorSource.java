@@ -80,6 +80,7 @@ public final class GeneratorSource {
         List<Map.Entry<String, String>> entries = new ArrayList<>();
         for (String s : sb.toString().split("\\s+")) {
             if (s.equals(EXTENDS) || s.equals(SUPER)) {
+                // supporting 'super' and 'extends' currently brings no benefits to the program but significantly increases complexity, therefore they are not considered
                 throw new AnnotationProcessorException("super and extends are not supported for registration");
             }
             String packageName = AnnoUtil.packageName(s);

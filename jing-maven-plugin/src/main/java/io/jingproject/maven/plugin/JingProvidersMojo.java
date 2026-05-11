@@ -1,6 +1,5 @@
 package io.jingproject.maven.plugin;
 
-import org.apache.maven.model.Resource;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -17,57 +16,76 @@ import java.lang.classfile.attribute.ModuleAttribute;
 import java.lang.classfile.attribute.ModuleProvideInfo;
 import java.lang.constant.ClassDesc;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
 import java.util.*;
 
 @Mojo(name = "process-jing-providers", defaultPhase = LifecyclePhase.PROCESS_CLASSES)
 @SuppressWarnings("unused")
-public final class JingMojo extends AbstractMojo {
-
+public final class JingProvidersMojo extends AbstractMojo {
+    // must be strictly consistent with jing-common-processor module
     private static final String FILE_NAME = "jing-providers.json";
+    private static final String CONSUMED_FILE_NAME = "jing-providers-consumed.json";
+    private static final String META_INF = "META-INF";
+    private static final String SERVICES = "services";
+    private static final String MODULE_INFO_CLASS = "module-info.class";
 
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     private MavenProject project;
 
+    @Parameter(property = "jing.scope", defaultValue = "main")
+    private String scope; // main or test
+
+    private String outputDir() throws MojoFailureException {
+        if(scope == null || scope.isBlank()) {
+            throw new MojoFailureException("empty scope");
+        }else if(scope.equals("main")) {
+            return project.getBuild().getOutputDirectory();
+        } else if(scope.equals("test")) {
+            return project.getBuild().getTestOutputDirectory();
+        } else {
+            throw new MojoFailureException("invalid scope : " + scope);
+        }
+    }
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        for (Resource resource : project.getResources()) {
-            Path resourceDir = Paths.get(resource.getDirectory());
-            getLog().debug("searching for Jing-providers.json file : " + resourceDir.toAbsolutePath());
-            Path targetPath = resourceDir.resolve(FILE_NAME);
-            if (Files.isRegularFile(targetPath)) {
-                getLog().debug("found Jing-providers.json file : " + targetPath.toAbsolutePath());
-                processJingProviderFile(targetPath);
-            }
+        Path outputDir = Path.of(outputDir());
+        getLog().info("searching for " + FILE_NAME + " file at directory: " + outputDir.toAbsolutePath());
+        Path targetPath = outputDir.resolve(FILE_NAME);
+        if (Files.isRegularFile(targetPath)) {
+            getLog().info("found " + FILE_NAME + " file : " + targetPath.toAbsolutePath());
+            processJingProviderFile(targetPath);
+            consumeJingProviderFile(targetPath);
+        } else {
+            throw new MojoExecutionException(FILE_NAME + " file not found, maybe jing-common-processor is not effective");
         }
-        getLog().debug("jing-providers.json file not found, skipping process jing-providers.json");
     }
 
     private void processJingProviderFile(Path path) throws MojoExecutionException, MojoFailureException {
         if (!Files.isReadable(path)) {
-            throw new MojoExecutionException("jing-providers.json is not readable");
+            throw new MojoExecutionException(FILE_NAME + " is not readable");
         }
         byte[] content;
         try {
             content = Files.readAllBytes(path);
         } catch (IOException e) {
-            throw new MojoExecutionException("Cannot read from jing-providers.json", e);
+            throw new MojoExecutionException("Cannot read from " + FILE_NAME + " file", e);
         }
         Map<String, Set<String>> data = parseProviderData(content);
-        Path targetDirPath = Path.of(project.getBuild().getOutputDirectory(), "META-INF", "services");
+        if(data.isEmpty()) {
+            return ;
+        }
+        Path targetDirPath = Path.of(outputDir(), META_INF, SERVICES);
         try {
             Files.createDirectories(targetDirPath);
         } catch (IOException e) {
-            throw new MojoExecutionException("cannot create META-INF/services directory", e);
+            throw new MojoExecutionException("cannot create " + META_INF + "/" + SERVICES + " directory", e);
         }
         for (Map.Entry<String, Set<String>> entry : data.entrySet()) {
             String key = entry.getKey();
             Set<String> lines = entry.getValue();
-            getLog().debug("processing key : " + key);
-            getLog().debug("processing lines : " + lines);
+            getLog().info("processing key : " + key);
+            getLog().info("processing lines : " + lines);
             Path targetPath = targetDirPath.resolve(key);
             try {
                 Files.write(targetPath, lines, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
@@ -75,46 +93,53 @@ public final class JingMojo extends AbstractMojo {
                 throw new MojoExecutionException("cannot write SPI file : " + targetPath.toAbsolutePath(), e);
             }
         }
-        Path moduleInfoPath = Path.of(project.getBuild().getOutputDirectory(), "module-info.class");
+        Path moduleInfoPath = Path.of(outputDir(), MODULE_INFO_CLASS);
         if (Files.isRegularFile(moduleInfoPath)) {
-            getLog().debug("found module-info class: " + moduleInfoPath.toAbsolutePath());
+            getLog().info("found module-info : " + moduleInfoPath.toAbsolutePath());
             byte[] bytecodes;
             try {
                 bytecodes = Files.readAllBytes(moduleInfoPath);
                 bytecodes = updateModuleInfoByteCodes(bytecodes, data);
                 Files.write(moduleInfoPath, bytecodes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
             } catch (IOException e) {
-                throw new MojoExecutionException("cannot perform IO operations", e);
+                throw new MojoExecutionException("cannot perform IO operations when modifying module-info", e);
             }
         }
     }
 
     private static Map<String, Set<String>> parseProviderData(byte[] content) throws MojoFailureException {
+        if(content == null || content.length < 2) {
+            throw new MojoFailureException("empty provider data");
+        }
         Map<String, Set<String>> r = new HashMap<>();
         String key;
         Set<String> set = new HashSet<>();
-        int index = 0, nextIndex;
-        index = searchByte(content, index, b -> b == (byte) '{');
+        int idx1 = 0, idx2;
+        idx1 = searchByte(content, idx1, b -> b == (byte) '{');
+        idx2 = searchByte(content, idx1, b -> b != (byte) ' ' && b != (byte) '\t' && b != (byte) '\r' && b != (byte) '\n');
+        if(content[idx2 - 1] == (byte) '}') {
+            return r;
+        }
         for (; ; ) {
-            index = searchByte(content, index, b -> b == (byte) '"');
-            nextIndex = searchByte(content, index, b -> b == (byte) '"');
-            key = new String(content, index, nextIndex - index - 1, StandardCharsets.UTF_8);
-            index = searchByte(content, nextIndex, b -> b == (byte) ':');
-            index = searchByte(content, index, b -> b == (byte) '[');
+            idx1 = searchByte(content, idx1, b -> b == (byte) '"');
+            idx2 = searchByte(content, idx1, b -> b == (byte) '"');
+            key = new String(content, idx1, idx2 - idx1 - 1, StandardCharsets.UTF_8);
+            idx1 = searchByte(content, idx2, b -> b == (byte) ':');
+            idx1 = searchByte(content, idx1, b -> b == (byte) '[');
             do {
-                index = searchByte(content, index, b -> b == (byte) '"');
-                nextIndex = searchByte(content, index, b -> b == (byte) '"');
-                if (!set.add(new String(content, index, nextIndex - index - 1, StandardCharsets.UTF_8))) {
-                    throw new MojoFailureException("Jing-providers.json contains duplicate data");
+                idx1 = searchByte(content, idx1, b -> b == (byte) '"');
+                idx2 = searchByte(content, idx1, b -> b == (byte) '"');
+                if (!set.add(new String(content, idx1, idx2 - idx1 - 1, StandardCharsets.UTF_8))) {
+                    throw new MojoFailureException(FILE_NAME + " contains duplicate data");
                 }
-                index = searchByte(content, nextIndex, b -> b == (byte) ',' || b == (byte) ']');
-            } while (content[index - 1] != (byte) ']');
+                idx1 = searchByte(content, idx2, b -> b == (byte) ',' || b == (byte) ']');
+            } while (content[idx1 - 1] == (byte) ',');
             if (r.put(key, set) != null) {
-                throw new MojoFailureException("Jing-providers.json contains duplicate key");
+                throw new MojoFailureException(FILE_NAME + " contains duplicate key");
             }
             set = new HashSet<>();
-            searchByte(content, index, b -> b == (byte) ',' || b == (byte) '}');
-            if (content[index - 1] != (byte) '}') {
+            idx1 = searchByte(content, idx1, b -> b == (byte) ',' || b == (byte) '}');
+            if (content[idx1 - 1] == (byte) '}') {
                 return r;
             }
         }
@@ -156,6 +181,16 @@ public final class JingMojo extends AbstractMojo {
         ModuleAttribute newAttribute = ModuleAttribute.of(currentAttribute.moduleName(), currentAttribute.moduleFlagsMask(), currentAttribute.moduleVersion().orElse(null),
                 currentAttribute.requires(), currentAttribute.exports(), currentAttribute.opens(), currentAttribute.uses(), newProvides);
         return cf.buildModule(newAttribute);
+    }
+
+    private void consumeJingProviderFile(Path path) throws MojoExecutionException {
+        try {
+            Path consumedPath = path.resolveSibling(CONSUMED_FILE_NAME);
+            Files.move(path, consumedPath, StandardCopyOption.REPLACE_EXISTING);
+            getLog().info(FILE_NAME + " consumed, rename to " + CONSUMED_FILE_NAME);
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed to rename " + FILE_NAME + " to " + CONSUMED_FILE_NAME + " after processing", e);
+        }
     }
 
 }

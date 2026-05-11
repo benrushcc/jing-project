@@ -1,28 +1,19 @@
-#include "jing_kqueue.h"
-
 #if defined(JING_OS_MACOS)
+#include "jing_macos.h"
 #include <sys/types.h>
 #include <sys/event.h>
 #include <sys/time.h>
 #include <errno.h>
 
-int jing_kqueue_in(void) {
+int jing_macos_kqueue_in(void) {
 	return EVFILT_READ;
 }
 
-int jing_kqueue_out(void) {
+int jing_macos_kqueue_out(void) {
 	return EVFILT_WRITE;
 }
 
-// int jing_kqueue_add() {
-// 	return EV_ADD;
-// }
-
-// int jing_kqueue_del() {
-// 	return EV_DELETE;
-// }
-
-int jing_kqueue(void) {
+int jing_macos_kqueue(void) {
 	int v = kqueue();
 	if (JING_UNLIKELY(v == -1)) {
 		int err = errno;
@@ -32,8 +23,8 @@ int jing_kqueue(void) {
 	}
 }
 
-int jing_kevent_ctl(int kqfd, int socket, int mod_read, int mod_write,
-                    void* udata) {
+int jing_macos_kevent_ctl(int kqfd, int socket, int mod_read, int mod_write,
+                          void* udata) {
 	struct kevent events[2];
 	memset(events, 0, sizeof(events));
 	int n = 0;
@@ -57,8 +48,8 @@ int jing_kevent_ctl(int kqfd, int socket, int mod_read, int mod_write,
 	return 0;
 }
 
-int jing_kevent_wait(int kqfd, struct kevent* events, int nevents,
-                     int timeout) {
+int jing_macos_kevent_wait(int kqfd, struct kevent* events, int nevents,
+                           int timeout) {
 	struct timespec* tp = NULL;
 	if (timeout >= 0) {
 		struct timespec t;

@@ -156,4 +156,23 @@ static inline void jing_ptr_result(jing_result* r, void* value, size_t len) {
 	r->data.ptr_val = value;
 }
 
+JING_EXPORT_SYMBOL const char* jing_version_string(void);
+
+JING_EXPORT_SYMBOL int jing_major_version(void);
+
+JING_EXPORT_SYMBOL int jing_minor_version(void);
+
+JING_EXPORT_SYMBOL int jing_patch_version(void);
+
+JING_EXPORT_SYMBOL uintptr_t jing_ptr_err_flag(void);
+
+JING_EXPORT_SYMBOL size_t jing_max_align(void);
+
+JING_EXPORT_SYMBOL void* jing_aligned_alloc(size_t size, size_t alignment);
+
+JING_EXPORT_SYMBOL void jing_aligned_free(void* mem);
+
+JING_EXPORT_SYMBOL void jing_batch_free(void** ptrs, size_t count,
+                                        void (*free_func_t)(void*));
+
 #endif

@@ -1,7 +1,7 @@
 package io.jingproject.bindings.net;
 
 import io.jingproject.bindings.KqueueBindings;
-import io.jingproject.bindings.SysPosixBindings;
+import io.jingproject.bindings.PosixBindings;
 import io.jingproject.common.Descriptor;
 import io.jingproject.common.anno.Fragile;
 import io.jingproject.ffm.ForeignException;
@@ -12,7 +12,7 @@ import java.lang.foreign.MemorySegment;
 @Fragile
 public final class KqueueMux implements Mux {
     private static final KqueueBindings KQUEUE_BINDINGS = Libs.getImpl(KqueueBindings.class);
-    private static final SysPosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(SysPosixBindings.class);
+    private static final PosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(PosixBindings.class);
     private int kqFd = 0;
 
     @Override

@@ -29,7 +29,8 @@ public final class FfmProcessor extends AbstractProcessor {
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
-        memorySegmentType = processingEnv.getElementUtils().getTypeElement(MemorySegment.class.getCanonicalName()).asType();
+        memorySegmentType = processingEnv.getElementUtils()
+                .getTypeElement(MemorySegment.class.getCanonicalName()).asType();
     }
 
     @Override
@@ -190,8 +191,8 @@ public final class FfmProcessor extends AbstractProcessor {
         implSource.writeToFiler(processingEnv);
     }
 
-    private String castFfmReturnType(GeneratorSource source, TypeMirror type) {
-        return switch (type.getKind()) {
+    private String castFfmReturnType(GeneratorSource source, TypeMirror tm) {
+        return switch (tm.getKind()) {
             case VOID -> "void";
             case BYTE -> "byte";
             case CHAR -> "char";
@@ -201,17 +202,18 @@ public final class FfmProcessor extends AbstractProcessor {
             case FLOAT -> "float";
             case DOUBLE -> "double";
             case DECLARED -> {
-                if (processingEnv.getTypeUtils().isSameType(type, Objects.requireNonNull(memorySegmentType))) {
+                TypeMirror targetTm = Objects.requireNonNull(memorySegmentType);
+                if (processingEnv.getTypeUtils().isSameType(tm, targetTm)) {
                     yield source.register(MemorySegment.class);
                 }
-                throw new UnsupportedOperationException("unsupported declared return type: " + type);
+                throw new UnsupportedOperationException("unsupported declared return type: " + tm);
             }
-            default -> throw new UnsupportedOperationException("unsupported return type: " + type);
+            default -> throw new UnsupportedOperationException("unsupported return type: " + tm);
         };
     }
 
-    private String castFfmParameterType(GeneratorSource source, TypeMirror type) {
-        return switch (type.getKind()) {
+    private String castFfmParameterType(GeneratorSource source, TypeMirror tm) {
+        return switch (tm.getKind()) {
             case BYTE -> "byte";
             case CHAR -> "char";
             case SHORT -> "short";
@@ -220,21 +222,22 @@ public final class FfmProcessor extends AbstractProcessor {
             case FLOAT -> "float";
             case DOUBLE -> "double";
             case DECLARED -> {
-                if (processingEnv.getTypeUtils().isSameType(type, Objects.requireNonNull(memorySegmentType))) {
+                TypeMirror targetTm = Objects.requireNonNull(memorySegmentType);
+                if (processingEnv.getTypeUtils().isSameType(tm, targetTm)) {
                     yield source.register(MemorySegment.class);
                 }
-                throw new UnsupportedOperationException("unsupported declared parameter type: " + type);
+                throw new UnsupportedOperationException("unsupported declared parameter type: " + tm);
             }
-            default -> throw new UnsupportedOperationException("unsupported parameter type: " + type);
+            default -> throw new UnsupportedOperationException("unsupported parameter type: " + tm);
         };
     }
 
     private void writeFfmFacadeSource(GeneratorSource facadeSource, GeneratorSource implSource, FfmProcessorInfo ffmProcessorInfo) {
         List<GeneratorBlock> bs = new ArrayList<>();
         String providerClassName = facadeSource.register(Provider.class);
+        String facadeSourceClassName = facadeSource.className();
         String libFacadeClassName = facadeSource.register(LibFacade.class);
         String targetClassName = facadeSource.register(ffmProcessorInfo.element());
-        String facadeSourceClassName = facadeSource.className();
         String atomicBooleanClassName = facadeSource.register(AtomicBoolean.class);
         String illegalStateExceptionClassName = facadeSource.register(IllegalStateException.class);
         String overrideClassName = facadeSource.register(Override.class);

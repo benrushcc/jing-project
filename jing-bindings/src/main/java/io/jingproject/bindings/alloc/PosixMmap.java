@@ -1,6 +1,6 @@
 package io.jingproject.bindings.alloc;
 
-import io.jingproject.bindings.SysPosixBindings;
+import io.jingproject.bindings.PosixBindings;
 import io.jingproject.ffm.ForeignException;
 import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
@@ -22,7 +22,7 @@ public final class PosixMmap implements Mmap {
     /**
      * Native bindings for POSIX memory management APIs.
      */
-    private static final SysPosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(SysPosixBindings.class);
+    private static final PosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(PosixBindings.class);
 
     static {
         if (SYS_POSIX_BINDINGS == null) {

@@ -6,5 +6,5 @@ module jing.marshallprocessor {
 
     exports io.jingproject.marshallprocessor;
 
-    provides javax.annotation.processing.Processor with io.jingproject.marshallprocessor.MarshallProcessor;
+    provides javax.annotation.processing.Processor with io.jingproject.marshallprocessor.MarshallProcessor, io.jingproject.marshallprocessor.MarshallTransformerProcessor;
 }

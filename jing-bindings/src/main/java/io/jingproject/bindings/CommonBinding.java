@@ -6,7 +6,7 @@ import io.jingproject.ffm.FFM;
 import java.lang.foreign.MemorySegment;
 
 @FFM(libraryName = "jing")
-public interface SysBindings {
+public interface CommonBinding {
     @Downcall(methodName = "jing_version_string", constant = true, critical = true)
     MemorySegment versionString();
 
@@ -22,14 +22,6 @@ public interface SysBindings {
     @Downcall(methodName = "jing_ptr_err_flag", constant = true, critical = true)
     long ptrErrFlag();
 
-    default int errPtr(MemorySegment segment) {
-        long addr = segment.address();
-        if ((addr & ptrErrFlag()) != 0L) {
-            return (int) addr;
-        }
-        return 0;
-    }
-
     @Downcall(methodName = "jing_max_align", constant = true, critical = true)
     long maxAlign();
 
@@ -40,5 +32,5 @@ public interface SysBindings {
     void alignedFree(MemorySegment segment);
 
     @Downcall(methodName = "jing_batch_free", critical = true)
-    void batchFree(MemorySegment ptrs, long count, MemorySegment freeAddr);
+    void batchFree(MemorySegment ptrs, long count, MemorySegment freeAddr); // TODO 看要不要切换签名，count有死循环风险
 }

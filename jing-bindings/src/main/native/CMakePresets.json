@@ -1,0 +1,60 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 29,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INTERPROCEDURAL_OPTIMIZATION": true,
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "CMAKE_POSITION_INDEPENDENT_CODE": true
+      },
+      "environment": {
+        "JING_PRESET_NAME": "${presetName}"
+      }
+    },
+    {
+      "name": "windows",
+      "displayName": "default windows build",
+      "inherits": "default",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_C_STANDARD": "11",
+        "CMAKE_LINKER_TYPE": "MSVC",
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL",
+        "CMAKE_C_FLAGS": "/DWIN32 /D_WINDOWS /DWIN32_LEAN_AND_MEAN /W4 /nologo /utf-8",
+        "CMAKE_SHARED_LINKER_FLAGS": "/machine:x64 /DEBUG:NONE"
+      }
+    },
+    {
+      "name": "linux",
+      "displayName": "default linux build",
+      "inherits": "default",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_C_STANDARD": "11",
+        "CMAKE_C_EXTENSIONS": "ON",
+        "CMAKE_CXX_EXTENSIONS": "ON",
+        "CMAKE_C_FLAGS": "-Wall -g0 -march=native -fvisibility=hidden"
+      }
+    },
+    {
+      "name": "macos",
+      "displayName": "default macos build",
+      "inherits": "default",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_C_STANDARD": "11",
+        "CMAKE_C_FLAGS": "-Wall -g0 -march=native -fvisibility=hidden"
+      }
+    }
+  ]
+}

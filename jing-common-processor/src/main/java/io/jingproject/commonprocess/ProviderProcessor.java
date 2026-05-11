@@ -15,7 +15,9 @@ import java.io.Writer;
 import java.util.*;
 
 public final class ProviderProcessor extends AbstractProcessor {
-    private static final String INDENT = "    ";
+    // must be strictly consistent with jing-maven-plugin module
+    private static final String FILE_NAME = "jing-providers.json";
+    private static final String INDENT = "  ";
     private final Map<String, Set<String>> data = new HashMap<>();
 
     @Override
@@ -41,8 +43,9 @@ public final class ProviderProcessor extends AbstractProcessor {
     // TODO after json API got stablized into JDK, could replace it here to reduce the complexity
     private void writeJsonConfigurationFile() {
         try {
-            FileObject fo = Objects.requireNonNull(processingEnv).getFiler().createResource(StandardLocation.SOURCE_OUTPUT, "", "jing-providers.json");
+            FileObject fo = processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", FILE_NAME);
             try (Writer writer = fo.openWriter()) {
+                // if data is empty, there will still be an empty json configuration file for consumption
                 writer.write("{\n");
                 for (Iterator<Map.Entry<String, Set<String>>> it = data.entrySet().iterator(); it.hasNext(); ) {
                     Map.Entry<String, Set<String>> entry = it.next();
@@ -82,16 +85,15 @@ public final class ProviderProcessor extends AbstractProcessor {
         Set<? extends Element> elements = roundEnv.getElementsAnnotatedWith(Provider.class);
         for (Element element : elements) {
             TypeElement t = AnnoUtil.castTypeElement(element);
-            if (t.getNestingKind() != NestingKind.TOP_LEVEL) {
-                throw new AnnotationProcessorException("only top level element can be annotated with @Provider");
-            }
+            AnnoUtil.checkTypeElementForRegister(t);
             if (!t.getModifiers().contains(Modifier.FINAL)) {
-                throw new AnnotationProcessorException("only final element can be annotated with @Provider");
+                throw new AnnotationProcessorException("only final class can be annotated with @Provider");
             }
             String targetImplName = t.getQualifiedName().toString();
             String targetInterfaceName;
             try {
-                targetInterfaceName = Objects.requireNonNull(t.getAnnotation(Provider.class)).target().getCanonicalName();
+                Provider provider = Objects.requireNonNull(t.getAnnotation(Provider.class));
+                targetInterfaceName = provider.target().getCanonicalName();
             } catch (MirroredTypeException mte) {
                 TypeMirror mirror = mte.getTypeMirror();
                 if (mirror == null) {
@@ -103,7 +105,9 @@ public final class ProviderProcessor extends AbstractProcessor {
                 }
                 targetInterfaceName = targetInterfaceTypeElement.getQualifiedName().toString();
             }
-            data.computeIfAbsent(targetInterfaceName, _ -> new HashSet<>()).add(targetImplName);
+            if (!data.computeIfAbsent(targetInterfaceName, _ -> new HashSet<>()).add(targetImplName)) {
+                throw new AnnotationProcessorException("target interface " + targetInterfaceName + " already exists");
+            }
         }
     }
 }
