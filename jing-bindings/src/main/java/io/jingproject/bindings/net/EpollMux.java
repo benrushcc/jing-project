@@ -1,6 +1,6 @@
 package io.jingproject.bindings.net;
 
-import io.jingproject.bindings.EpollBindings;
+import io.jingproject.bindings.LinuxBindings;
 import io.jingproject.bindings.PosixBindings;
 import io.jingproject.common.Descriptor;
 import io.jingproject.common.anno.Fragile;
@@ -11,12 +11,12 @@ import java.lang.foreign.MemorySegment;
 
 @Fragile
 public final class EpollMux implements Mux {
-    private static final EpollBindings EPOLL_BINDINGS = Libs.getImpl(EpollBindings.class);
+    private static final LinuxBindings LINUX_BINDINGS = Libs.getImpl(LinuxBindings.class);
     private static final PosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(PosixBindings.class);
     private int epfd = 0;
 
     static {
-        if (EPOLL_BINDINGS == null) {
+        if (LINUX_BINDINGS == null) {
             throw new ExceptionInInitializerError("cannot initialize epoll bindings");
         }
         if (SYS_POSIX_BINDINGS == null) {
@@ -32,7 +32,7 @@ public final class EpollMux implements Mux {
         if (epfd > 0) {
             throw new IllegalStateException("epollMux already initialized");
         }
-        int v = EPOLL_BINDINGS.epollCreate();
+        int v = LINUX_BINDINGS.epollCreate();
         if (v < 0) {
             int err = Math.abs(v);
             throw new ForeignException("failed to create epoll instance, err : " + err);
@@ -43,24 +43,24 @@ public final class EpollMux implements Mux {
     private static int getOp(int from, int to) {
         assert from != to;
         if (from == Mux.MUX_NONE_FLAG) {
-            return EPOLL_BINDINGS.epollAdd();
+            return LINUX_BINDINGS.epollAdd();
         } else if (to == Mux.MUX_NONE_FLAG) {
-            return EPOLL_BINDINGS.epollDel();
+            return LINUX_BINDINGS.epollDel();
         } else {
-            return EPOLL_BINDINGS.epollMod();
+            return LINUX_BINDINGS.epollMod();
         }
     }
 
     private static int getEventTypes(int op, int to) {
-        if (op == EPOLL_BINDINGS.epollDel()) {
+        if (op == LINUX_BINDINGS.epollDel()) {
             return Integer.MIN_VALUE; // safely ignored
         }
         int r = 0;
         if ((to & Mux.MUX_READABLE_FLAG) != 0) {
-            r |= EPOLL_BINDINGS.epollIn();
+            r |= LINUX_BINDINGS.epollIn();
         }
         if ((to & Mux.MUX_WRITEABLE_FLAG) != 0) {
-            r |= EPOLL_BINDINGS.epollOut();
+            r |= LINUX_BINDINGS.epollOut();
         }
         return r;
     }
@@ -75,7 +75,7 @@ public final class EpollMux implements Mux {
         }
         int op = getOp(from, to);
         int eventTypes = getEventTypes(op, to);
-        int err = EPOLL_BINDINGS.epollCtl(epfd, descriptor.asInt(), op, eventTypes, data);
+        int err = LINUX_BINDINGS.epollCtl(epfd, descriptor.asInt(), op, eventTypes, data);
         if (err > 0) {
             throw new ForeignException("failed to ctl epoll instance, err : " + err);
         }

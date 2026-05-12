@@ -1,6 +1,6 @@
 package io.jingproject.bindings.net;
 
-import io.jingproject.bindings.KqueueBindings;
+import io.jingproject.bindings.MacosBindings;
 import io.jingproject.bindings.PosixBindings;
 import io.jingproject.common.Descriptor;
 import io.jingproject.common.anno.Fragile;
@@ -11,7 +11,7 @@ import java.lang.foreign.MemorySegment;
 
 @Fragile
 public final class KqueueMux implements Mux {
-    private static final KqueueBindings KQUEUE_BINDINGS = Libs.getImpl(KqueueBindings.class);
+    private static final MacosBindings MACOS_BINDINGS = Libs.getImpl(MacosBindings.class);
     private static final PosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(PosixBindings.class);
     private int kqFd = 0;
 
@@ -23,7 +23,7 @@ public final class KqueueMux implements Mux {
         if (kqFd > 0) {
             throw new IllegalStateException("kqueueMux already initialized");
         }
-        int v = KQUEUE_BINDINGS.kqueue();
+        int v = MACOS_BINDINGS.kqueue();
         if (v < 0) {
             int err = Math.abs(v);
             throw new ForeignException("failed to create kqueue instance, err : " + err);
@@ -47,7 +47,7 @@ public final class KqueueMux implements Mux {
         }
         int modRead = mod(from, to, Mux.MUX_READABLE_FLAG);
         int modWrite = mod(from, to, Mux.MUX_WRITEABLE_FLAG);
-        int err = KQUEUE_BINDINGS.keventCtl(kqFd, descriptor.asInt(), modRead, modWrite, MemorySegment.ofAddress(data));
+        int err = MACOS_BINDINGS.keventCtl(kqFd, descriptor.asInt(), modRead, modWrite, MemorySegment.ofAddress(data));
         if (err > 0) {
             throw new ForeignException("failed to ctl kqueue instance, err : " + err);
         }

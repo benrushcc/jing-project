@@ -6,8 +6,8 @@ import io.jingproject.ffm.FFM;
 
 import java.lang.foreign.MemorySegment;
 
-@FFM(libraryName = "jing", supportedOS = Os.MACOS)
-public interface KqueueBindings {
+@FFM(libraryName = "jing-bindings", supportedOS = Os.MACOS)
+public interface MacosBindings {
     @Downcall(methodName = "jing_kqueue_in", constant = true, critical = true)
     int kqueueIn();
 

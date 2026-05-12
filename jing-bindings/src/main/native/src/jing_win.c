@@ -63,6 +63,80 @@ int jing_win_virtual_free(void* addr, size_t size, DWORD type) {
 	}
 }
 
+int jing_win_ansi_support(void) {
+	HANDLE stdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+	DWORD mode;
+	if (JING_UNLIKELY(stdoutHandle == INVALID_HANDLE_VALUE)) {
+		return -1;
+	}
+	if (JING_UNLIKELY(GetConsoleMode(stdoutHandle, &mode) == 0)) {
+		return -1;
+	}
+	if ((mode & ENABLE_PROCESSED_OUTPUT) &&
+	    (mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
+		return 0;
+	}
+	mode |= (ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+	if (JING_UNLIKELY(SetConsoleMode(stdoutHandle, mode) == 0)) {
+		return -1;
+	}
+	return 0;
+}
+
+DWORD jing_std_output_dword(void) {
+	return STD_OUTPUT_HANDLE;
+}
+
+DWORD jing_std_error_dword(void) {
+	return STD_ERROR_HANDLE;
+}
+
+void jing_get_std_handle(DWORD d, jing_result* r) {
+	HANDLE v = GetStdHandle(d);
+	if (JING_UNLIKELY(v == INVALID_HANDLE_VALUE)) {
+		int err = GetLastError();
+		jing_err_result(r, err);
+	} else {
+		jing_ptr_result(r, v, SIZE_MAX);
+	}
+}
+
+void jing_create_file(LPCWSTR filename, jing_result* r) {
+	HANDLE v = CreateFileW(filename, GENERIC_WRITE, FILE_SHARE_READ, NULL,
+	                       OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (JING_UNLIKELY(v == INVALID_HANDLE_VALUE)) {
+		int err = GetLastError();
+		jing_err_result(r, err);
+	} else {
+		jing_ptr_result(r, v, SIZE_MAX);
+	}
+}
+
+void jing_write_file(HANDLE h, char* buffer, int len, jing_result* r) {
+	DWORD written = 0, total = 0, length = (DWORD) len;
+	while (total < length) {
+		if (JING_LIKELY(
+		        WriteFile(h, buffer + total, length - total, &written, NULL))) {
+			total += written;
+		} else {
+			int err = GetLastError();
+			jing_err_result(r, err);
+			return;
+		}
+	}
+	jing_int_result(r, total);
+}
+
+void jing_flush_file(HANDLE h, jing_result* r) {
+	if (JING_LIKELY(FlushFileBuffers(h))) {
+		jing_int_result(r, 0);
+	} else {
+		int err = GetLastError();
+		jing_err_result(r, err);
+	}
+}
+
+// network related
 int jing_win_connect_blocked_errcode(void) {
 	return WSAEWOULDBLOCK;
 }

@@ -1,18 +1,19 @@
 package io.jingproject.log;
 
+import io.jingproject.bindings.WinBindings;
 import io.jingproject.common.Os;
 import io.jingproject.ffm.Libs;
 
 /**
  * ConsoleLogEventHandler is designed to output logs to stdout and stderr
  */
-public final class ConsoleLogEventHandler implements LogEventHandler {
-    private static final LogBindings LOG_BINDINGS = Libs.getImpl(LogBindings.class);
+public final class WinConsoleLogEventHandler implements LogEventHandler {
+    private static final WinBindings WIN_BINDINGS = Libs.getImpl(WinBindings.class);
     private static final String IDEA_RUNTIME_TYPICAL_CLASS_NAME = "com.intellij.rt.compiler.JavacResourcesReader";
     private static final boolean USING_INTELLIJ_IDEA = checkIntellijIdeaEnvironment();
 
     /**
-     * Check if current runtime environment is IntelliJ IDEA IDE, if so, the terminal support ansi color by default
+     * Check if current runtime environment is IntelliJ IDEA IDE, which should support ansi color by default
      */
     private static boolean checkIntellijIdeaEnvironment() {
         try {
@@ -23,13 +24,14 @@ public final class ConsoleLogEventHandler implements LogEventHandler {
         return true;
     }
 
+    // TODO windows specific API
     private static boolean checkAnsiColorEnabled() {
         if (USING_INTELLIJ_IDEA) {
             return true;
         }
         switch (Os.current()) {
             case WINDOWS -> {
-                return LOG_BINDINGS.winAnsiSupport() == 0;
+                return WIN_BINDINGS.winAnsiSupport() == 0;
             }
             case LINUX, MACOS -> {
                 if (System.console() == null) {
@@ -41,7 +43,7 @@ public final class ConsoleLogEventHandler implements LogEventHandler {
         }
     }
 
-    public ConsoleLogEventHandler() {
+    public WinConsoleLogEventHandler() {
 
     }
 

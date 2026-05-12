@@ -29,4 +29,4 @@ replay_pid*
 *.db
 
 ### CMake build directories ###
-/c/build/
+*/build/*

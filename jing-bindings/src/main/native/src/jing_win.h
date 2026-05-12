@@ -29,7 +29,22 @@ JING_EXPORT_SYMBOL void* jing_win_virtual_alloc(void* addr, size_t size,
 
 JING_EXPORT_SYMBOL int jing_win_virtual_free(void* addr, size_t size,
                                              DWORD type);
+JING_EXPORT_SYMBOL int jing_win_ansi_support(void);
 
+JING_EXPORT_SYMBOL DWORD jing_std_output_dword(void);
+
+JING_EXPORT_SYMBOL DWORD jing_std_error_dword(void);
+
+JING_EXPORT_SYMBOL void jing_get_std_handle(DWORD d, jing_result* r);
+
+JING_EXPORT_SYMBOL void jing_create_file(LPCWSTR filename, jing_result* r);
+
+JING_EXPORT_SYMBOL void jing_write_file(HANDLE h, char* buffer, int len,
+                                        jing_result* r);
+
+JING_EXPORT_SYMBOL void jing_flush_file(HANDLE h, jing_result* r);
+
+// network related
 JING_EXPORT_SYMBOL int jing_win_connect_blocked_errcode(void);
 
 JING_EXPORT_SYMBOL int jing_win_send_blocked_errcode(void);

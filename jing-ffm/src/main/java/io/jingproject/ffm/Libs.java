@@ -18,15 +18,19 @@ import java.util.stream.Collectors;
  * The dynamic library search path is first checked using the property specified by '-D' as jing.library.path.
  * Then, it looks for directories specified by the JING_LIBRARY_PATH environment variable.
  * Finally, it searches the default directories specified by java.library.path, which is the default loadLibrary() behavior of the JDK.
- * If a library or function is not found, the program can still start normally as long as the invalid functions are not called.
+ * If a library or function is not found, the program can still start normally as long as the invalid functions are not invoked.
  */
 @ProcessorApi
+@SuppressWarnings("unused")
 public final class Libs {
 
+    /**
+     *  all the dynamic library search directories ordered by priority
+     */
     private static final List<String> SEARCH_PATH = createSearchPath();
 
     /**
-     * Critical path could be disabled globally to ensure safepoint is always checked on each downcall
+     * critical path could be disabled globally to ensure safepoint is always checked on each downcall
      */
     private static final boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
 

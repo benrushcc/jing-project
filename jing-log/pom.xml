@@ -31,16 +31,8 @@
 
         <dependency>
             <groupId>io.jingproject</groupId>
-            <artifactId>jing-common-processor</artifactId>
+            <artifactId>jing-bindings</artifactId>
             <version>${revision}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.jingproject</groupId>
-            <artifactId>jing-ffm-processor</artifactId>
-            <version>${revision}</version>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -97,20 +89,6 @@
                                 </path>
                             </annotationProcessorPaths>
                         </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>io.jingproject</groupId>
-                <artifactId>jing-maven-plugin</artifactId>
-                <version>${revision}</version>
-                <executions>
-                    <execution>
-                        <phase>process-classes</phase>
-                        <goals>
-                            <goal>process-jing-providers</goal>
-                        </goals>
                     </execution>
                 </executions>
             </plugin>

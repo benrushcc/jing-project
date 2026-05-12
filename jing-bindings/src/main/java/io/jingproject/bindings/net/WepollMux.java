@@ -1,6 +1,6 @@
 package io.jingproject.bindings.net;
 
-import io.jingproject.bindings.WepollBindings;
+import io.jingproject.bindings.WinBindings;
 import io.jingproject.common.Descriptor;
 import io.jingproject.common.anno.Fragile;
 import io.jingproject.ffm.ForeignException;
@@ -11,11 +11,11 @@ import java.lang.foreign.MemorySegment;
 
 @Fragile
 public final class WepollMux implements Mux {
-    private static final WepollBindings WEPOLL_BINDINGS = Libs.getImpl(WepollBindings.class);
+    private static final WinBindings WIN_BINDINGS = Libs.getImpl(WinBindings.class);
     private MemorySegment epfd = MemorySegment.NULL;
 
     static {
-        if (WEPOLL_BINDINGS == null) {
+        if (WIN_BINDINGS == null) {
             throw new ExceptionInInitializerError("cannot initialize WepollMux");
         }
     }
@@ -28,7 +28,7 @@ public final class WepollMux implements Mux {
         if (epfd.address() != 0L) {
             throw new IllegalStateException("wepollMux already initialized");
         }
-        MemorySegment fd = WEPOLL_BINDINGS.wepollCreate();
+        MemorySegment fd = WIN_BINDINGS.wepollCreate();
         if (NativeSegmentAccess.isErrPtr(fd)) {
             int err = NativeSegmentAccess.errCode(fd);
             throw new ForeignException("failed to create wepoll instance, err : " + err);
@@ -39,24 +39,24 @@ public final class WepollMux implements Mux {
     private static int getOp(int from, int to) {
         assert from != to;
         if (from == Mux.MUX_NONE_FLAG) {
-            return WEPOLL_BINDINGS.wepollAdd();
+            return WIN_BINDINGS.wepollAdd();
         } else if (to == Mux.MUX_NONE_FLAG) {
-            return WEPOLL_BINDINGS.wepollDel();
+            return WIN_BINDINGS.wepollDel();
         } else {
-            return WEPOLL_BINDINGS.wepollMod();
+            return WIN_BINDINGS.wepollMod();
         }
     }
 
     private static int getEventTypes(int op, int to) {
-        if (op == WEPOLL_BINDINGS.wepollDel()) {
+        if (op == WIN_BINDINGS.wepollDel()) {
             return Integer.MIN_VALUE; // safely ignored
         }
         int r = 0;
         if ((to & Mux.MUX_READABLE_FLAG) != 0) {
-            r |= WEPOLL_BINDINGS.wepollIn();
+            r |= WIN_BINDINGS.wepollIn();
         }
         if ((to & Mux.MUX_WRITEABLE_FLAG) != 0) {
-            r |= WEPOLL_BINDINGS.wepollOut();
+            r |= WIN_BINDINGS.wepollOut();
         }
         return r;
     }
@@ -71,7 +71,7 @@ public final class WepollMux implements Mux {
         }
         int op = getOp(from, to);
         int eventTypes = getEventTypes(op, to);
-        int err = WEPOLL_BINDINGS.wepollCtl(epfd, descriptor.asLong(), op, eventTypes, data);
+        int err = WIN_BINDINGS.wepollCtl(epfd, descriptor.asLong(), op, eventTypes, data);
         if (err > 0) {
             throw new ForeignException("failed to ctl wepoll instance, err : " + err);
         }
@@ -90,7 +90,7 @@ public final class WepollMux implements Mux {
         if (epfd.address() == 0L) {
             return;
         }
-        int err = WEPOLL_BINDINGS.wepollClose(epfd);
+        int err = WIN_BINDINGS.wepollClose(epfd);
         if (err != 0) {
             throw new ForeignException("failed to close wepoll instance, err : " + err);
         }
