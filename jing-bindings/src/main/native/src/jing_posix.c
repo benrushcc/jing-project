@@ -1,3 +1,5 @@
+#include "jing_common.h"
+
 #if defined(JING_OS_LINUX) || defined(JING_OS_MACOS)
 #include "jing_posix.h"
 #include <sys/socket.h>

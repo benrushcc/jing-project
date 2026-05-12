@@ -33,8 +33,8 @@ project(jing_bindings_project VERSION 0.0.1 LANGUAGES C)
 
 # provided options
 option(JING_BUILD_DEMO "build jing_demo dynamic library for testing purpose" ON)
-option(JING_USE_WEPOLL "provide wepoll related functions in jing_bindings library" ON)
-option(JING_USE_BORINGSSL "provide boringssl related functions in jing_bindings library" ON)
+option(JING_USE_WEPOLL "provide wepoll related functions in jing_bindings library" OFF)
+option(JING_USE_BORINGSSL "provide boringssl related functions in jing_bindings library" OFF)
 
 if(JING_BUILD_DEMO) 
     add_library(jing_demo SHARED)
@@ -45,13 +45,15 @@ set(JING_WEPOLL_VERSION    "v1.5.8"       CACHE STRING "wepoll library version" 
 set(JING_BORINGSSL_VERSION "0.20251002.0" CACHE STRING "boringssl library version" FORCE)
 
 add_library(jing_bindings SHARED)
-target_sources(jing_bindings PRIVATE
-    src/jing_common.c
-    src/jing_win.c
-    src/jing_posix.c
-    src/jing_linux.c
-    src/jing_macos.c
-)
+target_sources(jing_bindings PRIVATE src/jing_common.c)
+if(WIN32)
+    target_sources(jing_bindings PRIVATE src/jing_win.c)
+    target_link_libraries(jing_bindings PRIVATE ws2_32)
+elseif(APPLE)
+    target_sources(jing_bindings PRIVATE src/jing_posix.c src/jing_macos.c)
+else()
+    target_sources(jing_bindings PRIVATE src/jing_posix.c src/jing_linux.c)
+endif()
 
 include(FetchContent)
 

@@ -1,3 +1,5 @@
+#include "jing_common.h"
+
 #if defined(JING_OS_LINUX)
 #include "jing_linux.h"
 #include <errno.h>

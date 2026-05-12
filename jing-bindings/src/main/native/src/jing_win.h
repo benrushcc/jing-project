@@ -1,8 +1,9 @@
-#ifndef JING_WIN
-#define JING_WIN
+#ifndef JING_WIN_H
+#define JING_WIN_H
 
-#if defined(JING_OS_WINDOWS)
 #include "jing_common.h"
+#if defined(JING_OS_WINDOWS)
+
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>

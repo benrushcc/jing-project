@@ -1,4 +1,4 @@
-package io.jingproject.ffmtest.entity;
+package io.jingproject.bindingstest.entity;
 
 import io.jingproject.ffm.Downcall;
 import io.jingproject.ffm.FFM;

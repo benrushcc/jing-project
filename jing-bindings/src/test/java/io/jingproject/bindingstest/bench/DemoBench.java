@@ -1,8 +1,8 @@
-package io.jingproject.ffmtest.bench;
+package io.jingproject.bindingstest.bench;
 
-import io.jingproject.ffmtest.entity.DemoBinding;
-import io.jingproject.ffmtest.entity.DemoBindingJavaImpl;
-import io.jingproject.ffmtest.entity.DemoLibs;
+import io.jingproject.bindingstest.entity.DemoBinding;
+import io.jingproject.bindingstest.entity.DemoBindingImpl;
+import io.jingproject.ffm.Libs;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.profile.GCProfiler;
@@ -24,11 +24,10 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(3)
-public class DemoBenchmark {
-
+public class DemoBench {
     private static final int BATCH_SIZE = 10000;
-    private static final DemoBinding NATIVE_IMPL = Objects.requireNonNull(DemoLibs.getImpl(DemoBinding.class), "Failed to load jing_demo library");
-    private static final DemoBinding JAVA_IMPL = new DemoBindingJavaImpl();
+    private static final DemoBinding NATIVE_IMPL = Objects.requireNonNull(Libs.getImpl(DemoBinding.class), "Failed to load jing_demo library");
+    private static final DemoBinding JAVA_IMPL = new DemoBindingImpl();
     private int[] a;
     private int[] b;
     private Arena arena;
@@ -55,7 +54,11 @@ public class DemoBenchmark {
 
     @TearDown(Level.Iteration)
     public void tearDown() {
+        a = null;
+        b = null;
         arena.close();
+        m1 = null;
+        m2 = null;
     }
 
     @Benchmark
@@ -115,7 +118,7 @@ public class DemoBenchmark {
     }
 
     static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(DemoBenchmark.class.getSimpleName()).addProfiler(GCProfiler.class).build();
+        Options opt = new OptionsBuilder().include(DemoBench.class.getSimpleName()).build();
         new Runner(opt).run();
     }
 }

@@ -1,0 +1,4 @@
+C:/jing-space/jing-project/jing-bindings/src/main/native/build/CMakeFiles/jing_demo.dir
+C:/jing-space/jing-project/jing-bindings/src/main/native/build/CMakeFiles/jing_bindings.dir
+C:/jing-space/jing-project/jing-bindings/src/main/native/build/CMakeFiles/edit_cache.dir
+C:/jing-space/jing-project/jing-bindings/src/main/native/build/CMakeFiles/rebuild_cache.dir

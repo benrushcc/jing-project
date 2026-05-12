@@ -1,8 +1,11 @@
+#include "jing_common.h"
+
 #if defined(JING_OS_WINDOWS)
 #include "jing_win.h"
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <malloc.h>
 
 size_t jing_win_page_size(void) {
 	SYSTEM_INFO sys_info;

@@ -1,8 +1,8 @@
-package io.jingproject.ffmtest.test;
+package io.jingproject.bindingstest.test;
 
-import io.jingproject.ffmtest.entity.DemoBinding;
-import io.jingproject.ffmtest.entity.DemoBindingJavaImpl;
-import io.jingproject.ffmtest.entity.DemoLibs;
+import io.jingproject.bindingstest.entity.DemoBinding;
+import io.jingproject.bindingstest.entity.DemoBindingImpl;
+import io.jingproject.ffm.Libs;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -15,8 +15,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @Tag("require-native-library")
 public class DemoTest {
-    private static final DemoBinding NATIVE_IMPL = Objects.requireNonNull(DemoLibs.getImpl(DemoBinding.class), "Failed to load jing_demo library");
-    private static final DemoBinding JAVA_IMPL = new DemoBindingJavaImpl();
+    private static final DemoBinding NATIVE_IMPL = Objects.requireNonNull(Libs.getImpl(DemoBinding.class), "Failed to load jing_demo library");
+    private static final DemoBinding JAVA_IMPL = new DemoBindingImpl();
 
     @Test
     public void testSingleInt() {

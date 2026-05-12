@@ -1,0 +1,20 @@
+[
+{
+  "directory": "C:/jing-space/jing-project/jing-bindings/src/main/native/build",
+  "command": "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1444~1.352\\bin\\Hostx64\\x64\\cl.exe  /nologo -Djing_demo_EXPORTS /DWIN32 /D_WINDOWS /DWIN32_LEAN_AND_MEAN /W4 /nologo /utf-8 /O2 /Ob2 /DNDEBUG -std:c11 -MD /GL /FoCMakeFiles\\jing_demo.dir\\src\\jing_demo.c.obj /FdCMakeFiles\\jing_demo.dir\\ /FS -c C:\\jing-space\\jing-project\\jing-bindings\\src\\main\\native\\src\\jing_demo.c",
+  "file": "C:\\jing-space\\jing-project\\jing-bindings\\src\\main\\native\\src\\jing_demo.c",
+  "output": "CMakeFiles\\jing_demo.dir\\src\\jing_demo.c.obj"
+},
+{
+  "directory": "C:/jing-space/jing-project/jing-bindings/src/main/native/build",
+  "command": "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1444~1.352\\bin\\Hostx64\\x64\\cl.exe  /nologo -Djing_bindings_EXPORTS /DWIN32 /D_WINDOWS /DWIN32_LEAN_AND_MEAN /W4 /nologo /utf-8 /O2 /Ob2 /DNDEBUG -std:c11 -MD /GL /FoCMakeFiles\\jing_bindings.dir\\src\\jing_common.c.obj /FdCMakeFiles\\jing_bindings.dir\\ /FS -c C:\\jing-space\\jing-project\\jing-bindings\\src\\main\\native\\src\\jing_common.c",
+  "file": "C:\\jing-space\\jing-project\\jing-bindings\\src\\main\\native\\src\\jing_common.c",
+  "output": "CMakeFiles\\jing_bindings.dir\\src\\jing_common.c.obj"
+},
+{
+  "directory": "C:/jing-space/jing-project/jing-bindings/src/main/native/build",
+  "command": "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1444~1.352\\bin\\Hostx64\\x64\\cl.exe  /nologo -Djing_bindings_EXPORTS /DWIN32 /D_WINDOWS /DWIN32_LEAN_AND_MEAN /W4 /nologo /utf-8 /O2 /Ob2 /DNDEBUG -std:c11 -MD /GL /FoCMakeFiles\\jing_bindings.dir\\src\\jing_win.c.obj /FdCMakeFiles\\jing_bindings.dir\\ /FS -c C:\\jing-space\\jing-project\\jing-bindings\\src\\main\\native\\src\\jing_win.c",
+  "file": "C:\\jing-space\\jing-project\\jing-bindings\\src\\main\\native\\src\\jing_win.c",
+  "output": "CMakeFiles\\jing_bindings.dir\\src\\jing_win.c.obj"
+}
+]

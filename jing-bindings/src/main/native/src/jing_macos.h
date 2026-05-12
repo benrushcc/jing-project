@@ -1,8 +1,8 @@
-#ifndef JING_MACOS
-#define JING_MACOS
+#ifndef JING_MACOS_H
+#define JING_MACOS_H
 
-#if defined(JING_OS_MACOS)
 #include "jing_common.h"
+#if defined(JING_OS_MACOS)
 #include <sys/event.h>
 JING_EXPORT_SYMBOL int jing_macos_kqueue_in(void);
 

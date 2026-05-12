@@ -1,8 +1,8 @@
-#ifndef JING_LINUX
-#define JING_LINUX
+#ifndef JING_LINUX_H
+#define JING_LINUX_H
 
-#if defined(JING_OS_LINUX)
 #include "jing_common.h"
+#if defined(JING_OS_LINUX)
 JING_EXPORT_SYMBOL int jing_linux_epoll_in(void);
 
 JING_EXPORT_SYMBOL int jing_linux_epoll_out(void);

@@ -1,8 +1,8 @@
-#ifndef JING_POSIX
-#define JING_POSIX
+#ifndef JING_POSIX_H
+#define JING_POSIX_H
 
-#if defined(JING_OS_LINUX) || defined(JING_OS_MACOS)
 #include "jing_common.h"
+#if defined(JING_OS_LINUX) || defined(JING_OS_MACOS)
 #include <sys/types.h>
 static_assert(sizeof(off_t) == 8, "off_t size mismatch");
 

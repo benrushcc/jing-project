@@ -5,7 +5,7 @@ import io.jingproject.common.Os;
 import io.jingproject.ffm.Libs;
 
 /**
- * ConsoleLogEventHandler is designed to output logs to stdout and stderr
+ * ConsoleLogEventHandler is designed to output logs to stdout and stderr on windows operating system
  */
 public final class WinConsoleLogEventHandler implements LogEventHandler {
     private static final WinBindings WIN_BINDINGS = Libs.getImpl(WinBindings.class);

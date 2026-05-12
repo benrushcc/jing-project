@@ -32,7 +32,7 @@ public final class JingProvidersMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", required = true, readonly = true)
     private MavenProject project;
 
-    @Parameter(property = "jing.scope", defaultValue = "main")
+    @Parameter(defaultValue = "main")
     private String scope; // main or test
 
     private String outputDir() throws MojoFailureException {
