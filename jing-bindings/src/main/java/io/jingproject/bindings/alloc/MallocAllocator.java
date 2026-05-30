@@ -102,7 +102,7 @@ public final class MallocAllocator implements Allocator {
                 ptr = Mem.malloc(byteSize);
             } else {
                 // Allocate at least 'byteAlignment' bytes, so that malloc is guaranteed to return a pointer aligned to that alignment
-                ptr = NativeSegmentAccess.reinterpret(Mem.malloc(byteAlignment), byteSize);
+                ptr = NativeSegmentAccess.resize(Mem.malloc(byteAlignment), byteSize);
             }
             storedAddr = ptr.address();
         } else {
@@ -110,7 +110,7 @@ public final class MallocAllocator implements Allocator {
             if (p.address() == 0L) {
                 throw new OutOfMemoryError();
             }
-            ptr = NativeSegmentAccess.reinterpret(p, byteSize);
+            ptr = NativeSegmentAccess.resize(p, byteSize);
             // Mark pointer's highest bit to indicate aligned allocation
             storedAddr = SYS_BINDINGS.ptrErrFlag() | ptr.address();
         }

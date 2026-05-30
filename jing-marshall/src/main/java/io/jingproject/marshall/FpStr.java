@@ -1,12 +1,11 @@
 package io.jingproject.marshall;
 
-public record FpFormat(
+public record FpStr (
         boolean negative,
+        boolean trunc,
         long d,
-        int dLen,
         int frac,
         int p,
-        int pLen,
         int len
 ) {
 }

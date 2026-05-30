@@ -34,7 +34,7 @@ project(jing_bindings_project VERSION 0.0.1 LANGUAGES C)
 # provided options
 option(JING_BUILD_DEMO "build jing_demo dynamic library for testing purpose" ON)
 option(JING_USE_WEPOLL "provide wepoll related functions in jing_bindings library" OFF)
-option(JING_USE_BORINGSSL "provide boringssl related functions in jing_bindings library" OFF)
+option(JING_USE_AWS_LC "provide aws-lc related functions in jing_bindings library" OFF)
 
 if(JING_BUILD_DEMO) 
     add_library(jing_demo SHARED)
@@ -79,7 +79,7 @@ if(WIN32)
 endif()
 
 # setup boringssl
-if(JING_USE_BORINGSSL)
+#if(JING_USE_BORINGSSL)
 #     target_compile_definitions(jing PRIVATE JING_ENABLE_BORINGSSL)
 #     FetchContent_Declare(
 #         boringsslproject
@@ -97,4 +97,9 @@ if(JING_USE_BORINGSSL)
 #         target_compile_definitions(ssl PRIVATE OPENSSL_STATIC_ARMCAP)
 #     endif()
 #     target_link_libraries(jing PRIVATE ssl crypto)
+#endif()
+
+#setup aws-lc TODO
+if(JING_USE_AWS_LC)
+
 endif()

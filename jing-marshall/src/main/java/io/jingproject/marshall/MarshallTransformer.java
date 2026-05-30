@@ -1,7 +1,7 @@
 package io.jingproject.marshall;
 
-public interface MarshallTransformer<A, B> {
-    B transformTo(A source);
+public interface MarshallTransformer<CustomType, BuiltinType> {
+    BuiltinType toBuiltin(CustomType ct);
 
-    A transformFrom(B source);
+    CustomType toCustom(BuiltinType bt);
 }

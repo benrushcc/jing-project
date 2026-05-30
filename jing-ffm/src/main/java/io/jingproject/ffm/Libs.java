@@ -7,6 +7,7 @@ import java.io.File;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -126,7 +127,7 @@ public final class Libs {
 
     public static MethodHandle mhFromVM(String methodName, List<Class<?>> types, boolean critical, boolean constant) {
         MemorySegment addr = addrFromVM(methodName);
-        return makeDowncallMethodHandle(addr, types, critical, constant);
+        return makeDowncallMethodHandle(methodName, addr, types, critical, constant);
     }
 
     public static MemorySegment addrFromLib(Class<?> libType, String methodName) {
@@ -143,10 +144,10 @@ public final class Libs {
 
     public static MethodHandle mhFromLib(Class<?> libType, String methodName, List<Class<?>> types, boolean critical, boolean constant) {
         MemorySegment addr = addrFromLib(libType, methodName);
-        return makeDowncallMethodHandle(addr, types, critical, constant);
+        return makeDowncallMethodHandle(methodName, addr, types, critical, constant);
     }
 
-    private static MethodHandle makeDowncallMethodHandle(MemorySegment addr, List<Class<?>> types, boolean critical, boolean constant) {
+    private static MethodHandle makeDowncallMethodHandle(String methodName, MemorySegment addr, List<Class<?>> types, boolean critical, boolean constant) {
         if (types == null || types.isEmpty()) {
             throw new IllegalArgumentException("types cannot be null or empty");
         }
@@ -154,7 +155,7 @@ public final class Libs {
             throw new IllegalArgumentException("constant method cannot have parameters");
         }
         if (addr.address() == 0L) {
-            return MethodHandles.throwException(types.getFirst(), ForeignException.class).bindTo(new ForeignException("function address not found"));
+            return makeErrorMethodHandle(types, methodName);
         }
         FunctionDescriptor descriptor = castFunctionDescriptor(types);
         Linker linker = Linker.nativeLinker();
@@ -167,38 +168,48 @@ public final class Libs {
         return mh;
     }
 
+    private static MethodHandle makeErrorMethodHandle(List<Class<?>> types, String methodName) {
+        Class<?> rType = types.getFirst();
+        MethodHandle mh = MethodHandles.throwException(rType, ForeignException.class);
+        mh = mh.bindTo(new ForeignException("native method not found : " + methodName));
+        if(types.size() > 1) {
+            mh = MethodHandles.dropArguments(mh, 0, types.subList(1, types.size()));
+        }
+        return mh;
+    }
+
     private static MethodHandle makeConstantMethodHandle(List<Class<?>> types, MethodHandle mh) {
         try {
-            Class<?> returnType = types.getFirst();
-            if (returnType.equals(byte.class)) {
+            Class<?> rType = types.getFirst();
+            if (rType.equals(byte.class)) {
                 byte r = (byte) mh.invokeExact();
                 return MethodHandles.constant(byte.class, r);
-            } else if (boolean.class.equals(returnType)) {
+            } else if (boolean.class.equals(rType)) {
                 boolean r = (boolean) mh.invokeExact();
                 return MethodHandles.constant(boolean.class, r);
-            } else if (short.class.equals(returnType)) {
+            } else if (short.class.equals(rType)) {
                 short r = (short) mh.invokeExact();
                 return MethodHandles.constant(short.class, r);
-            } else if (char.class.equals(returnType)) {
+            } else if (char.class.equals(rType)) {
                 char r = (char) mh.invokeExact();
                 return MethodHandles.constant(char.class, r);
-            } else if (int.class.equals(returnType)) {
+            } else if (int.class.equals(rType)) {
                 int r = (int) mh.invokeExact();
                 return MethodHandles.constant(int.class, r);
-            } else if (long.class.equals(returnType)) {
+            } else if (long.class.equals(rType)) {
                 long r = (long) mh.invokeExact();
                 return MethodHandles.constant(long.class, r);
-            } else if (float.class.equals(returnType)) {
+            } else if (float.class.equals(rType)) {
                 float r = (float) mh.invokeExact();
                 return MethodHandles.constant(float.class, r);
-            } else if (double.class.equals(returnType)) {
+            } else if (double.class.equals(rType)) {
                 double r = (double) mh.invokeExact();
                 return MethodHandles.constant(double.class, r);
-            } else if (MemorySegment.class.equals(returnType)) {
+            } else if (MemorySegment.class.equals(rType)) {
                 MemorySegment r = (MemorySegment) mh.invokeExact();
                 return MethodHandles.constant(MemorySegment.class, r);
             } else {
-                throw new ForeignException("unsupported constant foreign method return type: " + returnType);
+                throw new ForeignException("unsupported constant foreign method return type: " + rType);
             }
         } catch (Throwable t) {
             throw new ForeignException("failed to invoke constant foreign method", t);

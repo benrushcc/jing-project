@@ -74,7 +74,7 @@ public final class PosixMmap implements Mmap {
             int err = NativeSegmentAccess.errCode(mem);
             throw new ForeignException("failed to reserve memory, err : " + err);
         }
-        return NativeSegmentAccess.reinterpret(mem, size);
+        return NativeSegmentAccess.resize(mem, size);
     }
 
     /**

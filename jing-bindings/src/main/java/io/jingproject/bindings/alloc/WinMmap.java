@@ -75,7 +75,7 @@ public final class WinMmap implements Mmap {
             int err = NativeSegmentAccess.errCode(reserved);
             throw new ForeignException("failed to reserve memory, err : " + err);
         }
-        return NativeSegmentAccess.reinterpret(reserved, size);
+        return NativeSegmentAccess.resize(reserved, size);
     }
 
     /**

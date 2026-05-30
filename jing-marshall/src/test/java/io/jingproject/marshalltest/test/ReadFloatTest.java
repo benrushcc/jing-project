@@ -117,7 +117,7 @@ public class ReadFloatTest {
 
     @Test
     public void readTargetDoubleTest() {
-        List<String> strList = List.of("1.7976931348623157E308", "4.9E-324", "0.0", "-0.0");
+        List<String> strList = List.of("1.7976931348623157E308", "0.99e308", "4.9E-324", "0.0", "-0.0", "1e-345");
         for (String str : strList) {
             double f = Double.parseDouble(str);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
@@ -144,7 +144,7 @@ public class ReadFloatTest {
     public void parseTargetFpFormatTest() {
         String str = "12.3.4"; // no exception thrown
         HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
-        Assertions.assertNotNull(MarshallUtil.parseFpFormat(heapReadBuffer));
+        Assertions.assertNotNull(MarshallUtil.parseFpStr(heapReadBuffer));
     }
 
     @Test
@@ -165,7 +165,7 @@ public class ReadFloatTest {
         );
         for (String str : strList) {
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
-            Assertions.assertThrows(NumberFormatException.class, () -> MarshallUtil.parseFpFormat(heapReadBuffer), "str : " + str);
+            Assertions.assertThrows(NumberFormatException.class, () -> MarshallUtil.parseFpStr(heapReadBuffer), "str : " + str);
         }
     }
 }

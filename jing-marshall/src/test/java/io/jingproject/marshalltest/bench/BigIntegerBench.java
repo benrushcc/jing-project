@@ -11,6 +11,7 @@ import java.math.BigInteger;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+// 这个测试只是用来简单的探索一下biginteger的计算性能和long之间的差距有多大，事实证明在x64和arm64上，biginteger需要大概20ns的时间来执行乘法，这个耗时在高性能解析的场景中已经完全不能接受了
 @BenchmarkMode(value = Mode.AverageTime)
 @Warmup(iterations = 1, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 3, time = 500, timeUnit = TimeUnit.MILLISECONDS)

@@ -16,6 +16,7 @@ import javax.lang.model.element.*;
 import javax.lang.model.type.TypeMirror;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
+import java.lang.reflect.UndeclaredThrowableException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -136,8 +137,10 @@ public final class FfmProcessor extends AbstractProcessor {
         String libsClassName = implSource.register(Libs.class);
         String assertionErrorClassName = implSource.register(AssertionError.class);
         String overrideClassName = implSource.register(Override.class);
+        String runtimeExceptionClassName = implSource.register(RuntimeException.class);
+        String errorClassName = implSource.register(Error.class);
         String throwableClassName = implSource.register(Throwable.class);
-        String foreignExceptionClassName = implSource.register(ForeignException.class);
+        String undeclaredThrowableExceptionClassName = implSource.register(UndeclaredThrowableException.class);
         b.addLine("public final class " + implClassName + " implements " + targetClassName + " {")
                 .indent()
                 .addLine("private static final " + atomicBooleanClassName + " GUARD = new " + atomicBooleanClassName + "(false);")
@@ -176,9 +179,11 @@ public final class FfmProcessor extends AbstractProcessor {
                     .addLine(("void".equals(types.getFirst()) ? "" : "return (" + types.getFirst() + ") ") +
                             "MHS.get(" + ffmDowncallInfo.index() + ").invokeExact(" +
                             IntStream.range(1, types.size()).mapToObj(i -> "p" + i).collect(Collectors.joining(", ")) + ");")
+                    .unindent().addLine("} catch (" + runtimeExceptionClassName + " | " + errorClassName + " e) {")
+                    .indent().addLine("throw e;")
                     .unindent().addLine("} catch (" + throwableClassName + " t) {")
-                    .indent().addLine("throw new " + foreignExceptionClassName + "(\"Failed to invoke " + ffmDowncallInfo.methodName() + " native method\", t);")
-                    .unindent().addLine("}").unindent().addLine("}").newLine());
+                    .indent().addLine("throw new " + undeclaredThrowableExceptionClassName + "(t);").unindent()
+                    .addLine("}").unindent().addLine("}").newLine());
         }
         b.addLine("default -> throw new " + assertionErrorClassName + "();")
                 .unindent()

@@ -1,14 +1,19 @@
 package io.jingproject.ffm;
 
 import io.jingproject.common.Os;
+import io.jingproject.common.SegmentAccess;
+import io.jingproject.common.anno.Fragile;
 
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
+import java.util.Objects;
 
 /**
- * Utility class for accessing native memorySegment and VM native functions TODO 绝大部分方法都是过度设计，可以直接砍掉，目前先把一部分访问逻辑拆分到SegmentAccess
+ * Utility class for accessing native memorySegment and VM native functions
  */
+@Fragile
+@SuppressWarnings("unused")
 public final class NativeSegmentAccess {
 
     static {
@@ -27,361 +32,213 @@ public final class NativeSegmentAccess {
         throw new UnsupportedOperationException("utility class");
     }
 
-    private static final boolean JING_REMOVE_BOUNDARY_CHECKING = Boolean.getBoolean("JING_REMOVE_BOUNDARY_CHECKING");
-
     /**
      * Address is unsigned, so we can not represent raw address larger than Long.MAX_VALUE,
      * However, user-land address space is usually 48-bit on most operating system, so we are all good here.
      */
-    private static final MemorySegment ZERO = MemorySegment.NULL.reinterpret(Long.MAX_VALUE);
-
-    private static final ByteOrder OPPOSITE_BYTE_ORDER = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN;
-
-    private static final ValueLayout.OfShort JAVA_SHORT_UNALIGNED_OPPOSITE = ValueLayout.JAVA_SHORT_UNALIGNED.withOrder(OPPOSITE_BYTE_ORDER);
-    private static final ValueLayout.OfChar JAVA_CHAR_UNALIGNED_OPPOSITE = ValueLayout.JAVA_CHAR_UNALIGNED.withOrder(OPPOSITE_BYTE_ORDER);
-    private static final ValueLayout.OfInt JAVA_INT_UNALIGNED_OPPOSITE = ValueLayout.JAVA_INT_UNALIGNED.withOrder(OPPOSITE_BYTE_ORDER);
-    private static final ValueLayout.OfLong JAVA_LONG_UNALIGNED_OPPOSITE = ValueLayout.JAVA_LONG_UNALIGNED.withOrder(OPPOSITE_BYTE_ORDER);
-    private static final ValueLayout.OfFloat JAVA_FLOAT_UNALIGNED_OPPOSITE = ValueLayout.JAVA_FLOAT_UNALIGNED.withOrder(OPPOSITE_BYTE_ORDER);
-    private static final ValueLayout.OfDouble JAVA_DOUBLE_UNALIGNED_OPPOSITE = ValueLayout.JAVA_DOUBLE_UNALIGNED.withOrder(OPPOSITE_BYTE_ORDER);
-    private static final AddressLayout JAVA_ADDRESS_OPPOSITE = ValueLayout.ADDRESS_UNALIGNED.withOrder(OPPOSITE_BYTE_ORDER);
+    private static final MemorySegment ZERO = resize(MemorySegment.NULL, Long.MAX_VALUE);
 
     public static byte getByte(MemorySegment segment, long offset) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            return ZERO.get(ValueLayout.JAVA_BYTE, Math.addExact(segment.address(), offset));
-        } else {
-            return segment.get(ValueLayout.JAVA_BYTE, offset);
-        }
+        assert segment != null && segment.isNative() && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        return ZERO.get(ValueLayout.JAVA_BYTE, Math.addExact(segment.address(), offset));
     }
 
     public static void setByte(MemorySegment segment, long offset, byte b) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            ZERO.set(ValueLayout.JAVA_BYTE, Math.addExact(segment.address(), offset), b);
-        } else {
-            segment.set(ValueLayout.JAVA_BYTE, offset, b);
-        }
+        assert segment != null && segment.isNative() && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        ZERO.set(ValueLayout.JAVA_BYTE, Math.addExact(segment.address(), offset), b);
     }
 
     public static short getShort(MemorySegment segment, long offset) {
-        assert segment.isNative();
         return getShort(segment, offset, ByteOrder.nativeOrder());
     }
 
     public static void setShort(MemorySegment segment, long offset, short s) {
-        assert segment.isNative();
         setShort(segment, offset, s, ByteOrder.nativeOrder());
     }
 
     public static short getShort(MemorySegment segment, long offset, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                return ZERO.get(ValueLayout.JAVA_SHORT_UNALIGNED, address);
-            } else {
-                return ZERO.get(JAVA_SHORT_UNALIGNED_OPPOSITE, address);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                return segment.get(ValueLayout.JAVA_SHORT_UNALIGNED, offset);
-            } else {
-                return segment.get(JAVA_SHORT_UNALIGNED_OPPOSITE, offset);
-            }
-        }
+        assert segment != null && order != null && segment.isNative() && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        return switch (order) {
+            case BIG_ENDIAN -> ZERO.get(SegmentAccess.SHORT_UNALIGNED_BE, address);
+            case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.SHORT_UNALIGNED_LE, address);
+        };
     }
 
     public static void setShort(MemorySegment segment, long offset, short s, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                ZERO.set(ValueLayout.JAVA_SHORT_UNALIGNED, address, s);
-            } else {
-                ZERO.set(JAVA_SHORT_UNALIGNED_OPPOSITE, address, s);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                segment.set(ValueLayout.JAVA_SHORT_UNALIGNED, offset, s);
-            } else {
-                segment.set(JAVA_SHORT_UNALIGNED_OPPOSITE, offset, s);
-            }
+        assert segment != null && order != null && segment.isNative() && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        switch (order) {
+            case BIG_ENDIAN -> ZERO.set(SegmentAccess.SHORT_UNALIGNED_BE, address, s);
+            case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.SHORT_UNALIGNED_LE, address, s);
         }
     }
 
     public static char getChar(MemorySegment segment, long offset) {
-        assert segment.isNative();
         return getChar(segment, offset, ByteOrder.nativeOrder());
     }
 
     public static void setChar(MemorySegment segment, long offset, char c) {
-        assert segment.isNative();
         setChar(segment, offset, c, ByteOrder.nativeOrder());
     }
 
     public static char getChar(MemorySegment segment, long offset, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                return ZERO.get(ValueLayout.JAVA_CHAR_UNALIGNED, address);
-            } else {
-                return ZERO.get(JAVA_CHAR_UNALIGNED_OPPOSITE, address);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                return segment.get(ValueLayout.JAVA_CHAR_UNALIGNED, offset);
-            } else {
-                return segment.get(JAVA_CHAR_UNALIGNED_OPPOSITE, offset);
-            }
-        }
+        assert segment != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        return switch (order) {
+            case BIG_ENDIAN    -> ZERO.get(SegmentAccess.CHAR_UNALIGNED_BE, address);
+            case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.CHAR_UNALIGNED_LE, address);
+        };
     }
 
     public static void setChar(MemorySegment segment, long offset, char c, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                ZERO.set(ValueLayout.JAVA_CHAR_UNALIGNED, address, c);
-            } else {
-                ZERO.set(JAVA_CHAR_UNALIGNED_OPPOSITE, address, c);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                segment.set(ValueLayout.JAVA_CHAR_UNALIGNED, offset, c);
-            } else {
-                segment.set(JAVA_CHAR_UNALIGNED_OPPOSITE, offset, c);
-            }
+        assert segment != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        switch (order) {
+            case BIG_ENDIAN    -> ZERO.set(SegmentAccess.CHAR_UNALIGNED_BE, address, c);
+            case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.CHAR_UNALIGNED_LE, address, c);
         }
     }
 
     public static int getInt(MemorySegment segment, long offset) {
-        assert segment.isNative();
         return getInt(segment, offset, ByteOrder.nativeOrder());
     }
 
     public static void setInt(MemorySegment segment, long offset, int i) {
-        assert segment.isNative();
         setInt(segment, offset, i, ByteOrder.nativeOrder());
     }
 
     public static int getInt(MemorySegment segment, long offset, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                return ZERO.get(ValueLayout.JAVA_INT_UNALIGNED, address);
-            } else {
-                return ZERO.get(JAVA_INT_UNALIGNED_OPPOSITE, address);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                return segment.get(ValueLayout.JAVA_INT_UNALIGNED, offset);
-            } else {
-                return segment.get(JAVA_INT_UNALIGNED_OPPOSITE, offset);
-            }
-        }
+        assert segment != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        return switch (order) {
+            case BIG_ENDIAN    -> ZERO.get(SegmentAccess.INT_UNALIGNED_BE, address);
+            case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.INT_UNALIGNED_LE, address);
+        };
     }
 
     public static void setInt(MemorySegment segment, long offset, int i, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                ZERO.set(ValueLayout.JAVA_INT_UNALIGNED, address, i);
-            } else {
-                ZERO.set(JAVA_INT_UNALIGNED_OPPOSITE, address, i);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                segment.set(ValueLayout.JAVA_INT_UNALIGNED, offset, i);
-            } else {
-                segment.set(JAVA_INT_UNALIGNED_OPPOSITE, offset, i);
-            }
+        assert segment != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        switch (order) {
+            case BIG_ENDIAN    -> ZERO.set(SegmentAccess.INT_UNALIGNED_BE, address, i);
+            case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.INT_UNALIGNED_LE, address, i);
         }
     }
 
     public static long getLong(MemorySegment segment, long offset) {
-        assert segment.isNative();
         return getLong(segment, offset, ByteOrder.nativeOrder());
     }
 
     public static void setLong(MemorySegment segment, long offset, long l) {
-        assert segment.isNative();
         setLong(segment, offset, l, ByteOrder.nativeOrder());
     }
 
     public static long getLong(MemorySegment segment, long offset, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                return ZERO.get(ValueLayout.JAVA_LONG_UNALIGNED, address);
-            } else {
-                return ZERO.get(JAVA_LONG_UNALIGNED_OPPOSITE, address);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                return segment.get(ValueLayout.JAVA_LONG_UNALIGNED, offset);
-            } else {
-                return segment.get(JAVA_LONG_UNALIGNED_OPPOSITE, offset);
-            }
-        }
+        assert segment != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        return switch (order) {
+            case BIG_ENDIAN    -> ZERO.get(SegmentAccess.LONG_UNALIGNED_BE, address);
+            case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.LONG_UNALIGNED_LE, address);
+        };
     }
 
     public static void setLong(MemorySegment segment, long offset, long l, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                ZERO.set(ValueLayout.JAVA_LONG_UNALIGNED, address, l);
-            } else {
-                ZERO.set(JAVA_LONG_UNALIGNED_OPPOSITE, address, l);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                segment.set(ValueLayout.JAVA_LONG_UNALIGNED, offset, l);
-            } else {
-                segment.set(JAVA_LONG_UNALIGNED_OPPOSITE, offset, l);
-            }
+        assert segment != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        switch (order) {
+            case BIG_ENDIAN    -> ZERO.set(SegmentAccess.LONG_UNALIGNED_BE, address, l);
+            case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.LONG_UNALIGNED_LE, address, l);
         }
     }
 
     public static float getFloat(MemorySegment segment, long offset) {
-        assert segment.isNative();
         return getFloat(segment, offset, ByteOrder.nativeOrder());
     }
 
     public static void setFloat(MemorySegment segment, long offset, float f) {
-        assert segment.isNative();
         setFloat(segment, offset, f, ByteOrder.nativeOrder());
     }
 
     public static float getFloat(MemorySegment segment, long offset, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                return ZERO.get(ValueLayout.JAVA_FLOAT_UNALIGNED, address);
-            } else {
-                return ZERO.get(JAVA_FLOAT_UNALIGNED_OPPOSITE, address);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                return segment.get(ValueLayout.JAVA_FLOAT_UNALIGNED, offset);
-            } else {
-                return segment.get(JAVA_FLOAT_UNALIGNED_OPPOSITE, offset);
-            }
-        }
+        assert segment != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        return switch (order) {
+            case BIG_ENDIAN    -> ZERO.get(SegmentAccess.FLOAT_UNALIGNED_BE, address);
+            case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.FLOAT_UNALIGNED_LE, address);
+        };
     }
 
     public static void setFloat(MemorySegment segment, long offset, float f, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                ZERO.set(ValueLayout.JAVA_FLOAT_UNALIGNED, address, f);
-            } else {
-                ZERO.set(JAVA_FLOAT_UNALIGNED_OPPOSITE, address, f);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                segment.set(ValueLayout.JAVA_FLOAT_UNALIGNED, offset, f);
-            } else {
-                segment.set(JAVA_FLOAT_UNALIGNED_OPPOSITE, offset, f);
-            }
+        assert segment != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        switch (order) {
+            case BIG_ENDIAN    -> ZERO.set(SegmentAccess.FLOAT_UNALIGNED_BE, address, f);
+            case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.FLOAT_UNALIGNED_LE, address, f);
         }
     }
 
     public static double getDouble(MemorySegment segment, long offset) {
-        assert segment.isNative();
         return getDouble(segment, offset, ByteOrder.nativeOrder());
     }
 
     public static void setDouble(MemorySegment segment, long offset, double d) {
-        assert segment.isNative();
         setDouble(segment, offset, d, ByteOrder.nativeOrder());
     }
 
     public static double getDouble(MemorySegment segment, long offset, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                return ZERO.get(ValueLayout.JAVA_DOUBLE_UNALIGNED, address);
-            } else {
-                return ZERO.get(JAVA_DOUBLE_UNALIGNED_OPPOSITE, address);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                return segment.get(ValueLayout.JAVA_DOUBLE_UNALIGNED, offset);
-            } else {
-                return segment.get(JAVA_DOUBLE_UNALIGNED_OPPOSITE, offset);
-            }
-        }
+        assert segment != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        return switch (order) {
+            case BIG_ENDIAN    -> ZERO.get(SegmentAccess.DOUBLE_UNALIGNED_BE, address);
+            case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.DOUBLE_UNALIGNED_LE, address);
+        };
     }
 
     public static void setDouble(MemorySegment segment, long offset, double d, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                ZERO.set(ValueLayout.JAVA_DOUBLE_UNALIGNED, address, d);
-            } else {
-                ZERO.set(JAVA_DOUBLE_UNALIGNED_OPPOSITE, address, d);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                segment.set(ValueLayout.JAVA_DOUBLE_UNALIGNED, offset, d);
-            } else {
-                segment.set(JAVA_DOUBLE_UNALIGNED_OPPOSITE, offset, d);
-            }
+        assert segment != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        switch (order) {
+            case BIG_ENDIAN    -> ZERO.set(SegmentAccess.DOUBLE_UNALIGNED_BE, address, d);
+            case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.DOUBLE_UNALIGNED_LE, address, d);
         }
     }
 
     public static MemorySegment getAddress(MemorySegment segment, long offset) {
-        assert segment.isNative();
         return getAddress(segment, offset, ByteOrder.nativeOrder());
     }
 
-    public static void setAddress(MemorySegment segment, long offset, MemorySegment m) {
-        assert segment.isNative();
-        setAddress(segment, offset, m, ByteOrder.nativeOrder());
+    public static void setAddress(MemorySegment segment, long offset, MemorySegment addr) {
+        setAddress(segment, offset, addr, ByteOrder.nativeOrder());
     }
 
     public static MemorySegment getAddress(MemorySegment segment, long offset, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                return ZERO.get(ValueLayout.ADDRESS_UNALIGNED, address);
-            } else {
-                return ZERO.get(JAVA_ADDRESS_OPPOSITE, address);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                return segment.get(ValueLayout.ADDRESS_UNALIGNED, offset);
-            } else {
-                return segment.get(JAVA_ADDRESS_OPPOSITE, offset);
-            }
-        }
+        assert segment != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        return switch (order) {
+            case BIG_ENDIAN    -> ZERO.get(SegmentAccess.ADDRESS_UNALIGNED_BE, address);
+            case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.ADDRESS_UNALIGNED_LE, address);
+        };
     }
 
-    public static void setAddress(MemorySegment segment, long offset, MemorySegment m, ByteOrder order) {
-        assert segment.isNative();
-        if (JING_REMOVE_BOUNDARY_CHECKING) {
-            long address = Math.addExact(segment.address(), offset);
-            if (order == ByteOrder.nativeOrder()) {
-                ZERO.set(ValueLayout.ADDRESS_UNALIGNED, address, m);
-            } else {
-                ZERO.set(JAVA_ADDRESS_OPPOSITE, address, m);
-            }
-        } else {
-            if (order == ByteOrder.nativeOrder()) {
-                segment.set(ValueLayout.ADDRESS_UNALIGNED, offset, m);
-            } else {
-                segment.set(JAVA_ADDRESS_OPPOSITE, offset, m);
-            }
+    public static void setAddress(MemorySegment segment, long offset, MemorySegment addr, ByteOrder order) {
+        assert segment != null && addr != null && order != null && segment.isNative()
+                && Objects.checkIndex(offset, segment.byteSize()) >= 0L;
+        long address = Math.addExact(segment.address(), offset);
+        switch (order) {
+            case BIG_ENDIAN    -> ZERO.set(SegmentAccess.ADDRESS_UNALIGNED_BE, address, addr);
+            case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.ADDRESS_UNALIGNED_LE, address, addr);
         }
     }
 
@@ -489,8 +346,8 @@ public final class NativeSegmentAccess {
         return (int) seg.address();
     }
 
-    public static MemorySegment reinterpret(MemorySegment seg, long newSize) {
-        assert seg.isNative();
+    public static MemorySegment resize(MemorySegment seg, long newSize) {
+        assert seg.isNative() && newSize >= 0L;
         return seg.reinterpret(newSize);
     }
 

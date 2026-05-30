@@ -7,14 +7,27 @@ import java.lang.foreign.MemorySegment;
 
 @FFM(libraryName = "jing_demo")
 public interface DemoBinding {
-    @Downcall(methodName = "single_int", critical = true, constant = true)
+    @Downcall(methodName = "demo_single_int", critical = true, constant = true)
     int singleInt();
 
-    // methodName = computeAdd, critical = true
-    @Downcall(methodName = "compute_add", critical = true)
+    @Downcall(methodName = "demo_compute_add", critical = true)
     int computeAdd(int a, int b);
 
-    // methodName = computePointer
-    @Downcall(methodName = "compute_pointer")
+    @Downcall(methodName = "demo_compute_pointer")
     int computePointer(MemorySegment a, MemorySegment b);
+
+    @Downcall(methodName = "demo_str_to_int64")
+    long strToLong(MemorySegment str);
+
+    @Downcall(methodName = "demo_str_to_double")
+    double strToDouble(MemorySegment str);
+
+    @Downcall(methodName = "demo_int64_to_str")
+    int longToStr(long var, MemorySegment str, int len);
+
+    @Downcall(methodName = "demo_double_to_str")
+    int doubleToStr(double var, MemorySegment str, int len);
+
+    @Downcall(methodName = "demo_nonexist")
+    void nonexist();
 }

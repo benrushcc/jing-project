@@ -21,6 +21,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+// 这个测试用来对比直接构造，反射构造以及使用marshall构造之间的性能差距，预期效果是marshall的性能要尽可能逼近直接构造，优于反射构造
+
 @BenchmarkMode(value = Mode.AverageTime)
 @Warmup(iterations = 3, time = 2000, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 3, time = 4000, timeUnit = TimeUnit.MILLISECONDS)

@@ -15,6 +15,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+// 这个测试用来对比uscale算法向WriteBuffer中写入浮点数和使用jdk内置方法通过String转化写入浮点数之间的性能差异
+// 这个对比并不是完全公平的，jdk有构造String的中间产物的相关开销，因此结果只能作为简单参考
+
 @BenchmarkMode(value = Mode.AverageTime)
 @Warmup(iterations = 1, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 3, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
@@ -65,7 +68,7 @@ public class WriteFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkHeapWriteFloat(Blackhole blackhole) {
+    public void jdkWriteHeapFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             float f = floats[index];
             byte[] bytes = Float.toString(f).getBytes(StandardCharsets.US_ASCII);
@@ -77,7 +80,7 @@ public class WriteFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkSegmentWriteFloat(Blackhole blackhole) {
+    public void jdkWriteSegmentFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             float f = floats[index];
             byte[] bytes = Float.toString(f).getBytes(StandardCharsets.US_ASCII);
@@ -89,7 +92,7 @@ public class WriteFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkHeapWriteDouble(Blackhole blackhole) {
+    public void jdkWriteHeapDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             double f = doubles[index];
             byte[] bytes = Double.toString(f).getBytes(StandardCharsets.US_ASCII);
@@ -101,7 +104,7 @@ public class WriteFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkSegmentWriteDouble(Blackhole blackhole) {
+    public void jdkWriteSegmentDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             double f = doubles[index];
             byte[] bytes = Double.toString(f).getBytes(StandardCharsets.US_ASCII);
@@ -113,7 +116,7 @@ public class WriteFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleHeapWriteFloat(Blackhole blackhole) {
+    public void uscaleWriteHeapFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             float f = floats[index];
             MarshallUtil.writeFloat(f, heapWriteBuffer);
@@ -124,7 +127,7 @@ public class WriteFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleSegmentWriteFloat(Blackhole blackhole) {
+    public void uscaleWriteSegmentFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             float f = floats[index];
             MarshallUtil.writeFloat(f, segmentWriteBuffer);
@@ -135,7 +138,7 @@ public class WriteFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleHeapWriteDouble(Blackhole blackhole) {
+    public void uscaleWriteHeapDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             double f = doubles[index];
             MarshallUtil.writeDouble(f, heapWriteBuffer);
@@ -146,7 +149,7 @@ public class WriteFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleSegmentWriteDouble(Blackhole blackhole) {
+    public void uscaleWriteSegmentDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             double f = doubles[index];
             MarshallUtil.writeDouble(f, segmentWriteBuffer);

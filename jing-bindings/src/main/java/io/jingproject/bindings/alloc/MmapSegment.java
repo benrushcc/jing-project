@@ -189,7 +189,7 @@ public final class MmapSegment implements AutoCloseable {
             long uncommitSize = Math.multiplyExact(MMAP_UNCOMMITTED_PAGE_COUNT, MMAP.pageSize());
             long shrinkedCommitAddress = Math.subtractExact(commitAddress, uncommitSize);
             try {
-                MMAP.uncommit(NativeSegmentAccess.reinterpret(MemorySegment.ofAddress(shrinkedCommitAddress), uncommitSize));
+                MMAP.uncommit(NativeSegmentAccess.resize(MemorySegment.ofAddress(shrinkedCommitAddress), uncommitSize));
             } catch (ForeignException e) {
                 close();
                 throw e;
@@ -240,7 +240,7 @@ public final class MmapSegment implements AutoCloseable {
                 throw new IndexOutOfBoundsException("MmapSegment commit out of bounds, index : " + newCommitAddress + ", size : " + memSize);
             }
             try {
-                MMAP.commit(NativeSegmentAccess.reinterpret(MemorySegment.ofAddress(commitAddress), Math.subtractExact(newCommitAddress, commitAddress)));
+                MMAP.commit(NativeSegmentAccess.resize(MemorySegment.ofAddress(commitAddress), Math.subtractExact(newCommitAddress, commitAddress)));
             } catch (ForeignException e) {
                 close();
                 throw e;
@@ -248,7 +248,7 @@ public final class MmapSegment implements AutoCloseable {
             commitAddress = newCommitAddress;
         }
         writeAddress = newWriteAddress;
-        return NativeSegmentAccess.reinterpret(MemorySegment.ofAddress(alignedAddress), byteSize);
+        return NativeSegmentAccess.resize(MemorySegment.ofAddress(alignedAddress), byteSize);
     }
 
     /**

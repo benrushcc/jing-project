@@ -29,7 +29,7 @@ public final class Mem {
         if (r.address() == 0L) {
             throw new OutOfMemoryError();
         }
-        return NativeSegmentAccess.reinterpret(r, byteSize);
+        return NativeSegmentAccess.resize(r, byteSize);
     }
 
     public static MemorySegment realloc(MemorySegment segment, long newSize) {
@@ -39,7 +39,7 @@ public final class Mem {
             free(segment);
             throw new OutOfMemoryError();
         }
-        return NativeSegmentAccess.reinterpret(r, newSize);
+        return NativeSegmentAccess.resize(r, newSize);
     }
 
     public static void free(MemorySegment segment) {

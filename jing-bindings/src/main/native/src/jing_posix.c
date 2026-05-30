@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 
+// mmap related
 #define JING_DEFAULT_PAGE_SIZE 4096
 long jing_posix_page_size() {
 	long v = sysconf(_SC_PAGESIZE);
@@ -91,6 +92,51 @@ int jing_posix_close(int fd) {
 	return 0;
 }
 
+// fs related
+int jing_stdout_fileno(void) {
+	return STDOUT_FILENO;
+}
+
+int jing_stderr_fileno(void) {
+	return STDERR_FILENO;
+}
+
+void jing_open_fd(char* filename, jing_result* r) {
+	int v = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
+	if (JING_UNLIKELY(v == -1)) {
+		int err = errno;
+		jing_err_result(r, err);
+	} else {
+		jing_int_result(r, v);
+	}
+}
+
+void jing_write_fd(int fd, char* buf, size_t len, jing_result* r) {
+	ssize_t written = 0, total = 0;
+	while (total < len) {
+		int v = write(fd, buf + total, len - total);
+		if (JING_UNLIKELY(v == -1)) {
+			int err = errno;
+			jing_err_result(r, err);
+			return;
+		} else {
+			total += written;
+		}
+	}
+	jing_long_result(r, total);
+}
+
+void jing_sync_fd(int fd, jing_result* r) {
+	int v = fsync(fd);
+	if (JING_UNLIKELY(v == -1)) {
+		int err = errno;
+		jing_err_result(r, err);
+	} else {
+		jing_int_result(r, 0);
+	}
+}
+
+// network related
 int jing_posix_af_inet_code(void) {
 	return AF_INET;
 }

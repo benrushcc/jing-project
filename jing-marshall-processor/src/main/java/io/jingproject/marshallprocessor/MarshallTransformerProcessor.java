@@ -133,8 +133,8 @@ public final class MarshallTransformerProcessor extends AbstractProcessor {
     private void writeMarshallTransformerFacadeSource(GeneratorSource facadeSource, MarshallTransformerInfo info) {
         String providerClassName = facadeSource.register(Provider.class);
         String targetClassName = facadeSource.register(info.typeElement());
-        String fromClassName = facadeSource.register(info.fromElement());
-        String toClassName = facadeSource.register(info.toElement());
+        String customTypeClassName = facadeSource.register(info.customTypeElement());
+        String builtinTypeClassName = facadeSource.register(info.builtInElement());
         String facadeSourceClassName = facadeSource.className();
         String marshallTransformerFacadeClassName = facadeSource.register(MarshallTransformerFacade.class);
         String marshallTransformerClassName = facadeSource.register(MarshallTransformer.class);
@@ -144,20 +144,20 @@ public final class MarshallTransformerProcessor extends AbstractProcessor {
         b.addLine("@" + providerClassName + "(target = " + marshallTransformerFacadeClassName + ".class)")
                 .addLine("public final class " + facadeSourceClassName + " implements " + marshallTransformerFacadeClassName + " {")
                 .indent()
-                .addLine("private static final " + marshallTransformerClassName + "<" + fromClassName + ", " + toClassName +
+                .addLine("private static final " + marshallTransformerClassName + "<" + customTypeClassName + ", " + builtinTypeClassName +
                         "> INSTANCE = new " + targetClassName + "();")
                 .newLine();
         b.addLine("@" + overrideClassName)
-                .addLine("public " + clsClassName + "<?> fromClass() {")
+                .addLine("public " + clsClassName + "<?> customType() {")
                 .indent()
-                .addLine("return " + fromClassName + ".class;")
+                .addLine("return " + customTypeClassName + ".class;")
                 .unindent()
                 .addLine("}")
                 .newLine();
         b.addLine("@" + overrideClassName)
-                .addLine("public " + clsClassName + "<?> toClass() {")
+                .addLine("public " + clsClassName + "<?> builtinType() {")
                 .indent()
-                .addLine("return " + toClassName + ".class;")
+                .addLine("return " + builtinTypeClassName + ".class;")
                 .unindent()
                 .addLine("}")
                 .newLine();

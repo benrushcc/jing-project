@@ -6,16 +6,16 @@ import io.jingproject.marshall.MarshallTransformerFacade;
 import java.time.LocalDateTime;
 
 public final class TimeTransformerFacade implements MarshallTransformerFacade {
-    private static final MarshallTransformer<String, LocalDateTime> INSTANCE = new TimeTransformer();
+    private static final MarshallTransformer<LocalDateTime, String> INSTANCE = new TimeTransformer();
 
     @Override
-    public Class<?> fromClass() {
-        return String.class;
+    public Class<?> customType() {
+        return LocalDateTime.class;
     }
 
     @Override
-    public Class<?> toClass() {
-        return LocalDateTime.class;
+    public Class<?> builtinType() {
+        return String.class;
     }
 
     @Override

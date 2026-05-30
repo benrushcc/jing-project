@@ -2,6 +2,7 @@ package io.jingproject.marshalltest.bench;
 
 import io.jingproject.common.HeapReadBuffer;
 import io.jingproject.common.SegmentReadBuffer;
+import io.jingproject.marshall.FpStr;
 import io.jingproject.marshall.MarshallUtil;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
@@ -20,6 +21,9 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+// 这个测试用来对比uscale算法从ReadBuffer中读取浮点数和使用jdk内置方法通过String转化读取浮点数之间的性能差异
+// 这个对比并不是完全公平的，jdk有构造String的中间产物的相关开销，并且jdk需要提前知道浮点数字符串的具体位置，因此结果只能作为简单参考
+
 @BenchmarkMode(value = Mode.AverageTime)
 @Warmup(iterations = 1, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 3, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
@@ -27,12 +31,49 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(3)
 public class ReadFloatBench {
-    private static final int BATCH_SIZE = 10000;
+    private static final int INTEGER_SIZE = 2000;
+    private static final int FRACTION2_SIZE = 2000;
+    private static final int FRACTION4_SIZE = 2000;
+    private static final int FRACTION8_SIZE = 2000;
+    private static final int RANDOM_SIZE = 2000;
+    private static final int BATCH_SIZE = INTEGER_SIZE + FRACTION2_SIZE + FRACTION4_SIZE + FRACTION8_SIZE + RANDOM_SIZE;
     private Arena arena;
     private List<byte[]> floatBytes;
     private List<byte[]> doubleBytes;
     private List<MemorySegment> floatSegments;
     private List<MemorySegment> doubleSegments;
+
+    private void loadFloat(float f) {
+        byte[] bytes = String.valueOf(f).getBytes(StandardCharsets.US_ASCII);
+        floatBytes.add(bytes);
+        MemorySegment segment = arena.allocate(ValueLayout.JAVA_BYTE, bytes.length);
+        MemorySegment.copy(bytes, 0, segment, ValueLayout.JAVA_BYTE, 0L, bytes.length);
+        floatSegments.add(segment);
+    }
+
+    private void loadDouble(double d) {
+        byte[] bytes = String.valueOf(d).getBytes(StandardCharsets.US_ASCII);
+        doubleBytes.add(bytes);
+        MemorySegment segment = arena.allocate(ValueLayout.JAVA_BYTE, bytes.length);
+        MemorySegment.copy(bytes, 0, segment, ValueLayout.JAVA_BYTE, 0L, bytes.length);
+        doubleSegments.add(segment);
+    }
+
+    private static float createFractionFloat(ThreadLocalRandom random, int i, int frac) {
+        int bound = Math.powExact(10, frac);
+        int i1 = random.nextInt(bound / 10, bound);
+        int i2 = random.nextInt(0, bound);
+        float f = i1 + i2 / ((float) bound);
+        return (i & 1) == 0 ? f : -f;
+    }
+
+    private static double createFractionDouble(ThreadLocalRandom random, int i, int frac) {
+        int bound = Math.powExact(10, frac);
+        int i1 = random.nextInt(bound / 10, bound);
+        int i2 = random.nextInt(0, bound);
+        double f = i1 + i2 / ((double) bound);
+        return (i & 1) == 0 ? f : -f;
+    }
 
     @Setup(Level.Iteration)
     public void setup() {
@@ -42,25 +83,41 @@ public class ReadFloatBench {
         floatSegments = new ArrayList<>(BATCH_SIZE);
         doubleSegments = new ArrayList<>(BATCH_SIZE);
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for (int i = 0; i < BATCH_SIZE; ) {
+        for(int i = 0; i < INTEGER_SIZE; i++) {
+            float f = (float) random.nextInt();
+            loadFloat(f);
+            double v = random.nextLong();
+            loadDouble(v);
+        }
+        for(int i = 0; i < FRACTION2_SIZE; i++) {
+            float f = createFractionFloat(random, i, 2);
+            loadFloat(f);
+            double v = createFractionDouble(random, i, 2);
+            loadDouble(v);
+        }
+        for(int i = 0; i < FRACTION4_SIZE; i++) {
+            float f = createFractionFloat(random, i, 4);
+            loadFloat(f);
+            double v = createFractionDouble(random, i, 4);
+            loadDouble(v);
+        }
+        for(int i = 0; i < FRACTION8_SIZE; i++) {
+            float f = createFractionFloat(random, i, 8);
+            loadFloat(f);
+            double v = createFractionDouble(random, i, 8);
+            loadDouble(v);
+        }
+        for(int i = 0; i < RANDOM_SIZE; ) {
             float f = Float.intBitsToFloat(random.nextInt());
-            if (Float.isFinite(f)) {
-                byte[] bytes = String.valueOf(f).getBytes(StandardCharsets.US_ASCII);
-                floatBytes.add(bytes);
-                MemorySegment segment = arena.allocate(ValueLayout.JAVA_BYTE, bytes.length);
-                MemorySegment.copy(bytes, 0, segment, ValueLayout.JAVA_BYTE, 0L, bytes.length);
-                floatSegments.add(segment);
+            if(Float.isFinite(f)) {
+                loadFloat(f);
                 i++;
             }
         }
-        for (int i = 0; i < BATCH_SIZE; ) {
+        for (int i = 0; i < RANDOM_SIZE; ) {
             double f = Double.longBitsToDouble(random.nextLong());
             if (Double.isFinite(f)) {
-                byte[] bytes = String.valueOf(f).getBytes(StandardCharsets.US_ASCII);
-                doubleBytes.add(bytes);
-                MemorySegment segment = arena.allocate(ValueLayout.JAVA_BYTE, bytes.length);
-                MemorySegment.copy(bytes, 0, segment, ValueLayout.JAVA_BYTE, 0L, bytes.length);
-                doubleSegments.add(segment);
+                loadDouble(f);
                 i++;
             }
         }
@@ -81,7 +138,7 @@ public class ReadFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkHeapReadFloat(Blackhole blackhole) {
+    public void jdkReadHeapFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = floatBytes.get(index);
             float f = Float.parseFloat(new String(bytes, StandardCharsets.US_ASCII));
@@ -91,7 +148,7 @@ public class ReadFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkHeapReadDouble(Blackhole blackhole) {
+    public void jdkReadHeapDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = doubleBytes.get(index);
             double f = Double.parseDouble(new String(bytes, StandardCharsets.US_ASCII));
@@ -101,7 +158,7 @@ public class ReadFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkSegmentReadFloat(Blackhole blackhole) {
+    public void jdkReadSegmentFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = floatSegments.get(index);
             float f = Float.parseFloat(new String(segment.toArray(ValueLayout.JAVA_BYTE), StandardCharsets.US_ASCII));
@@ -111,7 +168,7 @@ public class ReadFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkSegmentReadDouble(Blackhole blackhole) {
+    public void jdkReadSegmentDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = doubleSegments.get(index);
             double f = Double.parseDouble(new String(segment.toArray(ValueLayout.JAVA_BYTE), StandardCharsets.US_ASCII));
@@ -121,7 +178,7 @@ public class ReadFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleHeapReadFloat(Blackhole blackhole) {
+    public void uscaleReadHeapFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = floatBytes.get(index);
             float f = MarshallUtil.readFloat(new HeapReadBuffer(bytes));
@@ -131,7 +188,7 @@ public class ReadFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleHeapReadDouble(Blackhole blackhole) {
+    public void uscaleReadHeapDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = doubleBytes.get(index);
             double d = MarshallUtil.readDouble(new HeapReadBuffer(bytes));
@@ -141,7 +198,7 @@ public class ReadFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleSegmentReadFloat(Blackhole blackhole) {
+    public void uscaleReadSegmentFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = floatSegments.get(index);
             float f = MarshallUtil.readFloat(new SegmentReadBuffer(segment));
@@ -151,11 +208,51 @@ public class ReadFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleSegmentReadDouble(Blackhole blackhole) {
+    public void uscaleReadSegmentDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = doubleSegments.get(index);
             double d = MarshallUtil.readDouble(new SegmentReadBuffer(segment));
             blackhole.consume(d);
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void uscaleParseHeapFloat(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            byte[] bytes = floatBytes.get(index);
+            FpStr fpStr = MarshallUtil.parseFpStr(new HeapReadBuffer(bytes));
+            blackhole.consume(fpStr);
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void uscaleParseSegmentFloat(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            MemorySegment segment = floatSegments.get(index);
+            FpStr fpStr = MarshallUtil.parseFpStr(new SegmentReadBuffer(segment));
+            blackhole.consume(fpStr);
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void uscaleParseHeapDouble(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            byte[] bytes = doubleBytes.get(index);
+            FpStr fpStr = MarshallUtil.parseFpStr(new HeapReadBuffer(bytes));
+            blackhole.consume(fpStr);
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void uscaleParseSegmentDouble(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            MemorySegment segment = doubleSegments.get(index);
+            FpStr fpStr = MarshallUtil.parseFpStr(new SegmentReadBuffer(segment));
+            blackhole.consume(fpStr);
         }
     }
 

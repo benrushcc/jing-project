@@ -13,6 +13,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.CRC32;
 
+// 这个测试是用来探索不同哈希算法之间的性能差距，各个算法实现其实都很快，但直接取byte不用计算的开销还是最小的
+
 @BenchmarkMode(value = Mode.AverageTime)
 @Warmup(iterations = 1, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 3, time = 500, timeUnit = TimeUnit.MILLISECONDS)

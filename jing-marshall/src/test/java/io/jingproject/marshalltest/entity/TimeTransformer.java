@@ -5,16 +5,16 @@ import io.jingproject.marshall.MarshallTransformer;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-public final class TimeTransformer implements MarshallTransformer<String, LocalDateTime> {
+public final class TimeTransformer implements MarshallTransformer<LocalDateTime, String> {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Override
-    public LocalDateTime transformTo(String source) {
-        return formatter.parse(source, LocalDateTime::from);
+    public String toBuiltin(LocalDateTime ct) {
+        return formatter.format(ct);
     }
 
     @Override
-    public String transformFrom(LocalDateTime source) {
-        return formatter.format(source);
+    public LocalDateTime toCustom(String bt) {
+        return formatter.parse(bt, LocalDateTime::from);
     }
 }

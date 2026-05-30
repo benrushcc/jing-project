@@ -1,4 +1,4 @@
-*/target/*
+*/target/
 
 ### IntelliJ IDEA ###
 .idea/*
@@ -23,10 +23,10 @@ replay_pid*
 *_JMH.txt
 
 ### Flattened pom ###
-.flattened-pom.xml
+**/.flattened-pom.xml
 
 ### Sqlite files ###
 *.db
 
 ### CMake build directories ###
-*/build/*
+jing-bindings/src/main/native/build/

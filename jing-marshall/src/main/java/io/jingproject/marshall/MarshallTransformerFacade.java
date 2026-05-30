@@ -4,9 +4,9 @@ import io.jingproject.common.anno.ProcessorApi;
 
 @ProcessorApi
 public interface MarshallTransformerFacade {
-    Class<?> fromClass();
+    Class<?> customType();
 
-    Class<?> toClass();
+    Class<?> builtinType();
 
     MarshallTransformer<?, ?> transformer();
 }
