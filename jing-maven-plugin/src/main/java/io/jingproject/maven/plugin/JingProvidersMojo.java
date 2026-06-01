@@ -19,7 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 
-@Mojo(name = "process-jing-providers", defaultPhase = LifecyclePhase.PROCESS_CLASSES)
+@Mojo(name = "process-jing-providers", defaultPhase = LifecyclePhase.PROCESS_CLASSES, threadSafe = true)
 @SuppressWarnings("unused")
 public final class JingProvidersMojo extends AbstractMojo {
     // must be strictly consistent with jing-common-processor module

@@ -1,39 +1,25 @@
 package io.jingproject.marshalltest.entity;
 
 import io.jingproject.common.WriteBuffer;
-import io.jingproject.marshall.MarshallFacade;
-import io.jingproject.marshall.MarshallFacadeInfo;
-import io.jingproject.marshall.MarshallInfo;
-import io.jingproject.marshall.MarshallSchema;
+import io.jingproject.marshall.*;
 
 import java.lang.foreign.MemorySegment;
-import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 public final class EnumEntityMarshallFacade implements MarshallFacade {
     private static final MarshallFacadeInfo FACADE_INFO;
 
     static {
-        MarshallInfo mi0 = new MarshallInfo(EnumEntity.class, null, null, 0, "INT", "INT", null, EnumEntity.INT, false, false);
-        MarshallInfo mi1 = new MarshallInfo(EnumEntity.class, null, null, 1, "LONG", "LONG", null, EnumEntity.LONG, false, false);
-        MarshallInfo mi2 = new MarshallInfo(EnumEntity.class, null, null, 2, "STR", "STR", null, EnumEntity.STR, false, false);
-        MarshallInfo mi3 = new MarshallInfo(EnumEntity.class, null, null, 3, "TIME", "TIME", null, EnumEntity.TIME, false, false);
+        MarshallInfo mi0 = new MarshallInfo(EnumEntity.class, null, null, 0, "INT", "INT", EnumEntity.INT, false, false);
+        MarshallInfo mi1 = new MarshallInfo(EnumEntity.class, null, null, 1, "LONG", "LONG", EnumEntity.LONG, false, false);
+        MarshallInfo mi2 = new MarshallInfo(EnumEntity.class, null, null, 2, "STR", "STR", EnumEntity.STR, false, false);
+        MarshallInfo mi3 = new MarshallInfo(EnumEntity.class, null, null, 3, "TIME", "TIME", EnumEntity.TIME, false, false);
         FACADE_INFO = new MarshallFacadeInfo(List.of(mi0, mi1, mi2, mi3));
     }
 
     @Override
     public Class<?> marshallableType() {
         return EnumEntity.class;
-    }
-
-    @Override
-    public MethodHandle constructor() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Object construct(MarshallSchema schema) {
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -202,10 +188,5 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
             }
         }
         throw new IllegalArgumentException("marshallInfo not found by mappedName");
-    }
-
-    @Override
-    public MarshallSchema newSchema() {
-        throw new UnsupportedOperationException();
     }
 }

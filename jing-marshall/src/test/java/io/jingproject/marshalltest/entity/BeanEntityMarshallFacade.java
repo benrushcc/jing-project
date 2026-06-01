@@ -1,24 +1,24 @@
 package io.jingproject.marshalltest.entity;
 
 import io.jingproject.common.WriteBuffer;
-import io.jingproject.marshall.MarshallFacade;
-import io.jingproject.marshall.MarshallFacadeInfo;
-import io.jingproject.marshall.MarshallInfo;
-import io.jingproject.marshall.MarshallSchema;
+import io.jingproject.marshall.*;
 
 import java.lang.foreign.MemorySegment;
-import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.time.LocalDateTime;
 import java.util.List;
 
 public final class BeanEntityMarshallFacade implements MarshallFacade {
-    private static final MethodHandle CONSTRUCTOR_MH;
     private static final MarshallFacadeInfo FACADE_INFO;
+    private static final List<VarHandle> VHS;
 
     static {
+        MarshallInfo mi0 = new MarshallInfo(int.class, null, null, 0, "intValue", "intValue", null, false, false);
+        MarshallInfo mi1 = new MarshallInfo(long.class, null, null, 1, "longValue", "longValue", null, false, false);
+        MarshallInfo mi2 = new MarshallInfo(String.class, null, null, 2, "strValue", "strValue", null, false, false);
+        MarshallInfo mi3 = new MarshallInfo(LocalDateTime.class, null, null, 3, "timeValue", "timeValue", null, false, false);
+        FACADE_INFO = new MarshallFacadeInfo(List.of(mi0, mi1, mi2, mi3));
         try {
             MethodHandles.Lookup lookup = MethodHandles.lookup();
             MethodHandles.Lookup lookup0 = MethodHandles.privateLookupIn(BeanEntity.class, lookup);
@@ -26,33 +26,19 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
             VarHandle vh1 = lookup0.findVarHandle(BeanEntity.class, "longValue", long.class);
             VarHandle vh2 = lookup0.findVarHandle(BeanEntity.class, "strValue", String.class);
             VarHandle vh3 = lookup0.findVarHandle(BeanEntity.class, "timeValue", LocalDateTime.class);
-            MarshallInfo mi0 = new MarshallInfo(int.class, null, null, 0, "intValue", "intValue", vh0, null, false, false);
-            MarshallInfo mi1 = new MarshallInfo(long.class, null, null, 1, "longValue", "longValue", vh1, null, false, false);
-            MarshallInfo mi2 = new MarshallInfo(String.class, null, null, 2, "strValue", "strValue", vh2, null, false, false);
-            MarshallInfo mi3 = new MarshallInfo(LocalDateTime.class, null, null, 3, "timeValue", "timeValue", vh3, null, false, false);
-            CONSTRUCTOR_MH = lookup0.findConstructor(BeanEntity.class, MethodType.methodType(void.class));
-            FACADE_INFO = new MarshallFacadeInfo(List.of(mi0, mi1, mi2, mi3));
+            VHS = List.of(vh0, vh1, vh2, vh3);
         } catch (Exception e) {
             throw new ExceptionInInitializerError(e);
         }
     }
 
+    static VarHandle vh(int index) {
+        return VHS.get(index);
+    }
+
     @Override
     public Class<?> marshallableType() {
         return BeanEntity.class;
-    }
-
-    @Override
-    public MethodHandle constructor() {
-        return CONSTRUCTOR_MH;
-    }
-
-    @Override
-    public Object construct(MarshallSchema schema) {
-        if (schema instanceof BeanEntityMarshallSchema(_, BeanEntity instance)) {
-            return instance;
-        }
-        throw new IllegalArgumentException("wrong schema rawType");
     }
 
     @Override
@@ -224,8 +210,24 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallSchema newSchema() {
+    public MarshallReader newReader(Object target) {
+        if(target instanceof BeanEntity instance) {
+            return new BeanEntityMarshallReader(instance);
+        }
+        throw new IllegalArgumentException("wrong target : " + target.getClass().getName());
+    }
+
+    @Override
+    public MarshallWriter newWriter() {
         BeanEntity instance = new BeanEntity();
-        return new BeanEntityMarshallSchema(this, instance);
+        return new BeanEntityMarshallWriter(instance);
+    }
+
+    @Override
+    public Object construct(MarshallWriter writer) {
+        if (writer instanceof BeanEntityMarshallWriter(BeanEntity instance)) {
+            return instance;
+        }
+        throw new IllegalArgumentException("wrong writer : " + writer.getClass().getName());
     }
 }

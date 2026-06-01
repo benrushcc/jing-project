@@ -1,18 +1,19 @@
 package io.jingproject.marshalltest.entity;
 
-import io.jingproject.marshall.MarshallSchema;
+import io.jingproject.marshall.MarshallWriter;
 
 import java.time.LocalDateTime;
 
-public record BeanEntityMarshallSchema(
-        BeanEntityMarshallFacade facade,
-        BeanEntity instance
-) implements MarshallSchema {
+public final class RecordEntityMarshallWriter implements MarshallWriter {
+    private int intValue;
+    private long longValue;
+    private String strValue;
+    private LocalDateTime timeValue;
 
     @Override
     public void setInt(int offset, int value) {
         switch (offset) {
-            case 0 -> facade.marshallInfoByIndex(0).vh().set(instance, value);
+            case 0 -> this.intValue = value;
             default -> throw new UnsupportedOperationException();
         }
     }
@@ -20,7 +21,7 @@ public record BeanEntityMarshallSchema(
     @Override
     public void setLong(int offset, long value) {
         switch (offset) {
-            case 1 -> facade.marshallInfoByIndex(1).vh().set(instance, value);
+            case 1 -> this.longValue = value;
             default -> throw new UnsupportedOperationException();
         }
     }
@@ -28,9 +29,13 @@ public record BeanEntityMarshallSchema(
     @Override
     public void setObject(int offset, Object value) {
         switch (offset) {
-            case 2 -> facade.marshallInfoByIndex(2).vh().set(instance, (String) value);
-            case 3 -> facade.marshallInfoByIndex(3).vh().set(instance, (LocalDateTime) value);
+            case 2 -> this.strValue = (String) value;
+            case 3 -> this.timeValue = (LocalDateTime) value;
             default -> throw new UnsupportedOperationException();
         }
+    }
+
+    RecordEntity build() {
+        return new RecordEntity(intValue, longValue, strValue, timeValue);
     }
 }

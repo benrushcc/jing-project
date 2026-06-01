@@ -1,10 +1,7 @@
 package io.jingproject.marshalltest.entity;
 
 import io.jingproject.common.WriteBuffer;
-import io.jingproject.marshall.MarshallFacade;
-import io.jingproject.marshall.MarshallFacadeInfo;
-import io.jingproject.marshall.MarshallInfo;
-import io.jingproject.marshall.MarshallSchema;
+import io.jingproject.marshall.*;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
@@ -17,11 +14,19 @@ import java.util.List;
 import java.util.Map;
 
 public class ExtendEntityMarshallFacade implements MarshallFacade {
-    private static final MethodHandle CONSTRUCTOR_MH;
     private static final MarshallFacadeInfo FACADE_INFO;
+    private static final List<VarHandle> VHS;
 
     static {
         try {
+
+            MarshallInfo mi0 = new MarshallInfo(int.class, null, null, 0, "intValue", "intValue", null, false, false);
+            MarshallInfo mi1 = new MarshallInfo(long.class, null, null, 1, "longValue", "longValue", null, false, false);
+            MarshallInfo mi2 = new MarshallInfo(String.class, null, null, 2, "strValue", "strValue", null, false, false);
+            MarshallInfo mi3 = new MarshallInfo(LocalDateTime.class, null, null, 3, "timeValue", "timeValue", null, false, false);
+            MarshallInfo mi4 = new MarshallInfo(Duration.class, null, null, 4, "durationValue", "durationValue", null, false, false);
+            MarshallInfo mi5 = new MarshallInfo(Map.class, Integer.class, String.class, 5, "mapValue", "mapValue", null, false, false);
+            FACADE_INFO = new MarshallFacadeInfo(List.of(mi0, mi1, mi2, mi3, mi4, mi5));
             MethodHandles.Lookup lookup = MethodHandles.lookup();
             MethodHandles.Lookup lookup0 = MethodHandles.privateLookupIn(BeanEntity.class, lookup);
             MethodHandles.Lookup lookup1 = MethodHandles.privateLookupIn(ExtendEntity.class, lookup);
@@ -31,35 +36,19 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
             VarHandle vh3 = lookup0.findVarHandle(BeanEntity.class, "timeValue", LocalDateTime.class);
             VarHandle vh4 = lookup1.findVarHandle(ExtendEntity.class, "durationValue", Duration.class);
             VarHandle vh5 = lookup1.findVarHandle(ExtendEntity.class, "mapValue", Map.class);
-            MarshallInfo mi0 = new MarshallInfo(int.class, null, null, 0, "intValue", "intValue", vh0, null, false, false);
-            MarshallInfo mi1 = new MarshallInfo(long.class, null, null, 1, "longValue", "longValue", vh1, null, false, false);
-            MarshallInfo mi2 = new MarshallInfo(String.class, null, null, 2, "strValue", "strValue", vh2, null, false, false);
-            MarshallInfo mi3 = new MarshallInfo(LocalDateTime.class, null, null, 3, "timeValue", "timeValue", vh3, null, false, false);
-            MarshallInfo mi4 = new MarshallInfo(Duration.class, null, null, 4, "durationValue", "durationValue", vh4, null, false, false);
-            MarshallInfo mi5 = new MarshallInfo(Map.class, Integer.class, String.class, 5, "mapValue", "mapValue", vh5, null, false, false);
-            CONSTRUCTOR_MH = lookup1.findConstructor(ExtendEntity.class, MethodType.methodType(void.class));
-            FACADE_INFO = new MarshallFacadeInfo(List.of(mi0, mi1, mi2, mi3, mi4, mi5));
+            VHS = List.of(vh0, vh1, vh2, vh3, vh4, vh5);
         } catch (Exception e) {
             throw new ExceptionInInitializerError(e);
         }
     }
 
+    static VarHandle vh(int index) {
+        return VHS.get(index);
+    }
+
     @Override
     public Class<?> marshallableType() {
         return ExtendEntity.class;
-    }
-
-    @Override
-    public MethodHandle constructor() {
-        return CONSTRUCTOR_MH;
-    }
-
-    @Override
-    public Object construct(MarshallSchema schema) {
-        if (schema instanceof ExtendEntityMarshallSchema(_, ExtendEntity instance)) {
-            return instance;
-        }
-        throw new IllegalArgumentException("wrong schema rawType");
     }
 
     @Override
@@ -279,8 +268,24 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallSchema newSchema() {
+    public MarshallReader newReader(Object target) {
+        if(target instanceof ExtendEntity instance) {
+            return new ExtendEntityMarshallReader(instance);
+        }
+        throw new IllegalArgumentException("wrong target : " + target.getClass().getName());
+    }
+
+    @Override
+    public MarshallWriter newWriter() {
         ExtendEntity instance = new ExtendEntity();
-        return new ExtendEntityMarshallSchema(this, instance);
+        return new ExtendEntityMarshallWriter(instance);
+    }
+
+    @Override
+    public Object construct(MarshallWriter writer) {
+        if(writer instanceof ExtendEntityMarshallWriter(ExtendEntity instance)) {
+            return instance;
+        }
+        throw new IllegalArgumentException("wrong writer : " + writer.getClass().getName());
     }
 }

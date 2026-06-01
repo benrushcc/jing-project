@@ -14,10 +14,6 @@ public interface MarshallFacade {
 
     Class<?> marshallableType();
 
-    MethodHandle constructor();
-
-    Object construct(MarshallSchema schema);
-
     int totalElements();
 
     void writeFieldNameByIndex(WriteBuffer writeBuffer, int index);
@@ -106,6 +102,16 @@ public interface MarshallFacade {
         return marshallInfoByMappedName(mappedName);
     }
 
-    MarshallSchema newSchema();
+    default MarshallReader newReader(Object target) {
+        throw new UnsupportedOperationException();
+    }
+
+    default MarshallWriter newWriter() {
+        throw new UnsupportedOperationException();
+    }
+
+    default Object construct(MarshallWriter writer) {
+        throw new UnsupportedOperationException();
+    }
 
 }
