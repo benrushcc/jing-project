@@ -2,7 +2,7 @@ package io.jingproject.marshalltest.test;
 
 import io.jingproject.common.HeapReadBuffer;
 import io.jingproject.common.SegmentReadBuffer;
-import io.jingproject.marshall.MarshallUtil;
+import io.jingproject.marshall.MarshallOldUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -22,11 +22,11 @@ public class ReadFloatTest {
             float f = Float.parseFloat(str);
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            float f1 = MarshallUtil.readFloat(heapReadBuffer);
+            float f1 = MarshallOldUtil.readFloat(heapReadBuffer);
             Assertions.assertEquals(Float.floatToRawIntBits(f), Float.floatToRawIntBits(f1));
 
             SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(MemorySegment.ofArray(bytes));
-            float f2 = MarshallUtil.readFloat(segmentReadBuffer);
+            float f2 = MarshallOldUtil.readFloat(segmentReadBuffer);
             Assertions.assertEquals(Float.floatToRawIntBits(f), Float.floatToRawIntBits(f2));
         }
     }
@@ -36,11 +36,11 @@ public class ReadFloatTest {
             double f = Double.parseDouble(str);
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            double f1 = MarshallUtil.readDouble(heapReadBuffer);
+            double f1 = MarshallOldUtil.readDouble(heapReadBuffer);
             Assertions.assertEquals(Double.doubleToRawLongBits(f), Double.doubleToRawLongBits(f1));
 
             SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(MemorySegment.ofArray(bytes));
-            double f2 = MarshallUtil.readDouble(segmentReadBuffer);
+            double f2 = MarshallOldUtil.readDouble(segmentReadBuffer);
             Assertions.assertEquals(Double.doubleToRawLongBits(f), Double.doubleToRawLongBits(f2));
         }
     }
@@ -51,7 +51,7 @@ public class ReadFloatTest {
         for (String str : strList) {
             float f = Float.parseFloat(str);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
-            float f1 = MarshallUtil.readFloat(heapReadBuffer);
+            float f1 = MarshallOldUtil.readFloat(heapReadBuffer);
             Assertions.assertEquals(Float.floatToRawIntBits(f), Float.floatToRawIntBits(f1));
         }
     }
@@ -121,7 +121,7 @@ public class ReadFloatTest {
         for (String str : strList) {
             double f = Double.parseDouble(str);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
-            double f1 = MarshallUtil.readDouble(heapReadBuffer);
+            double f1 = MarshallOldUtil.readDouble(heapReadBuffer);
             Assertions.assertEquals(Double.doubleToRawLongBits(f), Double.doubleToRawLongBits(f1));
         }
     }
@@ -144,7 +144,7 @@ public class ReadFloatTest {
     public void parseTargetFpFormatTest() {
         String str = "12.3.4"; // no exception thrown
         HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
-        Assertions.assertNotNull(MarshallUtil.parseFpStr(heapReadBuffer));
+        Assertions.assertNotNull(MarshallOldUtil.parseFpStr(heapReadBuffer));
     }
 
     @Test
@@ -165,7 +165,7 @@ public class ReadFloatTest {
         );
         for (String str : strList) {
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
-            Assertions.assertThrows(NumberFormatException.class, () -> MarshallUtil.parseFpStr(heapReadBuffer), "str : " + str);
+            Assertions.assertThrows(NumberFormatException.class, () -> MarshallOldUtil.parseFpStr(heapReadBuffer), "str : " + str);
         }
     }
 }

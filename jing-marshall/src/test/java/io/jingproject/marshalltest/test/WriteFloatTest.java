@@ -2,7 +2,7 @@ package io.jingproject.marshalltest.test;
 
 import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.common.SegmentWriteBuffer;
-import io.jingproject.marshall.MarshallUtil;
+import io.jingproject.marshall.MarshallOldUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -24,12 +24,12 @@ public class WriteFloatTest {
             SegmentWriteBuffer segmentWriteBuffer = new SegmentWriteBuffer(arena, BUFFER_SIZE);
             for (String str : strList) {
                 float f = Float.parseFloat(str);
-                MarshallUtil.writeFloat(f, heapWriteBuffer);
+                MarshallOldUtil.writeFloat(f, heapWriteBuffer);
                 String heapStr = new String(heapWriteBuffer.toByteArray(), StandardCharsets.UTF_8);
                 heapWriteBuffer.reset();
                 checkFloatString(str, heapStr);
 
-                MarshallUtil.writeFloat(f, segmentWriteBuffer);
+                MarshallOldUtil.writeFloat(f, segmentWriteBuffer);
                 String segmentStr = new String(segmentWriteBuffer.toByteArray(), StandardCharsets.UTF_8);
                 segmentWriteBuffer.reset();
                 checkFloatString(str, segmentStr);
@@ -43,12 +43,12 @@ public class WriteFloatTest {
             SegmentWriteBuffer segmentWriteBuffer = new SegmentWriteBuffer(arena, BUFFER_SIZE);
             for (String str : strList) {
                 double f = Double.parseDouble(str);
-                MarshallUtil.writeDouble(f, heapWriteBuffer);
+                MarshallOldUtil.writeDouble(f, heapWriteBuffer);
                 String heapStr = new String(heapWriteBuffer.toByteArray(), StandardCharsets.UTF_8);
                 heapWriteBuffer.reset();
                 checkDoubleString(str, heapStr);
 
-                MarshallUtil.writeDouble(f, segmentWriteBuffer);
+                MarshallOldUtil.writeDouble(f, segmentWriteBuffer);
                 String segmentStr = new String(segmentWriteBuffer.toByteArray(), StandardCharsets.UTF_8);
                 segmentWriteBuffer.reset();
                 checkDoubleString(str, segmentStr);

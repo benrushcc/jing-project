@@ -32,6 +32,8 @@ public sealed interface WriteBuffer permits HeapWriteBuffer, SegmentWriteBuffer 
         writeBytes(bytes, 0, bytes.length);
     }
 
+    void writeRepeated(byte b, int count);
+
     void writeSegment(MemorySegment segment, long offset, long length);
 
     default void writeSegment(MemorySegment segment) {

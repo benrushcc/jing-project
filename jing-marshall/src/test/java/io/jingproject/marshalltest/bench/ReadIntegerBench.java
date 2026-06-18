@@ -2,7 +2,7 @@ package io.jingproject.marshalltest.bench;
 
 import io.jingproject.common.HeapReadBuffer;
 import io.jingproject.common.SegmentReadBuffer;
-import io.jingproject.marshall.MarshallUtil;
+import io.jingproject.marshall.MarshallOldUtil;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
@@ -143,7 +143,7 @@ public class ReadIntegerBench {
         for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = intBytes.get(index);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            int value = MarshallUtil.readInt(heapReadBuffer);
+            int value = MarshallOldUtil.readInt(heapReadBuffer);
             blackhole.consume(value);
         }
     }
@@ -154,7 +154,7 @@ public class ReadIntegerBench {
         for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = intSegments.get(index);
             SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
-            int value = MarshallUtil.readInt(segmentReadBuffer);
+            int value = MarshallOldUtil.readInt(segmentReadBuffer);
             blackhole.consume(value);
         }
     }
@@ -165,7 +165,7 @@ public class ReadIntegerBench {
         for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = longBytes.get(index);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            long value = MarshallUtil.readLong(heapReadBuffer);
+            long value = MarshallOldUtil.readLong(heapReadBuffer);
             blackhole.consume(value);
         }
     }
@@ -176,7 +176,7 @@ public class ReadIntegerBench {
         for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = longSegments.get(index);
             SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
-            long value = MarshallUtil.readLong(segmentReadBuffer);
+            long value = MarshallOldUtil.readLong(segmentReadBuffer);
             blackhole.consume(value);
         }
     }

@@ -16,22 +16,44 @@ public final class SegmentWriteBuffer implements WriteBuffer {
         }
     }
 
+    private static final long MIN_INITIAL_SIZE = 4L;
+    private static final long MIN_LIMIT = 256L;
+
     private final SegmentAllocator alloc;
+    private final long limit;
     private MemorySegment seg;
     private long position;
 
     public SegmentWriteBuffer(SegmentAllocator allocator, long initialSize) {
-        alloc = allocator;
-        seg = allocator.allocate(initialSize);
-        assert seg.isNative();
-        position = 0L;
+        this(allocator, initialSize, Integer.MAX_VALUE);
+    }
+
+    public SegmentWriteBuffer(SegmentAllocator allocator, long initialSize, long limit) {
+        if(allocator == null) {
+            throw new IllegalArgumentException("allocator cannot be null");
+        }
+        if(initialSize < MIN_INITIAL_SIZE) {
+            throw new IllegalArgumentException("initial size must be at least " + MIN_INITIAL_SIZE);
+        }
+        if(limit < MIN_LIMIT) {
+            throw new IllegalArgumentException("limit must be at least " + MIN_LIMIT);
+        }
+        this.alloc = allocator;
+        this.seg = allocator.allocate(initialSize);
+        assert this.seg.isNative();
+        this.position = 0L;
+        this.limit = limit;
     }
 
     private void growBufferIfNeeded(long requiredCapacity) {
+        assert requiredCapacity > 0L;
         long currentCapacity = seg.byteSize();
         if (currentCapacity < requiredCapacity) {
             long growedCapacity = Math.addExact(seg.byteSize(), seg.byteSize());
             long newLength = Math.max(growedCapacity, requiredCapacity);
+            if(newLength > limit) {
+                throw new SizeLimitExceededException(newLength, limit);
+            }
             MemorySegment newSegment = alloc.allocate(newLength);
             MemorySegment.copy(seg, 0L, newSegment, 0L, position);
             seg = newSegment;
@@ -62,11 +84,17 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public void ensureCapacity(int capacity) {
+        if(capacity < 0) {
+            throw new IllegalArgumentException("capacity must be positive");
+        }
         growBufferIfNeeded(capacity);
     }
 
     @Override
     public void ensureCapacity(long capacity) {
+        if(capacity < 0L) {
+            throw new IllegalArgumentException("capacity must be positive");
+        }
         growBufferIfNeeded(capacity);
     }
 
@@ -109,6 +137,15 @@ public final class SegmentWriteBuffer implements WriteBuffer {
         long newPosition = Math.addExact(position, length);
         growBufferIfNeeded(newPosition);
         MemorySegment.copy(bytes, offset, seg, ValueLayout.JAVA_BYTE, position, length);
+        position = newPosition;
+    }
+
+    @Override
+    public void writeRepeated(byte b, int count) {
+        assert count > 0;
+        long newPosition = Math.addExact(position, count);
+        growBufferIfNeeded(newPosition);
+        seg.asSlice(position, count).fill(b);
         position = newPosition;
     }
 

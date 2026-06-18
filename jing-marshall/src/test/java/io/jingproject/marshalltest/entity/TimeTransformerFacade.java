@@ -19,7 +19,12 @@ public final class TimeTransformerFacade implements MarshallTransformerFacade {
     }
 
     @Override
-    public MarshallTransformer<?, ?> transformer() {
-        return INSTANCE;
+    public Object toCustom(Object o) {
+        return INSTANCE.toCustom((String) o);
+    }
+
+    @Override
+    public Object toBuiltin(Object o) {
+        return INSTANCE.toBuiltin((LocalDateTime) o);
     }
 }

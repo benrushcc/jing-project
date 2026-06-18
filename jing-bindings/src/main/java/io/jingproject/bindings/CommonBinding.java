@@ -5,7 +5,7 @@ import io.jingproject.ffm.FFM;
 
 import java.lang.foreign.MemorySegment;
 
-@FFM(libraryName = "jing")
+@FFM(libraryName = "jing_bindings")
 public interface CommonBinding {
     @Downcall(methodName = "jing_version_string", constant = true, critical = true)
     MemorySegment versionString();

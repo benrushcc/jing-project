@@ -1,6 +1,5 @@
 package io.jingproject.marshallprocessor;
 
-import io.jingproject.common.WriteBuffer;
 import io.jingproject.common.anno.Provider;
 import io.jingproject.commonprocess.AnnoUtil;
 import io.jingproject.commonprocess.AnnotationProcessorException;
@@ -90,17 +89,17 @@ public final class MarshallProcessor extends AbstractProcessor {
         // if using inheritance, must be annotationed with @Marshallable in the same module
         Elements elements = processingEnv.getElementUtils();
         Types typeUtils = processingEnv.getTypeUtils();
-        ModuleElement rootModule = elements.getModuleOf(t);
+        TypeMirror rootModuleType = elements.getModuleOf(t).asType();
         TypeMirror superType = t.getSuperclass();
         while (!typeUtils.isSameType(superType, objectType)) {
             Marshallable superTypeAnnotation = superType.getAnnotation(Marshallable.class);
             if (superTypeAnnotation == null) {
-                throw new AnnotationProcessorException("super rawType must be annotated with @Marshallable");
+                throw new AnnotationProcessorException("super class must be annotated with @Marshallable");
             }
             Element superElement = typeUtils.asElement(superType);
-            ModuleElement superModule = elements.getModuleOf(superElement);
-            if (!rootModule.equals(superModule)) {
-                throw new AnnotationProcessorException("super rawType must be within the same module");
+            TypeMirror superModuleType = elements.getModuleOf(superElement).asType();
+            if (!typeUtils.isSameType(rootModuleType, superModuleType)) {
+                throw new AnnotationProcessorException("super class must be within the same module");
             }
             superType = AnnoUtil.castTypeElement(superElement).getSuperclass();
         }
@@ -108,13 +107,13 @@ public final class MarshallProcessor extends AbstractProcessor {
         boolean foundNoArgConstructor = false;
         boolean foundFieldElement = false;
         for (Element e : t.getEnclosedElements()) {
-            if (!foundNoArgConstructor && e.getKind().equals(ElementKind.CONSTRUCTOR)) {
+            if (!foundNoArgConstructor && e.getKind() == ElementKind.CONSTRUCTOR) {
                 ExecutableElement ex = AnnoUtil.castExecutableElement(e);
                 if (ex.getParameters().isEmpty() && ex.getModifiers().contains(Modifier.PUBLIC)) {
                     foundNoArgConstructor = true;
                 }
             }
-            if (e.getKind().equals(ElementKind.FIELD)) {
+            if (e.getKind() == ElementKind.FIELD) {
                 VariableElement va = AnnoUtil.castVariableElement(e);
                 if (va.getModifiers().contains(Modifier.STATIC)) {
                     continue;
@@ -140,7 +139,7 @@ public final class MarshallProcessor extends AbstractProcessor {
             throw new AnnotationProcessorException("only public fieldElement can be annotated with @Marshallable");
         }
         // must have fields
-        List<? extends Element> fields = t.getEnclosedElements().stream().filter(e -> e.getKind().equals(ElementKind.RECORD_COMPONENT)).toList();
+        List<? extends Element> fields = t.getEnclosedElements().stream().filter(e -> e.getKind() == ElementKind.RECORD_COMPONENT).toList();
         if (fields.isEmpty()) {
             throw new AnnotationProcessorException("enclosed elements can not be empty");
         }
@@ -157,7 +156,7 @@ public final class MarshallProcessor extends AbstractProcessor {
             throw new AnnotationProcessorException("only public fieldElement can be annotated with @Marshallable");
         }
         // must have enum constants
-        if (t.getEnclosedElements().stream().noneMatch(e -> e.getKind().equals(ElementKind.ENUM_CONSTANT))) {
+        if (t.getEnclosedElements().stream().noneMatch(e -> e.getKind() == ElementKind.ENUM_CONSTANT)) {
             throw new AnnotationProcessorException("enum constants can not be empty");
         }
     }
@@ -242,7 +241,7 @@ public final class MarshallProcessor extends AbstractProcessor {
         for (int typeIndex = 0; typeIndex < typeElements.size(); typeIndex++) {
             TypeElement te = typeElements.get(typeIndex);
             for (Element e : te.getEnclosedElements()) {
-                if (e.getKind().equals(targetKind)) {
+                if (e.getKind() == targetKind) {
                     VariableElement v = AnnoUtil.castVariableElement(e);
                     MarshallFieldInfo fi = createMarshallFieldInfo(te, typeIndex, v, marshallIndex, fieldNameIndex, mappedNameIndex);
                     marshallIndex = Math.incrementExact(marshallIndex);
@@ -450,8 +449,6 @@ public final class MarshallProcessor extends AbstractProcessor {
                 buildPackagePrivateVhMethod(facadeSource, info),
                 buildMarshallableTypeMethod(facadeSource, info),
                 buildTotalElementsMethod(facadeSource, info),
-                buildWriteNameByIndexMethod(facadeSource, info, true),
-                buildWriteNameByIndexMethod(facadeSource, info, false),
                 buildMarshallInfoByIndexMethod(facadeSource),
                 buildMarshallInfoByStringMethod(facadeSource, info, true),
                 buildMarshallInfoByBinaryMethod(facadeSource, info, true, false),
@@ -600,26 +597,6 @@ public final class MarshallProcessor extends AbstractProcessor {
                 .addLine("return " + info.fieldInfos().size() + ";")
                 .unindent()
                 .addLine("}").newLine();
-    }
-
-    private GeneratorBlock buildWriteNameByIndexMethod(GeneratorSource facadeSource, MarshallProcessorInfo info, boolean f) {
-        String overrideClassName = facadeSource.register(Override.class);
-        String writeBufferClassName = facadeSource.register(WriteBuffer.class);
-        String illegalArgumentExceptionClassName = facadeSource.register(IllegalArgumentException.class);
-        String lowerType = f ? "fieldName" : "mappedName";
-        String upperType = f ? "FieldName" : "MappedName";
-        GeneratorBlock b = new GeneratorBlock().addLine("@" + overrideClassName)
-                .addLine("public void write" + upperType + "ByIndex(" + writeBufferClassName + " writeBuffer, int index) {")
-                .indent().addLine("switch (index) {")
-                .indent();
-        for (MarshallFieldInfo fi : info.fieldInfos()) {
-            int offset = f ? fi.fieldNameOffset() : fi.mappedNameOffset();
-            int len = f ? fi.fieldNameLen() : fi.mappedNameLen();
-            b.addLine("case " + fi.marshallIndex() + " -> writeBuffer.writeBytes(FACADE_INFO." + lowerType +
-                    "Bytes(), " + offset + ", " + len + ");");
-        }
-        return b.addLine("default -> throw new " + illegalArgumentExceptionClassName + "(\"wrong index\");")
-                .unindent().addLine("}").unindent().addLine("}").newLine();
     }
 
     private GeneratorBlock buildMarshallInfoByIndexMethod(GeneratorSource facadeSource) {

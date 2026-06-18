@@ -1,7 +1,6 @@
 package io.jingproject.common;
 
 import java.lang.foreign.ValueLayout;
-import java.util.Arrays;
 
 /**
  * Simple enum to represent the operating system type.

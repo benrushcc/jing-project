@@ -1,4 +1,7 @@
 #include "jing_common.h"
+#if defined(JING_OS_WINDOWS)
+#include <malloc.h>
+#endif
 
 static const int MAJOR_VERSION     = 0;
 static const int MINOR_VERSION     = 0;

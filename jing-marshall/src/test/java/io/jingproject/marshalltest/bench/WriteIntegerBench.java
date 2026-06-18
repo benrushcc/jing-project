@@ -2,7 +2,7 @@ package io.jingproject.marshalltest.bench;
 
 import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.common.SegmentWriteBuffer;
-import io.jingproject.marshall.MarshallUtil;
+import io.jingproject.marshall.MarshallOldUtil;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
@@ -82,7 +82,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkWriteHeapInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeInt0(intNums[index], heapWriteBuffer);
+            MarshallOldUtil.writeInt0(intNums[index], heapWriteBuffer);
             heapWriteBuffer.reset();
             blackhole.consume(heapWriteBuffer);
         }
@@ -92,7 +92,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkWriteHeapLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeLong0(longNums[index], heapWriteBuffer);
+            MarshallOldUtil.writeLong0(longNums[index], heapWriteBuffer);
             heapWriteBuffer.reset();
             blackhole.consume(heapWriteBuffer);
         }
@@ -102,7 +102,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkWriteSegmentInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeInt0(intNums[index], segmentWriteBuffer);
+            MarshallOldUtil.writeInt0(intNums[index], segmentWriteBuffer);
             segmentWriteBuffer.reset();
             blackhole.consume(segmentWriteBuffer);
         }
@@ -112,7 +112,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void jdkWriteSegmentLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeLong0(longNums[index], segmentWriteBuffer);
+            MarshallOldUtil.writeLong0(longNums[index], segmentWriteBuffer);
             segmentWriteBuffer.reset();
             blackhole.consume(segmentWriteBuffer);
         }
@@ -122,7 +122,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void singleWriteHeapInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeInt1(intNums[index], heapWriteBuffer);
+            MarshallOldUtil.writeInt1(intNums[index], heapWriteBuffer);
             heapWriteBuffer.reset();
             blackhole.consume(heapWriteBuffer);
         }
@@ -132,7 +132,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void singleWriteHeapLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeLong1(longNums[index], heapWriteBuffer);
+            MarshallOldUtil.writeLong1(longNums[index], heapWriteBuffer);
             heapWriteBuffer.reset();
             blackhole.consume(heapWriteBuffer);
         }
@@ -142,7 +142,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void singleWriteSegmentInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeInt1(intNums[index], segmentWriteBuffer);
+            MarshallOldUtil.writeInt1(intNums[index], segmentWriteBuffer);
             segmentWriteBuffer.reset();
             blackhole.consume(segmentWriteBuffer);
         }
@@ -152,7 +152,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void singleWriteSegmentLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeLong1(longNums[index], segmentWriteBuffer);
+            MarshallOldUtil.writeLong1(longNums[index], segmentWriteBuffer);
             segmentWriteBuffer.reset();
             blackhole.consume(segmentWriteBuffer);
         }
@@ -162,7 +162,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void lutWriteHeapInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeInt2(intNums[index], heapWriteBuffer);
+            MarshallOldUtil.writeInt2(intNums[index], heapWriteBuffer);
             heapWriteBuffer.reset();
             blackhole.consume(heapWriteBuffer);
         }
@@ -172,7 +172,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void lutWriteHeapLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeLong2(longNums[index], heapWriteBuffer);
+            MarshallOldUtil.writeLong2(longNums[index], heapWriteBuffer);
             heapWriteBuffer.reset();
             blackhole.consume(heapWriteBuffer);
         }
@@ -182,7 +182,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void lutWriteSegmentInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeInt2(intNums[index], segmentWriteBuffer);
+            MarshallOldUtil.writeInt2(intNums[index], segmentWriteBuffer);
             segmentWriteBuffer.reset();
             blackhole.consume(segmentWriteBuffer);
         }
@@ -192,7 +192,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void lutWriteSegmentLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeLong2(longNums[index], segmentWriteBuffer);
+            MarshallOldUtil.writeLong2(longNums[index], segmentWriteBuffer);
             segmentWriteBuffer.reset();
             blackhole.consume(segmentWriteBuffer);
         }
@@ -202,7 +202,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void thWriteHeapInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeInt(intNums[index], heapWriteBuffer);
+            MarshallOldUtil.writeInt(intNums[index], heapWriteBuffer);
             heapWriteBuffer.reset();
             blackhole.consume(heapWriteBuffer);
         }
@@ -212,7 +212,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void thWriteHeapLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeLong(longNums[index], heapWriteBuffer);
+            MarshallOldUtil.writeLong(longNums[index], heapWriteBuffer);
             heapWriteBuffer.reset();
             blackhole.consume(heapWriteBuffer);
         }
@@ -222,7 +222,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void thWriteSegmentInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeInt(intNums[index], segmentWriteBuffer);
+            MarshallOldUtil.writeInt(intNums[index], segmentWriteBuffer);
             segmentWriteBuffer.reset();
             blackhole.consume(segmentWriteBuffer);
         }
@@ -232,7 +232,7 @@ public class WriteIntegerBench {
     @OperationsPerInvocation(BATCH_SIZE)
     public void thWriteSegmentLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
-            MarshallUtil.writeLong(longNums[index], segmentWriteBuffer);
+            MarshallOldUtil.writeLong(longNums[index], segmentWriteBuffer);
             segmentWriteBuffer.reset();
             blackhole.consume(segmentWriteBuffer);
         }

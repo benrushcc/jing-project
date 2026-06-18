@@ -2,7 +2,7 @@ package io.jingproject.marshalltest.bench;
 
 import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.common.SegmentWriteBuffer;
-import io.jingproject.marshall.MarshallUtil;
+import io.jingproject.marshall.MarshallOldUtil;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
@@ -119,7 +119,7 @@ public class WriteFloatBench {
     public void uscaleWriteHeapFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             float f = floats[index];
-            MarshallUtil.writeFloat(f, heapWriteBuffer);
+            MarshallOldUtil.writeFloat(f, heapWriteBuffer);
             blackhole.consume(heapWriteBuffer);
             heapWriteBuffer.reset();
         }
@@ -130,7 +130,7 @@ public class WriteFloatBench {
     public void uscaleWriteSegmentFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             float f = floats[index];
-            MarshallUtil.writeFloat(f, segmentWriteBuffer);
+            MarshallOldUtil.writeFloat(f, segmentWriteBuffer);
             blackhole.consume(segmentWriteBuffer);
             segmentWriteBuffer.reset();
         }
@@ -141,7 +141,7 @@ public class WriteFloatBench {
     public void uscaleWriteHeapDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             double f = doubles[index];
-            MarshallUtil.writeDouble(f, heapWriteBuffer);
+            MarshallOldUtil.writeDouble(f, heapWriteBuffer);
             blackhole.consume(heapWriteBuffer);
             heapWriteBuffer.reset();
         }
@@ -152,7 +152,7 @@ public class WriteFloatBench {
     public void uscaleWriteSegmentDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             double f = doubles[index];
-            MarshallUtil.writeDouble(f, segmentWriteBuffer);
+            MarshallOldUtil.writeDouble(f, segmentWriteBuffer);
             blackhole.consume(segmentWriteBuffer);
             segmentWriteBuffer.reset();
         }

@@ -3,7 +3,7 @@ package io.jingproject.marshalltest.bench;
 import io.jingproject.common.HeapReadBuffer;
 import io.jingproject.common.SegmentReadBuffer;
 import io.jingproject.marshall.FpStr;
-import io.jingproject.marshall.MarshallUtil;
+import io.jingproject.marshall.MarshallOldUtil;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
@@ -181,7 +181,7 @@ public class ReadFloatBench {
     public void uscaleReadHeapFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = floatBytes.get(index);
-            float f = MarshallUtil.readFloat(new HeapReadBuffer(bytes));
+            float f = MarshallOldUtil.readFloat(new HeapReadBuffer(bytes));
             blackhole.consume(f);
         }
     }
@@ -191,7 +191,7 @@ public class ReadFloatBench {
     public void uscaleReadHeapDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = doubleBytes.get(index);
-            double d = MarshallUtil.readDouble(new HeapReadBuffer(bytes));
+            double d = MarshallOldUtil.readDouble(new HeapReadBuffer(bytes));
             blackhole.consume(d);
         }
     }
@@ -201,7 +201,7 @@ public class ReadFloatBench {
     public void uscaleReadSegmentFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = floatSegments.get(index);
-            float f = MarshallUtil.readFloat(new SegmentReadBuffer(segment));
+            float f = MarshallOldUtil.readFloat(new SegmentReadBuffer(segment));
             blackhole.consume(f);
         }
     }
@@ -211,7 +211,7 @@ public class ReadFloatBench {
     public void uscaleReadSegmentDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = doubleSegments.get(index);
-            double d = MarshallUtil.readDouble(new SegmentReadBuffer(segment));
+            double d = MarshallOldUtil.readDouble(new SegmentReadBuffer(segment));
             blackhole.consume(d);
         }
     }
@@ -221,7 +221,7 @@ public class ReadFloatBench {
     public void uscaleParseHeapFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = floatBytes.get(index);
-            FpStr fpStr = MarshallUtil.parseFpStr(new HeapReadBuffer(bytes));
+            FpStr fpStr = MarshallOldUtil.parseFpStr(new HeapReadBuffer(bytes));
             blackhole.consume(fpStr);
         }
     }
@@ -231,7 +231,7 @@ public class ReadFloatBench {
     public void uscaleParseSegmentFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = floatSegments.get(index);
-            FpStr fpStr = MarshallUtil.parseFpStr(new SegmentReadBuffer(segment));
+            FpStr fpStr = MarshallOldUtil.parseFpStr(new SegmentReadBuffer(segment));
             blackhole.consume(fpStr);
         }
     }
@@ -241,7 +241,7 @@ public class ReadFloatBench {
     public void uscaleParseHeapDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             byte[] bytes = doubleBytes.get(index);
-            FpStr fpStr = MarshallUtil.parseFpStr(new HeapReadBuffer(bytes));
+            FpStr fpStr = MarshallOldUtil.parseFpStr(new HeapReadBuffer(bytes));
             blackhole.consume(fpStr);
         }
     }
@@ -251,7 +251,7 @@ public class ReadFloatBench {
     public void uscaleParseSegmentDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             MemorySegment segment = doubleSegments.get(index);
-            FpStr fpStr = MarshallUtil.parseFpStr(new SegmentReadBuffer(segment));
+            FpStr fpStr = MarshallOldUtil.parseFpStr(new SegmentReadBuffer(segment));
             blackhole.consume(fpStr);
         }
     }

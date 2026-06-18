@@ -25,8 +25,8 @@ public final class Marshalls {
         List<MarshallTransformerFacade> facades = ServiceLoader.load(MarshallTransformerFacade.class).stream().map(ServiceLoader.Provider::get).toList();
         Map<Class<?>, MarshallTransformerFacade> r = new HashMap<>();
         for (MarshallTransformerFacade facade : facades) {
-            if(r.put(facade.transformer().getClass(), facade) != null) {
-                throw new IllegalStateException("duplicate transformer : " + facade.transformer().getClass());
+            if(r.put(facade.getClass(), facade) != null) {
+                throw new IllegalStateException("duplicate transformer : " + facade.getClass());
             }
         }
         return Map.copyOf(r);

@@ -6,7 +6,10 @@ import io.jingproject.commonprocess.AnnoUtil;
 import io.jingproject.commonprocess.AnnotationProcessorException;
 import io.jingproject.commonprocess.GeneratorBlock;
 import io.jingproject.commonprocess.GeneratorSource;
-import io.jingproject.ffm.*;
+import io.jingproject.ffm.Downcall;
+import io.jingproject.ffm.FFM;
+import io.jingproject.ffm.LibFacade;
+import io.jingproject.ffm.Libs;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;

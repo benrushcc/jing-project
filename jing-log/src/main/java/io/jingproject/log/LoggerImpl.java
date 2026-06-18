@@ -34,7 +34,7 @@ public final class LoggerImpl implements Logger {
         try {
             current = (LogLevel) mh.invokeExact();
         } catch (Throwable t) {
-            throw new AssertionError("Unexpected error in MutableCallSite invocation", t);
+            throw new AssertionError("unexpected error in MutableCallSite invocation", t);
         }
         return current.value() <= Objects.requireNonNull(level).value();
     }

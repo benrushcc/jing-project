@@ -1,7 +1,8 @@
 package io.jingproject.marshalltest.entity;
 
-import io.jingproject.common.WriteBuffer;
-import io.jingproject.marshall.*;
+import io.jingproject.marshall.MarshallFacade;
+import io.jingproject.marshall.MarshallFacadeInfo;
+import io.jingproject.marshall.MarshallInfo;
 
 import java.lang.foreign.MemorySegment;
 import java.util.List;
@@ -25,28 +26,6 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
     @Override
     public int totalElements() {
         return 4;
-    }
-
-    @Override
-    public void writeFieldNameByIndex(WriteBuffer writeBuffer, int index) {
-        switch (index) {
-            case 0 -> writeBuffer.writeBytes(FACADE_INFO.fieldNameBytes(), 0, 3);
-            case 1 -> writeBuffer.writeBytes(FACADE_INFO.fieldNameBytes(), 3, 4);
-            case 2 -> writeBuffer.writeBytes(FACADE_INFO.fieldNameBytes(), 7, 3);
-            case 3 -> writeBuffer.writeBytes(FACADE_INFO.fieldNameBytes(), 10, 4);
-            default -> throw new IllegalArgumentException("wrong index");
-        }
-    }
-
-    @Override
-    public void writeMappedNameByIndex(WriteBuffer writeBuffer, int index) {
-        switch (index) {
-            case 0 -> writeBuffer.writeBytes(FACADE_INFO.mappedNameBytes(), 0, 3);
-            case 1 -> writeBuffer.writeBytes(FACADE_INFO.mappedNameBytes(), 3, 4);
-            case 2 -> writeBuffer.writeBytes(FACADE_INFO.mappedNameBytes(), 7, 3);
-            case 3 -> writeBuffer.writeBytes(FACADE_INFO.mappedNameBytes(), 10, 4);
-            default -> throw new IllegalArgumentException("wrong index");
-        }
     }
 
     @Override

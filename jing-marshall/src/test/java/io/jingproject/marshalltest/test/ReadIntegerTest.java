@@ -1,7 +1,7 @@
 package io.jingproject.marshalltest.test;
 
 import io.jingproject.common.HeapReadBuffer;
-import io.jingproject.marshall.MarshallUtil;
+import io.jingproject.marshall.MarshallOldUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +30,7 @@ public class ReadIntegerTest {
             int expected = Integer.parseInt(s);
             byte[] bytes = s.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            int actual = MarshallUtil.readInt(heapReadBuffer);
+            int actual = MarshallOldUtil.readInt(heapReadBuffer);
             Assertions.assertEquals(expected, actual);
         }
     }
@@ -48,7 +48,7 @@ public class ReadIntegerTest {
         for (String str : overflowValues) {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            Assertions.assertThrows(ArithmeticException.class, () -> MarshallUtil.readInt(heapReadBuffer));
+            Assertions.assertThrows(ArithmeticException.class, () -> MarshallOldUtil.readInt(heapReadBuffer));
         }
     }
 
@@ -64,7 +64,7 @@ public class ReadIntegerTest {
         for (String str : wrongFormatValues) {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            Assertions.assertThrows(NumberFormatException.class, () -> MarshallUtil.readInt(heapReadBuffer));
+            Assertions.assertThrows(NumberFormatException.class, () -> MarshallOldUtil.readInt(heapReadBuffer));
         }
     }
 
@@ -85,7 +85,7 @@ public class ReadIntegerTest {
             long l = Long.parseLong(s);
             byte[] bytes = s.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            long l1 = MarshallUtil.readLong(heapReadBuffer);
+            long l1 = MarshallOldUtil.readLong(heapReadBuffer);
             Assertions.assertEquals(l, l1);
         }
     }
@@ -103,7 +103,7 @@ public class ReadIntegerTest {
         for (String str : overflowValues) {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            Assertions.assertThrows(ArithmeticException.class, () -> MarshallUtil.readLong(heapReadBuffer));
+            Assertions.assertThrows(ArithmeticException.class, () -> MarshallOldUtil.readLong(heapReadBuffer));
         }
     }
 
@@ -119,7 +119,7 @@ public class ReadIntegerTest {
         for (String str : wrongFormatValues) {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            Assertions.assertThrows(NumberFormatException.class, () -> MarshallUtil.readLong(heapReadBuffer));
+            Assertions.assertThrows(NumberFormatException.class, () -> MarshallOldUtil.readLong(heapReadBuffer));
         }
     }
 }

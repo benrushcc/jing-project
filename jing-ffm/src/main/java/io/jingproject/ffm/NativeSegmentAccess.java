@@ -4,7 +4,10 @@ import io.jingproject.common.Os;
 import io.jingproject.common.SegmentAccess;
 import io.jingproject.common.anno.Fragile;
 
-import java.lang.foreign.*;
+import java.lang.foreign.Linker;
+import java.lang.foreign.MemoryLayout;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.util.Objects;

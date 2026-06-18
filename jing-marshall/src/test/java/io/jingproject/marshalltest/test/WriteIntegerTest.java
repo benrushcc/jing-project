@@ -3,7 +3,7 @@ package io.jingproject.marshalltest.test;
 import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.common.SegmentWriteBuffer;
 import io.jingproject.common.WriteBuffer;
-import io.jingproject.marshall.MarshallUtil;
+import io.jingproject.marshall.MarshallOldUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -78,25 +78,25 @@ public class WriteIntegerTest {
 
     @Test
     public void jdkWriteIntTest() {
-        testWriteInt(MarshallUtil::writeInt0);
-        testWriteLong(MarshallUtil::writeLong0);
+        testWriteInt(MarshallOldUtil::writeInt0);
+        testWriteLong(MarshallOldUtil::writeLong0);
     }
 
     @Test
     public void singleWriteIntTest() {
-        testWriteInt(MarshallUtil::writeInt1);
-        testWriteLong(MarshallUtil::writeLong1);
+        testWriteInt(MarshallOldUtil::writeInt1);
+        testWriteLong(MarshallOldUtil::writeLong1);
     }
 
     @Test
     public void lutWriteIntTest() {
-        testWriteInt(MarshallUtil::writeInt2);
-        testWriteLong(MarshallUtil::writeLong2);
+        testWriteInt(MarshallOldUtil::writeInt2);
+        testWriteLong(MarshallOldUtil::writeLong2);
     }
 
     @Test
     public void thWriteIntTest() {
-        testWriteInt(MarshallUtil::writeInt);
-        testWriteLong(MarshallUtil::writeLong);
+        testWriteInt(MarshallOldUtil::writeInt);
+        testWriteLong(MarshallOldUtil::writeLong);
     }
 }

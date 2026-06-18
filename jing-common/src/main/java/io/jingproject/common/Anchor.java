@@ -1,10 +1,9 @@
 package io.jingproject.common;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -18,7 +17,7 @@ public final class Anchor {
     /**
      * Registry mapping class to singleton instance
      */
-    private static final Map<Class<?>, Object> m = new ConcurrentHashMap<>();
+    private static final Map<Class<?>, Object> m = new HashMap<>();
 
     /**
      * Registered lifecycle components
@@ -39,28 +38,6 @@ public final class Anchor {
     }
 
     /**
-     * Get component instance cast to specified interface.
-     *
-     * @param clazz   Interface class to cast to
-     * @param assumed Implementation class for validation
-     * @return Component instance cast to interface
-     * @throws IllegalArgumentException if clazz not interface or assumed not implementation
-     */
-    public static <T1, T2> T2 assume(Class<T1> clazz, Class<T2> assumed) {
-        if (!clazz.isInterface()) {
-            throw new IllegalArgumentException("class " + clazz + " is not interface");
-        }
-        if (clazz.isAssignableFrom(assumed)) {
-            throw new IllegalArgumentException("class " + assumed + " is not a implementation");
-        }
-        try {
-            return assumed.cast(m.get(clazz));
-        } catch (ClassCastException e) {
-            throw new LifecycleError("Assume failure", e);
-        }
-    }
-
-    /**
      * Computes and registers a component if it doesn't exist (lazy initialization).
      * This is the primary method for component registration and retrieval.
      *
@@ -71,19 +48,24 @@ public final class Anchor {
      * @throws LifecycleError if supplier returns null or component creation fails
      */
     public static <T> T compute(Class<T> clazz, Supplier<T> supplier) {
-        AtomicBoolean created = new AtomicBoolean(false);
-        Object result = m.computeIfAbsent(clazz, _ -> {
-            created.set(true);
-            T instance = supplier.get();
-            if (instance == null) {
-                throw new LifecycleError("failed to create instance");
+        lock.lock();
+        try {
+            Object current = m.get(clazz);
+            if (current == null) {
+                T result = supplier.get();
+                m.put(clazz, result);
+                if(result instanceof LifeCycle lc) {
+                    if(lcs.isEmpty()) {
+                        addHook();
+                    }
+                    lcs.add(lc);
+                }
+                return clazz.cast(result);
             }
-            return instance;
-        });
-        if (created.get() && result instanceof LifeCycle lc) {
-            addLifeCycle(lc);
+            return clazz.cast(current);
+        } finally {
+            lock.unlock();
         }
-        return clazz.cast(result);
     }
 
     /**

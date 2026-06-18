@@ -16,7 +16,10 @@ import java.lang.classfile.attribute.ModuleAttribute;
 import java.lang.classfile.attribute.ModuleProvideInfo;
 import java.lang.constant.ClassDesc;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 
 @Mojo(name = "process-jing-providers", defaultPhase = LifecyclePhase.PROCESS_CLASSES, threadSafe = true)

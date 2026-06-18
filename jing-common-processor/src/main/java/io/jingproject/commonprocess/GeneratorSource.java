@@ -66,6 +66,24 @@ public final class GeneratorSource {
         if (tm.getKind().isPrimitive()) {
             return qualifiedName;
         }
+        StringTokenizer stringTokenizer = buildTokenizer(qualifiedName);
+        while (stringTokenizer.hasMoreTokens()) {
+            String s = stringTokenizer.nextToken();
+            if (s.equals(EXTENDS) || s.equals(SUPER)) {
+                // supporting 'super' and 'extends' currently brings no benefits to the program but significantly increases complexity, therefore they are not considered
+                throw new AnnotationProcessorException("super and extends are not supported for registration");
+            }
+            String packageName = AnnoUtil.packageName(s);
+            String simpleName = AnnoUtil.simpleName(s);
+            String registeredName = register(packageName, simpleName);
+            if (!registeredName.equals(s)) {
+                qualifiedName = qualifiedName.replace(s, registeredName);
+            }
+        }
+        return qualifiedName;
+    }
+
+    private static StringTokenizer buildTokenizer(String qualifiedName) {
         StringBuilder sb = new StringBuilder();
         for (char c : qualifiedName.toCharArray()) {
             // & is not possible if enclosing typeElement is not generified
@@ -77,23 +95,7 @@ public final class GeneratorSource {
                 sb.append(c);
             }
         }
-        List<Map.Entry<String, String>> entries = new ArrayList<>();
-        for (String s : sb.toString().split("\\s+")) {
-            if (s.equals(EXTENDS) || s.equals(SUPER)) {
-                // supporting 'super' and 'extends' currently brings no benefits to the program but significantly increases complexity, therefore they are not considered
-                throw new AnnotationProcessorException("super and extends are not supported for registration");
-            }
-            String packageName = AnnoUtil.packageName(s);
-            String simpleName = AnnoUtil.simpleName(s);
-            String registeredName = register(packageName, simpleName);
-            if (!registeredName.equals(s)) {
-                entries.add(Map.entry(s, registeredName));
-            }
-        }
-        for (Map.Entry<String, String> entry : entries) {
-            qualifiedName = qualifiedName.replace(entry.getKey(), entry.getValue());
-        }
-        return qualifiedName;
+        return new StringTokenizer(sb.toString(), " ");
     }
 
     public String register(Class<?> cls) {

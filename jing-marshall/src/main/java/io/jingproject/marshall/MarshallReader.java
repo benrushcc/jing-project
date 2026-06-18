@@ -4,7 +4,7 @@ import io.jingproject.common.anno.ProcessorApi;
 
 @ProcessorApi
 public interface MarshallReader {
-    default boolean getBoolean() {
+    default boolean getBoolean(int offset) {
         throw new UnsupportedOperationException();
     }
 

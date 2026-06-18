@@ -22,72 +22,72 @@ public final class SegmentAccess {
     }
 
     public static final ValueLayout.OfShort SHORT_UNALIGNED_LE =
-            ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
                     ? ValueLayout.JAVA_SHORT_UNALIGNED
                     : ValueLayout.JAVA_SHORT_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
 
     public static final ValueLayout.OfChar CHAR_UNALIGNED_LE =
-            ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
                     ? ValueLayout.JAVA_CHAR_UNALIGNED
                     : ValueLayout.JAVA_CHAR_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
 
     public static final ValueLayout.OfInt INT_UNALIGNED_LE =
-            ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
                     ? ValueLayout.JAVA_INT_UNALIGNED
                     : ValueLayout.JAVA_INT_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
 
     public static final ValueLayout.OfLong LONG_UNALIGNED_LE =
-            ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
                     ? ValueLayout.JAVA_LONG_UNALIGNED
                     : ValueLayout.JAVA_LONG_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
 
     public static final ValueLayout.OfFloat FLOAT_UNALIGNED_LE =
-            ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
                     ? ValueLayout.JAVA_FLOAT_UNALIGNED
                     : ValueLayout.JAVA_FLOAT_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
 
     public static final ValueLayout.OfDouble DOUBLE_UNALIGNED_LE =
-            ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
                     ? ValueLayout.JAVA_DOUBLE_UNALIGNED
                     : ValueLayout.JAVA_DOUBLE_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
 
     public static final AddressLayout ADDRESS_UNALIGNED_LE =
-            ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
                     ? ValueLayout.ADDRESS_UNALIGNED
                     : ValueLayout.ADDRESS_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
 
     public static final ValueLayout.OfShort SHORT_UNALIGNED_BE =
-            ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN
                     ? ValueLayout.JAVA_SHORT_UNALIGNED
                     : ValueLayout.JAVA_SHORT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
 
     public static final ValueLayout.OfChar CHAR_UNALIGNED_BE =
-            ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN
                     ? ValueLayout.JAVA_CHAR_UNALIGNED
                     : ValueLayout.JAVA_CHAR_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
 
     public static final ValueLayout.OfInt INT_UNALIGNED_BE =
-            ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN
                     ? ValueLayout.JAVA_INT_UNALIGNED
                     : ValueLayout.JAVA_INT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
 
     public static final ValueLayout.OfLong LONG_UNALIGNED_BE =
-            ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN
                     ? ValueLayout.JAVA_LONG_UNALIGNED
                     : ValueLayout.JAVA_LONG_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
 
     public static final ValueLayout.OfFloat FLOAT_UNALIGNED_BE =
-            ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN
                     ? ValueLayout.JAVA_FLOAT_UNALIGNED
                     : ValueLayout.JAVA_FLOAT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
 
     public static final ValueLayout.OfDouble DOUBLE_UNALIGNED_BE =
-            ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN
                     ? ValueLayout.JAVA_DOUBLE_UNALIGNED
                     : ValueLayout.JAVA_DOUBLE_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
 
     public static final AddressLayout ADDRESS_UNALIGNED_BE =
-            ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)
+            ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN
                     ? ValueLayout.ADDRESS_UNALIGNED
                     : ValueLayout.ADDRESS_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN);
 

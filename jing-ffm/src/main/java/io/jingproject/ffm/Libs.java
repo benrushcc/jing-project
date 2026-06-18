@@ -7,7 +7,6 @@ import java.io.File;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -181,33 +180,24 @@ public final class Libs {
     private static MethodHandle makeConstantMethodHandle(List<Class<?>> types, MethodHandle mh) {
         try {
             Class<?> rType = types.getFirst();
-            if (rType.equals(byte.class)) {
-                byte r = (byte) mh.invokeExact();
-                return MethodHandles.constant(byte.class, r);
-            } else if (boolean.class.equals(rType)) {
-                boolean r = (boolean) mh.invokeExact();
-                return MethodHandles.constant(boolean.class, r);
-            } else if (short.class.equals(rType)) {
-                short r = (short) mh.invokeExact();
-                return MethodHandles.constant(short.class, r);
-            } else if (char.class.equals(rType)) {
-                char r = (char) mh.invokeExact();
-                return MethodHandles.constant(char.class, r);
-            } else if (int.class.equals(rType)) {
-                int r = (int) mh.invokeExact();
-                return MethodHandles.constant(int.class, r);
-            } else if (long.class.equals(rType)) {
-                long r = (long) mh.invokeExact();
-                return MethodHandles.constant(long.class, r);
-            } else if (float.class.equals(rType)) {
-                float r = (float) mh.invokeExact();
-                return MethodHandles.constant(float.class, r);
-            } else if (double.class.equals(rType)) {
-                double r = (double) mh.invokeExact();
-                return MethodHandles.constant(double.class, r);
-            } else if (MemorySegment.class.equals(rType)) {
-                MemorySegment r = (MemorySegment) mh.invokeExact();
-                return MethodHandles.constant(MemorySegment.class, r);
+            if (rType == byte.class) {
+                return MethodHandles.constant(byte.class, (byte) mh.invokeExact());
+            } else if (rType == boolean.class) {
+                return MethodHandles.constant(boolean.class, (boolean) mh.invokeExact());
+            } else if (rType == short.class) {
+                return MethodHandles.constant(short.class, (short) mh.invokeExact());
+            } else if (rType == char.class) {
+                return MethodHandles.constant(char.class, (char) mh.invokeExact());
+            } else if (rType == int.class) {
+                return MethodHandles.constant(int.class, (int) mh.invokeExact());
+            } else if (rType == long.class) {
+                return MethodHandles.constant(long.class, (long) mh.invokeExact());
+            } else if (rType == float.class) {
+                return MethodHandles.constant(float.class, (float) mh.invokeExact());
+            } else if (rType == double.class) {
+                return MethodHandles.constant(double.class, (double) mh.invokeExact());
+            } else if (rType == MemorySegment.class) {
+                return MethodHandles.constant(MemorySegment.class, (MemorySegment) mh.invokeExact());
             } else {
                 throw new ForeignException("unsupported constant foreign method return type: " + rType);
             }
@@ -222,7 +212,7 @@ public final class Libs {
             layouts[i - 1] = castMemoryLayout(types.get(i));
         }
         Class<?> firstType = types.getFirst();
-        if (firstType.equals(void.class)) {
+        if (firstType == void.class) {
             return FunctionDescriptor.ofVoid(layouts);
         } else {
             MemoryLayout resLayout = castMemoryLayout(firstType);
@@ -231,23 +221,23 @@ public final class Libs {
     }
 
     private static MemoryLayout castMemoryLayout(Class<?> type) {
-        if (byte.class.equals(type)) {
+        if (type == byte.class) {
             return ValueLayout.JAVA_BYTE;
-        } else if (boolean.class.equals(type)) {
+        } else if (type == boolean.class) {
             return ValueLayout.JAVA_BOOLEAN;
-        } else if (short.class.equals(type)) {
+        } else if (type == short.class) {
             return ValueLayout.JAVA_SHORT;
-        } else if (char.class.equals(type)) {
+        } else if (type == char.class) {
             return ValueLayout.JAVA_CHAR;
-        } else if (int.class.equals(type)) {
+        } else if (type == int.class) {
             return ValueLayout.JAVA_INT;
-        } else if (long.class.equals(type)) {
+        } else if (type == long.class) {
             return ValueLayout.JAVA_LONG;
-        } else if (float.class.equals(type)) {
+        } else if (type == float.class) {
             return ValueLayout.JAVA_FLOAT;
-        } else if (double.class.equals(type)) {
+        } else if (type == double.class) {
             return ValueLayout.JAVA_DOUBLE;
-        } else if (MemorySegment.class.equals(type)) {
+        } else if (type == MemorySegment.class) {
             return ValueLayout.ADDRESS;
         } else {
             throw new ForeignException("unknown type : " + type);

@@ -28,6 +28,7 @@
         <module>jing-bindings</module>
         <module>jing-marshall</module>
         <module>jing-marshall-processor</module>
+        <module>jing-marshall-json</module>
     </modules>
 
     <properties>
