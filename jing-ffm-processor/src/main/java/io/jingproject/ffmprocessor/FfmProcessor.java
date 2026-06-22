@@ -70,10 +70,6 @@ public final class FfmProcessor extends AbstractProcessor {
         if (t.getKind() != ElementKind.INTERFACE) {
             throw new AnnotationProcessorException("only interface element can be annotated with @FFM");
         }
-        // must be public
-        if (!t.getModifiers().contains(Modifier.PUBLIC)) {
-            throw new AnnotationProcessorException("only public interface can be annotated with @FFM");
-        }
         // must be non-sealed
         if (t.getModifiers().contains(Modifier.SEALED)) {
             throw new AnnotationProcessorException("only non-sealed interface can be annotated with @FFM");

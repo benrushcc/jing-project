@@ -4,7 +4,7 @@ import io.jingproject.common.anno.ProcessorApi;
 
 @ProcessorApi
 public interface MarshallWriter {
-    default void setBoolean(boolean value) {
+    default void setBoolean(int offset, boolean value) {
         throw new UnsupportedOperationException();
     }
 

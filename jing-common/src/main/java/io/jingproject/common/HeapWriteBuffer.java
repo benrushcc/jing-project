@@ -86,7 +86,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
         if(capacity < 0) {
             throw new IllegalArgumentException("capacity must be positive");
         }
-        growBufferIfNeeded(capacity);
+        growBufferIfNeeded(Math.addExact(position, capacity));
     }
 
     @Override
@@ -94,7 +94,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
         if(capacity < 0L) {
             throw new IllegalArgumentException("capacity must be positive");
         }
-        growBufferIfNeeded(Math.toIntExact(capacity));
+        growBufferIfNeeded(Math.addExact(position, Math.toIntExact(capacity)));
     }
 
     @Override

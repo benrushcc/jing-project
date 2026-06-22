@@ -126,7 +126,7 @@ public final class JsonSerializerOption {
                     return null;
                 });
             }
-            if(initialSize < maxSize) {
+            if(initialSize > maxSize) {
                 throw new IllegalArgumentException("initialSize cannot be less than maxSize");
             }
             if(maxSize % initialSize != 0) {

@@ -5,6 +5,8 @@ import io.jingproject.marshall.MarshallTransformerFacade;
 
 import java.time.LocalDateTime;
 
+// example implementation
+@SuppressWarnings("unused")
 public final class TimeTransformerFacade implements MarshallTransformerFacade {
     private static final MarshallTransformer<LocalDateTime, String> INSTANCE = new TimeTransformer();
 

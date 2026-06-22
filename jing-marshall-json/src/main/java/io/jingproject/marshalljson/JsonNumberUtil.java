@@ -134,15 +134,17 @@ public final class JsonNumberUtil {
         return count;
     }
 
+    @SuppressWarnings("IfCanBeSwitch")
     public static void writeInt(int value, WriteBuffer writeBuffer) {
-        switch (value) {
-            case 0 -> writeBuffer.writeByte(BYTE_ZERO);
-            case Integer.MIN_VALUE -> writeBuffer.writeBytes(MIN_INT_BYTES);
-            case int i when i > 0 -> writeBuffer.setPosition(writePositiveInt(value, writeBuffer));
-            default -> {
-                writeBuffer.writeByte(BYTE_MINUS);
-                writeBuffer.setPosition(writePositiveInt(-value, writeBuffer));
-            }
+        if (value == 0) {
+            writeBuffer.writeByte(BYTE_ZERO);
+        } else if (value == Integer.MIN_VALUE) {
+            writeBuffer.writeBytes(MIN_INT_BYTES);
+        } else if (value > 0) {
+            writeBuffer.setPosition(writePositiveInt(value, writeBuffer));
+        } else {
+            writeBuffer.writeByte(BYTE_MINUS);
+            writeBuffer.setPosition(writePositiveInt(-value, writeBuffer));
         }
     }
 
@@ -213,68 +215,71 @@ public final class JsonNumberUtil {
     }
 
     private static int writePositiveIntToSegment(int value, int n, MemorySegment segment, int position) {
+        long lp = position;
         int v;
         switch (n) {
             case 10:
                 v = value / 100000000;
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 100000000;
             case 8:
                 v = value / 1000000;
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1000000;
             case 6:
                 v = value / 10000;
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 10000;
             case 4:
                 v = value / 100;
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 100;
             case 2:
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[value]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[value]);
+                lp += 2;
                 break;
             case 9:
                 v = value / 10000000;
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 10000000;
             case 7:
                 v = value / 100000;
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 100000;
             case 5:
                 v = value / 1000;
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1000;
             case 3:
                 v = value / 10;
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 10;
             case 1:
-                SegmentAccess.setByte(segment, position, (byte) (BYTE_ZERO + value));
-                position++;
+                SegmentAccess.setByte(segment, lp, (byte) (BYTE_ZERO + value));
+                lp++;
         }
-        return position;
+        return Math.toIntExact(lp);
     }
 
+    @SuppressWarnings("IfCanBeSwitch")
     public static void writeLong(long value, WriteBuffer writeBuffer) {
-        switch (value) {
-            case 0L -> writeBuffer.writeByte(BYTE_ZERO);
-            case Long.MIN_VALUE -> writeBuffer.writeBytes(MIN_LONG_BYTES);
-            case long l when l > 0 -> writeBuffer.setPosition(writePositiveLong(value, writeBuffer));
-            default -> {
-                writeBuffer.writeByte(BYTE_MINUS);
-                writeBuffer.setPosition(writePositiveLong(-value, writeBuffer));
-            }
+        if (value == 0L) {
+            writeBuffer.writeByte(BYTE_ZERO);
+        } else if (value == Long.MIN_VALUE) {
+            writeBuffer.writeBytes(MIN_LONG_BYTES);
+        } else if (value > 0) {
+            writeBuffer.setPosition(writePositiveLong(value, writeBuffer));
+        } else {
+            writeBuffer.writeByte(BYTE_MINUS);
+            writeBuffer.setPosition(writePositiveLong(-value, writeBuffer));
         }
     }
 
@@ -389,102 +394,103 @@ public final class JsonNumberUtil {
     }
 
     private static int writePositiveLongToSegment(long value, int n, MemorySegment segment, int position) {
+        long lp = position;
         int v;
         switch (n) {
             case 18:
                 v = (int) (value / 1_000_000_000_000_000_0L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000_000_000_000_0L;
             case 16:
                 v = (int) (value / 1_000_000_000_000_00L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000_000_000_00L;
             case 14:
                 v = (int) (value / 1_000_000_000_000L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000_000_000L;
             case 12:
                 v = (int) (value / 1_000_000_000_0L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000_000_0L;
             case 10:
                 v = (int) (value / 1_000_000_00L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000_00L;
             case 8:
                 v = (int) (value / 1_000_000L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000L;
             case 6:
                 v = (int) (value / 1_000_0L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_0L;
             case 4:
                 v = (int) (value / 100L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 100L;
             case 2:
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[(int) value]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[(int) value]);
+                lp += 2;
                 break;
             case 19:
                 v = (int) (value / 1_000_000_000_000_000_00L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000_000_000_000_00L;
             case 17:
                 v = (int) (value / 1_000_000_000_000_000L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000_000_000_000L;
             case 15:
                 v = (int) (value / 1_000_000_000_000_0L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000_000_000_0L;
             case 13:
                 v = (int) (value / 1_000_000_000_00L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000_000_00L;
             case 11:
                 v = (int) (value / 1_000_000_000L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000_000L;
             case 9:
                 v = (int) (value / 1_000_000_0L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_000_0L;
             case 7:
                 v = (int) (value / 1_000_00L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000_00L;
             case 5:
                 v = (int) (value / 1_000L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 1_000L;
             case 3:
                 v = (int) (value / 10L);
-                SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[v]);
-                position += 2;
+                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
+                lp += 2;
                 value -= v * 10L;
             case 1:
-                SegmentAccess.setByte(segment, position, (byte) (BYTE_ZERO + value));
-                position++;
+                SegmentAccess.setByte(segment, lp, (byte) (BYTE_ZERO + value));
+                lp++;
         }
-        return position;
+        return Math.toIntExact(lp);
     }
 
     public static void writeFloat(float f, WriteBuffer writeBuffer) {
@@ -623,7 +629,7 @@ public final class JsonNumberUtil {
 
     private static DecimalFp trimZeros(DecimalFp decimalFp) {
         long d = decimalFp.d();
-        int p = decimalFp.e();
+        int p = decimalFp.p();
         // cut 1 zero, or else return.
         long tmp = Long.rotateRight(d * DIV_1_E_1_M, 1);
         if (Long.compareUnsigned(tmp, DIV_1_E_1_LE) > 0) {
@@ -688,36 +694,36 @@ public final class JsonNumberUtil {
 
     private static void writeDecimalFp(DecimalFp decimalFp, WriteBuffer writeBuffer) {
         long d = decimalFp.d();
-        int e = decimalFp.e();
+        int p = decimalFp.p();
         int n = digitCount(d);
-        int sciE = e + n - 1;
+        int sciE = p + n - 1;
         switch (writeBuffer) {
-            case HeapWriteBuffer heapWriteBuffer -> writeDecimalFpToHeap(d, e, n, sciE, heapWriteBuffer);
-            case SegmentWriteBuffer segmentWriteBuffer ->  writeDecimalFpToSegment(d, e, n, sciE, segmentWriteBuffer);
+            case HeapWriteBuffer heapWriteBuffer -> writeDecimalFpToHeap(d, p, n, sciE, heapWriteBuffer);
+            case SegmentWriteBuffer segmentWriteBuffer ->  writeDecimalFpToSegment(d, p, n, sciE, segmentWriteBuffer);
         }
     }
 
-    private static void writeDecimalFpToHeap(long d, int e, int n, int sciE, HeapWriteBuffer heapWriteBuffer) {
+    private static void writeDecimalFpToHeap(long d, int p, int n, int sciE, HeapWriteBuffer heapWriteBuffer) {
         int position = heapWriteBuffer.intPosition();
         byte[] bytes = heapWriteBuffer.rawByteArray();
         if (sciE >= MIN_SCI_EXP && sciE < MAX_SCI_EXP) {
-            position = writeFixedDecimalFpToHeap(d, e, n, bytes, position);
+            position = writeFixedDecimalFpToHeap(d, p, n, bytes, position);
         } else {
             position = writeSciDecimalFpToHeap(d, sciE, n, bytes, position);
         }
         heapWriteBuffer.setPosition(position);
     }
 
-    private static int writeFixedDecimalFpToHeap(long d, int e, int n, byte[] bytes, int position) {
-        if(e >= 0) {
+    private static int writeFixedDecimalFpToHeap(long d, int p, int n, byte[] bytes, int position) {
+        if(p >= 0) {
             position = writePositiveLongToHeap(d, n, bytes, position);
-            if(e > 0) {
-                int newPosition = position + e;
+            if(p > 0) {
+                int newPosition = position + p;
                 Arrays.fill(bytes, position, newPosition, BYTE_ZERO);
                 position = newPosition;
             }
         } else {
-            int fracDigits = -e;
+            int fracDigits = -p;
             if (fracDigits >= n) {
                 ArrayAccess.setShort(bytes, position, ZERO_PERIOD);
                 position += 2;
@@ -760,26 +766,26 @@ public final class JsonNumberUtil {
     }
 
 
-    private static void writeDecimalFpToSegment(long d, int e, int n, int sciE, SegmentWriteBuffer segmentWriteBuffer) {
+    private static void writeDecimalFpToSegment(long d, int p, int n, int sciE, SegmentWriteBuffer segmentWriteBuffer) {
         int position = segmentWriteBuffer.intPosition();
         MemorySegment segment = segmentWriteBuffer.rawSegment();
         if (sciE >= MIN_SCI_EXP && sciE < MAX_SCI_EXP) {
-            position = writeFixedDecimalFpToSegment(d, e, n, segment, position);
+            position = writeFixedDecimalFpToSegment(d, p, n, segment, position);
         } else {
             position = writeSciDecimalFpToSegment(d, sciE, n, segment, position);
         }
         segmentWriteBuffer.setPosition(position);
     }
 
-    private static int writeFixedDecimalFpToSegment(long d, int e, int n, MemorySegment segment, int position) {
-        if (e >= 0) {
+    private static int writeFixedDecimalFpToSegment(long d, int p, int n, MemorySegment segment, int position) {
+        if (p >= 0) {
             position = writePositiveLongToSegment(d, n, segment, position);
-            if (e > 0) {
-                segment.asSlice(position, e).fill(BYTE_ZERO);
-                position += e;
+            if (p > 0) {
+                segment.asSlice(position, p).fill(BYTE_ZERO);
+                position += p;
             }
         } else {
-            int fracDigits = -e;
+            int fracDigits = -p;
             if (fracDigits >= n) {
                 SegmentAccess.setShort(segment, position, ZERO_PERIOD);
                 position += 2;
@@ -820,12 +826,24 @@ public final class JsonNumberUtil {
         return position;
     }
 
+    /**
+     * Represents a binary floating-point number as m * 2^e.
+     */
     public record BinaryFp(long m, int e) {
     }
 
-    public record DecimalFp(long d, int e) {
+    /**
+     * Represents a decimal floating-point number as d * 10^p.
+     */
+    public record DecimalFp(long d, int p) {
     }
 
+    /**
+     * Defines the specification parameters for a floating-point format (e.g., mantissa bits, exponent bits, bias, etc.).
+     * Predefined constants are available for 32-bit and 64-bit floats.
+     * Note: This implementation is strictly limited to processing 64-bit float values.
+     * Do not apply this to larger formats like FP128, as the current algorithms cannot handle the extended range.
+     */
     public record FpSpec(
             int mantBits,
             int expBits,
@@ -836,6 +854,9 @@ public final class JsonNumberUtil {
     ) {
     }
 
+    /**
+     * Holds precomputed scaling constants (a 128-bit multiplier pm and a shift count s) for a given BinaryFp value.
+     */
     public record Scalers (
             long pmHi,
             long pmLo,

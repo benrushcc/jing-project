@@ -81,6 +81,14 @@ public final class AnnoUtil {
         }
     }
 
+    public static RecordComponentElement castRecordComponentElement(Element element) {
+        if (element instanceof RecordComponentElement r) {
+            return r;
+        } else {
+            throw new AssertionError("not a recordComponentElement : " + element.asType());
+        }
+    }
+
     public static ExecutableElement castExecutableElement(Element element) {
         if (element instanceof ExecutableElement e) {
             return e;
@@ -141,26 +149,22 @@ public final class AnnoUtil {
         }
     }
 
-    public static void checkVariableElementForRegister(VariableElement variableElement) {
-        if(variableElement == null) {
-            throw new AnnotationProcessorException("variableElement cannot be null");
+    public static void checkFieldElementForRegister(Element element) {
+        if(!(element instanceof VariableElement) && !(element instanceof RecordComponentElement)) {
+            throw new AnnotationProcessorException("element must be of type variableElement or recordComponentElement : " + element);
         }
-        TypeElement enclosingTypeElement = castTypeElement(variableElement.getEnclosingElement());
-        if(enclosingTypeElement.getNestingKind() != NestingKind.TOP_LEVEL) {
-            throw new AnnotationProcessorException("enclosing typeElement must be top-level : " + enclosingTypeElement);
-        }
-        if(!enclosingTypeElement.getModifiers().contains(Modifier.PUBLIC)) {
-            throw new AnnotationProcessorException("enclosing typeElement must be public : " + enclosingTypeElement);
-        }
-        if(!enclosingTypeElement.getTypeParameters().isEmpty()) {
-            throw new AnnotationProcessorException("enclosing typeElement must not have any type parameters : " + enclosingTypeElement);
-        }
-        TypeMirror tm = variableElement.asType();
+        checkTypeElementForRegister(castTypeElement(element.getEnclosingElement()));
+        TypeMirror tm = element.asType();
         if(tm.getKind() == TypeKind.ARRAY) {
-            ArrayType arrayType = castArrayType(tm);
-            if (arrayType.getComponentType().getKind() == TypeKind.ARRAY) {
-                throw new AnnotationProcessorException("multi dimensional arrayType not supported: " + arrayType);
-            }
+            validateArray(castArrayType(tm));
+        } else if(tm.getKind() == TypeKind.DECLARED) {
+            validateTypeArgs(castDeclaredType(tm).getTypeArguments());
+        }
+        String qualifiedName = element.toString();
+        if(qualifiedName.contains("extends") || qualifiedName.contains("super")) {
+            // supporting 'super' and 'extends' currently brings no benefits to the program
+            // but significantly increases complexity, therefore they are not considered
+            throw new AnnotationProcessorException("super and extends are not supported for registration");
         }
     }
 

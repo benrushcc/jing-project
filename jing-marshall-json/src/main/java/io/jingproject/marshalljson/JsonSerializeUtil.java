@@ -181,10 +181,6 @@ public final class JsonSerializeUtil {
         serializeEscapedCharSequence((CharSequence) o, w);
         return null;
     };
-    public static final JsonValueSerializer STRING_SERIALIZER = (o, _, w, _) -> {
-        serializeEscapedString((String) o, w);
-        return null;
-    };
     public static final JsonValueSerializer JSON_PRIMITIVE_TYPE_SERIALIZER = (o, _, w, _) -> {
         serializeJsonPrimitiveType((JsonPrimitiveType) o, w);
         return null;
@@ -199,11 +195,6 @@ public final class JsonSerializeUtil {
     };
     public static final JsonValueSerializer JSON_STR_TYPE_SERIALIZER = (o, _, w, _) -> {
         serializeJsonStrType((JsonStrType) o, w);
-        return null;
-    };
-    public static final JsonValueSerializer ENUM_SERIALIZER = (o, _, w, _) -> {
-        Enum<?> e = (Enum<?>) o;
-        serializeEscapedString(e.name(), w);
         return null;
     };
 
@@ -269,8 +260,7 @@ public final class JsonSerializeUtil {
             case BYTE_u        -> {
                 // v is in the range [0x00, 0x1F], so the conversion is guaranteed to be safe.
                 writeBuffer.writeInt(COMPACT_PREFIX_u);
-                writeBuffer.writeByte(HEX_BYTES[v >>> 4]);
-                writeBuffer.writeByte(HEX_BYTES[v & 0xf]);
+                writeBuffer.writeBytes(HEX_BYTES[v >>> 4], HEX_BYTES[v & 0xf]);
             }
             default -> throw new AssertionError();
         }
@@ -281,9 +271,14 @@ public final class JsonSerializeUtil {
         if (codePoint < 0x800) {
             writeBuffer.writeBytes((byte) (0xC0 | (codePoint >> 6)), (byte) (0x80 | (codePoint & 0x3F)));
         } else if (codePoint < 0x10000) {
-            writeBuffer.writeBytes((byte) (0xE0 | (codePoint >> 12)), (byte) (0x80 | ((codePoint >> 6) & 0x3F)), (byte) (0x80 | (codePoint & 0x3F)));
+            writeBuffer.writeBytes((byte) (0xE0 | (codePoint >> 12)),
+                    (byte) (0x80 | ((codePoint >> 6) & 0x3F)),
+                    (byte) (0x80 | (codePoint & 0x3F)));
         } else {
-            writeBuffer.writeBytes((byte) (0xF0 | (codePoint >> 18)), (byte) (0x80 | ((codePoint >> 12) & 0x3F)), (byte) (0x80 | ((codePoint >> 6) & 0x3F)), (byte) (0x80 | (codePoint & 0x3F)));
+            writeBuffer.writeBytes((byte) (0xF0 | (codePoint >> 18)),
+                    (byte) (0x80 | ((codePoint >> 12) & 0x3F)),
+                    (byte) (0x80 | ((codePoint >> 6) & 0x3F)),
+                    (byte) (0x80 | (codePoint & 0x3F)));
         }
     }
 
@@ -716,11 +711,6 @@ public final class JsonSerializeUtil {
         serializeQuote(writeBuffer);
     }
 
-    public static void serializeEscapedString(String str, WriteBuffer writeBuffer) {
-        assert str != null && writeBuffer != null;
-        serializeEscapedUtf8Bytes(str.getBytes(StandardCharsets.UTF_8), writeBuffer);
-    }
-
     public static void serializeEscapedCharSequence(CharSequence charSequence, WriteBuffer writeBuffer) {
         assert charSequence != null && writeBuffer != null;
         serializeQuote(writeBuffer);
@@ -777,7 +767,7 @@ public final class JsonSerializeUtil {
 
     public static void serializeJsonStrType(JsonStrType jsonStrType, WriteBuffer writeBuffer) {
         assert jsonStrType != null && writeBuffer != null;
-        serializeEscapedString(jsonStrType.data(), writeBuffer);
+        serializeEscapedCharSequence(jsonStrType.data(), writeBuffer);
     }
 
     private static final Map<Class<?>, JsonValueSerializer> BUILTIN_OBJ_SERIALIZERS = Map.ofEntries(
@@ -790,9 +780,9 @@ public final class JsonSerializeUtil {
             Map.entry(Long.class, LONG_SERIALIZER),
             Map.entry(Float.class, FLOAT_SERIALIZER),
             Map.entry(Double.class, DOUBLE_SERIALIZER),
-            // builtin supported str types
+            // builtin supported str types (String is also treated as a CharSequence)
             Map.entry(CharSequence.class, CHAR_SEQUENCE_SERIALIZER),
-            Map.entry(String.class, STRING_SERIALIZER),
+            Map.entry(String.class, CHAR_SEQUENCE_SERIALIZER),
             // builtin json types
             Map.entry(JsonPrimitiveType.class, JSON_PRIMITIVE_TYPE_SERIALIZER),
             Map.entry(JsonBoolType.class, JSON_BOOL_TYPE_SERIALIZER),
@@ -803,6 +793,12 @@ public final class JsonSerializeUtil {
     public static JsonValueSerializer builtinObjSerializer(Class<?> clazz) {
         return BUILTIN_OBJ_SERIALIZERS.get(clazz);
     }
+
+    private static final JsonValueSerializer CHAR_SEQUENCE_ARRAY_SERIALIZER = makeArraySerializer(CHAR_SEQUENCE_SERIALIZER);
+    private static final JsonValueSerializer JSON_PRIMITIVE_TYPE_ARRAY_SERIALIZER = makeArraySerializer(JSON_PRIMITIVE_TYPE_SERIALIZER);
+    private static final JsonValueSerializer JSON_BOOL_TYPE_ARRAY_SERIALIZER = makeArraySerializer(JSON_BOOL_TYPE_SERIALIZER);
+    private static final JsonValueSerializer JSON_NUMBER_TYPE_ARRAY_SERIALIZER = makeArraySerializer(JSON_NUMBER_TYPE_SERIALIZER);
+    private static final JsonValueSerializer JSON_STR_TYPE_ARRAY_SERIALIZER = makeArraySerializer(JSON_STR_TYPE_SERIALIZER);
 
     private static final Map<Class<?>, JsonValueSerializer> BUILTIN_ARR_SERIALIZERS = Map.ofEntries(
             // builtin supported primitive array types
@@ -823,14 +819,14 @@ public final class JsonSerializeUtil {
             Map.entry(Long[].class, LONG_WRAPPER_ARRAY_SERIALIZER),
             Map.entry(Float[].class, FLOAT_WRAPPER_ARRAY_SERIALIZER),
             Map.entry(Double[].class, DOUBLE_WRAPPER_ARRAY_SERIALIZER),
-            // builtin supported str types
-            Map.entry(CharSequence[].class, makeArraySerializer(CHAR_SEQUENCE_SERIALIZER)),
-            Map.entry(String[].class, makeArraySerializer(STRING_SERIALIZER)),
+            // builtin supported str types (String is also treated as a CharSequence)
+            Map.entry(CharSequence[].class, CHAR_SEQUENCE_ARRAY_SERIALIZER),
+            Map.entry(String[].class, CHAR_SEQUENCE_ARRAY_SERIALIZER),
             // builtin json types
-            Map.entry(JsonPrimitiveType[].class, makeArraySerializer(JSON_PRIMITIVE_TYPE_SERIALIZER)),
-            Map.entry(JsonBoolType[].class, makeArraySerializer(JSON_BOOL_TYPE_SERIALIZER)),
-            Map.entry(JsonNumberType[].class, makeArraySerializer(JSON_NUMBER_TYPE_SERIALIZER)),
-            Map.entry(JsonStrType[].class, makeArraySerializer(JSON_STR_TYPE_SERIALIZER))
+            Map.entry(JsonPrimitiveType[].class, JSON_PRIMITIVE_TYPE_ARRAY_SERIALIZER),
+            Map.entry(JsonBoolType[].class, JSON_BOOL_TYPE_ARRAY_SERIALIZER),
+            Map.entry(JsonNumberType[].class, JSON_NUMBER_TYPE_ARRAY_SERIALIZER),
+            Map.entry(JsonStrType[].class, JSON_STR_TYPE_ARRAY_SERIALIZER)
     );
 
     public static JsonValueSerializer builtinArraySerializer(Class<?> clazz) {
@@ -848,7 +844,11 @@ public final class JsonSerializeUtil {
     public static JsonValueSerializer enumSerializer(Class<?> rawType) {
         MarshallFacade fc = Marshalls.getMarshallFacade(rawType);
         if(fc == null) {
-            return ENUM_SERIALIZER;
+            return (o, _, w, _) -> {
+                Enum<?> e = (Enum<?>) o;
+                serializeEscapedCharSequence(e.name(), w);
+                return null;
+            };
         } else {
             return (o, _, w, _) -> {
                 Enum<?> e = (Enum<?>) o;

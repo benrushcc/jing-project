@@ -18,10 +18,9 @@ public sealed abstract class JsonSerializerNode permits JsonSerializerObjNode, J
 
     public final JsonSerializerNodeResult step() {
         int cap = capacity();
-        int idx = ++index;
+        int idx = ++index; // This value is bounded by the element count of arrays, collections, maps, and objects; thus overflow cannot occur.
         if(idx == 0) {
             init();
-            return JsonSerializeUtil.serializerContinue();
         }
         if(idx == cap) {
             end();

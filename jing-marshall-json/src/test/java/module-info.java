@@ -5,4 +5,6 @@ open module jing.marshalljsontest {
     requires org.junit.jupiter.api;
     requires jmh.core;
     requires jdk.unsupported;
+    requires com.fasterxml.jackson.annotation;
+    requires tools.jackson.databind;
 }

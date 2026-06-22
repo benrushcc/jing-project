@@ -87,7 +87,7 @@ public final class SegmentWriteBuffer implements WriteBuffer {
         if(capacity < 0) {
             throw new IllegalArgumentException("capacity must be positive");
         }
-        growBufferIfNeeded(capacity);
+        growBufferIfNeeded(Math.addExact(position, capacity));
     }
 
     @Override
@@ -95,7 +95,7 @@ public final class SegmentWriteBuffer implements WriteBuffer {
         if(capacity < 0L) {
             throw new IllegalArgumentException("capacity must be positive");
         }
-        growBufferIfNeeded(capacity);
+        growBufferIfNeeded(Math.addExact(position, capacity));
     }
 
     @Override

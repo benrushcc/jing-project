@@ -5,6 +5,7 @@ import io.jingproject.common.WriteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public final class JsonSerializerMapNode extends JsonSerializerNode {
     private final int cap;
@@ -54,10 +55,10 @@ public final class JsonSerializerMapNode extends JsonSerializerNode {
 
     private void serializeKey(Object key) {
         serializeSep();
-        switch (key) {
-            case String string -> JsonSerializeUtil.serializeEscapedString(string, writeBuffer);
-            case CharSequence charSequence -> JsonSerializeUtil.serializeEscapedCharSequence(charSequence, writeBuffer);
-            default -> throw new JsonSerializerException("unsupported json key : " + key);
+        if (key instanceof CharSequence charSequence) {
+            JsonSerializeUtil.serializeEscapedCharSequence(charSequence, writeBuffer);
+        } else {
+            throw new JsonSerializerException("unsupported json key : " + key);
         }
         JsonSerializeUtil.serializeKvSep(writeBuffer);
     }

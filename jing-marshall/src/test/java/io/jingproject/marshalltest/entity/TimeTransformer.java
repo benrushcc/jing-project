@@ -5,6 +5,7 @@ import io.jingproject.marshall.MarshallTransformer;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+// example implementation
 public final class TimeTransformer implements MarshallTransformer<LocalDateTime, String> {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 

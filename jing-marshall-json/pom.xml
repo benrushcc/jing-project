@@ -13,6 +13,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jackson.version>3.2.0</jackson.version>
     </properties>
 
     <dependencies>
@@ -26,6 +27,13 @@
             <groupId>io.jingproject</groupId>
             <artifactId>jing-marshall</artifactId>
             <version>${revision}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.jingproject</groupId>
+            <artifactId>jing-marshall-processor</artifactId>
+            <version>${revision}</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -47,6 +55,14 @@
             <artifactId>jmh-generator-annprocess</artifactId>
             <version>${jmh.version}</version>
             <scope>provided</scope>
+        </dependency>
+
+        <!-- Source: https://mvnrepository.com/artifact/tools.jackson.core/jackson-databind -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>
@@ -77,6 +93,11 @@
                             <proc>full</proc>
                             <annotationProcessorPaths>
                                 <path>
+                                    <groupId>io.jingproject</groupId>
+                                    <artifactId>jing-marshall-processor</artifactId>
+                                    <version>${revision}</version>
+                                </path>
+                                <path>
                                     <groupId>org.openjdk.jmh</groupId>
                                     <artifactId>jmh-generator-annprocess</artifactId>
                                     <version>${jmh.version}</version>
@@ -94,6 +115,23 @@
                     <argLine>--enable-preview</argLine>
                     <excludedGroups>view-output, exhaustive</excludedGroups>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>io.jingproject</groupId>
+                <artifactId>jing-maven-plugin</artifactId>
+                <version>${revision}</version>
+                <executions>
+                    <execution>
+                        <id>process-test-providers</id>
+                        <phase>process-test-classes</phase>
+                        <goals>
+                            <goal>process-jing-providers</goal>
+                        </goals>
+                        <configuration>
+                            <scope>test</scope>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

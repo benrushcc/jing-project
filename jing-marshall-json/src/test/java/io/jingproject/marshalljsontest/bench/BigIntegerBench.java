@@ -1,4 +1,4 @@
-package io.jingproject.marshalltest.bench;
+package io.jingproject.marshalljsontest.bench;
 
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
@@ -79,3 +79,4 @@ public class BigIntegerBench {
         new Runner(opt).run();
     }
 }
+

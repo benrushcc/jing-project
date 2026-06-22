@@ -1765,4 +1765,30 @@ public final class MarshallOldUtil {
             }
         }
     }
+
+    public static record Scalers(
+            long pmHi,
+            long pmLo,
+            int s
+    ) {
+    }
+
+    // 浮点数的十进制表现形式，d * 10^p
+    public static record DecimalFp(long d, int e) {
+    }
+
+    // 浮点数的二进制表现形式，m * 2^e
+    public static record BinaryFp(long m, int e) {
+
+    }
+
+    public static record FpSpec(
+            int mantBits,
+            int expBits,
+            int bias,
+            int minExp,
+            int maxDecExp,
+            int minDecExp
+    ) {
+    }
 }

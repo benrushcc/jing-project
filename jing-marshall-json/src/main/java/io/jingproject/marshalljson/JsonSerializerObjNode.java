@@ -80,7 +80,6 @@ public final class JsonSerializerObjNode extends JsonSerializerNode {
         }
     }
 
-
     private JsonValueSerializer valueSerializer(MarshallInfo marshallInfo, int z) {
         assert z >= MarshallUtil.BYTE_TYPE && z <= MarshallUtil.MAP_IMPL_TYPE;
         Class<?> rawType = marshallInfo.rawType();
@@ -112,9 +111,9 @@ public final class JsonSerializerObjNode extends JsonSerializerNode {
             case MarshallUtil.LONG_WRAPPER_ARRAY_TYPE    -> JsonSerializeUtil.LONG_WRAPPER_ARRAY_SERIALIZER;
             case MarshallUtil.FLOAT_WRAPPER_ARRAY_TYPE   -> JsonSerializeUtil.FLOAT_WRAPPER_ARRAY_SERIALIZER;
             case MarshallUtil.DOUBLE_WRAPPER_ARRAY_TYPE  -> JsonSerializeUtil.DOUBLE_WRAPPER_ARRAY_SERIALIZER;
-            // builtin supported str types
-            case MarshallUtil.CHARSEQUENCE_TYPE           -> JsonSerializeUtil.CHAR_SEQUENCE_SERIALIZER;
-            case MarshallUtil.STRING_TYPE                 -> JsonSerializeUtil.STRING_SERIALIZER;
+            // builtin supported str types (String is also treated as a CharSequence)
+            case MarshallUtil.CHARSEQUENCE_TYPE,
+                 MarshallUtil.STRING_TYPE                 -> JsonSerializeUtil.CHAR_SEQUENCE_SERIALIZER;
             // The following types are intentionally processed out of the spec‑defined
             // order. However, thanks to the marshalling metadata, they are dispatched
             // via disjoint paths, so this deviation is safe and correct.
@@ -126,14 +125,16 @@ public final class JsonSerializerObjNode extends JsonSerializerNode {
                 }
                 yield JsonSerializeUtil.enumSerializer(rawType);
             }
-            case MarshallUtil.COLLECTION_INTERFACE_TYPE, MarshallUtil.COLLECTION_IMPL_TYPE -> {
+            case MarshallUtil.COLLECTION_INTERFACE_TYPE,
+                 MarshallUtil.COLLECTION_IMPL_TYPE -> {
                 Class<?> firstGenericType = marshallInfo.firstGenericType();
                 JsonValueSerializer valueSerializer = firstGenericType.isArray() ?
                         JsonSerializeUtil.arraySerializer(option, firstGenericType) :
                         JsonSerializeUtil.rawSerializer(option, firstGenericType);
                 yield JsonSerializeUtil.makeCollectionSerializer(valueSerializer);
             }
-            case MarshallUtil.MAP_INTERFACE_TYPE, MarshallUtil.MAP_IMPL_TYPE -> {
+            case MarshallUtil.MAP_INTERFACE_TYPE,
+                 MarshallUtil.MAP_IMPL_TYPE -> {
                 Class<?> firstGenericType = marshallInfo.firstGenericType();
                 if(firstGenericType != String.class && firstGenericType != CharSequence.class) {
                     throw new JsonSerializerException("unsupported key type : " + firstGenericType);
