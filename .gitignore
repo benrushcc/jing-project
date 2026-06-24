@@ -30,3 +30,6 @@ replay_pid*
 
 ### CMake build directories ###
 jing-bindings/src/main/native/build/
+
+### JFR files ###
+*.jfr

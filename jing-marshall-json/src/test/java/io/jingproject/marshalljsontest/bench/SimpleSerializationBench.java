@@ -32,7 +32,9 @@ public class SimpleSerializationBench {
     private SimpleEntity[] simpleEntities;
     private ThreadLocalRandom random;
     private JsonMapper jsonMapper;
-    private JsonSerializer jsonSerializer;
+    private JsonSerializer jsonPoolSerializer;
+    private JsonSerializer jsonDefaultSerializer;
+    private io.jingproject.marshalljson.old.JsonSerializer oldJsonSerializer;
     private ByteArrayOutputStream byteArrayOutputStream;
     private WriteBuffer writeBuffer;
 
@@ -52,7 +54,9 @@ public class SimpleSerializationBench {
             simpleEntities[i] = new SimpleEntity(a, b, c, d, sb.toString());
         }
         jsonMapper = JsonMapper.builder().build();
-        jsonSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
+        jsonPoolSerializer = new JsonSerializer(JsonSerializerOption.builder().setPoolSize(4).build());
+        jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
+        oldJsonSerializer = new io.jingproject.marshalljson.old.JsonSerializer(io.jingproject.marshalljson.old.JsonSerializerOption.defaultOption());
         byteArrayOutputStream = new ByteArrayOutputStream(BUFFER_SIZE);
         writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);
     }
@@ -72,9 +76,25 @@ public class SimpleSerializationBench {
     }
 
     @Benchmark
-    public void jingSerialization(Blackhole blackhole) {
+    public void jingPoolSerialization(Blackhole blackhole) {
         int index = random.nextInt(BATCH);
-        jsonSerializer.serializeMarshallableObject(simpleEntities[index], SimpleEntity.class, writeBuffer);
+        jsonPoolSerializer.serializeMarshallableObject(simpleEntities[index], writeBuffer);
+        blackhole.consume(writeBuffer.intPosition());
+        writeBuffer.setPosition(0);
+    }
+
+    @Benchmark
+    public void jingDefaultSerialization(Blackhole blackhole) {
+        int index = random.nextInt(BATCH);
+        jsonDefaultSerializer.serializeMarshallableObject(simpleEntities[index], writeBuffer);
+        blackhole.consume(writeBuffer.intPosition());
+        writeBuffer.setPosition(0);
+    }
+
+    @Benchmark
+    public void jingOldSerialization(Blackhole blackhole) {
+        int index = random.nextInt(BATCH);
+        oldJsonSerializer.serializeMarshallableObject(simpleEntities[index], SimpleEntity.class, writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
         writeBuffer.setPosition(0);
     }

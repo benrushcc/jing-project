@@ -1,7 +1,6 @@
 package io.jingproject.marshalljsontest.test;
 
 import io.jingproject.common.HeapWriteBuffer;
-import io.jingproject.marshalljson.JsonSerializerNode;
 import io.jingproject.marshalljsontest.TwiUtil;
 import io.jingproject.marshalljsontest.twi.Twi;
 import org.junit.jupiter.api.Assertions;
@@ -42,7 +41,7 @@ public class TwiTest {
             Assertions.assertTrue(content.length > 0);
             System.out.println(content.length);
             Path outputPath = dir.resolve("twi-jackson.json");
-            Files.write(outputPath, content, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.write(outputPath, content, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
             System.out.println(outputPath);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -60,7 +59,7 @@ public class TwiTest {
         System.out.println(content.length);
         try {
             Path outputPath = dir.resolve("twi-jing.json");
-            Files.write(outputPath, content, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.write(outputPath, content, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
             System.out.println(outputPath);
         } catch (IOException e) {
             throw new RuntimeException(e);

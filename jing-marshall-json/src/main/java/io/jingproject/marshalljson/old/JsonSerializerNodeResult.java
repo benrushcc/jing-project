@@ -1,4 +1,4 @@
-package io.jingproject.marshalljson;
+package io.jingproject.marshalljson.old;
 
 /**
  * Represents the result state of a JSON serialization node.

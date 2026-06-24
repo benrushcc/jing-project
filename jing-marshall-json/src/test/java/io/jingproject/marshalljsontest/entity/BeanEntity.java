@@ -10,6 +10,7 @@ import java.util.Map;
 public final class BeanEntity {
     private int intValue;
     private Long longValue;
+    private String stringValue;
     private String[] stringArray;
     private List<JsonPrimitiveType> jsonPrimitiveTypeList;
     private Map<String, BeanEntity> beanEntityMap;
@@ -28,6 +29,14 @@ public final class BeanEntity {
 
     public void setLongValue(Long longValue) {
         this.longValue = longValue;
+    }
+
+    public String stringValue() {
+        return stringValue;
+    }
+
+    public void setStringValue(String stringValue) {
+        this.stringValue = stringValue;
     }
 
     public String[] stringArray() {

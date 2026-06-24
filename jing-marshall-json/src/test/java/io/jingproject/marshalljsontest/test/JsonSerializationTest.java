@@ -14,7 +14,7 @@ import java.util.Map;
 
 @Tag("view-output")
 public class JsonSerializationTest {
-    private static final JsonSerializer JSON_SERIALIZER = new JsonSerializer(JsonSerializerOption.defaultOption());
+    private static final JsonSerializer JSON_SERIALIZER = new JsonSerializer(JsonSerializerOption.builder().setPoolSize(1).build());
     private static final int SIZE = 128;
 
     @Test
@@ -94,6 +94,7 @@ public class JsonSerializationTest {
         BeanEntity entity = new BeanEntity();
         entity.setIntValue(42);
         entity.setLongValue(100L);
+        entity.setStringValue("");
         entity.setStringArray(new String[]{"hello", "world", "test"});
         List<JsonPrimitiveType> jsonPrimitiveTypes = new ArrayList<>();
         jsonPrimitiveTypes.add(new JsonBoolType(true));
@@ -109,7 +110,7 @@ public class JsonSerializationTest {
         innerMap.put("key2", k2);
         entity.setBeanEntityMap(innerMap);
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        JSON_SERIALIZER.serializeMarshallableObject(entity, BeanEntity.class, writeBuffer);
+        JSON_SERIALIZER.serializeMarshallableObject(entity, writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
         System.out.println(json);
     }

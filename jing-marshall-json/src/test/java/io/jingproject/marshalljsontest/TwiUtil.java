@@ -43,6 +43,6 @@ public final class TwiUtil {
 
     public static void serializeTwi(Twi twi, WriteBuffer writeBuffer) {
         JsonSerializer jsonSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
-        jsonSerializer.serializeMarshallableObject(twi, Twi.class, writeBuffer);
+        jsonSerializer.serializeMarshallableObject(twi, writeBuffer);
     }
 }

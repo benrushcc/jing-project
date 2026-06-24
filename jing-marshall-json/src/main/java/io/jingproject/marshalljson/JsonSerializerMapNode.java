@@ -2,59 +2,58 @@ package io.jingproject.marshalljson;
 
 import io.jingproject.common.WriteBuffer;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
-import java.util.Objects;
 
 public final class JsonSerializerMapNode extends JsonSerializerNode {
-    private final int cap;
-    private final List<Object> kvs;
-    private final JsonValueSerializer valueSerializer;
+    private int size;
+    private Iterator<? extends Map.Entry<?, ?>> iter;
+    private Class<?> valueType;
+    private JsonSerializeFunc func;
 
-    public JsonSerializerMapNode(JsonSerializerOption option, WriteBuffer writeBuffer, int indent,
-                                 Map<?, ?> map, JsonValueSerializer valueSerializer) {
-        super(option, writeBuffer, indent);
-        this.cap = map.size();
-        this.kvs = new ArrayList<>(Math.multiplyExact(cap, 2));
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
-            kvs.add(entry.getKey());
-            kvs.add(entry.getValue());
+    public void setSize(int size) {
+        this.size = size;
+    }
+
+    public void setIter(Iterator<? extends Map.Entry<?, ?>> iter) {
+        this.iter = iter;
+    }
+
+    public void setValueType(Class<?> valueType) {
+        this.valueType = valueType;
+    }
+
+    @Override
+    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer) {
+        int index = incIndex();
+        if(index == 0) {
+            JsonSerializeUtil.serializeObjStart(writeBuffer);
         }
-        this.valueSerializer = valueSerializer;
-    }
-
-    @Override
-    protected int capacity() {
-        return cap;
-    }
-
-    @Override
-    protected void init() {
-        JsonSerializeUtil.serializeObjStart(writeBuffer);
-    }
-
-    @Override
-    protected JsonSerializerNode process(int index) {
-        int kIdx = index << 1;
-        Object key = kvs.get(kIdx);
+        if(index == size) {
+            JsonSerializeUtil.serializeObjEnd(writeBuffer);
+            return JsonSerializeResult.FINISHED;
+        }
+        Map.Entry<?, ?> entry = iter.next();
+        Object key = entry.getKey();
         if(key == null) {
-            return null;
+            return JsonSerializeResult.CONTINUE;
         }
-        Object value = kvs.get(kIdx + 1);
+        Object value = entry.getValue();
         if(value == null) {
             if(option.serializeNullInObjOrMap()) {
-                serializeKey(key);
+                serializeKey(option, writeBuffer, key);
                 JsonSerializeUtil.serializeNull(writeBuffer);
             }
             return null;
         }
-        serializeKey(key);
-        return valueSerializer.serialize(value, option, writeBuffer, indent);
+        if(func == null) {
+            func = JsonSerializeUtil.valueSerializeFunc(option, valueType);
+        }
+        return func.serialize(option, writeBuffer, value, indent());
     }
 
-    private void serializeKey(Object key) {
-        serializeSep();
+    private void serializeKey(JsonSerializerOption option, WriteBuffer writeBuffer, Object key) {
+        serializeSep(option, writeBuffer);
         if (key instanceof CharSequence charSequence) {
             JsonSerializeUtil.serializeEscapedCharSequence(charSequence, writeBuffer);
         } else {
@@ -64,8 +63,11 @@ public final class JsonSerializerMapNode extends JsonSerializerNode {
     }
 
     @Override
-    protected void end() {
-        JsonSerializeUtil.serializeObjEnd(writeBuffer);
+    protected void reset() {
+        super.reset();
+        this.size = Integer.MIN_VALUE;
+        this.iter = null;
+        this.valueType = null;
+        this.func = null;
     }
-
 }
