@@ -19,7 +19,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(value = Mode.AverageTime)
-@Warmup(iterations = 3, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 3, time = 3000, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 5, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
@@ -30,7 +30,6 @@ public class TwiSerializationBench {
     private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
     private final io.jingproject.marshalljson.old.JsonSerializer jsonOldSerializer = new io.jingproject.marshalljson.old.JsonSerializer(io.jingproject.marshalljson.old.JsonSerializerOption.defaultOption());
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
-    private final JsonSerializer jsonPoolSerializer = new JsonSerializer(JsonSerializerOption.builder().setPoolSize(1).build());
     private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);
     private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
 
@@ -51,13 +50,6 @@ public class TwiSerializationBench {
     @Benchmark
     public void jingDefaultSerialization(Blackhole blackhole) {
         jsonDefaultSerializer.serializeMarshallableObject(twi, writeBuffer);
-        blackhole.consume(writeBuffer.intPosition());
-        writeBuffer.setPosition(0);
-    }
-
-    @Benchmark
-    public void jingPoolSerialization(Blackhole blackhole) {
-        jsonPoolSerializer.serializeMarshallableObject(twi, writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
         writeBuffer.setPosition(0);
     }

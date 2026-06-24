@@ -12,24 +12,36 @@ public final class JsonSerializerArrNode extends JsonSerializerNode {
 
     @Override
     protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer) {
-        int index = incIndex();
-        if(index == 0) {
-            JsonSerializeUtil.serializeArrayStart(writeBuffer);
+        final Object[] array = arr;
+        final JsonSerializeFunc fn = fn(option);
+        for( ; ; ) {
+            int index = incIndex();
+            if(index == 0) {
+                JsonSerializeUtil.serializeArrayStart(writeBuffer);
+            }
+            if(index == array.length) {
+                JsonSerializeUtil.serializeArrayEnd(writeBuffer);
+                return JsonSerializeResult.FINISHED;
+            }
+            Object instance = array[index];
+            if(instance == null) {
+                JsonSerializeUtil.serializeNull(writeBuffer);
+                continue ;
+            }
+            serializeSep(option, writeBuffer);
+            JsonSerializeResult r = fn.serialize(option, writeBuffer, instance, indent());
+            if(r == JsonSerializeResult.CONTINUE) {
+                continue ;
+            }
+            return r;
         }
-        if(index == arr.length) {
-            JsonSerializeUtil.serializeArrayEnd(writeBuffer);
-            return JsonSerializeResult.FINISHED;
-        }
-        Object instance = arr[index];
-        if(instance == null) {
-            JsonSerializeUtil.serializeNull(writeBuffer);
-            return JsonSerializeResult.CONTINUE;
-        }
-        serializeSep(option, writeBuffer);
+    }
+
+    private JsonSerializeFunc fn(JsonSerializerOption option) {
         if(func == null) {
             func = JsonSerializeUtil.valueSerializeFunc(option, arr.getClass().getComponentType());
         }
-        return func.serialize(option, writeBuffer, instance, indent());
+        return func;
     }
 
     @Override

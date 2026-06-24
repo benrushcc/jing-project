@@ -14,7 +14,7 @@ import java.util.Map;
 
 @Tag("view-output")
 public class JsonSerializationTest {
-    private static final JsonSerializer JSON_SERIALIZER = new JsonSerializer(JsonSerializerOption.builder().setPoolSize(1).build());
+    private static final JsonSerializer JSON_SERIALIZER = new JsonSerializer(JsonSerializerOption.defaultOption());
     private static final int SIZE = 128;
 
     @Test

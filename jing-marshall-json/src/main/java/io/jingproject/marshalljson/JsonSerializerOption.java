@@ -9,23 +9,20 @@ import java.util.Map;
 import java.util.Set;
 
 public final class JsonSerializerOption {
-    public static final int MAX_POOL_SIZE        = 640;
-    public static final int DEFAULT_INITIAL_SIZE = 8;
+    public static final int DEFAULT_INITIAL_SIZE = 4;
     public static final int DEFAULT_MAX_SIZE     = 64;
     public static final int HARD_MIN_SIZE        = 2;
     public static final int HARD_MAX_SIZE        = 1024;
     private static final JsonSerializerOption DEFAULT_OPTION = JsonSerializerOption.builder().build();
 
-    private final int poolSize;
     private final Map<Class<?>, JsonSerializeFunc> funcMap;
     private final boolean serializeNullInObjOrMap;
     private final JsonIndentationLevel jsonIndentationLevel;
     private final int initialSize;
     private final int maxSize;
 
-    public JsonSerializerOption(int poolSize, Map<Class<?>, JsonSerializeFunc> funcMap, boolean serializeNullInObjOrMap,
+    public JsonSerializerOption(Map<Class<?>, JsonSerializeFunc> funcMap, boolean serializeNullInObjOrMap,
                                 JsonIndentationLevel jsonIndentationLevel, int initialSize, int maxSize) {
-        this.poolSize = poolSize;
         this.funcMap = funcMap;
         this.serializeNullInObjOrMap = serializeNullInObjOrMap;
         this.jsonIndentationLevel = jsonIndentationLevel;
@@ -39,10 +36,6 @@ public final class JsonSerializerOption {
 
     public static JsonSerializerOptionBuilder builder() {
         return new JsonSerializerOptionBuilder();
-    }
-
-    public int poolSize() {
-        return poolSize;
     }
 
     public JsonSerializeFunc customFunc(Class<?> clazz) {
@@ -66,20 +59,11 @@ public final class JsonSerializerOption {
     }
 
     public static class JsonSerializerOptionBuilder {
-        private int poolSize = 0;
         private final Set<MarshallTransformerFacade> transformerFacades = new HashSet<>();
         private boolean serializeNullInObjOrMap = false;
         private JsonIndentationLevel jsonIndentationLevel = JsonIndentationLevel.NONE;
         private int initialSize = DEFAULT_INITIAL_SIZE;
         private int maxSize = DEFAULT_MAX_SIZE;
-
-        public JsonSerializerOptionBuilder setPoolSize(int poolSize) {
-            if(poolSize < 0 || poolSize > MAX_POOL_SIZE) {
-                throw new IllegalArgumentException("poolSize must be between 0 and MAX_POOL_SIZE : " + poolSize);
-            }
-            this.poolSize = poolSize;
-            return this;
-        }
 
         public JsonSerializerOptionBuilder setTransformers(Class<?>... transformers) {
             if(transformers == null || transformers.length == 0) {
@@ -152,7 +136,7 @@ public final class JsonSerializerOption {
             if(Integer.bitCount(maxSize / initialSize) != 1) {
                 throw new IllegalArgumentException("maxSize / initialSize must be power of 2");
             }
-            return new JsonSerializerOption(poolSize, Map.copyOf(funcMap), serializeNullInObjOrMap,
+            return new JsonSerializerOption(Map.copyOf(funcMap), serializeNullInObjOrMap,
                     jsonIndentationLevel, initialSize, maxSize);
         }
     }

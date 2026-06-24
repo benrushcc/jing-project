@@ -22,26 +22,39 @@ public final class JsonSerializerColNode extends JsonSerializerNode {
         this.elementType = elementType;
     }
 
-    @Override
-    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer) {
-        int index = incIndex();
-        if(index == 0) {
-            JsonSerializeUtil.serializeArrayStart(writeBuffer);
-        }
-        if(index == size) {
-            JsonSerializeUtil.serializeArrayEnd(writeBuffer);
-            return JsonSerializeResult.FINISHED;
-        }
-        Object instance = iter.next();
-        if(instance == null) {
-            JsonSerializeUtil.serializeNull(writeBuffer);
-            return JsonSerializeResult.CONTINUE;
-        }
-        serializeSep(option, writeBuffer);
+    private JsonSerializeFunc func(JsonSerializerOption option) {
         if(func == null) {
             func = JsonSerializeUtil.valueSerializeFunc(option, elementType);
         }
-        return func.serialize(option, writeBuffer, instance, indent());
+        return func;
+    }
+
+    @Override
+    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer) {
+        final int size = this.size;
+        final Iterator<?> iter = this.iter;
+        final JsonSerializeFunc func = func(option);
+        for( ; ; ) {
+            int index = incIndex();
+            if(index == 0) {
+                JsonSerializeUtil.serializeArrayStart(writeBuffer);
+            }
+            if(index == size) {
+                JsonSerializeUtil.serializeArrayEnd(writeBuffer);
+                return JsonSerializeResult.FINISHED;
+            }
+            Object instance = iter.next();
+            if(instance == null) {
+                JsonSerializeUtil.serializeNull(writeBuffer);
+                continue ;
+            }
+            serializeSep(option, writeBuffer);
+            JsonSerializeResult r = func.serialize(option, writeBuffer, instance, indent());
+            if(r == JsonSerializeResult.CONTINUE) {
+                continue ;
+            }
+            return r;
+        }
     }
 
     @Override

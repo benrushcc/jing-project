@@ -19,7 +19,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(value = Mode.AverageTime)
-@Warmup(iterations = 3, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 3, time = 3000, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 5, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
@@ -32,7 +32,6 @@ public class SimpleSerializationBench {
     private SimpleEntity[] simpleEntities;
     private ThreadLocalRandom random;
     private JsonMapper jsonMapper;
-    private JsonSerializer jsonPoolSerializer;
     private JsonSerializer jsonDefaultSerializer;
     private io.jingproject.marshalljson.old.JsonSerializer oldJsonSerializer;
     private ByteArrayOutputStream byteArrayOutputStream;
@@ -54,7 +53,6 @@ public class SimpleSerializationBench {
             simpleEntities[i] = new SimpleEntity(a, b, c, d, sb.toString());
         }
         jsonMapper = JsonMapper.builder().build();
-        jsonPoolSerializer = new JsonSerializer(JsonSerializerOption.builder().setPoolSize(4).build());
         jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
         oldJsonSerializer = new io.jingproject.marshalljson.old.JsonSerializer(io.jingproject.marshalljson.old.JsonSerializerOption.defaultOption());
         byteArrayOutputStream = new ByteArrayOutputStream(BUFFER_SIZE);
@@ -73,14 +71,6 @@ public class SimpleSerializationBench {
         jsonMapper.writeValue(byteArrayOutputStream, simpleEntities[index]);
         blackhole.consume(byteArrayOutputStream.size());
         byteArrayOutputStream.reset();
-    }
-
-    @Benchmark
-    public void jingPoolSerialization(Blackhole blackhole) {
-        int index = random.nextInt(BATCH);
-        jsonPoolSerializer.serializeMarshallableObject(simpleEntities[index], writeBuffer);
-        blackhole.consume(writeBuffer.intPosition());
-        writeBuffer.setPosition(0);
     }
 
     @Benchmark

@@ -8,97 +8,17 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public final class JsonSerializerState {
-    private static final int INITIAL_SIZE = 4;
-    private static final int SHRINK_SIZE = 16;
     private final JsonSerializerOption option;
-    private WriteBuffer writeBuffer;
+    private final WriteBuffer writeBuffer;
     private JsonSerializerNode[] nodes;
-    private JsonSerializerObjNode[] objNodes;
-    private int objNodeIndex = 0;
-    private JsonSerializerArrNode[] arrNodes;
-    private int arrNodeIndex = 0;
-    private JsonSerializerColNode[] colNodes;
-    private int colNodeIndex = 0;
-    private JsonSerializerMapNode[] mapNodes;
-    private int mapNodeIndex = 0;
 
-    public JsonSerializerState(JsonSerializerOption option) {
+    public JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer) {
         this.option = option;
-    }
-
-    public void setWriteBuffer(WriteBuffer writeBuffer) {
         this.writeBuffer = writeBuffer;
-    }
-
-    private void checkInitialized() {
-        if(nodes == null) {
-            nodes = new JsonSerializerNode[option.initialSize()];
-        }
-    }
-
-    public void preFill() {
-        checkInitialized();
-        if(objNodeIndex == 0) {
-            objNodes = new JsonSerializerObjNode[INITIAL_SIZE];
-            objNodeIndex = INITIAL_SIZE;
-            for(int i = 0; i < INITIAL_SIZE; i++) {
-                objNodes[i] = new JsonSerializerObjNode();
-            }
-        }
-        if(arrNodeIndex == 0) {
-            arrNodes = new JsonSerializerArrNode[INITIAL_SIZE];
-            arrNodeIndex = INITIAL_SIZE;
-            for(int i = 0; i < INITIAL_SIZE; i++) {
-                arrNodes[i] = new JsonSerializerArrNode();
-            }
-        }
-        if(colNodeIndex == 0) {
-            colNodes = new JsonSerializerColNode[INITIAL_SIZE];
-            colNodeIndex = INITIAL_SIZE;
-            for(int i = 0; i < INITIAL_SIZE; i++) {
-                colNodes[i] = new JsonSerializerColNode();
-            }
-        }
-        if(mapNodeIndex == 0) {
-            mapNodes = new JsonSerializerMapNode[INITIAL_SIZE];
-            mapNodeIndex = INITIAL_SIZE;
-            for(int i = 0; i < INITIAL_SIZE; i++) {
-                mapNodes[i] = new JsonSerializerMapNode();
-            }
-        }
-    }
-
-    public void reset() {
-        writeBuffer = null;
-        Arrays.fill(nodes, null);
-        if(objNodeIndex > SHRINK_SIZE) {
-            objNodes = Arrays.copyOf(objNodes, SHRINK_SIZE);
-            objNodeIndex = SHRINK_SIZE;
-        }
-        if(arrNodeIndex > SHRINK_SIZE) {
-            arrNodes = Arrays.copyOf(arrNodes, SHRINK_SIZE);
-            arrNodeIndex = SHRINK_SIZE;
-        }
-        if(colNodeIndex > SHRINK_SIZE) {
-            colNodes = Arrays.copyOf(colNodes, SHRINK_SIZE);
-            colNodeIndex = SHRINK_SIZE;
-        }
-        if(mapNodeIndex > SHRINK_SIZE) {
-            mapNodes = Arrays.copyOf(mapNodes, SHRINK_SIZE);
-            mapNodeIndex = SHRINK_SIZE;
-        }
-    }
-
-    private void growNodesIfNeeded(int nextIndex) {
-        if(nextIndex == nodes.length) {
-            int newLength = Math.addExact(nodes.length, nodes.length);
-            if(newLength > option.maxSize()) {
-                throw new IllegalStateException("exceeded maximum size : " + option.maxSize() + ", might be circular dependency");
-            }
-            nodes = Arrays.copyOf(nodes, newLength);
-        }
     }
 
     public void initMarshallableObject(Object instance) {
@@ -110,8 +30,10 @@ public final class JsonSerializerState {
         if(fc == null) {
             throw new JsonSerializerException("type not marshallable : " + type.getName());
         }
-        checkInitialized();
-        JsonSerializerObjNode objNode = newObjNode();
+        if(nodes == null) {
+            nodes = new JsonSerializerNode[option.initialSize()];
+        }
+        JsonSerializerObjNode objNode = new JsonSerializerObjNode();
         objNode.setFc(fc);
         objNode.setInstance(instance);
         objNode.setIndent(1);
@@ -129,8 +51,10 @@ public final class JsonSerializerState {
         if(componentType.getTypeParameters().length > 0) {
             throw new JsonSerializerException("generic array not supported : " + componentType.getName());
         }
-        checkInitialized();
-        JsonSerializerArrNode arrNode = newArrNode();
+        if(nodes == null) {
+            nodes = new JsonSerializerNode[option.initialSize()];
+        }
+        JsonSerializerArrNode arrNode = new JsonSerializerArrNode();
         arrNode.setArr(arr);
         arrNode.setIndent(1);
         nodes[0] = arrNode;
@@ -146,8 +70,10 @@ public final class JsonSerializerState {
         if(elementType.getTypeParameters().length > 0) {
             throw new JsonSerializerException("generic collection not supported : " + elementType.getName());
         }
-        checkInitialized();
-        JsonSerializerColNode colNode = newColNode();
+        if(nodes == null) {
+            nodes = new JsonSerializerNode[option.initialSize()];
+        }
+        JsonSerializerColNode colNode = new JsonSerializerColNode();
         colNode.setSize(collection.size());
         colNode.setIter(collection.iterator());
         colNode.setElementType(elementType);
@@ -171,8 +97,10 @@ public final class JsonSerializerState {
         if(valueType.getTypeParameters().length > 0) {
             throw new JsonSerializerException("generic map value type not supported: " + valueType.getName());
         }
-        checkInitialized();
-        JsonSerializerMapNode mapNode = newMapNode();
+        if(nodes == null) {
+            nodes = new JsonSerializerNode[option.initialSize()];
+        }
+        JsonSerializerMapNode mapNode = new JsonSerializerMapNode();
         mapNode.setSize(map.size());
         mapNode.setIter(map.entrySet().iterator());
         mapNode.setValueType(valueType);
@@ -180,147 +108,82 @@ public final class JsonSerializerState {
         nodes[0] = mapNode;
     }
 
-    private JsonSerializerObjNode newObjNode() {
-        if(objNodeIndex == 0) {
-            return new JsonSerializerObjNode();
+    private JsonSerializerNode newNode(final int cur, Supplier<JsonSerializerNode> sup, Predicate<JsonSerializerNode> filter) {
+        int i = cur;
+        for( ; i < nodes.length; i++) {
+            JsonSerializerNode n = nodes[i];
+            if(n == null) {
+                // new and swap
+                JsonSerializerNode r = sup.get();
+                nodes[i] = nodes[cur];
+                nodes[cur] = r;
+                return r;
+            }
+            if(filter.test(n)) {
+                // swap
+                if(i != cur) {
+                    nodes[i] = nodes[cur];
+                    nodes[cur] = n;
+                }
+                return n;
+            }
         }
-        JsonSerializerObjNode r = objNodes[--objNodeIndex];
-        objNodes[objNodeIndex] = null;
+        // tried every existing node, now grow and allocate new one
+        int newLength = Math.addExact(nodes.length, nodes.length);
+        if(newLength > option.maxSize()) {
+            throw new IllegalStateException("exceeded maximum size : " + option.maxSize() + ", might be circular dependency");
+        }
+        nodes = Arrays.copyOf(nodes, newLength);
+        nodes[i] = nodes[cur];
+        JsonSerializerNode r = sup.get();
+        nodes[cur] = r;
         return r;
-    }
-
-    private JsonSerializerArrNode newArrNode() {
-        if(arrNodeIndex == 0) {
-            return new JsonSerializerArrNode();
-        }
-        JsonSerializerArrNode r = arrNodes[--arrNodeIndex];
-        arrNodes[arrNodeIndex] = null;
-        return r;
-    }
-
-    private JsonSerializerColNode newColNode() {
-        if(colNodeIndex == 0) {
-            return new JsonSerializerColNode();
-        }
-        JsonSerializerColNode r = colNodes[--colNodeIndex];
-        colNodes[colNodeIndex] = null;
-        return r;
-    }
-
-    private JsonSerializerMapNode newMapNode() {
-        if(mapNodeIndex == 0) {
-            return new JsonSerializerMapNode();
-        }
-        JsonSerializerMapNode r = mapNodes[--mapNodeIndex];
-        mapNodes[mapNodeIndex] = null;
-        return r;
-    }
-
-    private void recycleObjNode(JsonSerializerObjNode objNode) {
-        if(objNodes == null) {
-            objNodes = new JsonSerializerObjNode[INITIAL_SIZE];
-        }
-        if(objNodeIndex == objNodes.length) {
-            objNodes = Arrays.copyOf(objNodes, Math.addExact(objNodes.length, objNodes.length));
-        }
-        objNodes[objNodeIndex++] = objNode;
-    }
-
-    private void recycleArrNode(JsonSerializerArrNode arrNode) {
-        if(arrNodes == null) {
-            arrNodes = new JsonSerializerArrNode[INITIAL_SIZE];
-        }
-        if(arrNodeIndex == arrNodes.length) {
-            arrNodes = Arrays.copyOf(arrNodes, Math.addExact(arrNodes.length, arrNodes.length));
-        }
-        arrNodes[arrNodeIndex++] = arrNode;
-    }
-
-    private void recycleColNode(JsonSerializerColNode colNode) {
-        if(colNodes == null) {
-            colNodes = new JsonSerializerColNode[INITIAL_SIZE];
-        }
-        if(colNodeIndex == colNodes.length) {
-            colNodes = Arrays.copyOf(colNodes, Math.addExact(colNodes.length, colNodes.length));
-        }
-        colNodes[colNodeIndex++] = colNode;
-    }
-
-    private void recycleMapNode(JsonSerializerMapNode mapNode) {
-        if(mapNodes == null) {
-            mapNodes = new JsonSerializerMapNode[INITIAL_SIZE];
-        }
-        if(mapNodeIndex == mapNodes.length) {
-            mapNodes = Arrays.copyOf(mapNodes, Math.addExact(mapNodes.length, mapNodes.length));
-        }
-        mapNodes[mapNodeIndex++] = mapNode;
-    }
-
-    private void recycle(JsonSerializerNode n) {
-        n.reset();
-        switch (n) {
-            case JsonSerializerObjNode objNode -> recycleObjNode(objNode);
-            case JsonSerializerArrNode arrNode -> recycleArrNode(arrNode);
-            case JsonSerializerColNode colNode -> recycleColNode(colNode);
-            case JsonSerializerMapNode mapNode -> recycleMapNode(mapNode);
-            case null, default -> throw new AssertionError();
-        }
     }
 
     public void process() {
-        int index = 0;
-        JsonSerializerNode n = Objects.requireNonNull(nodes[index], "not initialized");
+        int cur = 0;
         for( ; ; ) {
+            JsonSerializerNode n = nodes[cur];
             JsonSerializeResult r = n.process(option, writeBuffer);
             switch (r) {
-                case JsonSerializeResult.JsonSerializeContinue _ -> {}
+                case JsonSerializeResult.JsonSerializeContinue _ -> throw new JsonSerializerException("continue should have been filtered");
                 case JsonSerializeResult.JsonSerializeFinished _ -> {
-                    recycle(n);
-                    nodes[index--] = null;
-                    if(index < 0) {
+                    n.reset();
+                    if(--cur < 0) {
                         return ;
                     }
-                    n = nodes[index];
                 }
                 case JsonSerializeResult.JsonSerializeNewMarshallable(Object instance) -> {
                     MarshallFacade fc = Marshalls.getMarshallFacade(instance.getClass());
                     if(fc == null) {
                         throw new JsonSerializerException("not marshallable : " + instance.getClass());
                     }
-                    growNodesIfNeeded(++index);
-                    JsonSerializerObjNode objNode = newObjNode();
+                    JsonSerializerObjNode objNode = (JsonSerializerObjNode) newNode(++cur, JsonSerializerObjNode::new, o -> o instanceof JsonSerializerObjNode);
                     objNode.setFc(fc);
                     objNode.setInstance(instance);
                     objNode.setIndent(n.indent() + 1); // no overflow
-                    nodes[index] = n = objNode;
                 }
                 case JsonSerializeResult.JsonSerializeNewArray(Object[] instance) -> {
-                    growNodesIfNeeded(++index);
-                    JsonSerializerArrNode arrNode = newArrNode();
+                    JsonSerializerArrNode arrNode = (JsonSerializerArrNode) newNode(++cur, JsonSerializerArrNode::new, o -> o instanceof JsonSerializerArrNode);
                     arrNode.setArr(instance);
                     arrNode.setIndent(n.indent() + 1); // no overflow
-                    nodes[index] = n = arrNode;
                 }
                 case JsonSerializeResult.JsonSerializeNewCollection(Collection<?> instance, Class<?> elementType) -> {
-                    growNodesIfNeeded(++index);
-                    JsonSerializerColNode colNode = newColNode();
+                    JsonSerializerColNode colNode = (JsonSerializerColNode) newNode(++cur, JsonSerializerColNode::new, o -> o instanceof JsonSerializerColNode);
                     colNode.setSize(instance.size());
                     colNode.setIter(instance.iterator());
                     colNode.setElementType(elementType);
                     colNode.setIndent(n.indent() + 1); // no overflow
-                    nodes[index] = n = colNode;
                 }
                 case JsonSerializeResult.JsonSerializeNewMap(Map<?, ?> instance, Class<?> keyType, Class<?> valueType) -> {
                     if(keyType != CharSequence.class && keyType != String.class) {
                         throw new JsonSerializerException("unsupported key type : " + keyType.getName());
                     }
-                    growNodesIfNeeded(++index);
-                    JsonSerializerMapNode mapNode = newMapNode();
+                    JsonSerializerMapNode mapNode = (JsonSerializerMapNode) newNode(++cur, JsonSerializerMapNode::new, o -> o instanceof JsonSerializerMapNode);
                     mapNode.setSize(instance.size());
                     mapNode.setIter(instance.entrySet().iterator());
                     mapNode.setValueType(valueType);
                     mapNode.setIndent(n.indent() + 1); // no overflow
-                    nodes[index] = n = mapNode;
                 }
                 case null, default -> throw new AssertionError();
             }

@@ -23,33 +23,46 @@ public final class JsonSerializerMapNode extends JsonSerializerNode {
         this.valueType = valueType;
     }
 
-    @Override
-    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer) {
-        int index = incIndex();
-        if(index == 0) {
-            JsonSerializeUtil.serializeObjStart(writeBuffer);
-        }
-        if(index == size) {
-            JsonSerializeUtil.serializeObjEnd(writeBuffer);
-            return JsonSerializeResult.FINISHED;
-        }
-        Map.Entry<?, ?> entry = iter.next();
-        Object key = entry.getKey();
-        if(key == null) {
-            return JsonSerializeResult.CONTINUE;
-        }
-        Object value = entry.getValue();
-        if(value == null) {
-            if(option.serializeNullInObjOrMap()) {
-                serializeKey(option, writeBuffer, key);
-                JsonSerializeUtil.serializeNull(writeBuffer);
-            }
-            return null;
-        }
+    private JsonSerializeFunc func(JsonSerializerOption option) {
         if(func == null) {
             func = JsonSerializeUtil.valueSerializeFunc(option, valueType);
         }
-        return func.serialize(option, writeBuffer, value, indent());
+        return func;
+    }
+
+    @Override
+    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer) {
+        final int size = this.size;
+        final Iterator<? extends Map.Entry<?, ?>> iter = this.iter;
+        final JsonSerializeFunc func = func(option);
+        for( ; ; ) {
+            int index = incIndex();
+            if(index == 0) {
+                JsonSerializeUtil.serializeObjStart(writeBuffer);
+            }
+            if(index == size) {
+                JsonSerializeUtil.serializeObjEnd(writeBuffer);
+                return JsonSerializeResult.FINISHED;
+            }
+            Map.Entry<?, ?> entry = iter.next();
+            Object key = entry.getKey();
+            if(key == null) {
+                continue ;
+            }
+            Object value = entry.getValue();
+            if(value == null) {
+                if(option.serializeNullInObjOrMap()) {
+                    serializeKey(option, writeBuffer, key);
+                    JsonSerializeUtil.serializeNull(writeBuffer);
+                }
+                continue ;
+            }
+            JsonSerializeResult r = func.serialize(option, writeBuffer, value, indent());
+            if(r == JsonSerializeResult.CONTINUE) {
+                continue ;
+            }
+            return r;
+        }
     }
 
     private void serializeKey(JsonSerializerOption option, WriteBuffer writeBuffer, Object key) {
