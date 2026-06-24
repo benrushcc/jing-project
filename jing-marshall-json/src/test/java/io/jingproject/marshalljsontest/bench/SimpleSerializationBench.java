@@ -33,7 +33,6 @@ public class SimpleSerializationBench {
     private ThreadLocalRandom random;
     private JsonMapper jsonMapper;
     private JsonSerializer jsonDefaultSerializer;
-    private io.jingproject.marshalljson.old.JsonSerializer oldJsonSerializer;
     private ByteArrayOutputStream byteArrayOutputStream;
     private WriteBuffer writeBuffer;
 
@@ -54,7 +53,6 @@ public class SimpleSerializationBench {
         }
         jsonMapper = JsonMapper.builder().build();
         jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
-        oldJsonSerializer = new io.jingproject.marshalljson.old.JsonSerializer(io.jingproject.marshalljson.old.JsonSerializerOption.defaultOption());
         byteArrayOutputStream = new ByteArrayOutputStream(BUFFER_SIZE);
         writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);
     }
@@ -77,14 +75,6 @@ public class SimpleSerializationBench {
     public void jingDefaultSerialization(Blackhole blackhole) {
         int index = random.nextInt(BATCH);
         jsonDefaultSerializer.serializeMarshallableObject(simpleEntities[index], writeBuffer);
-        blackhole.consume(writeBuffer.intPosition());
-        writeBuffer.setPosition(0);
-    }
-
-    @Benchmark
-    public void jingOldSerialization(Blackhole blackhole) {
-        int index = random.nextInt(BATCH);
-        oldJsonSerializer.serializeMarshallableObject(simpleEntities[index], SimpleEntity.class, writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
         writeBuffer.setPosition(0);
     }

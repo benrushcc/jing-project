@@ -28,7 +28,6 @@ public class TwiSerializationBench {
     private static final int SIZE = 819200;
     private final Twi twi = TwiUtil.deserializeTwiUsingJackson(TwiUtil.load());
     private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
-    private final io.jingproject.marshalljson.old.JsonSerializer jsonOldSerializer = new io.jingproject.marshalljson.old.JsonSerializer(io.jingproject.marshalljson.old.JsonSerializerOption.defaultOption());
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
     private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);
     private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
@@ -38,13 +37,6 @@ public class TwiSerializationBench {
         jsonMapper.writeValue(outputStream, twi);
         blackhole.consume(outputStream.size());
         outputStream.reset();
-    }
-
-    @Benchmark
-    public void jingOldSerialization(Blackhole blackhole) {
-        jsonOldSerializer.serializeMarshallableObject(twi, Twi.class, writeBuffer);
-        blackhole.consume(writeBuffer.intPosition());
-        writeBuffer.setPosition(0);
     }
 
     @Benchmark
