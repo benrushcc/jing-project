@@ -21,7 +21,7 @@ public class JsonSerializationTest {
     public void testSerializeByteArray() {
         String s = "hello world";
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        JSON_SERIALIZER.serializePrimitiveArray(s.getBytes(StandardCharsets.UTF_8), writeBuffer);
+        JSON_SERIALIZER.serializeByteArray(s.getBytes(StandardCharsets.UTF_8), writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
         System.out.println(json);
     }
@@ -30,7 +30,7 @@ public class JsonSerializationTest {
     public void testSerializeBooleanArray() {
         boolean[] arr = {true, false, true, false};
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        JSON_SERIALIZER.serializePrimitiveArray(arr, writeBuffer);
+        JSON_SERIALIZER.serializeBooleanArray(arr, writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
         System.out.println(json);
     }
@@ -39,7 +39,7 @@ public class JsonSerializationTest {
     public void testSerializeCharArray() {
         String s = "hello world";
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        JSON_SERIALIZER.serializePrimitiveArray(s.toCharArray(), writeBuffer);
+        JSON_SERIALIZER.serializeCharArray(s.toCharArray(), writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
         System.out.println(json);
     }
@@ -48,7 +48,7 @@ public class JsonSerializationTest {
     public void testSerializeShortArray() {
         short[] arr = {1, 2, 3, 4, 5};
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        JSON_SERIALIZER.serializePrimitiveArray(arr, writeBuffer);
+        JSON_SERIALIZER.serializeShortArray(arr, writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
         System.out.println(json);
     }
@@ -57,7 +57,7 @@ public class JsonSerializationTest {
     public void testSerializeIntArray() {
         int[] arr = {10, 20, 30};
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        JSON_SERIALIZER.serializePrimitiveArray(arr, writeBuffer);
+        JSON_SERIALIZER.serializeIntArray(arr, writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
         System.out.println(json);
     }
@@ -66,7 +66,7 @@ public class JsonSerializationTest {
     public void testSerializeLongArray() {
         long[] arr = {100L, 200L, 300L};
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        JSON_SERIALIZER.serializePrimitiveArray(arr, writeBuffer);
+        JSON_SERIALIZER.serializeLongArray(arr, writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
         System.out.println(json);
     }
@@ -75,7 +75,7 @@ public class JsonSerializationTest {
     public void testSerializeFloatArray() {
         float[] arr = {1.1f, 2.2f, 3.3f};
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        JSON_SERIALIZER.serializePrimitiveArray(arr, writeBuffer);
+        JSON_SERIALIZER.serializeFloatArray(arr, writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
         System.out.println(json);
     }
@@ -84,13 +84,13 @@ public class JsonSerializationTest {
     public void testSerializeDoubleArray() {
         double[] arr = {1.11, 2.22, 3.33};
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        JSON_SERIALIZER.serializePrimitiveArray(arr, writeBuffer);
+        JSON_SERIALIZER.serializeDoubleArray(arr, writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
         System.out.println(json);
     }
 
     @Test
-    public void testSerializeObject() {
+    public void testSerializeSimpleObject() {
         BeanEntity entity = new BeanEntity();
         entity.setIntValue(42);
         entity.setLongValue(100L);
@@ -111,6 +111,26 @@ public class JsonSerializationTest {
         entity.setBeanEntityMap(innerMap);
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
         JSON_SERIALIZER.serializeMarshallableObject(entity, writeBuffer);
+        String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
+        System.out.println(json);
+    }
+
+    @Test
+    public void testSerializeSimpleMap() {
+        Map<String, Integer> map = new HashMap<>();
+        map.put("k1", 1);
+        map.put("k2", 2);
+        HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
+        JSON_SERIALIZER.serializeMap(map, String.class, Integer.class, writeBuffer);
+        String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
+        System.out.println(json);
+    }
+
+    @Test
+    public void testSerializeSimpleArray() {
+        String[] strings = {"abc", "你好", "hello world"};
+        HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
+        JSON_SERIALIZER.serializeArray(strings, writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
         System.out.println(json);
     }

@@ -110,7 +110,8 @@ public final class SegmentWriteBuffer implements WriteBuffer {
     public void writeBytes(byte b1, byte b2) {
         long newPosition = Math.addExact(position, 2);
         growBufferIfNeeded(newPosition);
-        SegmentAccess.setShort(seg, position, Utils.compact(b1, b2));
+        SegmentAccess.setByte(seg, position, b1);
+        SegmentAccess.setByte(seg, position + 1, b2);
         position = newPosition;
     }
 
@@ -118,7 +119,8 @@ public final class SegmentWriteBuffer implements WriteBuffer {
     public void writeBytes(byte b1, byte b2, byte b3) {
         long newPosition = Math.addExact(position, 3);
         growBufferIfNeeded(newPosition);
-        SegmentAccess.setShort(seg, position, Utils.compact(b1, b2));
+        SegmentAccess.setByte(seg, position, b1);
+        SegmentAccess.setByte(seg, position + 1, b2);
         SegmentAccess.setByte(seg, position + 2, b3);
         position = newPosition;
     }
@@ -127,7 +129,35 @@ public final class SegmentWriteBuffer implements WriteBuffer {
     public void writeBytes(byte b1, byte b2, byte b3, byte b4) {
         long newPosition = Math.addExact(position, 4);
         growBufferIfNeeded(newPosition);
-        SegmentAccess.setInt(seg, position, Utils.compact(Utils.compact(b1, b2), Utils.compact(b3, b4)));
+        SegmentAccess.setByte(seg, position, b1);
+        SegmentAccess.setByte(seg, position + 1, b2);
+        SegmentAccess.setByte(seg, position + 2, b3);
+        SegmentAccess.setByte(seg, position + 3, b4);
+        position = newPosition;
+    }
+
+    @Override
+    public void writeBytes(byte b1, byte b2, byte b3, byte b4, byte b5) {
+        long newPosition = Math.addExact(position, 5);
+        growBufferIfNeeded(newPosition);
+        SegmentAccess.setByte(seg, position, b1);
+        SegmentAccess.setByte(seg, position + 1, b2);
+        SegmentAccess.setByte(seg, position + 2, b3);
+        SegmentAccess.setByte(seg, position + 3, b4);
+        SegmentAccess.setByte(seg, position + 4, b5);
+        position = newPosition;
+    }
+
+    @Override
+    public void writeBytes(byte b1, byte b2, byte b3, byte b4, byte b5, byte b6) {
+        long newPosition = Math.addExact(position, 6);
+        growBufferIfNeeded(newPosition);
+        SegmentAccess.setByte(seg, position, b1);
+        SegmentAccess.setByte(seg, position + 1, b2);
+        SegmentAccess.setByte(seg, position + 2, b3);
+        SegmentAccess.setByte(seg, position + 3, b4);
+        SegmentAccess.setByte(seg, position + 4, b5);
+        SegmentAccess.setByte(seg, position + 5, b6);
         position = newPosition;
     }
 

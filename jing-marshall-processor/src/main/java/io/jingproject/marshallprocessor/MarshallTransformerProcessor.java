@@ -17,7 +17,6 @@ import javax.lang.model.element.*;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 public final class MarshallTransformerProcessor extends AbstractProcessor {

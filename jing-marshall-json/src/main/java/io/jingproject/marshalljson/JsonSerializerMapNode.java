@@ -35,15 +35,11 @@ public final class JsonSerializerMapNode extends JsonSerializerNode {
         final int size = this.size;
         final Iterator<? extends Map.Entry<?, ?>> iter = this.iter;
         final JsonSerializeFunc func = func(option);
-        for( ; ; ) {
-            int index = incIndex();
-            if(index == 0) {
-                JsonSerializeUtil.serializeObjStart(writeBuffer);
-            }
-            if(index == size) {
-                JsonSerializeUtil.serializeObjEnd(writeBuffer);
-                return JsonSerializeResult.FINISHED;
-            }
+        int index = index();
+        if(index == 0) {
+            JsonSerializeUtil.serializeObjStart(writeBuffer);
+        }
+        for( ; index < size; index++) {
             Map.Entry<?, ?> entry = iter.next();
             Object key = entry.getKey();
             if(key == null) {
@@ -57,17 +53,23 @@ public final class JsonSerializerMapNode extends JsonSerializerNode {
                 }
                 continue ;
             }
+            serializeKey(option, writeBuffer, key);
             JsonSerializeResult r = func.serialize(option, writeBuffer, value, indent());
             if(r == JsonSerializeResult.CONTINUE) {
                 continue ;
             }
+            setIndex(index + 1);
             return r;
         }
+        JsonSerializeUtil.serializeObjEnd(writeBuffer);
+        return JsonSerializeResult.FINISHED;
     }
 
     private void serializeKey(JsonSerializerOption option, WriteBuffer writeBuffer, Object key) {
         serializeSep(option, writeBuffer);
-        if (key instanceof CharSequence charSequence) {
+        if (key instanceof String str) {
+            JsonSerializeUtil.serializeEscapedString(str, writeBuffer);
+        } else if(key instanceof CharSequence charSequence) {
             JsonSerializeUtil.serializeEscapedCharSequence(charSequence, writeBuffer);
         } else {
             throw new JsonSerializerException("unsupported json key : " + key);

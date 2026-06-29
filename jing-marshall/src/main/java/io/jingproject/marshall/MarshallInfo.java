@@ -15,7 +15,7 @@ public record MarshallInfo(
         String mappedName,
         byte[] mappedNameUtf8Bytes,
         Enum<?> enumValue,
-        long flags // currently 48 + 4 = 52 bits used
+        long flags // currently 51 + 4 = 55 bits used
 ) {
 
     public MarshallInfo {
@@ -42,10 +42,10 @@ public record MarshallInfo(
                         Enum<?> enumValue,
                         boolean skipSerializing,
                         boolean skipDeserializing) {
-        long flags = MarshallUtil.makeFlags(rawType, firstGenericType, secondGenericType,
-                fieldName, mappedName, skipSerializing, skipDeserializing);
         byte[] fieldNameUtf8Bytes = fieldName.getBytes(StandardCharsets.UTF_8);
         byte[] mappedNameUtf8Bytes = mappedName.getBytes(StandardCharsets.UTF_8);
+        long flags = MarshallUtil.makeFlags(rawType, firstGenericType, secondGenericType,
+                fieldNameUtf8Bytes, mappedNameUtf8Bytes, skipSerializing, skipDeserializing);
         this(rawType, firstGenericType, secondGenericType, index,
                 fieldName, fieldNameUtf8Bytes, mappedName, mappedNameUtf8Bytes, enumValue, flags);
     }
@@ -55,18 +55,18 @@ public record MarshallInfo(
     }
 
     public boolean fieldNameSimple() {
-        return (flags & MarshallUtil.FIELD_NAME_SIMPLE_MASK) != 0;
+        return (flags & MarshallUtil.FIELD_NAME_SIMPLE_MASK) != 0L;
     }
 
     public boolean mappedNameSimple() {
-        return (flags & MarshallUtil.MAPPED_NAME_SIMPLE_MASK) != 0;
+        return (flags & MarshallUtil.MAPPED_NAME_SIMPLE_MASK) != 0L;
     }
 
     public boolean skipSerializing() {
-        return (flags & MarshallUtil.SKIP_SERIALIZATION_MASK) != 0;
+        return (flags & MarshallUtil.SKIP_SERIALIZATION_MASK) != 0L;
     }
 
     public boolean skipDeserializing() {
-        return (flags & MarshallUtil.SKIP_DESERIALIZATION_MASK) != 0;
+        return (flags & MarshallUtil.SKIP_DESERIALIZATION_MASK) != 0L;
     }
 }

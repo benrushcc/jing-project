@@ -26,6 +26,10 @@ public sealed interface WriteBuffer permits HeapWriteBuffer, SegmentWriteBuffer 
 
     void writeBytes(byte b1, byte b2, byte b3, byte b4);
 
+    void writeBytes(byte b1, byte b2, byte b3, byte b4, byte b5);
+
+    void writeBytes(byte b1, byte b2, byte b3, byte b4, byte b5, byte b6);
+
     void writeBytes(byte[] bytes, int offset, int length);
 
     default void writeBytes(byte[] bytes) {

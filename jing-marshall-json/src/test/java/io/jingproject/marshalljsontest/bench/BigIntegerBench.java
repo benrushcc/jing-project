@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit;
 // This test simply explores how big the performance gap is between BigInteger and long calculations.
 // As it turns out, on x64 and ARM64, a BigInteger multiplication takes roughly 20ns, which is completely unacceptable in high‑performance parsing scenarios.
 @BenchmarkMode(value = Mode.AverageTime)
-@Warmup(iterations = 1, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 3, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 3, time = 2000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 5, time = 4000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(3)

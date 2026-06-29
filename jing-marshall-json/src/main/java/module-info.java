@@ -3,5 +3,4 @@ module jing.marshalljson {
     requires transitive jing.marshall;
 
     exports io.jingproject.marshalljson;
-    exports io.jingproject.marshalljson.old;
 }

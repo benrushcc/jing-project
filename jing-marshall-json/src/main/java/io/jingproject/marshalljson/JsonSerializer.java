@@ -12,35 +12,35 @@ public final class JsonSerializer {
         this.option = option;
     }
 
-    public void serializePrimitiveArray(byte[] arr, WriteBuffer writeBuffer) {
+    public void serializeByteArray(byte[] arr, WriteBuffer writeBuffer) {
         JsonSerializeUtil.serializeByteArray(arr, 1, option.indentationLevel(), writeBuffer);
     }
 
-    public void serializePrimitiveArray(boolean[] arr, WriteBuffer writeBuffer) {
+    public void serializeBooleanArray(boolean[] arr, WriteBuffer writeBuffer) {
         JsonSerializeUtil.serializeBooleanArray(arr, 1, option.indentationLevel(), writeBuffer);
     }
 
-    public void serializePrimitiveArray(short[] arr, WriteBuffer writeBuffer) {
+    public void serializeShortArray(short[] arr, WriteBuffer writeBuffer) {
         JsonSerializeUtil.serializeShortArray(arr, 1, option.indentationLevel(), writeBuffer);
     }
 
-    public void serializePrimitiveArray(char[] arr, WriteBuffer writeBuffer) {
+    public void serializeCharArray(char[] arr, WriteBuffer writeBuffer) {
         JsonSerializeUtil.serializeCharArray(arr, 1, option.indentationLevel(), writeBuffer);
     }
 
-    public void serializePrimitiveArray(int[] arr, WriteBuffer writeBuffer) {
+    public void serializeIntArray(int[] arr, WriteBuffer writeBuffer) {
         JsonSerializeUtil.serializeIntArray(arr, 1, option.indentationLevel(), writeBuffer);
     }
 
-    public void serializePrimitiveArray(long[] arr, WriteBuffer writeBuffer) {
+    public void serializeLongArray(long[] arr, WriteBuffer writeBuffer) {
         JsonSerializeUtil.serializeLongArray(arr, 1, option.indentationLevel(), writeBuffer);
     }
 
-    public void serializePrimitiveArray(float[] arr, WriteBuffer writeBuffer) {
+    public void serializeFloatArray(float[] arr, WriteBuffer writeBuffer) {
         JsonSerializeUtil.serializeFloatArray(arr, 1, option.indentationLevel(), writeBuffer);
     }
 
-    public void serializePrimitiveArray(double[] arr, WriteBuffer writeBuffer) {
+    public void serializeDoubleArray(double[] arr, WriteBuffer writeBuffer) {
         JsonSerializeUtil.serializeDoubleArray(arr, 1, option.indentationLevel(), writeBuffer);
     }
 

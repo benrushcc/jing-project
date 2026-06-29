@@ -109,7 +109,8 @@ public final class HeapWriteBuffer implements WriteBuffer {
     public void writeBytes(byte b1, byte b2) {
         int newPosition = Math.addExact(position, 2);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setShort(buffer, position, Utils.compact(b1, b2));
+        buffer[position] = b1;
+        buffer[position + 1] = b2;
         position = newPosition;
     }
 
@@ -117,7 +118,8 @@ public final class HeapWriteBuffer implements WriteBuffer {
     public void writeBytes(byte b1, byte b2, byte b3) {
         int newPosition = Math.addExact(position, 3);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setShort(buffer, position, Utils.compact(b1, b2));
+        buffer[position] = b1;
+        buffer[position + 1] = b2;
         buffer[position + 2] = b3;
         position = newPosition;
     }
@@ -126,7 +128,35 @@ public final class HeapWriteBuffer implements WriteBuffer {
     public void writeBytes(byte b1, byte b2, byte b3, byte b4) {
         int newPosition = Math.addExact(position, 4);
         growBufferIfNeeded(newPosition);
-        ArrayAccess.setInt(buffer, position, Utils.compact(Utils.compact(b1, b2), Utils.compact(b3, b4)));
+        buffer[position] = b1;
+        buffer[position + 1] = b2;
+        buffer[position + 2] = b3;
+        buffer[position + 3] = b4;
+        position = newPosition;
+    }
+
+    @Override
+    public void writeBytes(byte b1, byte b2, byte b3, byte b4, byte b5) {
+        int newPosition = Math.addExact(position, 5);
+        growBufferIfNeeded(newPosition);
+        buffer[position] = b1;
+        buffer[position + 1] = b2;
+        buffer[position + 2] = b3;
+        buffer[position + 3] = b4;
+        buffer[position + 4] = b5;
+        position = newPosition;
+    }
+
+    @Override
+    public void writeBytes(byte b1, byte b2, byte b3, byte b4, byte b5, byte b6) {
+        int newPosition = Math.addExact(position, 6);
+        growBufferIfNeeded(newPosition);
+        buffer[position] = b1;
+        buffer[position + 1] = b2;
+        buffer[position + 2] = b3;
+        buffer[position + 3] = b4;
+        buffer[position + 4] = b5;
+        buffer[position + 5] = b6;
         position = newPosition;
     }
 

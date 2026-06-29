@@ -34,15 +34,11 @@ public final class JsonSerializerColNode extends JsonSerializerNode {
         final int size = this.size;
         final Iterator<?> iter = this.iter;
         final JsonSerializeFunc func = func(option);
-        for( ; ; ) {
-            int index = incIndex();
-            if(index == 0) {
-                JsonSerializeUtil.serializeArrayStart(writeBuffer);
-            }
-            if(index == size) {
-                JsonSerializeUtil.serializeArrayEnd(writeBuffer);
-                return JsonSerializeResult.FINISHED;
-            }
+        int index = index();
+        if(index == 0) {
+            JsonSerializeUtil.serializeArrayStart(writeBuffer);
+        }
+        for( ; index < size; index++) {
             Object instance = iter.next();
             if(instance == null) {
                 JsonSerializeUtil.serializeNull(writeBuffer);
@@ -53,8 +49,11 @@ public final class JsonSerializerColNode extends JsonSerializerNode {
             if(r == JsonSerializeResult.CONTINUE) {
                 continue ;
             }
+            setIndex(index + 1);
             return r;
         }
+        JsonSerializeUtil.serializeArrayEnd(writeBuffer);
+        return JsonSerializeResult.FINISHED;
     }
 
     @Override

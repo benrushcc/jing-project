@@ -4,7 +4,6 @@ import io.jingproject.common.anno.ProcessorApi;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.util.*;
 
@@ -70,21 +69,24 @@ public final class MarshallUtil {
         throw new UnsupportedOperationException("utility class");
     }
 
-    // currently 4 btis used
-    public static final int FIELD_NAME_SIMPLE_MASK = 1;
-    public static final int MAPPED_NAME_SIMPLE_MASK = 1 << 1;
-    public static final int SKIP_SERIALIZATION_MASK = 1 << 2;
-    public static final int SKIP_DESERIALIZATION_MASK = 1 << 3;
+    // currently 4 bits used
+    public static final long FIELD_NAME_SIMPLE_MASK = 1L;
+    public static final long MAPPED_NAME_SIMPLE_MASK = 1L << 1;
+    public static final long SKIP_SERIALIZATION_MASK = 1L << 2;
+    public static final long SKIP_DESERIALIZATION_MASK = 1L << 3;
 
-    public static final byte BYTE_ZERO = (byte) '0';
-    public static final byte BYTE_NINE = (byte) '9';
-    public static final byte BYTE_a = (byte) 'a';
-    public static final byte BYTE_z = (byte) 'z';
-    public static final byte BYTE_A = (byte) 'A';
-    public static final byte BYTE_Z = (byte) 'Z';
+    private static final byte BYTE_ZERO = (byte) '0';
+    private static final byte BYTE_NINE = (byte) '9';
+    private static final byte BYTE_a = (byte) 'a';
+    private static final byte BYTE_z = (byte) 'z';
+    private static final byte BYTE_A = (byte) 'A';
+    private static final byte BYTE_Z = (byte) 'Z';
+    private static final byte BYTE_underscore = (byte) '_';
+    private static final byte BYTE_minus = (byte) '-';
 
-    private static boolean isCompletelyDigitOrLetter(String str) {
-        for (byte b : str.getBytes(StandardCharsets.UTF_8)) {
+
+    private static boolean madeOfDigitOrLetter(byte[] utf8Bytes) {
+        for (byte b : utf8Bytes) {
             if(b >= BYTE_ZERO &&  b <= BYTE_NINE) {
                 continue ;
             }
@@ -92,6 +94,9 @@ public final class MarshallUtil {
                 continue ;
             }
             if(b >= BYTE_A &&  b <= BYTE_Z) {
+                continue ;
+            }
+            if(b == BYTE_underscore || b == BYTE_minus) {
                 continue ;
             }
             return false;
@@ -280,21 +285,21 @@ public final class MarshallUtil {
     }
 
     public static long makeFlags(Class<?> rawType, Class<?> firstGenericType, Class<?> secondGenericType,
-                                 String fieldName, String mappedName, boolean skipSerializing, boolean skipDeserializing) {
+                                 byte[] fieldNameUtf8Bytes, byte[] mappedNameUtf8Bytes, boolean skipSerializing, boolean skipDeserializing) {
         if(rawType == null) {
             throw new IllegalArgumentException("rawType cannot be null");
         }
-        if(fieldName == null || fieldName.isBlank()) {
-            throw new IllegalArgumentException("fieldName cannot be null or blank");
+        if(fieldNameUtf8Bytes == null || fieldNameUtf8Bytes.length == 0) {
+            throw new IllegalArgumentException("fieldNameUtf8Bytes cannot be null or blank");
         }
-        if(mappedName == null || mappedName.isBlank()) {
-            throw new IllegalArgumentException("mappedName cannot be null or blank");
+        if(mappedNameUtf8Bytes == null || mappedNameUtf8Bytes.length == 0) {
+            throw new IllegalArgumentException("mappedNameUtf8Bytes cannot be null or blank");
         }
         long r = 1L << (Long.SIZE - 1 - makeShift(rawType, firstGenericType, secondGenericType));
-        if(isCompletelyDigitOrLetter(fieldName)) {
+        if(madeOfDigitOrLetter(fieldNameUtf8Bytes)) {
             r |= FIELD_NAME_SIMPLE_MASK;
         }
-        if(isCompletelyDigitOrLetter(mappedName)) {
+        if(madeOfDigitOrLetter(mappedNameUtf8Bytes)) {
             r |= MAPPED_NAME_SIMPLE_MASK;
         }
         if(skipSerializing) {

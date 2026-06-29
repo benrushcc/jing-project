@@ -14,15 +14,11 @@ public final class JsonSerializerArrNode extends JsonSerializerNode {
     protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer) {
         final Object[] array = arr;
         final JsonSerializeFunc fn = fn(option);
-        for( ; ; ) {
-            int index = incIndex();
-            if(index == 0) {
-                JsonSerializeUtil.serializeArrayStart(writeBuffer);
-            }
-            if(index == array.length) {
-                JsonSerializeUtil.serializeArrayEnd(writeBuffer);
-                return JsonSerializeResult.FINISHED;
-            }
+        int index = index();
+        if(index == 0) {
+            JsonSerializeUtil.serializeArrayStart(writeBuffer);
+        }
+        for( ; index < array.length; index++) {
             Object instance = array[index];
             if(instance == null) {
                 JsonSerializeUtil.serializeNull(writeBuffer);
@@ -33,8 +29,11 @@ public final class JsonSerializerArrNode extends JsonSerializerNode {
             if(r == JsonSerializeResult.CONTINUE) {
                 continue ;
             }
+            setIndex(index + 1);
             return r;
         }
+        JsonSerializeUtil.serializeArrayEnd(writeBuffer);
+        return JsonSerializeResult.FINISHED;
     }
 
     private JsonSerializeFunc fn(JsonSerializerOption option) {

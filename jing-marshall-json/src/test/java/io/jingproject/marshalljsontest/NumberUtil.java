@@ -6,7 +6,6 @@ import io.jingproject.common.WriteBuffer;
 
 import java.nio.charset.StandardCharsets;
 
-// experiments
 public final class NumberUtil {
     private NumberUtil() {
         throw new UnsupportedOperationException("utility class");

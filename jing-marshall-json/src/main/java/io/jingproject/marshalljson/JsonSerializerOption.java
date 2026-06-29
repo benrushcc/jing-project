@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 
 public final class JsonSerializerOption {
+    // same as JsonDeserializerOption
     public static final int DEFAULT_INITIAL_SIZE = 4;
     public static final int DEFAULT_MAX_SIZE     = 64;
     public static final int HARD_MIN_SIZE        = 2;

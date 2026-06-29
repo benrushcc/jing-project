@@ -7,7 +7,6 @@ import io.jingproject.marshall.Marshalls;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -109,24 +108,34 @@ public final class JsonSerializerState {
     }
 
     private JsonSerializerNode newNode(final int cur, Supplier<JsonSerializerNode> sup, Predicate<JsonSerializerNode> filter) {
+        final JsonSerializerNode[] nds = this.nodes;
         int i = cur;
-        for( ; i < nodes.length; i++) {
-            JsonSerializerNode n = nodes[i];
+        for( ; i < nds.length; i++) {
+            JsonSerializerNode n = nds[i];
             if(n == null) {
                 // new and swap
                 JsonSerializerNode r = sup.get();
-                nodes[i] = nodes[cur];
-                nodes[cur] = r;
+                nds[i] = nds[cur];
+                nds[cur] = r;
                 return r;
             }
             if(filter.test(n)) {
                 // swap
                 if(i != cur) {
-                    nodes[i] = nodes[cur];
-                    nodes[cur] = n;
+                    nds[i] = nds[cur];
+                    nds[cur] = n;
                 }
                 return n;
             }
+        }
+        // try in-place replacement if we can't grow
+        if(nds.length == option.maxSize()) {
+            if(cur == nds.length) {
+                throw new IllegalStateException("exceeded maximum size : " + option.maxSize() + ", might be circular dependency");
+            }
+            JsonSerializerNode r = sup.get();
+            nds[cur] = r;
+            return r;
         }
         // tried every existing node, now grow and allocate new one
         int newLength = Math.addExact(nodes.length, nodes.length);
@@ -134,7 +143,9 @@ public final class JsonSerializerState {
             throw new IllegalStateException("exceeded maximum size : " + option.maxSize() + ", might be circular dependency");
         }
         nodes = Arrays.copyOf(nodes, newLength);
-        nodes[i] = nodes[cur];
+        if(i != cur) {
+            nodes[i] = nodes[cur];
+        }
         JsonSerializerNode r = sup.get();
         nodes[cur] = r;
         return r;

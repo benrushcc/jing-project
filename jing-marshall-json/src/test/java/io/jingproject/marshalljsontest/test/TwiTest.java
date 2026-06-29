@@ -16,7 +16,7 @@ import java.nio.file.StandardOpenOption;
 @Tag("view-output")
 public class TwiTest {
 
-    Path dir = Path.of(System.getProperty("user.dir"));
+    final Path dir = Path.of(System.getProperty("user.dir"));
 
     @Test
     public void loadTwiTest() {

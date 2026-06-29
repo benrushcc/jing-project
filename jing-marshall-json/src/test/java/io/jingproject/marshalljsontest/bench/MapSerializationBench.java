@@ -3,8 +3,6 @@ package io.jingproject.marshalljsontest.bench;
 import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.marshalljson.JsonSerializer;
 import io.jingproject.marshalljson.JsonSerializerOption;
-import io.jingproject.marshalljsontest.TwiUtil;
-import io.jingproject.marshalljsontest.twi.Twi;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.profile.GCProfiler;
@@ -16,21 +14,28 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.ByteArrayOutputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(value = Mode.AverageTime)
-@Warmup(iterations = 3, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 5, time = 10000, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 3, time = 3000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 5, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-//@Fork(value = 1, jvmArgsAppend = {
-//        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=ser-twi-%p-%t.jfr,settings=profile",
-//        "-XX:FlightRecorderOptions:stackdepth=128"
-//})
-@Fork(value = 3)
-public class TwiSerializationBench {
-    private static final int SIZE = 819200;
-    private final Twi twi = TwiUtil.deserializeTwiUsingJackson(TwiUtil.load());
+@Fork(3)
+public class MapSerializationBench {
+    private static final int SIZE = 16000;
+    private final Map<String, Integer> integerMap = createIntegerMap();
+
+    private Map<String, Integer> createIntegerMap() {
+        Map<String, Integer> map = new HashMap<>();
+        for (int i = 0; i < 1000; i++) {
+            map.put(i + "", i);
+        }
+        return Map.copyOf(map);
+    }
+
     private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
     private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);
@@ -38,22 +43,21 @@ public class TwiSerializationBench {
 
     @Benchmark
     public void jacksonSerialization(Blackhole blackhole) {
-        jsonMapper.writeValue(outputStream, twi);
+        jsonMapper.writeValue(outputStream, integerMap);
         blackhole.consume(outputStream.size());
         outputStream.reset();
     }
 
     @Benchmark
-    public void jingDefaultSerialization(Blackhole blackhole) {
-        jsonDefaultSerializer.serializeMarshallableObject(twi, writeBuffer);
+    public void jingSerialization(Blackhole blackhole) {
+        jsonDefaultSerializer.serializeMap(integerMap, String.class, Integer.class, writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
         writeBuffer.setPosition(0);
     }
 
     static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(TwiSerializationBench.class.getSimpleName())
-                .addProfiler(GCProfiler.class)
-                .build();
+        Options opt = new OptionsBuilder().include(MapSerializationBench.class.getSimpleName())
+                .addProfiler(GCProfiler.class).build();
         new Runner(opt).run();
     }
 }

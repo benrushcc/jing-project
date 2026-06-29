@@ -2,7 +2,6 @@ package io.jingproject.marshallprocessor;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
 
 public record MarshallFieldInfo(
         TypeElement typeElement,

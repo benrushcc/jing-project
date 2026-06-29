@@ -1,7 +1,10 @@
 package io.jingproject.marshalljson;
 
 import io.jingproject.common.WriteBuffer;
-import io.jingproject.marshall.*;
+import io.jingproject.marshall.MarshallFacade;
+import io.jingproject.marshall.MarshallInfo;
+import io.jingproject.marshall.MarshallReader;
+import io.jingproject.marshall.MarshallUtil;
 
 import java.util.Collection;
 import java.util.Map;
@@ -32,15 +35,11 @@ public final class JsonSerializerObjNode extends JsonSerializerNode {
         final int total = fc.totalElements();
         final MarshallReader rd = reader();
         final int indent = indent();
-        for( ; ; ) {
-            int index = incIndex();
-            if(index == 0) {
-                JsonSerializeUtil.serializeObjStart(writeBuffer);
-            }
-            if(index == total) {
-                JsonSerializeUtil.serializeObjEnd(writeBuffer);
-                return JsonSerializeResult.FINISHED;
-            }
+        int index = index();
+        if(index == 0) {
+            JsonSerializeUtil.serializeObjStart(writeBuffer);
+        }
+        for( ; index < total; index++) {
             MarshallInfo marshallInfo = fc.marshallInfoByIndex(index);
             if(marshallInfo.skipSerializing()) {
                 continue ;
@@ -64,18 +63,20 @@ public final class JsonSerializerObjNode extends JsonSerializerNode {
             if(r == JsonSerializeResult.CONTINUE) {
                 continue ;
             }
+            setIndex(index + 1);
             return r;
         }
+        JsonSerializeUtil.serializeObjEnd(writeBuffer);
+        return JsonSerializeResult.FINISHED;
     }
 
     private void serializeKey(JsonSerializerOption option, WriteBuffer writeBuffer, MarshallInfo marshallInfo) {
         serializeSep(option, writeBuffer);
+        byte[] mappedNameUtf8Bytes = marshallInfo.mappedNameUtf8Bytes();
         if(marshallInfo.mappedNameSimple()) {
-            JsonSerializeUtil.serializeQuote(writeBuffer);
-            writeBuffer.writeBytes(marshallInfo.mappedNameUtf8Bytes());
-            JsonSerializeUtil.serializeQuote(writeBuffer);
+            JsonSerializeUtil.serializeNonEscapedUtf8Bytes(mappedNameUtf8Bytes, writeBuffer);
         } else {
-            JsonSerializeUtil.serializeEscapedUtf8Bytes(marshallInfo.mappedNameUtf8Bytes(), writeBuffer);
+            JsonSerializeUtil.serializeEscapedUtf8Bytes(mappedNameUtf8Bytes, writeBuffer);
         }
         JsonSerializeUtil.serializeKvSep(writeBuffer);
     }
@@ -103,8 +104,10 @@ public final class JsonSerializerObjNode extends JsonSerializerNode {
             JsonSerializeUtil.serializeJsonNumberType((JsonNumberType) fieldValue, writeBuffer);
         } else if(rawType == JsonStrType.class) {
             JsonSerializeUtil.serializeJsonStrType((JsonStrType) fieldValue, writeBuffer);
-        } else if(rawType == CharSequence[].class || rawType == String[].class) {
+        } else if(rawType == CharSequence[].class) {
             JsonSerializeUtil.serializeEscapedCharSequenceArray((CharSequence[]) fieldValue, indent, option.indentationLevel(), writeBuffer);
+        } else if(rawType == String[].class) {
+            JsonSerializeUtil.serializeEscapedStringArray((String[]) fieldValue, indent, option.indentationLevel(), writeBuffer);
         } else if(rawType == JsonPrimitiveType[].class) {
             JsonSerializeUtil.serializeJsonPrimitiveTypeArray((JsonPrimitiveType[]) fieldValue, indent, option.indentationLevel(), writeBuffer);
         } else if(rawType == JsonBoolType[].class) {
@@ -174,10 +177,10 @@ public final class JsonSerializerObjNode extends JsonSerializerNode {
                     JsonSerializeUtil.serializeFloatWrapperArray((Float[]) fieldValue, indent, option.indentationLevel(), writeBuffer);
             case MarshallUtil.DOUBLE_WRAPPER_ARRAY_TYPE ->
                     JsonSerializeUtil.serializeDoubleWrapperArray((Double[]) fieldValue, indent, option.indentationLevel(), writeBuffer);
-            // builtin supported str types (String is also treated as a CharSequence)
-            case MarshallUtil.CHARSEQUENCE_TYPE,
-                 MarshallUtil.STRING_TYPE ->
+            case MarshallUtil.CHARSEQUENCE_TYPE ->
                     JsonSerializeUtil.serializeEscapedCharSequence((CharSequence) fieldValue, writeBuffer);
+            case MarshallUtil.STRING_TYPE ->
+                JsonSerializeUtil.serializeEscapedString((String) fieldValue, writeBuffer);
             case MarshallUtil.ARRAY_TYPE -> {
                 return new JsonSerializeResult.JsonSerializeNewArray((Object[]) fieldValue);
             }
