@@ -43,9 +43,9 @@ public final class ArrayAccess {
 
     public static short getShort(byte[] array, int offset, ByteOrder byteOrder) {
         assert array != null && Objects.checkFromIndexSize(offset, 2, array.length) >= 0 && byteOrder != null;
-        return (short) switch (byteOrder) {
-            case LITTLE_ENDIAN -> SHORT_LE.get(array, offset);
-            case BIG_ENDIAN -> SHORT_BE.get(array, offset);
+        return switch (byteOrder) {
+            case LITTLE_ENDIAN -> (short) SHORT_LE.get(array, offset);
+            case BIG_ENDIAN -> (short) SHORT_BE.get(array, offset);
         };
     }
 
@@ -67,9 +67,9 @@ public final class ArrayAccess {
 
     public static char getChar(byte[] array, int offset, ByteOrder byteOrder) {
         assert array != null && Objects.checkFromIndexSize(offset, 2, array.length) >= 0 && byteOrder != null;
-        return (char) switch (byteOrder) {
-            case LITTLE_ENDIAN -> CHAR_LE.get(array, offset);
-            case BIG_ENDIAN -> CHAR_BE.get(array, offset);
+        return switch (byteOrder) {
+            case LITTLE_ENDIAN -> (char) CHAR_LE.get(array, offset);
+            case BIG_ENDIAN -> (char) CHAR_BE.get(array, offset);
         };
     }
 
@@ -91,9 +91,9 @@ public final class ArrayAccess {
 
     public static int getInt(byte[] array, int offset, ByteOrder byteOrder) {
         assert array != null && Objects.checkFromIndexSize(offset, 4, array.length) >= 0 && byteOrder != null;
-        return (int) switch (byteOrder) {
-            case LITTLE_ENDIAN -> INT_LE.get(array, offset);
-            case BIG_ENDIAN -> INT_BE.get(array, offset);
+        return switch (byteOrder) {
+            case LITTLE_ENDIAN -> (int) INT_LE.get(array, offset);
+            case BIG_ENDIAN -> (int) INT_BE.get(array, offset);
         };
     }
 
@@ -115,9 +115,9 @@ public final class ArrayAccess {
 
     public static long getLong(byte[] array, int offset, ByteOrder byteOrder) {
         assert array != null && Objects.checkFromIndexSize(offset, 8, array.length) >= 0 && byteOrder != null;
-        return (long) switch (byteOrder) {
-            case LITTLE_ENDIAN -> LONG_LE.get(array, offset);
-            case BIG_ENDIAN -> LONG_BE.get(array, offset);
+        return switch (byteOrder) {
+            case LITTLE_ENDIAN -> (long) LONG_LE.get(array, offset);
+            case BIG_ENDIAN -> (long) LONG_BE.get(array, offset);
         };
     }
 
@@ -139,9 +139,9 @@ public final class ArrayAccess {
 
     public static float getFloat(byte[] array, int offset, ByteOrder byteOrder) {
         assert array != null && Objects.checkFromIndexSize(offset, 4, array.length) >= 0 && byteOrder != null;
-        return (float) switch (byteOrder) {
-            case LITTLE_ENDIAN -> FLOAT_LE.get(array, offset);
-            case BIG_ENDIAN -> FLOAT_BE.get(array, offset);
+        return switch (byteOrder) {
+            case LITTLE_ENDIAN -> (float) FLOAT_LE.get(array, offset);
+            case BIG_ENDIAN -> (float) FLOAT_BE.get(array, offset);
         };
     }
 
@@ -163,9 +163,9 @@ public final class ArrayAccess {
 
     public static double getDouble(byte[] array, int offset, ByteOrder byteOrder) {
         assert array != null && Objects.checkFromIndexSize(offset, 8, array.length) >= 0 && byteOrder != null;
-        return (double) switch (byteOrder) {
-            case LITTLE_ENDIAN -> DOUBLE_LE.get(array, offset);
-            case BIG_ENDIAN -> DOUBLE_BE.get(array, offset);
+        return switch (byteOrder) {
+            case LITTLE_ENDIAN -> (double) DOUBLE_LE.get(array, offset);
+            case BIG_ENDIAN -> (double) DOUBLE_BE.get(array, offset);
         };
     }
 

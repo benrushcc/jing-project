@@ -1,12 +1,20 @@
 package io.jingproject.marshalljson;
 
 import io.jingproject.common.*;
+
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Objects;
 
+/**
+ * floating-point parsing and printing algorithms are based on Russ Cox's
+ * "Floating-Point Printing and Parsing Can Be Simple And Fast".
+ *
+ * @see <a href="https://research.swtch.com/fp-all">research.swtch.com/fp-all</a>
+ */
 public final class JsonNumberUtil {
     public static final byte BYTE_ZERO = (byte) '0';
     public static final byte BYTE_NINE = (byte) '9';
@@ -36,6 +44,53 @@ public final class JsonNumberUtil {
     private static final int POW10MIN = -348;
     private static final int POW10MAX = 347;
     private static final long[] POW10TAB = makePow10Table(); // huge table
+    private static final byte[] ZERO_NINE_TABLE = makeZeroNineTable();
+
+    // precomputed constants used by trimZeros()
+    private static final long MAX_UINT_64 = 0xFFFFFFFFFFFFFFFFL;
+    private static final long DIV_1_E_8_M = 0xc767074b22e90e21L;  // inverse of 5^8
+    private static final long DIV_1_E_4_M = 0xd288ce703afb7e91L;  // inverse of 5^4
+    private static final long DIV_1_E_2_M = 0x8f5c28f5c28f5c29L;  // inverse of 5^2
+    private static final long DIV_1_E_1_M = 0xcccccccccccccccdL;  // inverse of 5
+    private static final long DIV_1_E_8_LE = Long.divideUnsigned(MAX_UINT_64, 100_000_000L);
+    private static final long DIV_1_E_4_LE = Long.divideUnsigned(MAX_UINT_64, 10_000L);
+    private static final long DIV_1_E_2_LE = Long.divideUnsigned(MAX_UINT_64, 100L);
+    private static final long DIV_1_E_1_LE = Long.divideUnsigned(MAX_UINT_64, 10L);
+
+    private static final int MIN_SCI_EXP = -3; // align with jdk format, inclusive
+    private static final int MAX_SCI_EXP = 7; // align with jdk format, exclusive
+
+    private static final int N_DIV_10_I = Integer.MIN_VALUE / 10;
+    private static final byte N_MOD_10_I = (byte) (Integer.MIN_VALUE % 10);
+
+    private static final long N_DIV_10_L = Long.MIN_VALUE / 10;
+    private static final byte N_MOD_10_L = (byte) (Long.MIN_VALUE % 10);
+
+    // Maximum decimal digits that fit in a uint64 (19)
+    private static final int MAX_DECIMAL_ND = 19;
+
+    // Maximum exponent digits. For fp32/fp64, exponents beyond 10000 in absolute
+    // value never affect the final result. Truncation is necessary to avoid overflow
+    // in log2Pow10, skewed, and similar functions.
+    private static final int MAX_DECIMAL_NP = 4;
+
+    private static final float[] FLOAT_POW_10 = {
+            1e0f, 1e1f, 1e2f, 1e3f, 1e4f, 1e5f, 1e6f, 1e7f, 1e8f, 1e9f, 1e10f
+    };
+    private static final int FLOAT_EXACT_I = 7;
+    private static final int FLOAT_EXACT_P = 10;
+    private static final float FLOAT_EXACT_I_HIGH = 1e7f;
+    private static final float FLOAT_EXACT_I_LOW = 1e-7f;
+
+    private static final double[] DOUBLE_POW_10 = {
+            1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9,
+            1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17,
+            1e18, 1e19, 1e20, 1e21, 1e22
+    };
+    private static final int DOUBLE_EXACT_I = 15;
+    private static final int DOUBLE_EXACT_P = 22;
+    private static final double DOUBLE_EXACT_I_HIGH = 1e15;
+    private static final double DOUBLE_EXACT_I_LOW = 1e-15;
 
     // no overflow
     private static int[] makeLenTable() {
@@ -67,34 +122,21 @@ public final class JsonNumberUtil {
         return r;
     }
 
-    // no overflow
     private static long[] makePow10Table() {
-        BigInteger two = BigInteger.ONE.add(BigInteger.ONE);
-        BigInteger oneShift64 = BigInteger.ONE.shiftLeft(64);
-        BigInteger oneShift128 = BigInteger.ONE.shiftLeft(128);
+        BigInteger mask64 = BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE);
+        BigInteger[] pow10 = new BigInteger[-POW10MIN + 1];
+        pow10[0] = BigInteger.ONE;
+        for(int i = 1; i <= -POW10MIN; i++) {
+            pow10[i] = pow10[i - 1].multiply(BigInteger.TEN);
+        }
         int count = POW10MAX - POW10MIN + 1;
         long[] r = new long[count * 2];
         int index = 0;
         for (int e = POW10MIN; e <= POW10MAX; e++) {
-            BigInteger num, den;
-            if (e >= 0) {
-                num = BigInteger.TEN.pow(e);
-                den = BigInteger.ONE;
-            } else {
-                num = BigInteger.ONE;
-                den = BigInteger.TEN.pow(-e);
-            }
-            while (num.compareTo(den.multiply(oneShift128)) < 0) {
-                num = num.multiply(two);
-            }
-            while (num.compareTo(den.multiply(oneShift128)) >= 0) {
-                den = den.multiply(two);
-            }
-            BigInteger d = num.divide(den);
-            BigInteger[] hiLo = d.divideAndRemainder(oneShift64);
-            long uhi = hiLo[0].longValue();
-            long ulo = hiLo[1].longValue();
-            if (!num.mod(den).equals(BigInteger.ZERO)) {
+            BigInteger[] qr = computeScaledPower(e, pow10);
+            long uhi = qr[0].shiftRight(64).longValue();
+            long ulo = qr[0].and(mask64).longValue();
+            if (qr[1].signum() != 0) {
                 ulo = Math.incrementExact(ulo);
                 if (ulo == 0L) {
                     uhi = Math.incrementExact(uhi);
@@ -106,6 +148,39 @@ public final class JsonNumberUtil {
             }
             r[index++] = uhi;
             r[index++] = ulo;
+        }
+        return r;
+    }
+
+    private static BigInteger[] computeScaledPower(int e, BigInteger[] pow10) {
+        BigInteger num = e >= 0 ? pow10[e] : BigInteger.ONE;
+        BigInteger den = e >= 0 ? BigInteger.ONE : pow10[-e];
+        BigInteger shifted = den.shiftLeft(128);
+        int numPreShifted = shifted.bitLength() - num.bitLength() - 1;
+        if(numPreShifted > 0) {
+            num = num.shiftLeft(numPreShifted);
+        }
+        while (num.compareTo(shifted) < 0) {
+            num = num.shiftLeft(1);
+        }
+        int denPreShifted = num.bitLength() - shifted.bitLength() - 1;
+        if(denPreShifted > 0) {
+            den = den.shiftLeft(denPreShifted);
+            shifted = shifted.shiftLeft(denPreShifted);
+        }
+        while (num.compareTo(shifted) >= 0) {
+            den = den.shiftLeft(1);
+            shifted = shifted.shiftLeft(1);
+        }
+        return num.divideAndRemainder(den);
+    }
+
+    private static byte[] makeZeroNineTable() {
+        byte[] r = new byte[Byte.MAX_VALUE - Byte.MIN_VALUE + 1];
+        Arrays.fill(r, Byte.MAX_VALUE);
+        for (byte b = BYTE_ZERO; b <= BYTE_NINE; b++) {
+            int index = Byte.toUnsignedInt(b);
+            r[index] = (byte) (BYTE_ZERO - b);
         }
         return r;
     }
@@ -616,17 +691,6 @@ public final class JsonNumberUtil {
         return (hi >>> c.s()) | sticky;
     }
 
-    // precomputed constants used by trimZeros()
-    private static final long MAX_UINT_64 = 0xFFFFFFFFFFFFFFFFL;
-    private static final long DIV_1_E_8_M = 0xc767074b22e90e21L;  // inverse of 5^8
-    private static final long DIV_1_E_4_M = 0xd288ce703afb7e91L;  // inverse of 5^4
-    private static final long DIV_1_E_2_M = 0x8f5c28f5c28f5c29L;  // inverse of 5^2
-    private static final long DIV_1_E_1_M = 0xcccccccccccccccdL;  // inverse of 5
-    private static final long DIV_1_E_8_LE = Long.divideUnsigned(MAX_UINT_64, 100_000_000L);
-    private static final long DIV_1_E_4_LE = Long.divideUnsigned(MAX_UINT_64, 10_000L);
-    private static final long DIV_1_E_2_LE = Long.divideUnsigned(MAX_UINT_64, 100L);
-    private static final long DIV_1_E_1_LE = Long.divideUnsigned(MAX_UINT_64, 10L);
-
     private static DecimalFp trimZeros(DecimalFp decimalFp) {
         long d = decimalFp.d();
         int p = decimalFp.p();
@@ -688,9 +752,6 @@ public final class JsonNumberUtil {
         }
         return new DecimalFp(Long.compareUnsigned(dmin, dmax) < 0 ? uround(uscale(m, pre)) : dmin, -p);
     }
-
-    private static final int MIN_SCI_EXP = -3; // align with jdk format, inclusive
-    private static final int MAX_SCI_EXP = 7; // align with jdk format, exclusive
 
     private static void writeDecimalFp(DecimalFp decimalFp, WriteBuffer writeBuffer) {
         long d = decimalFp.d();
@@ -824,6 +885,628 @@ public final class JsonNumberUtil {
         }
         position = writePositiveIntToSegment(sciE, digitCount(sciE), segment, position);
         return position;
+    }
+
+    public static int readInt(ReadBuffer readBuffer, byte firstByte) {
+        return switch (readBuffer) {
+            case HeapReadBuffer heapReadBuffer -> readHeapInt(heapReadBuffer, firstByte);
+            case SegmentReadBuffer segmentReadBuffer -> readSegmentInt(segmentReadBuffer, firstByte);
+        };
+    }
+
+    private static boolean negativeIntOverflow(int r, byte b) {
+        return r < N_DIV_10_I || (r == N_DIV_10_I && b < N_MOD_10_I);
+    }
+
+    private static int readHeapInt(HeapReadBuffer heapReadBuffer, byte firstByte) {
+        byte[] bytes = heapReadBuffer.rawByteArray();
+        int position = heapReadBuffer.intPosition();
+        if (position == bytes.length) {
+            throw new NumberFormatException("empty buffer");
+        }
+        boolean negative = false;
+        int r;
+        if (firstByte == BYTE_MINUS) {
+            negative = true;
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position++])];
+            if (v >= 0) {
+                throw new NumberFormatException("illegal negative value : " + v);
+            }
+            r = v;
+        } else if (firstByte == BYTE_ZERO) {
+            if (position < bytes.length && ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])] <= 0) {
+                throw new NumberFormatException("leading zero");
+            }
+            return 0;
+        } else {
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(firstByte)];
+            if (v > 0) {
+                throw new NumberFormatException("illegal value : " + v);
+            }
+            r = v;
+        }
+        while (position < bytes.length) {
+            byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])];
+            if (b <= 0) {
+                if(negativeIntOverflow(r, b)) {
+                    throw new ArithmeticException("integer overflow");
+                }
+                r = r * 10 + b;
+                position++;
+            } else {
+                break;
+            }
+        }
+        if(negative && r == Integer.MIN_VALUE) {
+            throw new ArithmeticException("integer overflow");
+        }
+        heapReadBuffer.setPosition(position);
+        return negative ? r : -r;
+    }
+
+    private static int readSegmentInt(SegmentReadBuffer segmentReadBuffer, byte firstByte) {
+        MemorySegment segment = segmentReadBuffer.rawSegment();
+        int position = segmentReadBuffer.intPosition();
+        int len = Math.toIntExact(segment.byteSize());
+        if (position == len) {
+            throw new NumberFormatException("empty buffer");
+        }
+        boolean negative = false;
+        int r;
+        if (firstByte == BYTE_MINUS) {
+            negative = true;
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position++))];
+            if (v >= 0) {
+                throw new NumberFormatException("empty buffer");
+            }
+            r = v;
+        } else if (firstByte == BYTE_ZERO) {
+            if (position < len && ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))] <= 0) {
+                throw new NumberFormatException("leading zero");
+            }
+            return 0;
+        } else {
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(firstByte)];
+            if (v > 0) {
+                throw new NumberFormatException("illegal value : " + v);
+            }
+            r = v;
+        }
+        while (position < len) {
+            byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))];
+            if (b <= 0) {
+                if(negativeIntOverflow(r, b)) {
+                    throw new ArithmeticException("integer overflow");
+                }
+                r =  r * 10 + b;
+                position++;
+            } else {
+                break;
+            }
+        }
+        if(negative && r == Integer.MIN_VALUE) {
+            throw new ArithmeticException("integer overflow");
+        }
+        segmentReadBuffer.setPosition(position);
+        return negative ? r : -r;
+    }
+
+    public static long readLong(ReadBuffer readBuffer, byte firstByte) {
+        return switch (readBuffer) {
+            case HeapReadBuffer heapReadBuffer -> readHeapLong(heapReadBuffer, firstByte);
+            case SegmentReadBuffer segmentReadBuffer -> readSegmentLong(segmentReadBuffer, firstByte);
+        };
+    }
+
+    private static boolean negativeLongOverflow(long r, byte b) {
+        return r < N_DIV_10_L || (r == N_DIV_10_L && b < N_MOD_10_L);
+    }
+
+    private static long readHeapLong(HeapReadBuffer heapReadBuffer, byte firstByte) {
+        byte[] bytes = heapReadBuffer.rawByteArray();
+        int position = heapReadBuffer.intPosition();
+        if (position == bytes.length) {
+            throw new NumberFormatException("empty buffer");
+        }
+        boolean negative = false;
+        long r;
+        if (firstByte == BYTE_MINUS) {
+            negative = true;
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])];
+            if (v >= 0) {
+                throw new NumberFormatException("illegal negative value : " + v);
+            }
+            r = v;
+            position++;
+        } else if (firstByte == BYTE_ZERO) {
+            if (position < bytes.length && ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])] <= 0) {
+                throw new NumberFormatException("leading zero");
+            }
+            return 0L;
+        } else {
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(firstByte)];
+            if (v > 0) {
+                throw new NumberFormatException("illegal value : " + v);
+            }
+            r = v;
+        }
+        while (position < bytes.length) {
+            byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])];
+            if (b <= 0) {
+                if(negativeLongOverflow(r, b)) {
+                    throw new ArithmeticException("long overflow");
+                }
+                r = r * 10L + b;
+                position++;
+            } else {
+                break;
+            }
+        }
+        if(negative && r == Long.MIN_VALUE) {
+            throw new ArithmeticException("long overflow");
+        }
+        heapReadBuffer.setPosition(position);
+        return negative ? r : -r;
+    }
+
+    private static long readSegmentLong(SegmentReadBuffer segmentReadBuffer, byte firstByte) {
+        MemorySegment segment = segmentReadBuffer.rawSegment();
+        int position = segmentReadBuffer.intPosition();
+        int len = Math.toIntExact(segment.byteSize());
+        if (position == len) {
+            throw new NumberFormatException("empty buffer");
+        }
+        boolean negative = false;
+        long r;
+        if (firstByte == BYTE_MINUS) {
+            negative = true;
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))];
+            if (v >= 0) {
+                throw new NumberFormatException("empty buffer");
+            }
+            r = v;
+            position++;
+        } else if (firstByte == BYTE_ZERO) {
+            if (position < len && ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))] <= 0) {
+                throw new NumberFormatException("leading zero");
+            }
+            return 0L;
+        } else {
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(firstByte)];
+            if (v > 0) {
+                throw new NumberFormatException("illegal value : " + v);
+            }
+            r = v;
+        }
+        while (position < len) {
+            byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))];
+            if (b <= 0) {
+                if(negativeLongOverflow(r, b)) {
+                    throw new ArithmeticException("long overflow");
+                }
+                r =  r * 10L + b;
+                position++;
+            } else {
+                break;
+            }
+        }
+        if(negative && r == Long.MIN_VALUE) {
+            throw new ArithmeticException("long overflow");
+        }
+        segmentReadBuffer.setPosition(position);
+        return negative ? r : -r;
+    }
+
+    // exposed for test purpose
+    // Parses a string-format floating-point number into a specific format.
+    // Enforces strict format validation; patterns like ".123E0123" are rejected,
+    // although they are acceptable by the JDK parser.
+    public static FpStrRep parseFpStrRep(ReadBuffer readBuffer, byte firstByte) {
+        return switch (readBuffer) {
+            case HeapReadBuffer heapReadBuffer -> parseHeapFpStrRep(heapReadBuffer, firstByte);
+            case SegmentReadBuffer segmentReadBuffer -> parseSegmentFpStrRep(segmentReadBuffer, firstByte);
+        };
+    }
+
+    private static FpStrRep parseHeapFpStrRep(HeapReadBuffer heapReadBuffer, byte firstByte) {
+        final byte[] bytes = heapReadBuffer.rawByteArray();
+        final int position = heapReadBuffer.intPosition();
+        if (position == bytes.length) {
+            throw new NumberFormatException("empty buffer");
+        }
+        int index = position;
+        boolean neg = false;
+        boolean negExp = false;
+        boolean trunc = false;
+        long d;
+        int frac = 0;
+        int p = 0;
+        byte target = firstByte;
+        byte v;
+        // process first sign or digit
+        if (firstByte == BYTE_MINUS) {
+            neg = true;
+            target = bytes[index];
+        }
+        v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
+        if (v > 0) {
+            throw new NumberFormatException("not a digit : " + target);
+        }
+        d = -v;
+        // process following digits
+        int nd = 1;
+        while (index < bytes.length) {
+            target = bytes[index];
+            v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
+            if (v <= 0) {
+                if(nd == 1) {
+                    if(d == 0L) {
+                        throw new NumberFormatException("leading zero");
+                    }
+                }
+                if(nd < MAX_DECIMAL_ND) {
+                    d = d * 10L - v;
+                    nd++;
+                } else {
+                    trunc = true;
+                }
+                index++;
+            } else {
+                break;
+            }
+        }
+        // processing optional fraction
+        if (index < bytes.length && target == BYTE_PERIOD) {
+            index++;
+            while (index < bytes.length) {
+                target = bytes[index];
+                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
+                if (v <= 0) {
+                    if(nd < MAX_DECIMAL_ND) {
+                        d = d * 10L - v;
+                        nd++;
+                        frac++;
+                    } else {
+                        trunc = true;
+                    }
+                    index++;
+                } else {
+                    break;
+                }
+            }
+            if (frac == 0) {
+                throw new NumberFormatException("leading period with no digits");
+            }
+        }
+        // processing optional exponent
+        if (index < bytes.length && (target == BYTE_E || target == BYTE_e)) {
+            // processing first sign or digit
+            if (++index == bytes.length) {
+                throw new NumberFormatException("leading exponent sign with no digits");
+            }
+            target = bytes[index];
+            if (target == BYTE_MINUS || target == BYTE_PLUS) {
+                if (++index == bytes.length) {
+                    throw new NumberFormatException("leading sign with no digits");
+                }
+                if (target == BYTE_MINUS) {
+                    negExp = true;
+                }
+                target = bytes[index];
+            }
+            v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
+            if (v > 0) {
+                throw new NumberFormatException("illegal start of number : " + target);
+            }
+            p = -v;
+            index++;
+            // processing following exponent
+            int np = 1;
+            while (index < bytes.length) {
+                target = bytes[index];
+                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
+                if (v <= 0) {
+                    if(np == 1) {
+                        if (p == 0) {
+                            throw new NumberFormatException("leading zero");
+                        }
+                    }
+                    if(np < MAX_DECIMAL_NP) {
+                        p = p * 10 - v;
+                        np++;
+                    }
+                    index++;
+                } else {
+                    break;
+                }
+            }
+        }
+        p = (negExp ? -p : p) - frac;
+        return new FpStrRep(neg, trunc, d, frac, p, index - position);
+    }
+
+    private static FpStrRep parseSegmentFpStrRep(SegmentReadBuffer segmentReadBuffer, byte firstByte) {
+        MemorySegment segment = segmentReadBuffer.rawSegment();
+        int position = segmentReadBuffer.intPosition();
+        int length = Math.toIntExact(segment.byteSize());
+        if (position == length) {
+            throw new NumberFormatException("empty buffer");
+        }
+        int index = position;
+        boolean neg = false;
+        boolean negExp = false;
+        boolean trunc = false;
+        long d;
+        int frac = 0;
+        int p = 0;
+        byte target = firstByte;
+        byte v;
+        // processing first sign or digit
+        if (firstByte == BYTE_MINUS) {
+            neg = true;
+            target = SegmentAccess.getByte(segment, index);
+        }
+        v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
+        if (v > 0) {
+            throw new NumberFormatException("not a digit : " + target);
+        }
+        d = -v;
+        // process following digits
+        int nd = 1;
+        while (index < length) {
+            target = SegmentAccess.getByte(segment, index);
+            v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
+            if (v <= 0) {
+                if(nd == 1) {
+                    if(d == 0L) {
+                        throw new NumberFormatException("leading zero");
+                    }
+                }
+                if(nd < MAX_DECIMAL_ND) {
+                    d = d * 10L - v;
+                    nd++;
+                } else {
+                    trunc = true;
+                }
+                index++;
+            } else {
+                break;
+            }
+        }
+        // processing optional fraction
+        if (index < length && target == BYTE_PERIOD) {
+            index++;
+            while (index < length) {
+                target = SegmentAccess.getByte(segment, index);
+                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
+                if (v <= 0) {
+                    if(nd < MAX_DECIMAL_ND) {
+                        d = d * 10L - v;
+                        nd++;
+                        frac++;
+                    } else {
+                        trunc = true;
+                    }
+                    index++;
+                } else {
+                    break;
+                }
+            }
+            if (frac == 0) {
+                throw new NumberFormatException("leading period with no digits");
+            }
+        }
+        // processing optional exponent
+        if (index < length && (target == BYTE_E || target == BYTE_e)) {
+            // processing first sign or digit
+            if (++index == length) {
+                throw new NumberFormatException("leading exponent sign with no digits");
+            }
+            target = SegmentAccess.getByte(segment, index);
+            if (target == BYTE_MINUS || target == BYTE_PLUS) {
+                if (++index == length) {
+                    throw new NumberFormatException("leading sign with no digits");
+                }
+                if (target == BYTE_MINUS) {
+                    negExp = true;
+                }
+                target = SegmentAccess.getByte(segment, index);
+            }
+            v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
+            if (v > 0) {
+                throw new NumberFormatException("illegal start of number : " + target);
+            }
+            p = -v;
+            index++;
+            // processing following exponent
+            int np = 1;
+            while (index < length) {
+                target = SegmentAccess.getByte(segment, index);
+                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
+                if (v <= 0) {
+                    if(np == 1) {
+                        if (p == 0) {
+                            throw new NumberFormatException("leading zero");
+                        }
+                    }
+                    if(np < MAX_DECIMAL_NP) {
+                        p = p * 10 - v;
+                        np++;
+                    }
+                    index++;
+                } else {
+                    break;
+                }
+            }
+        }
+        p = (negExp ? -p : p) - frac;
+        return new FpStrRep(neg, trunc, d, frac, p, index - position);
+    }
+
+    public static float readFloat(ReadBuffer readBuffer, byte firstByte) {
+        FpStrRep rep = parseFpStrRep(readBuffer, firstByte);
+        float r = parseFloat(readBuffer, rep);
+        int position = readBuffer.intPosition();
+        readBuffer.setPosition(position + rep.len());
+        return r;
+    }
+
+    public static float parseFloat(ReadBuffer readBuffer, FpStrRep rep) {
+        if(rep.trunc()) {
+            return parseFloatFallback(readBuffer, rep);
+        }
+        int sign = rep.negative() ? (1 << (FLOAT_SPEC.mantBits() + FLOAT_SPEC.expBits())) : 0;
+        long d = rep.d();
+        int p = rep.p();
+        if(d == 0L || p < FLOAT_SPEC.minDecExp() - MAX_DECIMAL_ND - 2) {
+            return Float.intBitsToFloat(sign);
+        }
+        if(p > FLOAT_SPEC.maxDecExp() + 2) {
+            return Float.intBitsToFloat(sign | (0xff << FLOAT_SPEC.mantBits()));
+        }
+        if(d >> FLOAT_SPEC.mantBits() == 0L) {
+            float f = (float) Math.toIntExact(rep.negative() ? -d : d);
+            if(p == 0) {
+                return f;
+            } else if(p > 0 && p <= FLOAT_EXACT_I + FLOAT_EXACT_P) {
+                int tp = p;
+                if(tp > FLOAT_EXACT_P) {
+                    f *= FLOAT_POW_10[tp - FLOAT_EXACT_P];
+                    tp = FLOAT_EXACT_P;
+                }
+                if(f >= FLOAT_EXACT_I_LOW && f <= FLOAT_EXACT_I_HIGH) {
+                    return f * FLOAT_POW_10[tp];
+                }
+            } else if(p < 0 && p >= -FLOAT_EXACT_P) {
+                return f /  FLOAT_POW_10[-p];
+            }
+        }
+        int lp = log2Pow10(p);
+        int shift = Long.numberOfLeadingZeros(d);
+        int b = Long.SIZE - shift;
+        int fe = Math.min(FLOAT_SPEC.mantBits() - FLOAT_SPEC.bias() - 1, FLOAT_SPEC.mantBits() + 1 - b - lp);
+        Scalers scalers = prescale(fe - shift, p, lp);
+        if(scalers.s() >= Long.SIZE) {
+            return Float.intBitsToFloat(sign);
+        }
+        long u = uscale(d << shift, scalers);
+        if (u >= umin(1L << (FLOAT_SPEC.mantBits() + 1))) {
+            u = (u >>> 1) | (u & 1);
+            fe--;
+        }
+        int m = sign | Math.toIntExact(uround(u));
+        if((m & (1 << FLOAT_SPEC.mantBits())) == 0) {
+            return Float.intBitsToFloat(m);
+        }
+        int e = -fe;
+        if(e >= (1 << FLOAT_SPEC.expBits()) - 1 - FLOAT_SPEC.mantBits() + FLOAT_SPEC.bias()) {
+            return parseFloatFallback(readBuffer, rep);
+        }
+        return Float.intBitsToFloat(
+                (m & ~(1 << FLOAT_SPEC.mantBits())) |
+                        (FLOAT_SPEC.mantBits() - FLOAT_SPEC.bias() + e) << FLOAT_SPEC.mantBits());
+    }
+
+    private static float parseFloatFallback(ReadBuffer readBuffer, FpStrRep FpStrRep) {
+        int len = FpStrRep.len();
+        switch (readBuffer) {
+            case HeapReadBuffer heapReadBuffer -> {
+                byte[] bytes = heapReadBuffer.rawByteArray();
+                int position = heapReadBuffer.intPosition();
+                String s = new String(bytes, position - 1, len + 1, StandardCharsets.US_ASCII);
+                return Float.parseFloat(s);
+            }
+            case SegmentReadBuffer segmentReadBuffer -> {
+                MemorySegment segment = segmentReadBuffer.rawSegment();
+                long position = segmentReadBuffer.longPosition();
+                byte[] bytes = segment.asSlice(position - 1L, len + 1L).toArray(ValueLayout.JAVA_BYTE);
+                String s = new String(bytes, StandardCharsets.US_ASCII);
+                return Float.parseFloat(s);
+            }
+        }
+    }
+
+    public static double readDouble(ReadBuffer readBuffer, byte firstByte) {
+        FpStrRep rep = parseFpStrRep(readBuffer, firstByte);
+        double r = parseDouble(readBuffer, rep);
+        int position = readBuffer.intPosition();
+        readBuffer.setPosition(position + rep.len());
+        return r;
+    }
+
+    public static double parseDouble(ReadBuffer readBuffer, FpStrRep rep) {
+        if(rep.trunc()) {
+            return parseDoubleFallback(readBuffer, rep);
+        }
+        long sign = rep.negative() ? (1L << (DOUBLE_SPEC.mantBits() + DOUBLE_SPEC.expBits())) : 0L;
+        long d = rep.d();
+        int p = rep.p();
+        if(d == 0L || p < DOUBLE_SPEC.minDecExp() - MAX_DECIMAL_ND - 2) {
+            return Double.longBitsToDouble(sign);
+        }
+        if(p > DOUBLE_SPEC.maxDecExp() + 2) {
+            return Double.longBitsToDouble(sign | (0x7ffL << DOUBLE_SPEC.mantBits()));
+        }
+        if(d >>> DOUBLE_SPEC.mantBits() == 0L) {
+            double f = (double) (rep.negative() ? -d : d);
+            if(p == 0) {
+                return f;
+            } else if(p > 0 && p <= DOUBLE_EXACT_I + DOUBLE_EXACT_P) {
+                int tp = p;
+                if(tp > DOUBLE_EXACT_P) {
+                    f *= DOUBLE_POW_10[tp - DOUBLE_EXACT_P];
+                    tp = DOUBLE_EXACT_P;
+                }
+                if(f >= DOUBLE_EXACT_I_LOW && f <= DOUBLE_EXACT_I_HIGH) {
+                    return f * DOUBLE_POW_10[tp];
+                }
+            } else if(p < 0 && p >= -DOUBLE_EXACT_P) {
+                return f / DOUBLE_POW_10[-p];
+            }
+        }
+        int lp = log2Pow10(p);
+        int shift = Long.numberOfLeadingZeros(d);
+        int b = Long.SIZE - shift;
+        int fe = Math.min(DOUBLE_SPEC.mantBits() - DOUBLE_SPEC.bias() - 1, DOUBLE_SPEC.mantBits() + 1 - b - lp);
+        Scalers scalers = prescale(fe - shift, p, lp);
+        if(scalers.s() >= Long.SIZE) {
+            return Double.longBitsToDouble(sign);
+        }
+        long u = uscale(d << shift, scalers);
+        if (u >= umin(1L << (DOUBLE_SPEC.mantBits() + 1))) {
+            u = (u >>> 1) | (u & 1);
+            fe--;
+        }
+        long m = sign | uround(u);
+        if((m & (1L << DOUBLE_SPEC.mantBits())) == 0L) {
+            return Double.longBitsToDouble(m);
+        }
+        int e = -fe;
+        if(e >= (1 << DOUBLE_SPEC.expBits()) - 1 - DOUBLE_SPEC.mantBits() + DOUBLE_SPEC.bias()) {
+            return parseDoubleFallback(readBuffer, rep);
+        }
+        return Double.longBitsToDouble(
+                (m & ~(1L << DOUBLE_SPEC.mantBits())) |
+                        ((long) (DOUBLE_SPEC.mantBits() - DOUBLE_SPEC.bias() + e)) << DOUBLE_SPEC.mantBits());
+    }
+
+    private static double parseDoubleFallback(ReadBuffer readBuffer, FpStrRep FpStrRep) {
+        int len = FpStrRep.len();
+        switch (readBuffer) {
+            case HeapReadBuffer heapReadBuffer -> {
+                byte[] bytes = heapReadBuffer.rawByteArray();
+                int position = heapReadBuffer.intPosition();
+                String s = new String(bytes, position - 1, len + 1, StandardCharsets.US_ASCII);
+                return Double.parseDouble(s);
+            }
+            case SegmentReadBuffer segmentReadBuffer -> {
+                MemorySegment segment = segmentReadBuffer.rawSegment();
+                long postion = segmentReadBuffer.longPosition();
+                byte[] bytes = segment.asSlice(postion - 1L, len + 1L).toArray(ValueLayout.JAVA_BYTE);
+                String s = new String(bytes, StandardCharsets.US_ASCII);
+                return Double.parseDouble(s);
+            }
+        }
     }
 
     /**

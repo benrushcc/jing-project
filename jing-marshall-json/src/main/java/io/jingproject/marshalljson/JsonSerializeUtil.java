@@ -154,7 +154,6 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeIndent(int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
-        assert indent >= 1 && indent <= JsonSerializerOption.HARD_MAX_SIZE && jsonIndentationLevel != null && writeBuffer != null;
         switch (jsonIndentationLevel) {
             case NONE -> {}
             case TWO -> {
@@ -169,7 +168,7 @@ public final class JsonSerializeUtil {
         }
     }
 
-    public static void serializeObjArray(Object[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer, BiConsumer<Object, WriteBuffer> consumer) {
+    private static void serializeObjArray(Object[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer, BiConsumer<Object, WriteBuffer> consumer) {
         assert arr != null && writeBuffer != null;
         if(arr.length == 0) {
             writeBuffer.writeBytes(BYTE_bracket, BYTE_rbracket);

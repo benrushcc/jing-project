@@ -9,26 +9,19 @@ import java.util.Map;
 import java.util.Set;
 
 public final class JsonSerializerOption {
-    // same as JsonDeserializerOption
-    public static final int DEFAULT_INITIAL_SIZE = 4;
-    public static final int DEFAULT_MAX_SIZE     = 64;
-    public static final int HARD_MIN_SIZE        = 2;
-    public static final int HARD_MAX_SIZE        = 1024;
     private static final JsonSerializerOption DEFAULT_OPTION = JsonSerializerOption.builder().build();
 
     private final Map<Class<?>, JsonSerializeFunc> funcMap;
     private final boolean serializeNullInObjOrMap;
     private final JsonIndentationLevel jsonIndentationLevel;
-    private final int initialSize;
-    private final int maxSize;
+    private final int maxNestedSize;
 
     public JsonSerializerOption(Map<Class<?>, JsonSerializeFunc> funcMap, boolean serializeNullInObjOrMap,
-                                JsonIndentationLevel jsonIndentationLevel, int initialSize, int maxSize) {
+                                JsonIndentationLevel jsonIndentationLevel, int maxNestedSize) {
         this.funcMap = funcMap;
         this.serializeNullInObjOrMap = serializeNullInObjOrMap;
         this.jsonIndentationLevel = jsonIndentationLevel;
-        this.initialSize = initialSize;
-        this.maxSize = maxSize;
+        this.maxNestedSize = maxNestedSize;
     }
 
     public static JsonSerializerOption defaultOption() {
@@ -51,22 +44,17 @@ public final class JsonSerializerOption {
         return jsonIndentationLevel;
     }
 
-    public int initialSize() {
-        return initialSize;
-    }
-
     public int maxSize() {
-        return maxSize;
+        return maxNestedSize;
     }
 
     public static class JsonSerializerOptionBuilder {
         private final Set<MarshallTransformerFacade> transformerFacades = new HashSet<>();
         private boolean serializeNullInObjOrMap = false;
         private JsonIndentationLevel jsonIndentationLevel = JsonIndentationLevel.NONE;
-        private int initialSize = DEFAULT_INITIAL_SIZE;
-        private int maxSize = DEFAULT_MAX_SIZE;
+        private int maxNestedSize = 64;
 
-        public JsonSerializerOptionBuilder setTransformers(Class<?>... transformers) {
+        public JsonSerializerOptionBuilder withTransformers(Class<?>... transformers) {
             if(transformers == null || transformers.length == 0) {
                 throw new IllegalArgumentException("transformers must not be null or empty");
             }
@@ -87,9 +75,7 @@ public final class JsonSerializerOption {
                 if (JsonPrimitiveType.class.isAssignableFrom(builtinType)) {
                     throw new IllegalArgumentException("builtinType not implementing JsonPrimitiveType interface : " + builtinType.getName());
                 }
-                if(!transformerFacades.add(tfc)) {
-                    throw new IllegalArgumentException("transformer already exists : " + transformer.getName());
-                }
+                transformerFacades.add(tfc); // no conflict
             }
             return this;
         }
@@ -104,19 +90,11 @@ public final class JsonSerializerOption {
             return this;
         }
 
-        public JsonSerializerOptionBuilder setInitialSize(int initialSize) {
-            if(initialSize < HARD_MIN_SIZE ||initialSize > HARD_MAX_SIZE) {
-                throw new IllegalArgumentException("initialSize : [" + initialSize + "] must be between " + HARD_MIN_SIZE + " and " + HARD_MAX_SIZE);
+        public JsonSerializerOptionBuilder setMaxNestedSize(int maxNestedSize) {
+            if(Integer.bitCount(maxNestedSize) != 1 || maxNestedSize < 4) {
+                throw new IllegalArgumentException("maxNestedSize must be a power of 2, and bigger than 4");
             }
-            this.initialSize = initialSize;
-            return this;
-        }
-
-        public JsonSerializerOptionBuilder setMaxSize(int maxSize) {
-            if(maxSize < HARD_MIN_SIZE ||maxSize > HARD_MAX_SIZE) {
-                throw new IllegalArgumentException("maxSize : [" + maxSize + "] must be between " + HARD_MIN_SIZE + " and " + HARD_MAX_SIZE);
-            }
-            this.maxSize = maxSize;
+            this.maxNestedSize = maxNestedSize;
             return this;
         }
 
@@ -128,17 +106,8 @@ public final class JsonSerializerOption {
                     return JsonSerializeResult.CONTINUE;
                 });
             }
-            if(initialSize > maxSize) {
-                throw new IllegalArgumentException("initialSize cannot be less than maxSize");
-            }
-            if(maxSize % initialSize != 0) {
-                throw new IllegalArgumentException("maxSize : [" + maxSize + "] must be multiple of " + initialSize);
-            }
-            if(Integer.bitCount(maxSize / initialSize) != 1) {
-                throw new IllegalArgumentException("maxSize / initialSize must be power of 2");
-            }
             return new JsonSerializerOption(Map.copyOf(funcMap), serializeNullInObjOrMap,
-                    jsonIndentationLevel, initialSize, maxSize);
+                    jsonIndentationLevel, maxNestedSize);
         }
     }
 

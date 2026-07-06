@@ -11,12 +11,4 @@ public interface MarshallTransformerFacade {
     Object toCustom(Object o);
 
     Object toBuiltin(Object o);
-
-    default Object castCustom(Object o, Class<?> builtinType) {
-        return toCustom(builtinType.cast(o));
-    }
-
-    default <T> T castBuiltin(Object o, Class<T> clazz) {
-        return clazz.cast(toBuiltin(o));
-    }
 }

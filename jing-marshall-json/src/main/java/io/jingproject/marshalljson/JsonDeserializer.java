@@ -13,35 +13,36 @@ public final class JsonDeserializer {
     }
 
     public byte[] deserializeByteArray(ReadBuffer readBuffer) {
-        return null;
+        return JsonDeserializeUtil.deserializeByteArray(readBuffer, option);
     }
 
     public boolean[] deserializeBooleanArray(ReadBuffer readBuffer) {
-        return null;
+        return JsonDeserializeUtil.deserializeBooleanArray(readBuffer, option);
     }
 
     public short[] deserializeShortArray(ReadBuffer readBuffer) {
-        return null;
+        return JsonDeserializeUtil.deserializeShortArray(readBuffer, option);
     }
 
     public char[] deserializeCharArray(ReadBuffer readBuffer) {
-        return null;
+        JsonDeserializerContext context = new JsonDeserializerContext();
+        return JsonDeserializeUtil.deserializeCharArray(readBuffer, option, context);
     }
 
     public int[] deserializeIntArray(ReadBuffer readBuffer) {
-        return null;
+        return JsonDeserializeUtil.deserializeIntArray(readBuffer, option);
     }
 
     public long[] deserializeLongArray(ReadBuffer readBuffer) {
-        return null;
+        return JsonDeserializeUtil.deserializeLongArray(readBuffer, option);
     }
 
     public float[] deserializeFloatArray(ReadBuffer readBuffer) {
-        return null;
+        return JsonDeserializeUtil.deserializeFloatArray(readBuffer, option);
     }
 
     public double[] deserializeDoubleArray(ReadBuffer readBuffer) {
-        return null;
+        return JsonDeserializeUtil.deserializeDoubleArray(readBuffer, option);
     }
 
     public <T> T deserializeMarshallableObject(Class<T> type, ReadBuffer readBuffer) {

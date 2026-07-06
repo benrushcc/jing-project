@@ -11,6 +11,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public final class JsonSerializerState {
+    private static final int INITIAL_SIZE = 4;
     private final JsonSerializerOption option;
     private final WriteBuffer writeBuffer;
     private JsonSerializerNode[] nodes;
@@ -30,7 +31,7 @@ public final class JsonSerializerState {
             throw new JsonSerializerException("type not marshallable : " + type.getName());
         }
         if(nodes == null) {
-            nodes = new JsonSerializerNode[option.initialSize()];
+            nodes = new JsonSerializerNode[INITIAL_SIZE];
         }
         JsonSerializerObjNode objNode = new JsonSerializerObjNode();
         objNode.setFc(fc);
@@ -51,7 +52,7 @@ public final class JsonSerializerState {
             throw new JsonSerializerException("generic array not supported : " + componentType.getName());
         }
         if(nodes == null) {
-            nodes = new JsonSerializerNode[option.initialSize()];
+            nodes = new JsonSerializerNode[INITIAL_SIZE];
         }
         JsonSerializerArrNode arrNode = new JsonSerializerArrNode();
         arrNode.setArr(arr);
@@ -70,7 +71,7 @@ public final class JsonSerializerState {
             throw new JsonSerializerException("generic collection not supported : " + elementType.getName());
         }
         if(nodes == null) {
-            nodes = new JsonSerializerNode[option.initialSize()];
+            nodes = new JsonSerializerNode[INITIAL_SIZE];
         }
         JsonSerializerColNode colNode = new JsonSerializerColNode();
         colNode.setSize(collection.size());
@@ -97,7 +98,7 @@ public final class JsonSerializerState {
             throw new JsonSerializerException("generic map value type not supported: " + valueType.getName());
         }
         if(nodes == null) {
-            nodes = new JsonSerializerNode[option.initialSize()];
+            nodes = new JsonSerializerNode[INITIAL_SIZE];
         }
         JsonSerializerMapNode mapNode = new JsonSerializerMapNode();
         mapNode.setSize(map.size());

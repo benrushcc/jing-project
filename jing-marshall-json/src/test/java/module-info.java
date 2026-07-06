@@ -7,4 +7,5 @@ open module jing.marshalljsontest {
     requires jdk.unsupported;
     requires com.fasterxml.jackson.annotation;
     requires tools.jackson.databind;
+    requires com.google.common;
 }

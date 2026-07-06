@@ -119,32 +119,20 @@ public final class MarshallOldUtil {
 
     // no overflow
     private static long[] makePow10Table() {
-        BigInteger two = BigInteger.valueOf(2);
-        BigInteger oneShift64 = BigInteger.ONE.shiftLeft(64);
-        BigInteger oneShift128 = BigInteger.ONE.shiftLeft(128);
+        BigInteger mask64 = BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE);
+        BigInteger[] pow10 = new BigInteger[-POW10MIN + 1];
+        pow10[0] = BigInteger.ONE;
+        for(int i = 1; i <= -POW10MIN; i++) {
+            pow10[i] = pow10[i - 1].multiply(BigInteger.TEN);
+        }
         int count = POW10MAX - POW10MIN + 1;
         long[] r = new long[count * 2];
         int index = 0;
         for (int e = POW10MIN; e <= POW10MAX; e++) {
-            BigInteger num, den;
-            if (e >= 0) {
-                num = BigInteger.TEN.pow(e);
-                den = BigInteger.ONE;
-            } else {
-                num = BigInteger.ONE;
-                den = BigInteger.TEN.pow(-e);
-            }
-            while (num.compareTo(den.multiply(oneShift128)) < 0) {
-                num = num.multiply(two);
-            }
-            while (num.compareTo(den.multiply(oneShift128)) >= 0) {
-                den = den.multiply(two);
-            }
-            BigInteger d = num.divide(den);
-            BigInteger[] hiLo = d.divideAndRemainder(oneShift64);
-            long uhi = hiLo[0].longValue();
-            long ulo = hiLo[1].longValue();
-            if (!num.mod(den).equals(BigInteger.ZERO)) {
+            BigInteger[] qr = computeScaledPower(e, pow10);
+            long uhi = qr[0].shiftRight(64).longValue();
+            long ulo = qr[0].and(mask64).longValue();
+            if (qr[1].signum() != 0) {
                 ulo = Math.incrementExact(ulo);
                 if (ulo == 0L) {
                     uhi = Math.incrementExact(uhi);
@@ -158,6 +146,29 @@ public final class MarshallOldUtil {
             r[index++] = ulo;
         }
         return r;
+    }
+
+    private static BigInteger[] computeScaledPower(int e, BigInteger[] pow10) {
+        BigInteger num = e >= 0 ? pow10[e] : BigInteger.ONE;
+        BigInteger den = e >= 0 ? BigInteger.ONE : pow10[-e];
+        BigInteger shifted = den.shiftLeft(128);
+        int numPreShifted = shifted.bitLength() - num.bitLength() - 1;
+        if(numPreShifted > 0) {
+            num = num.shiftLeft(numPreShifted);
+        }
+        while (num.compareTo(shifted) < 0) {
+            num = num.shiftLeft(1);
+        }
+        int denPreShifted = num.bitLength() - shifted.bitLength() - 1;
+        if(denPreShifted > 0) {
+            den = den.shiftLeft(denPreShifted);
+            shifted = shifted.shiftLeft(denPreShifted);
+        }
+        while (num.compareTo(shifted) >= 0) {
+            den = den.shiftLeft(1);
+            shifted = shifted.shiftLeft(1);
+        }
+        return num.divideAndRemainder(den);
     }
 
     private MarshallOldUtil() {

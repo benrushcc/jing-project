@@ -5,6 +5,13 @@ import java.nio.ByteOrder;
 public final class Utils {
     private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+    private static final boolean[] EMPTY_BOOLEAN_ARRAY = new boolean[0];
+    private static final short[] EMPTY_SHORT_ARRAY = new short[0];
+    private static final char[] EMPTY_CHAR_ARRAY = new char[0];
+    private static final int[] EMPTY_INT_ARRAY = new int[0];
+    private static final long[] EMPTY_LONG_ARRAY = new long[0];
+    private static final float[] EMPTY_FLOAT_ARRAY = new float[0];
+    private static final double[] EMPTY_DOUBLE_ARRAY = new double[0];
 
     private Utils() {
         throw new AssertionError();
@@ -16,6 +23,34 @@ public final class Utils {
 
     public static byte[] emptyByteArray() {
         return EMPTY_BYTE_ARRAY;
+    }
+
+    public static boolean[] emptyBooleanArray() {
+        return EMPTY_BOOLEAN_ARRAY;
+    }
+
+    public static short[] emptyShortArray() {
+        return EMPTY_SHORT_ARRAY;
+    }
+
+    public static char[] emptyCharArray() {
+        return EMPTY_CHAR_ARRAY;
+    }
+
+    public static int[] emptyIntArray() {
+        return EMPTY_INT_ARRAY;
+    }
+
+    public static long[] emptyLongArray() {
+        return EMPTY_LONG_ARRAY;
+    }
+
+    public static float[] emptyFloatArray() {
+        return EMPTY_FLOAT_ARRAY;
+    }
+
+    public static double[] emptyDoubleArray() {
+        return EMPTY_DOUBLE_ARRAY;
     }
 
     /**

@@ -17,18 +17,11 @@ public final class HeapReadBuffer implements ReadBuffer {
     }
 
     private final byte[] buffer;
-    private final int length;
     private int position;
 
     public HeapReadBuffer(byte[] buffer) {
-        this(buffer, 0, buffer.length);
-    }
-
-    public HeapReadBuffer(byte[] buffer, int offset, int len) {
-        Objects.checkFromIndexSize(offset, len, buffer.length);
         this.buffer = buffer;
-        this.position = offset;
-        this.length = offset + len;
+        this.position = 0;
     }
 
     @Override
@@ -38,12 +31,12 @@ public final class HeapReadBuffer implements ReadBuffer {
 
     @Override
     public int intLength() {
-        return length;
+        return buffer.length;
     }
 
     @Override
     public void setPosition(int newPosition) {
-        assert newPosition >= 0 && newPosition <= length;
+        assert newPosition >= 0 && newPosition <= buffer.length;
         position = newPosition;
     }
 
@@ -54,19 +47,19 @@ public final class HeapReadBuffer implements ReadBuffer {
 
     @Override
     public long longLength() {
-        return length;
+        return buffer.length;
     }
 
     @Override
     public void setPosition(long newPosition) {
-        assert newPosition >= 0 && newPosition <= length;
+        assert newPosition >= 0 && newPosition <= buffer.length;
         position = Math.toIntExact(newPosition);
     }
 
     @Override
     public byte readByte() {
         int newPosition = Math.incrementExact(position);
-        if (newPosition > length) {
+        if (newPosition > buffer.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
         byte r = buffer[position];
@@ -78,7 +71,7 @@ public final class HeapReadBuffer implements ReadBuffer {
     public void readBytes(byte[] bytes, int offset, int length) {
         assert Objects.checkFromIndexSize(offset, length, length) >= 0;
         int newPosition = Math.addExact(position, length);
-        if (newPosition > length) {
+        if (newPosition > buffer.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
         System.arraycopy(buffer, position, bytes, offset, length);
@@ -89,7 +82,7 @@ public final class HeapReadBuffer implements ReadBuffer {
     public void readSegment(MemorySegment segment, long offset, long length) {
         int intLen = Math.toIntExact(length);
         int newPosition = Math.addExact(position, intLen);
-        if (newPosition > length) {
+        if (newPosition > buffer.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
         MemorySegment.copy(buffer, position, segment, ValueLayout.JAVA_BYTE, offset, intLen);
@@ -99,7 +92,7 @@ public final class HeapReadBuffer implements ReadBuffer {
     @Override
     public short readShort(ByteOrder byteOrder) {
         int newPosition = Math.addExact(position, 2);
-        if (newPosition > length) {
+        if (newPosition > buffer.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
         short r = ArrayAccess.getShort(buffer, position, byteOrder);
@@ -110,7 +103,7 @@ public final class HeapReadBuffer implements ReadBuffer {
     @Override
     public char readChar(ByteOrder byteOrder) {
         int newPosition = Math.addExact(position, 2);
-        if (newPosition > length) {
+        if (newPosition > buffer.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
         char r = ArrayAccess.getChar(buffer, position, byteOrder);
@@ -121,7 +114,7 @@ public final class HeapReadBuffer implements ReadBuffer {
     @Override
     public int readInt(ByteOrder byteOrder) {
         int newPosition = Math.addExact(position, 4);
-        if (newPosition > length) {
+        if (newPosition > buffer.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
         int r = ArrayAccess.getInt(buffer, position, byteOrder);
@@ -132,7 +125,7 @@ public final class HeapReadBuffer implements ReadBuffer {
     @Override
     public long readLong(ByteOrder byteOrder) {
         int newPosition = Math.addExact(position, 8);
-        if (newPosition > length) {
+        if (newPosition > buffer.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
         long r = ArrayAccess.getLong(buffer, position, byteOrder);
@@ -143,7 +136,7 @@ public final class HeapReadBuffer implements ReadBuffer {
     @Override
     public float readFloat(ByteOrder byteOrder) {
         int newPosition = Math.addExact(position, 4);
-        if (newPosition > length) {
+        if (newPosition > buffer.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
         float r = ArrayAccess.getFloat(buffer, position, byteOrder);
@@ -154,7 +147,7 @@ public final class HeapReadBuffer implements ReadBuffer {
     @Override
     public double readDouble(ByteOrder byteOrder) {
         int newPosition = Math.addExact(position, 8);
-        if (newPosition > length) {
+        if (newPosition > buffer.length) {
             throw new ArrayIndexOutOfBoundsException();
         }
         double r = ArrayAccess.getDouble(buffer, position, byteOrder);
@@ -167,7 +160,6 @@ public final class HeapReadBuffer implements ReadBuffer {
         position = 0;
     }
 
-    // TODO 现在是所有用到的地方的语义都要跟着变一下，因为readBuffer现在是一个切片的概念，直接操纵buffer的length是可能导致越界的，不安全
     public byte[] rawByteArray() {
         return buffer;
     }
