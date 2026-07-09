@@ -174,11 +174,9 @@ public final class MarshallProcessor extends AbstractProcessor {
         if (from != NamingConvention.ORIGINAL && to != NamingConvention.ORIGINAL && mappedName.equals(fieldName)) {
             mappedName = NamingConvention.cast(from, to, fieldName);
         }
-        int fieldNameLen = fieldName.getBytes(StandardCharsets.UTF_8).length;
-        int mappedNameLen = mappedName.getBytes(StandardCharsets.UTF_8).length;
         return new MarshallFieldInfo(t, typeIndex, fieldElement, fieldName, mappedName, marshallIndex,
-                fieldNameOffset, fieldNameLen,
-                mappedNameOffset, mappedNameLen,
+                fieldNameOffset, fieldName.getBytes(StandardCharsets.UTF_8),
+                mappedNameOffset, mappedName.getBytes(StandardCharsets.UTF_8),
                 skipSerializing, skipDeserializing);
     }
 
@@ -186,9 +184,11 @@ public final class MarshallProcessor extends AbstractProcessor {
         List<TypeElement> typeElements = createTypeElements(t);
         List<MarshallFieldInfo> fieldInfos = createFieldInfos(typeElements);
         Map<Class<?>, List<MarshallFieldInfo>> fieldTypeInfo = createTypeInfo(fieldInfos);
-        Map<Integer, List<MarshallFieldInfo>> fieldHashInfo = createHashInfo(fieldInfos, MarshallFieldInfo::fieldName);
-        Map<Integer, List<MarshallFieldInfo>> mappedHashInfo = createHashInfo(fieldInfos, MarshallFieldInfo::mappedName);
-        return new MarshallProcessorInfo(typeElements, fieldInfos, fieldTypeInfo, fieldHashInfo, mappedHashInfo);
+        int fieldHashIndex = HashUtil.selectUtf8Hasher(fieldInfos, MarshallFieldInfo::fieldNameUtf8Bytes);
+        Map<Integer, List<MarshallFieldInfo>> fieldHashInfo = createUtf8HashInfo(fieldInfos, MarshallFieldInfo::fieldNameUtf8Bytes, fieldHashIndex);
+        int mappedHashIndex = HashUtil.selectUtf8Hasher(fieldInfos, MarshallFieldInfo::mappedNameUtf8Bytes);
+        Map<Integer, List<MarshallFieldInfo>> mappedHashInfo = createUtf8HashInfo(fieldInfos, MarshallFieldInfo::mappedNameUtf8Bytes, mappedHashIndex);
+        return new MarshallProcessorInfo(typeElements, fieldInfos, fieldTypeInfo, fieldHashIndex, fieldHashInfo, mappedHashIndex, mappedHashInfo);
     }
 
     private List<TypeElement> createTypeElements(TypeElement t) {
@@ -225,8 +225,8 @@ public final class MarshallProcessor extends AbstractProcessor {
                     MarshallFieldInfo fi = createMarshallFieldInfo(te, typeIndex, e, marshallIndex, fieldNameIndex, mappedNameIndex);
                     marshallIndex = Math.incrementExact(marshallIndex);
                     fieldInfos.add(fi);
-                    fieldNameIndex = Math.addExact(fieldNameIndex, fi.fieldNameLen());
-                    mappedNameIndex = Math.addExact(mappedNameIndex, fi.mappedNameLen());
+                    fieldNameIndex = Math.addExact(fieldNameIndex, fi.fieldNameUtf8Bytes().length);
+                    mappedNameIndex = Math.addExact(mappedNameIndex, fi.mappedNameUtf8Bytes().length);
                 }
             }
         }
@@ -252,12 +252,12 @@ public final class MarshallProcessor extends AbstractProcessor {
         return Map.copyOf(r);
     }
 
-    private Map<Integer, List<MarshallFieldInfo>> createHashInfo(List<MarshallFieldInfo> fieldInfos, Function<MarshallFieldInfo, String> extractor) {
+    private Map<Integer, List<MarshallFieldInfo>> createUtf8HashInfo(List<MarshallFieldInfo> fieldInfos, Function<MarshallFieldInfo, byte[]> fn, int hashIndex) {
         Map<Integer, List<MarshallFieldInfo>> r = new HashMap<>();
-        Hasher hasher = HashUtil.calcHasher(fieldInfos.stream().map(extractor).toList());
-        for (MarshallFieldInfo marshallFieldInfo : fieldInfos) {
-            int hash = hasher.hash(extractor.apply(marshallFieldInfo));
-            r.computeIfAbsent(hash, _ -> new ArrayList<>()).add(marshallFieldInfo);
+        Hasher hasher = HashUtil.hasher(hashIndex);
+        for (MarshallFieldInfo fieldInfo : fieldInfos) {
+            int hash = hasher.hash(fn.apply(fieldInfo));
+            r.computeIfAbsent(hash, _ -> new ArrayList<>()).add(fieldInfo);
         }
         return Map.copyOf(r);
     }
@@ -543,7 +543,8 @@ public final class MarshallProcessor extends AbstractProcessor {
                     "= new " + marshallInfoClassName + "(" + marshallInfoParams + ");");
         }
         b.addLine("FACADE_INFO = new " + marshallFacadeInfoClassName + "(" + listClassName +
-                ".of(" + IntStream.range(0, info.fieldInfos().size()).mapToObj(i -> "mi" + i).collect(Collectors.joining(", ")) + "));");
+                ".of(" + IntStream.range(0, info.fieldInfos().size()).mapToObj(i -> "mi" + i).collect(Collectors.joining(", ")) + "), "
+                + info.fieldHashIndex() + ", " + info.mappedHashIndex() + ");");
         return b;
     }
 
@@ -617,7 +618,7 @@ public final class MarshallProcessor extends AbstractProcessor {
         GeneratorBlock b = new GeneratorBlock().addLine("@" + overrideClassName)
                 .addLine("public " + marshallInfoClassName + " marshallInfoBy" + upperType + "(" + paramType + " " +
                         paramName + ", " + paramUnit + " offset, " + paramUnit + " len) {").indent()
-                .addLine("int hash = FACADE_INFO." + lowerType + "Hasher().hash(" + paramName + ", offset, len);")
+                .addLine("int hash = FACADE_INFO." + lowerType + "Utf8Hasher().hash(" + paramName + ", offset, len);")
                 .addLine("switch (hash) {").indent();
         Map<Integer, List<MarshallFieldInfo>> hashInfo = f ? info.fieldHashInfo() : info.mappedHashInfo();
         for (Map.Entry<Integer, List<MarshallFieldInfo>> entry : hashInfo.entrySet()) {
@@ -626,7 +627,7 @@ public final class MarshallProcessor extends AbstractProcessor {
             b.addLine("case " + hash + " -> {").indent();
             for (MarshallFieldInfo fi : fis) {
                 String offset = String.valueOf(f ? fi.fieldNameOffset() : fi.mappedNameOffset());
-                String len = String.valueOf(f ? fi.mappedNameLen() : fi.fieldNameLen());
+                String len = String.valueOf(f ? fi.fieldNameUtf8Bytes().length : fi.mappedNameUtf8Bytes().length);
                 b.addLine("if(FACADE_INFO." + lowerType + "Equals(" + String.join(", ", List.of(offset, len, paramName, "offset", "len")) + ")) {")
                         .indent()
                         .addLine("return FACADE_INFO.infos().get(" + fi.marshallIndex() + ");")

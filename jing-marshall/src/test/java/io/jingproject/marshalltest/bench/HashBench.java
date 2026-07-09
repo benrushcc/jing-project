@@ -17,35 +17,57 @@ import java.util.zip.CRC32;
 
 @BenchmarkMode(value = Mode.AverageTime)
 @Warmup(iterations = 1, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 3, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 1, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(3)
 public class HashBench {
 
-    @Param({"4", "8", "16", "32", "64", "128", "256"})
+    @SuppressWarnings("unused")
+    @Param({"4", "32", "256"})
     private int size;
 
     private byte[] buffer;
 
-    private static final CRC32 crc32 = new CRC32();
-    private static final Hasher LENGTH_HASHER = new LengthHasher();
-    private static final Hasher ONEBYTE_HASHER = new OneByteHasher();
-    private static final Hasher TWOBYTE_HASHER = new TwoByteHasher();
-    private static final Hasher THREEBYTE_HASHER = new ThreeByteHasher();
-    private static final Hasher FOURBYTE_HASHER = new FourByteHasher();
-    private static final Hasher FNV_MUL_HASHER = new FnvHasher();
+    private CRC32 crc32;
+    private Hasher lengthHasher;
+    private Hasher oneByteHasher;
+    private Hasher twoByteHasher;
+    private Hasher threeByteHasher;
+    private Hasher fourByteHasher;
+    private Hasher sumHasher;
+    private Hasher fnvHasher;
 
     @Setup(Level.Iteration)
     public void setup() {
         buffer = new byte[size];
         ThreadLocalRandom random = ThreadLocalRandom.current();
         random.nextBytes(buffer);
-        crc32.reset();
+        crc32 = new CRC32();
+        lengthHasher = new LengthHasher();
+        oneByteHasher = new OneByteHasher();
+        twoByteHasher = new TwoByteHasher();
+        threeByteHasher = new ThreeByteHasher();
+        fourByteHasher = new FourByteHasher();
+        sumHasher = new SumHasher();
+        fnvHasher = new FnvHasher();
+    }
+
+    @TearDown(Level.Iteration)
+    public void tearDown() {
+        buffer = null;
+        crc32 = null;
+        lengthHasher = null;
+        oneByteHasher = null;
+        twoByteHasher = null;
+        threeByteHasher = null;
+        fourByteHasher = null;
+        sumHasher = null;
+        fnvHasher = null;
     }
 
     @Benchmark
-    public void arrayHash(Blackhole bh) {
+    public void jdkArrayHash(Blackhole bh) {
         bh.consume(Arrays.hashCode(buffer));
     }
 
@@ -67,32 +89,37 @@ public class HashBench {
 
     @Benchmark
     public void lengthHash(Blackhole bh) {
-        bh.consume(LENGTH_HASHER.hash(buffer));
+        bh.consume(lengthHasher.hash(buffer));
     }
 
     @Benchmark
     public void oneByteHash(Blackhole bh) {
-        bh.consume(ONEBYTE_HASHER.hash(buffer));
+        bh.consume(oneByteHasher.hash(buffer));
     }
 
     @Benchmark
     public void twoByteHash(Blackhole bh) {
-        bh.consume(TWOBYTE_HASHER.hash(buffer));
+        bh.consume(twoByteHasher.hash(buffer));
     }
 
     @Benchmark
     public void threeByteHash(Blackhole bh) {
-        bh.consume(THREEBYTE_HASHER.hash(buffer));
+        bh.consume(threeByteHasher.hash(buffer));
     }
 
     @Benchmark
     public void fourByteHash(Blackhole bh) {
-        bh.consume(FOURBYTE_HASHER.hash(buffer));
+        bh.consume(fourByteHasher.hash(buffer));
+    }
+
+    @Benchmark
+    public void sumHash(Blackhole bh) {
+        bh.consume(sumHasher.hash(buffer));
     }
 
     @Benchmark
     public void fnvMulHash(Blackhole bh) {
-        bh.consume(FNV_MUL_HASHER.hash(buffer));
+        bh.consume(fnvHasher.hash(buffer));
     }
 
     static void main() throws RunnerException {

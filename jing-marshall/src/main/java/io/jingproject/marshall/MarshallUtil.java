@@ -75,28 +75,19 @@ public final class MarshallUtil {
     public static final long SKIP_SERIALIZATION_MASK = 1L << 2;
     public static final long SKIP_DESERIALIZATION_MASK = 1L << 3;
 
-    private static final byte BYTE_ZERO = (byte) '0';
-    private static final byte BYTE_NINE = (byte) '9';
-    private static final byte BYTE_a = (byte) 'a';
-    private static final byte BYTE_z = (byte) 'z';
-    private static final byte BYTE_A = (byte) 'A';
-    private static final byte BYTE_Z = (byte) 'Z';
-    private static final byte BYTE_underscore = (byte) '_';
-    private static final byte BYTE_minus = (byte) '-';
-
-
-    private static boolean madeOfDigitOrLetter(byte[] utf8Bytes) {
+    // checks if all bytes are alphanumeric, underscore, or hyphen.
+    private static boolean isAlphanumericOrSeparator(byte[] utf8Bytes) {
         for (byte b : utf8Bytes) {
-            if(b >= BYTE_ZERO &&  b <= BYTE_NINE) {
+            if(b >= (byte) '0' &&  b <= (byte) '9') {
                 continue ;
             }
-            if(b >= BYTE_a && b <= BYTE_z) {
+            if(b >= (byte) 'a' && b <= (byte) 'z') {
                 continue ;
             }
-            if(b >= BYTE_A &&  b <= BYTE_Z) {
+            if(b >= (byte) 'A' &&  b <= (byte) 'Z') {
                 continue ;
             }
-            if(b == BYTE_underscore || b == BYTE_minus) {
+            if(b == (byte) '_' || b == (byte) '-') {
                 continue ;
             }
             return false;
@@ -136,6 +127,7 @@ public final class MarshallUtil {
                 rawType == PriorityQueue.class || rawType == HashSet.class || rawType == LinkedHashSet.class || rawType == TreeSet.class;
     }
 
+    // returns the flag constant for a primitive type.
     private static int makePrimitiveFlag(Class<?> rawType) {
         assert rawType != null && rawType.isPrimitive();
         if(rawType == byte.class) {
@@ -159,6 +151,7 @@ public final class MarshallUtil {
         }
     }
 
+    // returns the flag constant for a wrapper type.
     private static int makeRawFlag(Class<?> rawType) {
         assert rawType != null;
         if(rawType == Byte.class) {
@@ -202,6 +195,7 @@ public final class MarshallUtil {
         }
     }
 
+    // returns the flag constant for a primitive array type.
     private static int makePrimitiveArrayFlag(Class<?> rawType) {
         assert rawType != null && rawType.isArray() && rawType.getComponentType().isPrimitive();
         if(rawType == byte[].class) {
@@ -225,6 +219,7 @@ public final class MarshallUtil {
         }
     }
 
+    // returns the flag constant for a wrapper array type.
     private static int makeWrapperArrayFlag(Class<?> rawType) {
         assert rawType != null && rawType.isArray();
         if(rawType == Byte[].class) {
@@ -248,6 +243,7 @@ public final class MarshallUtil {
         }
     }
 
+    // calculate the shift based on its type
     public static int makeShift(Class<?> rawType, Class<?> firstGenericType, Class<?> secondGenericType) {
         if(secondGenericType != null) {
             if(isMapIntefaceType(rawType)) {
@@ -286,20 +282,24 @@ public final class MarshallUtil {
 
     public static long makeFlags(Class<?> rawType, Class<?> firstGenericType, Class<?> secondGenericType,
                                  byte[] fieldNameUtf8Bytes, byte[] mappedNameUtf8Bytes, boolean skipSerializing, boolean skipDeserializing) {
+        // raw type must not be null
         if(rawType == null) {
             throw new IllegalArgumentException("rawType cannot be null");
         }
+        // fieldNameUtf8Bytes must not be null
         if(fieldNameUtf8Bytes == null || fieldNameUtf8Bytes.length == 0) {
             throw new IllegalArgumentException("fieldNameUtf8Bytes cannot be null or blank");
         }
+        // mappedNameUtf8Bytes must not be null
         if(mappedNameUtf8Bytes == null || mappedNameUtf8Bytes.length == 0) {
             throw new IllegalArgumentException("mappedNameUtf8Bytes cannot be null or blank");
         }
+        // flags are made of shifts and masks
         long r = 1L << (Long.SIZE - 1 - makeShift(rawType, firstGenericType, secondGenericType));
-        if(madeOfDigitOrLetter(fieldNameUtf8Bytes)) {
+        if(isAlphanumericOrSeparator(fieldNameUtf8Bytes)) {
             r |= FIELD_NAME_SIMPLE_MASK;
         }
-        if(madeOfDigitOrLetter(mappedNameUtf8Bytes)) {
+        if(isAlphanumericOrSeparator(mappedNameUtf8Bytes)) {
             r |= MAPPED_NAME_SIMPLE_MASK;
         }
         if(skipSerializing) {

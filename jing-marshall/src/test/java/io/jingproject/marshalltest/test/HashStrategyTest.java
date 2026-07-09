@@ -1,7 +1,6 @@
 package io.jingproject.marshalltest.test;
 
-import io.jingproject.marshall.hash.HashUtil;
-import io.jingproject.marshall.hash.Hasher;
+import io.jingproject.marshall.hash.*;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -18,6 +17,13 @@ import java.util.concurrent.ThreadLocalRandom;
 public class HashStrategyTest {
     private static final List<byte[]> WORDS = createWords();
     private static final int BATCH = 1000;
+    private static final Hasher LENGTH_HASHER = new LengthHasher();
+    private static final Hasher ONEBYTE_HASHER = new OneByteHasher();
+    private static final Hasher TWOBYTE_HASHER = new TwoByteHasher();
+    private static final Hasher THREEBYTE_HASHER = new ThreeByteHasher();
+    private static final Hasher FOURBYTE_HASHER = new FourByteHasher();
+    private static final Hasher SUM_HASHER = new SumHasher();
+    private static final Hasher FNV_HASHER = new FnvHasher();
 
     private static List<byte[]> createWords() {
         try (InputStream rawStream = Thread.currentThread().getContextClassLoader().getResourceAsStream("words.txt")) {
@@ -68,126 +74,150 @@ public class HashStrategyTest {
     @Test
     public void testDetectLengthHashFor4Elements() {
         // 45%
-        detectCollisions(4, HashUtil.lengthHasher());
+        detectCollisions(4, LENGTH_HASHER);
     }
 
     @Test
     public void testDetectLengthHashFor8Elements() {
         // 1.5%
-        detectCollisions(8, HashUtil.lengthHasher());
+        detectCollisions(8, LENGTH_HASHER);
     }
 
     @Test
     public void testDetectLengthHashFor16Elements() {
         // 0%
-        detectCollisions(16, HashUtil.lengthHasher());
+        detectCollisions(16, LENGTH_HASHER);
     }
 
     @Test
     public void testOneByteHashFor4Elements() {
         // 67%
-        detectCollisions(4, HashUtil.oneByteHasher());
+        detectCollisions(4, ONEBYTE_HASHER);
     }
 
     @Test
     public void testOneByteHashFor8Elements() {
         // 14%
-        detectCollisions(8, HashUtil.oneByteHasher());
+        detectCollisions(8, ONEBYTE_HASHER);
     }
 
     @Test
     public void testOneByteHashFor16Elements() {
         // 0.1%
-        detectCollisions(16, HashUtil.oneByteHasher());
+        detectCollisions(16, ONEBYTE_HASHER);
     }
 
     @Test
     public void testTwoByteHashFor4Elements() {
         // 93%
-        detectCollisions(4, HashUtil.twoByteHasher());
+        detectCollisions(4, TWOBYTE_HASHER);
     }
 
     @Test
     public void testTwoByteHashFor8Elements() {
         // 72%
-        detectCollisions(8, HashUtil.twoByteHasher());
+        detectCollisions(8, TWOBYTE_HASHER);
     }
 
     @Test
     public void testTwoByteHashFor16Elements() {
         // 28%
-        detectCollisions(16, HashUtil.twoByteHasher());
+        detectCollisions(16, TWOBYTE_HASHER);
     }
 
     @Test
     public void testThreeByteHashFor4Elements() {
         // 97%
-        detectCollisions(4, HashUtil.threeByteHasher());
+        detectCollisions(4, THREEBYTE_HASHER);
     }
 
     @Test
     public void testThreeByteHashFor8Elements() {
         // 94%
-        detectCollisions(8, HashUtil.threeByteHasher());
+        detectCollisions(8, THREEBYTE_HASHER);
     }
 
     @Test
     public void testThreeByteHashFor16Elements() {
         // 79%
-        detectCollisions(16, HashUtil.threeByteHasher());
+        detectCollisions(16, THREEBYTE_HASHER);
     }
 
     @Test
     public void testThreeByteHashFor32Elements() {
         // 37%
-        detectCollisions(32, HashUtil.threeByteHasher());
+        detectCollisions(32, THREEBYTE_HASHER);
     }
 
     @Test
     public void testFourByteHashFor4Elements() {
         // 99%
-        detectCollisions(4, HashUtil.fourByteHasher());
+        detectCollisions(4, FOURBYTE_HASHER);
     }
 
     @Test
     public void testFourByteHashFor8Elements() {
         // 98%
-        detectCollisions(8, HashUtil.fourByteHasher());
+        detectCollisions(8, FOURBYTE_HASHER);
     }
 
     @Test
     public void testFourByteHashFor16Elements() {
         // 93%
-        detectCollisions(16, HashUtil.fourByteHasher());
+        detectCollisions(16, FOURBYTE_HASHER);
     }
 
     @Test
     public void testFourByteHashFor32Elements() {
         // 76%
-        detectCollisions(32, HashUtil.fourByteHasher());
+        detectCollisions(32, FOURBYTE_HASHER);
     }
 
     @Test
-    public void testFnvMulHashFor32Elements() {
+    public void testSumHashFor4Elements() {
         // 100%
-        detectCollisions(32, HashUtil.fnvMulHasher());
+        detectCollisions(4, SUM_HASHER);
     }
 
     @Test
-    public void testFnvMulHashFor128Elements() {
+    public void testSumHashFor8Elements() {
         // 100%
-        detectCollisions(128, HashUtil.fnvMulHasher());
+        detectCollisions(8, SUM_HASHER);
     }
 
     @Test
-    public void testFnvMulHashFor512Elements() {
-        // 99.9%
-        detectCollisions(512, HashUtil.fnvMulHasher());
+    public void testSumHashFor16Elements() {
+        // 100%
+        detectCollisions(16, SUM_HASHER);
     }
 
     @Test
-    public void testFnvMulHashFor2048Elements() {
+    public void testSumHashFor32Elements() {
         // 99.9%
-        detectCollisions(2048, HashUtil.fnvMulHasher());
+        detectCollisions(32, SUM_HASHER);
+    }
+
+    @Test
+    public void testFnvHashFor32Elements() {
+        // 100%
+        detectCollisions(32, FNV_HASHER);
+    }
+
+    @Test
+    public void testFnvHashFor128Elements() {
+        // 100%
+        detectCollisions(128, FNV_HASHER);
+    }
+
+    @Test
+    public void testFnvHashFor512Elements() {
+        // 99.9%
+        detectCollisions(512, FNV_HASHER);
+    }
+
+    @Test
+    public void testFnvHashFor2048Elements() {
+        // 99.9%
+        detectCollisions(2048, FNV_HASHER);
     }
 }

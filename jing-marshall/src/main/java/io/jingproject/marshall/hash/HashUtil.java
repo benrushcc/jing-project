@@ -1,82 +1,78 @@
 package io.jingproject.marshall.hash;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
+// utility class for selecting and using hash functions
 public final class HashUtil {
     // hashers
     private static final List<Hasher> HASHERS = List.of(
-            new LengthHasher(),
-            new OneByteHasher(),
-            new TwoByteHasher(),
-            new ThreeByteHasher(),
-            new FourByteHasher(),
-            new FnvHasher()
+            new LengthHasher(),   // 0
+            new OneByteHasher(),  // 1
+            new TwoByteHasher(),  // 2
+            new ThreeByteHasher(),// 3
+            new FourByteHasher(), // 4
+            new SumHasher(),      // 5
+            new FnvHasher()       // 6
     );
 
     private HashUtil() {
         throw new UnsupportedOperationException("utility class");
     }
 
-    public static Hasher lengthHasher() {
-        return HASHERS.get(0);
+    // returns the hasher at the given index
+    public static Hasher hasher(int index) {
+        return HASHERS.get(index);
     }
 
-    public static Hasher oneByteHasher() {
-        return HASHERS.get(1);
-    }
-
-    public static Hasher twoByteHasher() {
-        return HASHERS.get(2);
-    }
-
-    public static Hasher threeByteHasher() {
-        return HASHERS.get(3);
-    }
-
-    public static Hasher fourByteHasher() {
-        return HASHERS.get(4);
-    }
-
-    public static Hasher fnvMulHasher() {
-        return HASHERS.get(5);
-    }
-
-    public static Hasher calcHasher(List<String> strings) {
+    // selects the hasher with the fewest collisions for the given entities,
+    // returns its index; if a zero‑collision hasher exists, returns it immediately
+    public static <T> int selectUtf8Hasher(List<T> entities, Function<T, byte[]> fn) {
         int maxCollisions = Integer.MAX_VALUE;
-        Hasher fallback = HASHERS.getLast();
-        for (Hasher currentHasher : HASHERS) {
-            Set<Integer> hs = new HashSet<>(strings.size());
+        int fallback = Integer.MIN_VALUE;
+        Set<Integer> hs = new HashSet<>();
+        for(int index = 0; index < HASHERS.size(); index++) {
+            Hasher hasher = hasher(index);
             int collisions = 0;
-            for (String s : strings) {
-                int hash = currentHasher.hash(s);
+            for (T entity : entities) {
+                int hash = hasher.hash(fn.apply(entity));
                 if (!hs.add(hash)) {
-                    collisions = Math.incrementExact(collisions);
+                    collisions++; // no overflow, can never exceed entities.size()
                 }
             }
+            hs.clear();
             if (collisions == 0) {
-                return currentHasher;
+                return index;
             }
             if (collisions < maxCollisions) {
                 maxCollisions = collisions;
-                fallback = currentHasher;
+                fallback = index;
             }
+        }
+        if(fallback < 0) {
+            throw new AssertionError();
         }
         return fallback;
     }
 
-    public static byte[] calcBytes(List<String> strings) {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            for (String s : strings) {
-                baos.write(s.getBytes(StandardCharsets.UTF_8));
-            }
-            return baos.toByteArray();
-        } catch (IOException e) {
-            throw new AssertionError(e);
+    // compacts all entity‑derived UTF‑8 byte arrays into one contiguous byte array
+    public static <T> byte[] compactUtf8Bytes(List<T> entities, Function<T, byte[]> fn) {
+        List<byte[]> utf8Data = new ArrayList<>(entities.size());
+        int len = 0;
+        for (T entity : entities) {
+            byte[] bytes = fn.apply(entity);
+            utf8Data.add(bytes);
+            len = Math.addExact(len, bytes.length);
         }
+        byte[] r = new byte[len];
+        int index = 0;
+        for (byte[] bytes : utf8Data) {
+            System.arraycopy(bytes, 0, r, index, bytes.length);
+            index += bytes.length;
+        }
+        return r;
     }
 }

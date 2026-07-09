@@ -11,9 +11,9 @@ public record MarshallFieldInfo(
         String mappedName,
         int marshallIndex,
         int fieldNameOffset,
-        int fieldNameLen,
+        byte[] fieldNameUtf8Bytes,
         int mappedNameOffset,
-        int mappedNameLen,
+        byte[] mappedNameUtf8Bytes,
         boolean skipSerializing,
         boolean skipDeserializing
 ) {

@@ -47,7 +47,7 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByFieldName(byte[] bytes, int offset, int len) {
-        int hash = FACADE_INFO.fieldNameHasher().hash(bytes, offset, len);
+        int hash = FACADE_INFO.fieldNameUtf8Hasher().hash(bytes, offset, len);
         switch (hash) {
             case 73 -> {
                 if (FACADE_INFO.fieldNameEquals(0, 3, bytes, offset, len)) {
@@ -75,7 +75,7 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByFieldName(MemorySegment segment, long offset, long len) {
-        int hash = FACADE_INFO.fieldNameHasher().hash(segment, offset, len);
+        int hash = FACADE_INFO.fieldNameUtf8Hasher().hash(segment, offset, len);
         switch (hash) {
             case 73 -> {
                 if (FACADE_INFO.fieldNameEquals(0, 3, segment, offset, len)) {
@@ -115,7 +115,7 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByMappedName(byte[] bytes, int offset, int len) {
-        int hash = FACADE_INFO.mappedNameHasher().hash(bytes, offset, len);
+        int hash = FACADE_INFO.mappedNameUtf8Hasher().hash(bytes, offset, len);
         switch (hash) {
             case 73 -> {
                 if (FACADE_INFO.mappedNameEquals(0, 3, bytes, offset, len)) {
@@ -143,7 +143,7 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByMappedName(MemorySegment segment, long offset, long len) {
-        int hash = FACADE_INFO.mappedNameHasher().hash(segment, offset, len);
+        int hash = FACADE_INFO.mappedNameUtf8Hasher().hash(segment, offset, len);
         switch (hash) {
             case 73 -> {
                 if (FACADE_INFO.mappedNameEquals(0, 3, segment, offset, len)) {

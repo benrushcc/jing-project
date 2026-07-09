@@ -73,6 +73,9 @@ public final class JsonNumberUtil {
     // value never affect the final result. Truncation is necessary to avoid overflow
     // in log2Pow10, skewed, and similar functions.
     private static final int MAX_DECIMAL_NP = 4;
+    private static final int MAX_DECIMAL_P = 10000;
+
+    private static final int MAX_FP_INPUT = 256;
 
     private static final float[] FLOAT_POW_10 = {
             1e0f, 1e1f, 1e2f, 1e3f, 1e4f, 1e5f, 1e6f, 1e7f, 1e8f, 1e9f, 1e10f
@@ -899,21 +902,18 @@ public final class JsonNumberUtil {
     }
 
     private static int readHeapInt(HeapReadBuffer heapReadBuffer, byte firstByte) {
-        byte[] bytes = heapReadBuffer.rawByteArray();
+        final byte[] bytes = heapReadBuffer.rawByteArray();
         int position = heapReadBuffer.intPosition();
-        if (position == bytes.length) {
-            throw new NumberFormatException("empty buffer");
-        }
-        boolean negative = false;
+        boolean positive = true;
         int r;
         if (firstByte == BYTE_MINUS) {
-            negative = true;
-            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position++])];
-            if (v >= 0) {
-                throw new NumberFormatException("illegal negative value : " + v);
+            if(position == bytes.length) {
+                throw new NumberFormatException("illegal leading minus sign");
             }
-            r = v;
-        } else if (firstByte == BYTE_ZERO) {
+            positive = false;
+            firstByte = bytes[position++];
+        }
+        if (firstByte == BYTE_ZERO) {
             if (position < bytes.length && ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])] <= 0) {
                 throw new NumberFormatException("leading zero");
             }
@@ -927,40 +927,36 @@ public final class JsonNumberUtil {
         }
         while (position < bytes.length) {
             byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])];
-            if (b <= 0) {
-                if(negativeIntOverflow(r, b)) {
-                    throw new ArithmeticException("integer overflow");
-                }
-                r = r * 10 + b;
-                position++;
-            } else {
-                break;
+            if(b > 0) {
+                break ;
             }
+            if(negativeIntOverflow(r, b)) {
+                throw new ArithmeticException("integer overflow");
+            }
+            r = r * 10 + b;
+            position++;
         }
-        if(negative && r == Integer.MIN_VALUE) {
+        if(positive && r == Integer.MIN_VALUE) {
             throw new ArithmeticException("integer overflow");
         }
         heapReadBuffer.setPosition(position);
-        return negative ? r : -r;
+        return positive ? -r : r;
     }
 
     private static int readSegmentInt(SegmentReadBuffer segmentReadBuffer, byte firstByte) {
-        MemorySegment segment = segmentReadBuffer.rawSegment();
+        final MemorySegment segment = segmentReadBuffer.rawSegment();
         int position = segmentReadBuffer.intPosition();
         int len = Math.toIntExact(segment.byteSize());
-        if (position == len) {
-            throw new NumberFormatException("empty buffer");
-        }
-        boolean negative = false;
+        boolean positive = true;
         int r;
         if (firstByte == BYTE_MINUS) {
-            negative = true;
-            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position++))];
-            if (v >= 0) {
-                throw new NumberFormatException("empty buffer");
+            if(position == segment.byteSize()) {
+                throw new NumberFormatException("illegal leading minus sign");
             }
-            r = v;
-        } else if (firstByte == BYTE_ZERO) {
+            positive = false;
+            firstByte = SegmentAccess.getByte(segment, position++);
+        }
+        if (firstByte == BYTE_ZERO) {
             if (position < len && ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))] <= 0) {
                 throw new NumberFormatException("leading zero");
             }
@@ -974,21 +970,20 @@ public final class JsonNumberUtil {
         }
         while (position < len) {
             byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))];
-            if (b <= 0) {
-                if(negativeIntOverflow(r, b)) {
-                    throw new ArithmeticException("integer overflow");
-                }
-                r =  r * 10 + b;
-                position++;
-            } else {
-                break;
+            if(b > 0) {
+                break ;
             }
+            if(negativeIntOverflow(r, b)) {
+                throw new ArithmeticException("integer overflow");
+            }
+            r =  r * 10 + b;
+            position++;
         }
-        if(negative && r == Integer.MIN_VALUE) {
+        if(positive && r == Integer.MIN_VALUE) {
             throw new ArithmeticException("integer overflow");
         }
         segmentReadBuffer.setPosition(position);
-        return negative ? r : -r;
+        return positive ? -r : r;
     }
 
     public static long readLong(ReadBuffer readBuffer, byte firstByte) {
@@ -1003,22 +998,18 @@ public final class JsonNumberUtil {
     }
 
     private static long readHeapLong(HeapReadBuffer heapReadBuffer, byte firstByte) {
-        byte[] bytes = heapReadBuffer.rawByteArray();
+        final byte[] bytes = heapReadBuffer.rawByteArray();
         int position = heapReadBuffer.intPosition();
-        if (position == bytes.length) {
-            throw new NumberFormatException("empty buffer");
-        }
-        boolean negative = false;
+        boolean positive = true;
         long r;
         if (firstByte == BYTE_MINUS) {
-            negative = true;
-            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])];
-            if (v >= 0) {
-                throw new NumberFormatException("illegal negative value : " + v);
+            if(position == bytes.length) {
+                throw new NumberFormatException("illegal leading minus sign");
             }
-            r = v;
-            position++;
-        } else if (firstByte == BYTE_ZERO) {
+            positive = false;
+            firstByte = bytes[position++];
+        }
+        if (firstByte == BYTE_ZERO) {
             if (position < bytes.length && ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])] <= 0) {
                 throw new NumberFormatException("leading zero");
             }
@@ -1032,41 +1023,36 @@ public final class JsonNumberUtil {
         }
         while (position < bytes.length) {
             byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])];
-            if (b <= 0) {
-                if(negativeLongOverflow(r, b)) {
-                    throw new ArithmeticException("long overflow");
-                }
-                r = r * 10L + b;
-                position++;
-            } else {
-                break;
+            if(b > 0) {
+                break ;
             }
+            if(negativeLongOverflow(r, b)) {
+                throw new ArithmeticException("long overflow");
+            }
+            r = r * 10L + b;
+            position++;
         }
-        if(negative && r == Long.MIN_VALUE) {
+        if(positive && r == Long.MIN_VALUE) {
             throw new ArithmeticException("long overflow");
         }
         heapReadBuffer.setPosition(position);
-        return negative ? r : -r;
+        return positive ? -r : r;
     }
 
     private static long readSegmentLong(SegmentReadBuffer segmentReadBuffer, byte firstByte) {
-        MemorySegment segment = segmentReadBuffer.rawSegment();
+        final MemorySegment segment = segmentReadBuffer.rawSegment();
         int position = segmentReadBuffer.intPosition();
         int len = Math.toIntExact(segment.byteSize());
-        if (position == len) {
-            throw new NumberFormatException("empty buffer");
-        }
-        boolean negative = false;
+        boolean positive = true;
         long r;
         if (firstByte == BYTE_MINUS) {
-            negative = true;
-            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))];
-            if (v >= 0) {
-                throw new NumberFormatException("empty buffer");
+            if(position == segment.byteSize()) {
+                throw new NumberFormatException("illegal leading minus sign");
             }
-            r = v;
-            position++;
-        } else if (firstByte == BYTE_ZERO) {
+            positive = false;
+            firstByte = SegmentAccess.getByte(segment, position++);
+        }
+        if (firstByte == BYTE_ZERO) {
             if (position < len && ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))] <= 0) {
                 throw new NumberFormatException("leading zero");
             }
@@ -1080,21 +1066,20 @@ public final class JsonNumberUtil {
         }
         while (position < len) {
             byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))];
-            if (b <= 0) {
-                if(negativeLongOverflow(r, b)) {
-                    throw new ArithmeticException("long overflow");
-                }
-                r =  r * 10L + b;
-                position++;
-            } else {
-                break;
+            if(b > 0) {
+                break ;
             }
+            if(negativeLongOverflow(r, b)) {
+                throw new ArithmeticException("long overflow");
+            }
+            r =  r * 10L + b;
+            position++;
         }
-        if(negative && r == Long.MIN_VALUE) {
+        if(positive && r == Long.MIN_VALUE) {
             throw new ArithmeticException("long overflow");
         }
         segmentReadBuffer.setPosition(position);
-        return negative ? r : -r;
+        return positive ? -r : r;
     }
 
     // exposed for test purpose
@@ -1103,17 +1088,248 @@ public final class JsonNumberUtil {
     // although they are acceptable by the JDK parser.
     public static FpStrRep parseFpStrRep(ReadBuffer readBuffer, byte firstByte) {
         return switch (readBuffer) {
-            case HeapReadBuffer heapReadBuffer -> parseHeapFpStrRep(heapReadBuffer, firstByte);
-            case SegmentReadBuffer segmentReadBuffer -> parseSegmentFpStrRep(segmentReadBuffer, firstByte);
+            case HeapReadBuffer heapReadBuffer -> parseHeapFpStrRep1(heapReadBuffer, firstByte);
+            case SegmentReadBuffer segmentReadBuffer -> parseSegmentFpStrRep1(segmentReadBuffer, firstByte);
         };
+    }
+
+    private static FpStrRep parseHeapFpStrRep1(HeapReadBuffer heapReadBuffer, byte firstByte) {
+        final byte[] bytes = heapReadBuffer.rawByteArray();
+        final int position = heapReadBuffer.intPosition();
+        final int end = position + Math.min(bytes.length - position, MAX_FP_INPUT);
+        int index = position;
+        boolean neg = false;
+        boolean negExp = false;
+        boolean trunc = false;
+        long d;
+        int frac = 0;
+        int p = 0;
+        if(firstByte == BYTE_MINUS) {
+            if(index == end) {
+                throw new NumberFormatException("illegal leading minus sign");
+            }
+            neg = true;
+            firstByte = bytes[index++];
+        }
+        if(firstByte == BYTE_ZERO) {
+            if(index == end) {
+                return new FpStrRep(neg, false, 0L, frac, p, 0);
+            }
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[index])];
+            if(v <= 0) {
+                throw new NumberFormatException("leading zero");
+            }
+            d = 0L;
+        } else {
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(firstByte)];
+            if (v > 0) {
+                throw new NumberFormatException("not a digit : " + firstByte);
+            }
+            d = -v;
+        }
+        // process following digits part, we can ensure that d will not be 0 here
+        byte b = Byte.MIN_VALUE;
+        int nd = 1;
+        while (index < end) {
+            b = bytes[index];
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
+            if(v > 0) {
+                break ;
+            }
+            if(nd < MAX_DECIMAL_ND) {
+                d = d * 10L - v;
+                nd++;
+            } else {
+                trunc = true;
+            }
+            index++;
+        }
+        // processing optional fraction part
+        if(b == BYTE_PERIOD) {
+            if(++index == end) {
+                throw new NumberFormatException("leading period with no digits");
+            }
+            b = bytes[index++];
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
+            if(v > 0) {
+                throw new NumberFormatException("illegal start of number : " + b);
+            }
+            if(nd < MAX_DECIMAL_ND) {
+                d = d * 10L - v;
+                nd++;
+                frac++;
+            }
+            while (index < end) {
+                b = bytes[index];
+                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
+                if(v > 0) {
+                    break ;
+                }
+                if(nd < MAX_DECIMAL_ND) {
+                    d = d * 10L - v;
+                    nd++;
+                    frac++;
+                } else {
+                    trunc = true;
+                }
+                index++;
+            }
+        }
+        // processing optional exponent part
+        // note that leading zeros are allowed in the exponent partaccording to the JSON specification
+        if(b == BYTE_E || b == BYTE_e) {
+            if(++index == end) {
+                throw new NumberFormatException("leading exponent with no digits");
+            }
+            b = bytes[index++];
+            if(b == BYTE_MINUS || b == BYTE_PLUS) {
+                if(index == end) {
+                    throw new NumberFormatException("leading exponent sign with no digits");
+                }
+                negExp = b == BYTE_MINUS;
+                b = bytes[index++];
+            }
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
+            if(v > 0) {
+                throw new NumberFormatException("illegal start of number : " + b);
+            }
+            p = -v;
+            while (index < end) {
+                b = bytes[index];
+                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
+                if(v > 0) {
+                    break ;
+                }
+                if(p < MAX_DECIMAL_P) {
+                    p = p * 10 - v;
+                }
+                index++;
+            }
+        }
+        p = (negExp ? -p : p) - frac;
+        return new FpStrRep(neg, trunc, d, frac, p, index - position);
+    }
+
+    private static FpStrRep parseSegmentFpStrRep1(SegmentReadBuffer segmentReadBuffer, byte firstByte) {
+        final MemorySegment segment = segmentReadBuffer.rawSegment();
+        final long position = segmentReadBuffer.longPosition();
+        final long end = position + Math.min(segment.byteSize() - position, MAX_FP_INPUT);
+        long index = position;
+        boolean neg = false;
+        boolean negExp = false;
+        boolean trunc = false;
+        long d;
+        int frac = 0;
+        int p = 0;
+        if(firstByte == BYTE_MINUS) {
+            if(index == end) {
+                throw new NumberFormatException("illegal leading minus sign");
+            }
+            neg = true;
+            firstByte = SegmentAccess.getByte(segment, index++);
+        }
+        if(firstByte == BYTE_ZERO) {
+            if(index == end) {
+                return new FpStrRep(neg, false, 0L, frac, p, 0);
+            }
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, index))];
+            if(v <= 0) {
+                throw new NumberFormatException("leading zero");
+            }
+            d = 0L;
+        } else {
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(firstByte)];
+            if (v > 0) {
+                throw new NumberFormatException("not a digit : " + firstByte);
+            }
+            d = -v;
+        }
+        // process following digits part, we can ensure that d will not be 0 here
+        byte b = Byte.MIN_VALUE;
+        int nd = 1;
+        while (index < end) {
+            b = SegmentAccess.getByte(segment, index);
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
+            if(v > 0) {
+                break ;
+            }
+            if(nd < MAX_DECIMAL_ND) {
+                d = d * 10L - v;
+                nd++;
+            } else {
+                trunc = true;
+            }
+            index++;
+        }
+        // processing optional fraction part
+        if(b == BYTE_PERIOD) {
+            if(++index == end) {
+                throw new NumberFormatException("leading period with no digits");
+            }
+            b = SegmentAccess.getByte(segment, index++);
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
+            if(v > 0) {
+                throw new NumberFormatException("illegal start of number : " + b);
+            }
+            if(nd < MAX_DECIMAL_ND) {
+                d = d * 10L - v;
+                nd++;
+                frac++;
+            }
+            while (index < end) {
+                b = SegmentAccess.getByte(segment, index);
+                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
+                if(v > 0) {
+                    break ;
+                }
+                if(nd < MAX_DECIMAL_ND) {
+                    d = d * 10L - v;
+                    nd++;
+                    frac++;
+                } else {
+                    trunc = true;
+                }
+                index++;
+            }
+        }
+        // processing optional exponent part
+        // note that leading zeros are allowed in the exponent partaccording to the JSON specification
+        if(b == BYTE_E || b == BYTE_e) {
+            if(++index == end) {
+                throw new NumberFormatException("leading exponent with no digits");
+            }
+            b = SegmentAccess.getByte(segment, index++);
+            if(b == BYTE_MINUS || b == BYTE_PLUS) {
+                if(index == end) {
+                    throw new NumberFormatException("leading exponent sign with no digits");
+                }
+                negExp = b == BYTE_MINUS;
+                b = SegmentAccess.getByte(segment, index++);
+            }
+            byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
+            if(v > 0) {
+                throw new NumberFormatException("illegal start of number : " + b);
+            }
+            p = -v;
+            while (index < end) {
+                b = SegmentAccess.getByte(segment, index);
+                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
+                if(v > 0) {
+                    break ;
+                }
+                if(p < MAX_DECIMAL_P) {
+                    p = p * 10 - v;
+                }
+                index++;
+            }
+        }
+        p = (negExp ? -p : p) - frac;
+        return new FpStrRep(neg, trunc, d, frac, p, Math.toIntExact(index - position));
     }
 
     private static FpStrRep parseHeapFpStrRep(HeapReadBuffer heapReadBuffer, byte firstByte) {
         final byte[] bytes = heapReadBuffer.rawByteArray();
         final int position = heapReadBuffer.intPosition();
-        if (position == bytes.length) {
-            throw new NumberFormatException("empty buffer");
-        }
         int index = position;
         boolean neg = false;
         boolean negExp = false;
