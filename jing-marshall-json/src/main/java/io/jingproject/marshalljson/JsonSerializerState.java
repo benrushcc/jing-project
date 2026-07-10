@@ -11,7 +11,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public final class JsonSerializerState {
-    private static final int INITIAL_SIZE = 4;
+    public static final int INITIAL_SIZE = 4;
+    public static final int MAX_SIZE = 4096;
     private final JsonSerializerOption option;
     private final WriteBuffer writeBuffer;
     private JsonSerializerNode[] nodes;
@@ -130,9 +131,9 @@ public final class JsonSerializerState {
             }
         }
         // try in-place replacement if we can't grow
-        if(nds.length == option.maxSize()) {
+        if(nds.length == option.maxNestedSize()) {
             if(cur == nds.length) {
-                throw new IllegalStateException("exceeded maximum size : " + option.maxSize() + ", might be circular dependency");
+                throw new IllegalStateException("exceeded maximum size : " + option.maxNestedSize() + ", might be circular dependency");
             }
             JsonSerializerNode r = sup.get();
             nds[cur] = r;
@@ -140,8 +141,8 @@ public final class JsonSerializerState {
         }
         // tried every existing node, now grow and allocate new one
         int newLength = Math.addExact(nodes.length, nodes.length);
-        if(newLength > option.maxSize()) {
-            throw new IllegalStateException("exceeded maximum size : " + option.maxSize() + ", might be circular dependency");
+        if(newLength > option.maxNestedSize()) {
+            throw new IllegalStateException("exceeded maximum size : " + option.maxNestedSize() + ", might be circular dependency");
         }
         nodes = Arrays.copyOf(nodes, newLength);
         if(i != cur) {

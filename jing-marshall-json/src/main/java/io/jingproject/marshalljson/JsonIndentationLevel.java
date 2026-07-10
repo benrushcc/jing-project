@@ -1,22 +1,21 @@
 package io.jingproject.marshalljson;
 
 /**
- * Represents the indentation level for JSON serialization.
- * Determines how many spaces are used to indent nested fields.
+ * represents the indentation level for json serialization.
  */
 public enum JsonIndentationLevel {
     /**
-     * No indentation; the JSON output will be compact without any extra spaces.
+     * no indentation, the json output will be compact without any extra spaces.
      */
     NONE,
 
     /**
-     * Indentation with two spaces.
+     * indentation with two spaces.
      */
     TWO,
 
     /**
-     * Indentation with four spaces.
+     * indentation with four spaces.
      */
     FOUR
 }

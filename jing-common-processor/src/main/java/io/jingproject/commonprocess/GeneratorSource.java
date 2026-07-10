@@ -22,6 +22,7 @@ public final class GeneratorSource {
     private final Set<String> imports = new LinkedHashSet<>(256);
     private final Map<String, String> packageReferences = new HashMap<>(256);
     private final List<GeneratorLine> lines = new ArrayList<>(1024);
+    private final StringBuilder builder = new StringBuilder(1024);
     private int indent = 0;
 
     public GeneratorSource(TypeElement t, String tag) {
@@ -42,6 +43,10 @@ public final class GeneratorSource {
 
     public String className() {
         return className;
+    }
+
+    public StringBuilder builder() {
+        return builder;
     }
 
     public String registerRawFieldElement(Element fieldElement) {

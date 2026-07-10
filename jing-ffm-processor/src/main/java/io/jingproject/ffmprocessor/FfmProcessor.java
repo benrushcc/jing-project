@@ -125,6 +125,7 @@ public final class FfmProcessor extends AbstractProcessor {
 
     private void writeFfmImplSource(GeneratorSource implSource, FfmProcessorInfo ffmProcessorInfo) {
         List<GeneratorBlock> bs = new ArrayList<>();
+        StringBuilder builder = implSource.builder();
         GeneratorBlock b = new GeneratorBlock();
         bs.add(b);
         String implClassName = implSource.className();
@@ -168,7 +169,7 @@ public final class FfmProcessor extends AbstractProcessor {
             }
             b.addLine("case " + ffmDowncallInfo.index() + " -> " + libsClassName +
                     (ffmProcessorInfo.libraryName().equals(FFM.VM) ? ".mhFromVM(" : ".mhFromLib(" + targetClassName + ".class, ") +
-                    "\"" + ffmDowncallInfo.methodName() + "\", " + listClassName + ".of(" +
+                    AnnoUtil.escapeJavaStringLiteral(ffmDowncallInfo.methodName(), builder) + ", " + listClassName + ".of(" +
                     types.stream().map(s -> s + ".class").collect(Collectors.joining(", "))
                     + "), " + ffmDowncallInfo.critical() + ", " + ffmDowncallInfo.constant() + ");");
             bs.add(new GeneratorBlock().addLine("@" + overrideClassName)
@@ -238,6 +239,7 @@ public final class FfmProcessor extends AbstractProcessor {
 
     private void writeFfmFacadeSource(GeneratorSource facadeSource, GeneratorSource implSource, FfmProcessorInfo ffmProcessorInfo) {
         List<GeneratorBlock> bs = new ArrayList<>();
+        StringBuilder builder = facadeSource.builder();
         String providerClassName = facadeSource.register(Provider.class);
         String facadeSourceClassName = facadeSource.className();
         String libFacadeClassName = facadeSource.register(LibFacade.class);
@@ -274,12 +276,12 @@ public final class FfmProcessor extends AbstractProcessor {
                 .unindent().addLine("}").newLine());
         bs.add(new GeneratorBlock().addLine("@" + overrideClassName)
                 .addLine("public " + stringClassName + " libName() {")
-                .indent().addLine("return \"" + ffmProcessorInfo.libraryName() + "\";")
+                .indent().addLine("return " + AnnoUtil.escapeJavaStringLiteral(ffmProcessorInfo.libraryName(), builder) + ";")
                 .unindent().addLine("}").newLine());
         bs.add(new GeneratorBlock().addLine("@" + overrideClassName)
                 .addLine("public " + listClassName + "<" + stringClassName + "> methodNames() {")
                 .indent().addLine("return " + listClassName + ".of(")
-                .addLine(ffmProcessorInfo.ffmDowncallInfos().stream().map(d -> "\"" + d.methodName() + "\"").collect(Collectors.joining(", ")))
+                .addLine(ffmProcessorInfo.ffmDowncallInfos().stream().map(d -> AnnoUtil.escapeJavaStringLiteral(d.methodName(), builder)).collect(Collectors.joining(", ")))
                 .addLine(");").unindent().addLine("}").newLine());
 
         bs.add(new GeneratorBlock().addLine("@" + overrideClassName)

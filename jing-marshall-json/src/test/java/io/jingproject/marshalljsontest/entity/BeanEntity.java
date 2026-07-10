@@ -11,6 +11,7 @@ public final class BeanEntity {
     private int intValue;
     private Long longValue;
     private String stringValue;
+    private EnumEntity enumValue;
     private String[] stringArray;
     private List<JsonPrimitiveType> jsonPrimitiveTypeList;
     private Map<String, BeanEntity> beanEntityMap;
@@ -37,6 +38,14 @@ public final class BeanEntity {
 
     public void setStringValue(String stringValue) {
         this.stringValue = stringValue;
+    }
+
+    public EnumEntity enumValue() {
+        return enumValue;
+    }
+
+    public void setEnumValue(EnumEntity enumValue) {
+        this.enumValue = enumValue;
     }
 
     public String[] stringArray() {

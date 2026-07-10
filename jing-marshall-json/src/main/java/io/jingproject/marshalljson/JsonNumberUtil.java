@@ -23,10 +23,6 @@ public final class JsonNumberUtil {
     public static final byte BYTE_PERIOD = (byte) '.';
     public static final byte BYTE_e = (byte) 'e';
     public static final byte BYTE_E = (byte) 'E';
-    public static final byte BYTE_a = (byte) 'a';
-    public static final byte BYTE_z = (byte) 'z';
-    public static final byte BYTE_A = (byte) 'A';
-    public static final byte BYTE_Z = (byte) 'Z';
 
     private static final byte[] MIN_INT_BYTES = String.valueOf(Integer.MIN_VALUE).getBytes(StandardCharsets.US_ASCII);
     private static final byte[] MIN_LONG_BYTES = String.valueOf(Long.MIN_VALUE).getBytes(StandardCharsets.US_ASCII);
@@ -72,7 +68,6 @@ public final class JsonNumberUtil {
     // Maximum exponent digits. For fp32/fp64, exponents beyond 10000 in absolute
     // value never affect the final result. Truncation is necessary to avoid overflow
     // in log2Pow10, skewed, and similar functions.
-    private static final int MAX_DECIMAL_NP = 4;
     private static final int MAX_DECIMAL_P = 10000;
 
     private static final int MAX_FP_INPUT = 256;
@@ -212,7 +207,6 @@ public final class JsonNumberUtil {
         return count;
     }
 
-    @SuppressWarnings("IfCanBeSwitch")
     public static void writeInt(int value, WriteBuffer writeBuffer) {
         if (value == 0) {
             writeBuffer.writeByte(BYTE_ZERO);
@@ -347,7 +341,6 @@ public final class JsonNumberUtil {
         return Math.toIntExact(lp);
     }
 
-    @SuppressWarnings("IfCanBeSwitch")
     public static void writeLong(long value, WriteBuffer writeBuffer) {
         if (value == 0L) {
             writeBuffer.writeByte(BYTE_ZERO);
@@ -1325,238 +1318,6 @@ public final class JsonNumberUtil {
         }
         p = (negExp ? -p : p) - frac;
         return new FpStrRep(neg, trunc, d, frac, p, Math.toIntExact(index - position));
-    }
-
-    private static FpStrRep parseHeapFpStrRep(HeapReadBuffer heapReadBuffer, byte firstByte) {
-        final byte[] bytes = heapReadBuffer.rawByteArray();
-        final int position = heapReadBuffer.intPosition();
-        int index = position;
-        boolean neg = false;
-        boolean negExp = false;
-        boolean trunc = false;
-        long d;
-        int frac = 0;
-        int p = 0;
-        byte target = firstByte;
-        byte v;
-        // process first sign or digit
-        if (firstByte == BYTE_MINUS) {
-            neg = true;
-            target = bytes[index];
-        }
-        v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
-        if (v > 0) {
-            throw new NumberFormatException("not a digit : " + target);
-        }
-        d = -v;
-        // process following digits
-        int nd = 1;
-        while (index < bytes.length) {
-            target = bytes[index];
-            v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
-            if (v <= 0) {
-                if(nd == 1) {
-                    if(d == 0L) {
-                        throw new NumberFormatException("leading zero");
-                    }
-                }
-                if(nd < MAX_DECIMAL_ND) {
-                    d = d * 10L - v;
-                    nd++;
-                } else {
-                    trunc = true;
-                }
-                index++;
-            } else {
-                break;
-            }
-        }
-        // processing optional fraction
-        if (index < bytes.length && target == BYTE_PERIOD) {
-            index++;
-            while (index < bytes.length) {
-                target = bytes[index];
-                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
-                if (v <= 0) {
-                    if(nd < MAX_DECIMAL_ND) {
-                        d = d * 10L - v;
-                        nd++;
-                        frac++;
-                    } else {
-                        trunc = true;
-                    }
-                    index++;
-                } else {
-                    break;
-                }
-            }
-            if (frac == 0) {
-                throw new NumberFormatException("leading period with no digits");
-            }
-        }
-        // processing optional exponent
-        if (index < bytes.length && (target == BYTE_E || target == BYTE_e)) {
-            // processing first sign or digit
-            if (++index == bytes.length) {
-                throw new NumberFormatException("leading exponent sign with no digits");
-            }
-            target = bytes[index];
-            if (target == BYTE_MINUS || target == BYTE_PLUS) {
-                if (++index == bytes.length) {
-                    throw new NumberFormatException("leading sign with no digits");
-                }
-                if (target == BYTE_MINUS) {
-                    negExp = true;
-                }
-                target = bytes[index];
-            }
-            v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
-            if (v > 0) {
-                throw new NumberFormatException("illegal start of number : " + target);
-            }
-            p = -v;
-            index++;
-            // processing following exponent
-            int np = 1;
-            while (index < bytes.length) {
-                target = bytes[index];
-                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
-                if (v <= 0) {
-                    if(np == 1) {
-                        if (p == 0) {
-                            throw new NumberFormatException("leading zero");
-                        }
-                    }
-                    if(np < MAX_DECIMAL_NP) {
-                        p = p * 10 - v;
-                        np++;
-                    }
-                    index++;
-                } else {
-                    break;
-                }
-            }
-        }
-        p = (negExp ? -p : p) - frac;
-        return new FpStrRep(neg, trunc, d, frac, p, index - position);
-    }
-
-    private static FpStrRep parseSegmentFpStrRep(SegmentReadBuffer segmentReadBuffer, byte firstByte) {
-        MemorySegment segment = segmentReadBuffer.rawSegment();
-        int position = segmentReadBuffer.intPosition();
-        int length = Math.toIntExact(segment.byteSize());
-        if (position == length) {
-            throw new NumberFormatException("empty buffer");
-        }
-        int index = position;
-        boolean neg = false;
-        boolean negExp = false;
-        boolean trunc = false;
-        long d;
-        int frac = 0;
-        int p = 0;
-        byte target = firstByte;
-        byte v;
-        // processing first sign or digit
-        if (firstByte == BYTE_MINUS) {
-            neg = true;
-            target = SegmentAccess.getByte(segment, index);
-        }
-        v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
-        if (v > 0) {
-            throw new NumberFormatException("not a digit : " + target);
-        }
-        d = -v;
-        // process following digits
-        int nd = 1;
-        while (index < length) {
-            target = SegmentAccess.getByte(segment, index);
-            v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
-            if (v <= 0) {
-                if(nd == 1) {
-                    if(d == 0L) {
-                        throw new NumberFormatException("leading zero");
-                    }
-                }
-                if(nd < MAX_DECIMAL_ND) {
-                    d = d * 10L - v;
-                    nd++;
-                } else {
-                    trunc = true;
-                }
-                index++;
-            } else {
-                break;
-            }
-        }
-        // processing optional fraction
-        if (index < length && target == BYTE_PERIOD) {
-            index++;
-            while (index < length) {
-                target = SegmentAccess.getByte(segment, index);
-                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
-                if (v <= 0) {
-                    if(nd < MAX_DECIMAL_ND) {
-                        d = d * 10L - v;
-                        nd++;
-                        frac++;
-                    } else {
-                        trunc = true;
-                    }
-                    index++;
-                } else {
-                    break;
-                }
-            }
-            if (frac == 0) {
-                throw new NumberFormatException("leading period with no digits");
-            }
-        }
-        // processing optional exponent
-        if (index < length && (target == BYTE_E || target == BYTE_e)) {
-            // processing first sign or digit
-            if (++index == length) {
-                throw new NumberFormatException("leading exponent sign with no digits");
-            }
-            target = SegmentAccess.getByte(segment, index);
-            if (target == BYTE_MINUS || target == BYTE_PLUS) {
-                if (++index == length) {
-                    throw new NumberFormatException("leading sign with no digits");
-                }
-                if (target == BYTE_MINUS) {
-                    negExp = true;
-                }
-                target = SegmentAccess.getByte(segment, index);
-            }
-            v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
-            if (v > 0) {
-                throw new NumberFormatException("illegal start of number : " + target);
-            }
-            p = -v;
-            index++;
-            // processing following exponent
-            int np = 1;
-            while (index < length) {
-                target = SegmentAccess.getByte(segment, index);
-                v = ZERO_NINE_TABLE[Byte.toUnsignedInt(target)];
-                if (v <= 0) {
-                    if(np == 1) {
-                        if (p == 0) {
-                            throw new NumberFormatException("leading zero");
-                        }
-                    }
-                    if(np < MAX_DECIMAL_NP) {
-                        p = p * 10 - v;
-                        np++;
-                    }
-                    index++;
-                } else {
-                    break;
-                }
-            }
-        }
-        p = (negExp ? -p : p) - frac;
-        return new FpStrRep(neg, trunc, d, frac, p, index - position);
     }
 
     public static float readFloat(ReadBuffer readBuffer, byte firstByte) {

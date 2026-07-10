@@ -133,7 +133,7 @@ public final class JsonSerializeUtil {
         } else if(v > 0) {
             writeBuffer.writeBytes(BYTE_rsolidus, v);
         } else {
-            writeBuffer.writeBytes(BYTE_rsolidus, BYTE_u, BYTE_zero, BYTE_zero, HEX_BYTES[b >>> 4], HEX_BYTES[b & 0xf]);
+            writeBuffer.writeBytes(BYTE_rsolidus, BYTE_u, BYTE_zero, BYTE_zero, HEX_BYTES[(b >>> 4) & 0xF], HEX_BYTES[b & 0xf]);
         }
     }
 
@@ -158,11 +158,11 @@ public final class JsonSerializeUtil {
             case NONE -> {}
             case TWO -> {
                 writeBuffer.writeByte(BYTE_lf);
-                writeBuffer.writeRepeated(BYTE_space, indent << 1);
+                writeBuffer.writeRepeated(BYTE_space, indent * 2); // no overflow, indent is limited
             }
             case FOUR -> {
                 writeBuffer.writeByte(BYTE_lf);
-                writeBuffer.writeRepeated(BYTE_space, indent << 2);
+                writeBuffer.writeRepeated(BYTE_space, indent * 4); // no overflow, indent is limited
             }
             default -> throw new AssertionError();
         }
@@ -407,17 +407,17 @@ public final class JsonSerializeUtil {
         final byte[] bytes = heapWriteBuffer.rawByteArray();
         int position = heapWriteBuffer.intPosition();
         bytes[position++] = BYTE_quote;
-        int start = 0, index = 0;
-        while (index < len) {
-            byte b = utf8Bytes[index++];
+        int start = 0;
+        for(int index = 0; index < len; index++) {
+            byte b = utf8Bytes[index];
             byte v = WRITER_ESCAPE_TABLE[b];
             if(v == 0) {
                 continue ;
             }
             if(index > start) {
-                int avaiable = index - start;
-                System.arraycopy(utf8Bytes, start, bytes, position, avaiable);
-                position += avaiable;
+                int available = index - start;
+                System.arraycopy(utf8Bytes, start, bytes, position, available);
+                position += available;
             }
             bytes[position++] = BYTE_rsolidus;
             if(v > 0) {
@@ -426,15 +426,15 @@ public final class JsonSerializeUtil {
                 bytes[position++] = BYTE_u;
                 bytes[position++] = BYTE_zero;
                 bytes[position++] = BYTE_zero;
-                bytes[position++] = HEX_BYTES[b >>> 4];
+                bytes[position++] = HEX_BYTES[(b >>> 4) & 0xF];
                 bytes[position++] = HEX_BYTES[b & 0xF];
             }
             start = index + 1;
         }
         if(start < len) {
-            int avaiable = len - start;
-            System.arraycopy(utf8Bytes, start, bytes, position, avaiable);
-            position += avaiable;
+            int available = len - start;
+            System.arraycopy(utf8Bytes, start, bytes, position, available);
+            position += available;
         }
         bytes[position++] = BYTE_quote;
         heapWriteBuffer.setPosition(position);
@@ -444,17 +444,17 @@ public final class JsonSerializeUtil {
         final MemorySegment segment = segmentWriteBuffer.rawSegment();
         long position = segmentWriteBuffer.longPosition();
         SegmentAccess.setByte(segment, position++, BYTE_quote);
-        int start = 0, index = 0;
-        while (index < len) {
-            byte b = utf8Bytes[index++];
+        int start = 0;
+        for(int index = 0; index < len; index++) {
+            byte b = utf8Bytes[index];
             byte v = WRITER_ESCAPE_TABLE[b];
             if(v == 0) {
                 continue ;
             }
             if(index > start) {
-                int avaiable = index - start;
-                MemorySegment.copy(utf8Bytes, start, segment, ValueLayout.JAVA_BYTE, position, avaiable);
-                position += avaiable;
+                int available = index - start;
+                MemorySegment.copy(utf8Bytes, start, segment, ValueLayout.JAVA_BYTE, position, available);
+                position += available;
             }
             SegmentAccess.setByte(segment, position++, BYTE_rsolidus);
             if(v > 0) {
@@ -463,15 +463,15 @@ public final class JsonSerializeUtil {
                 SegmentAccess.setByte(segment, position++, BYTE_u);
                 SegmentAccess.setByte(segment, position++, BYTE_zero);
                 SegmentAccess.setByte(segment, position++, BYTE_zero);
-                SegmentAccess.setByte(segment, position++, HEX_BYTES[b >>> 4]);
+                SegmentAccess.setByte(segment, position++, HEX_BYTES[(b >>> 4) & 0xF]);
                 SegmentAccess.setByte(segment, position++, HEX_BYTES[b & 0xF]);
             }
             start = index + 1;
         }
         if(start < len) {
-            int avaiable = len - start;
-            MemorySegment.copy(utf8Bytes, start, segment, ValueLayout.JAVA_BYTE, position, avaiable);
-            position += avaiable;
+            int available = len - start;
+            MemorySegment.copy(utf8Bytes, start, segment, ValueLayout.JAVA_BYTE, position, available);
+            position += available;
         }
         SegmentAccess.setByte(segment, position++, BYTE_quote);
         segmentWriteBuffer.setPosition(position);
@@ -661,7 +661,9 @@ public final class JsonSerializeUtil {
         } else {
             MarshallInfo marshallInfo = fc.marshallInfoByIndex(enumValue.ordinal());
             if(marshallInfo.mappedNameSimple()) {
+                serializeQuote(writeBuffer);
                 writeBuffer.writeBytes(marshallInfo.mappedNameUtf8Bytes());
+                serializeQuote(writeBuffer);
             } else {
                 serializeEscapedUtf8Bytes(marshallInfo.mappedNameUtf8Bytes(), writeBuffer);
             }
@@ -706,7 +708,9 @@ public final class JsonSerializeUtil {
             return (_, w, o, _) -> {
                 MarshallInfo marshallInfo = fc.marshallInfoByIndex(((Enum<?>) o).ordinal());
                 if(marshallInfo.mappedNameSimple()) {
+                    serializeQuote(w);
                     w.writeBytes(marshallInfo.mappedNameUtf8Bytes());
+                    serializeQuote(w);
                 } else {
                     serializeEscapedUtf8Bytes(marshallInfo.mappedNameUtf8Bytes(), w);
                 }

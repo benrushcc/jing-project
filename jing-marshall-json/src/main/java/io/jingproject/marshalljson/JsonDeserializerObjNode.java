@@ -33,13 +33,13 @@ public final class JsonDeserializerObjNode extends JsonDeserializerNode {
         byte b;
         // TODO 这一块状态的保存和记录需要再仔细的想一想
         if(init()) {
-            b = JsonDeserializeUtil.nextFirstValuableByte(readBuffer, option, true);
+            b = JsonDeserializeUtil.nextFirstValuableByte(readBuffer, option);
             if(b != (byte) '{') {
                 throw new JsonDeserializerException("object start not found, got : " + b);
             }
         }
         // parsing key
-        b = JsonDeserializeUtil.nextFirstValuableByte(readBuffer, option, true);
+        b = JsonDeserializeUtil.nextFirstValuableByte(readBuffer, option);
         if(b != (byte) '"') {
             throw new JsonDeserializerException("key start not found, got : " + b);
         }

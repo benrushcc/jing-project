@@ -15,6 +15,43 @@ public final class AnnoUtil {
         throw new UnsupportedOperationException("utility class");
     }
 
+    public static String javaStringLiteral(String str) {
+        return "\""  + str + "\"";
+    }
+
+    public static String escapeJavaStringLiteral(String str, StringBuilder builder) {
+        if(!builder.isEmpty()) {
+            throw new AnnotationProcessorException("builder not empty");
+        }
+        builder.append("\"");
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            switch (c) {
+                case '"' -> builder.append("\\\"");
+                case '\\' -> builder.append("\\\\");
+                case '\b' -> builder.append("\\b");
+                case '\f' -> builder.append("\\f");
+                case '\n' -> builder.append("\\n");
+                case '\r' -> builder.append("\\r");
+                case '\t' -> builder.append("\\t");
+                default -> {
+                    if (c < 0x20) {
+                        builder.append("\\u");
+                        String hex = Integer.toHexString(c);
+                        builder.repeat("0", 4 - hex.length());
+                        builder.append(hex);
+                    } else {
+                        builder.append(c); // safe for surrogate
+                    }
+                }
+            }
+        }
+        builder.append("\"");
+        String r = builder.toString();
+        builder.setLength(0);
+        return r;
+    }
+
     public static String packageName(String fullName) {
         int index = fullName.lastIndexOf(".");
         if (index == -1) {

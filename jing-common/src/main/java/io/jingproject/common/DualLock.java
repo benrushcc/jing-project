@@ -54,8 +54,7 @@ public final class DualLock<T extends Record> {
      * <p>
      * Because T extends Record, we can safely assume Thread and T are distinct types.
      */
-    @SuppressWarnings("FieldMayBeFinal")
-    private volatile Object value;
+    private volatile Object value; // modified via varhandle
 
     /**
      * Number of spin iterations a contending thread will perform before parking.

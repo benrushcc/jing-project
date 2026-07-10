@@ -3,6 +3,7 @@ package io.jingproject.marshalljsontest.test;
 import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.marshalljson.*;
 import io.jingproject.marshalljsontest.entity.BeanEntity;
+import io.jingproject.marshalljsontest.entity.EnumEntity;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -95,6 +96,7 @@ public class JsonSerializationTest {
         entity.setIntValue(42);
         entity.setLongValue(100L);
         entity.setStringValue("");
+        entity.setEnumValue(EnumEntity.ENUM_ENTITY3);
         entity.setStringArray(new String[]{"hello", "world", "test"});
         List<JsonPrimitiveType> jsonPrimitiveTypes = new ArrayList<>();
         jsonPrimitiveTypes.add(new JsonBoolType(true));

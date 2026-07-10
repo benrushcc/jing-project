@@ -4,6 +4,7 @@ import io.jingproject.common.*;
 import jdk.incubator.vector.ByteVector;
 
 import java.lang.foreign.MemorySegment;
+import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -15,31 +16,32 @@ public final class JsonDeserializeUtil {
     private static final byte BYTE_colon = (byte) ':';
     private static final int COMPACT_TRUE = Utils.compact(Utils.compact((byte) 't', (byte) 'r'), Utils.compact((byte) 'u', (byte) 'e'));
     private static final int COMPACT_ALSE = Utils.compact(Utils.compact((byte) 'a', (byte) 'l'), Utils.compact((byte) 's', (byte) 'e'));
+    private static final int COMPACT_NULL = Utils.compact(Utils.compact((byte) 'n', (byte) 'u'), Utils.compact((byte) 'l', (byte) 'l'));
     private static final int ARR_INITIAL_SIZE = 4;
 
     private JsonDeserializeUtil() {
         throw new UnsupportedOperationException("utility class");
     }
 
-    public static byte nextFirstValuableByte(ReadBuffer readBuffer, JsonDeserializerOption option, boolean consume) {
+    public static byte nextFirstValuableByte(ReadBuffer readBuffer, JsonDeserializerOption option) {
         int maxEmptyBytes = option.maxEmptyBytes();
         return switch (readBuffer) {
-            case HeapReadBuffer heapReadBuffer -> nextHeapFirstValuableByte(heapReadBuffer, maxEmptyBytes, consume);
-            case SegmentReadBuffer segmentReadBuffer -> nextSegmentFirstValuableByte(segmentReadBuffer, maxEmptyBytes, consume);
+            case HeapReadBuffer heapReadBuffer -> nextHeapFirstValuableByte(heapReadBuffer, maxEmptyBytes);
+            case SegmentReadBuffer segmentReadBuffer -> nextSegmentFirstValuableByte(segmentReadBuffer, maxEmptyBytes);
         };
     }
 
-    private static byte nextHeapFirstValuableByte(HeapReadBuffer heapReadBuffer, int maxEmptyBytes, boolean consume) {
-        byte[] bytes = heapReadBuffer.rawByteArray();
-        int position = heapReadBuffer.intPosition();
-        int range = Math.min(maxEmptyBytes, heapReadBuffer.intLength() - position);
+    private static byte nextHeapFirstValuableByte(HeapReadBuffer heapReadBuffer, int maxEmptyBytes) {
+        final byte[] bytes = heapReadBuffer.rawByteArray();
+        final int position = heapReadBuffer.intPosition();
+        final int range = Math.min(maxEmptyBytes, heapReadBuffer.intLength() - position);
         for (int i = position; i < position + range; i++) {
             byte b = bytes[i];
             switch (b) {
                 case BYTE_space, BYTE_lf, BYTE_cr, BYTE_ht -> {
                 }
                 default -> {
-                    heapReadBuffer.setPosition(consume ? i + 1 : i); // no overflow
+                    heapReadBuffer.setPosition(i + 1); // no overflow
                     return b;
                 }
             }
@@ -47,17 +49,17 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("too many empty bytes");
     }
 
-    private static byte nextSegmentFirstValuableByte(SegmentReadBuffer segmentReadBuffer, int maxEmptyBytes, boolean consume) {
-        MemorySegment segment = segmentReadBuffer.rawSegment();
-        int position = segmentReadBuffer.intPosition();
-        int range = Math.min(maxEmptyBytes, segmentReadBuffer.intLength() - position);
-        for (int i = position; i < position + range; i++) {
+    private static byte nextSegmentFirstValuableByte(SegmentReadBuffer segmentReadBuffer, int maxEmptyBytes) {
+        final MemorySegment segment = segmentReadBuffer.rawSegment();
+        final long position = segmentReadBuffer.longPosition();
+        final long range = Math.min(maxEmptyBytes, segment.byteSize() - position);
+        for (long i = position; i < position + range; i++) {
             byte b = SegmentAccess.getByte(segment, i);
             switch (b) {
                 case BYTE_space, BYTE_lf, BYTE_cr, BYTE_ht -> {
                 }
                 default -> {
-                    segmentReadBuffer.setPosition(consume ? i + 1 : i); // no overflow
+                    segmentReadBuffer.setPosition(i + 1L); // no overflow
                     return b;
                 }
             }
@@ -65,8 +67,42 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("too many empty bytes");
     }
 
-    public static byte deserializeByte(ReadBuffer readBuffer, JsonDeserializerOption option) {
-        byte firstByte = nextFirstValuableByte(readBuffer, option, true);
+    public static boolean deserializeNull(ReadBuffer readBuffer, byte firstByte) {
+        if(firstByte == (byte) 'n') {
+            switch (readBuffer) {
+                case HeapReadBuffer heapReadBuffer -> {
+                    final byte[] bytes = heapReadBuffer.rawByteArray();
+                    final int position = heapReadBuffer.intPosition();
+                    final int newPosition = Math.addExact(position, 3);
+                    if(newPosition > bytes.length) {
+                        throw new JsonDeserializerException("eof reached while deserializing null");
+                    }
+                    if(ArrayAccess.getInt(bytes, position - 1) != COMPACT_NULL) {
+                        throw new JsonDeserializerException("illegal null token, position : " + position);
+                    }
+                    readBuffer.setPosition(newPosition);
+                    return true;
+                }
+                case SegmentReadBuffer segmentReadBuffer -> {
+                    final MemorySegment segment = segmentReadBuffer.rawSegment();
+                    final long position = segmentReadBuffer.longPosition();
+                    final long newPosition = Math.addExact(position, 3L);
+                    if(newPosition > segment.byteSize()) {
+                        throw new JsonDeserializerException("eof reached while deserializing null");
+                    }
+                    if(SegmentAccess.getInt(segment, position - 1L) != COMPACT_NULL) {
+                        throw new JsonDeserializerException("illegal null token, position : " + position);
+                    }
+                    readBuffer.setPosition(newPosition);
+                    return true;
+                }
+                case null, default -> throw new AssertionError();
+            }
+        }
+        return false;
+    }
+
+    public static byte deserializeByte(ReadBuffer readBuffer, byte firstByte) {
         int v = JsonNumberUtil.readInt(readBuffer, firstByte);
         if(v >= Byte.MIN_VALUE && v <= Byte.MAX_VALUE) {
             return (byte) v;
@@ -74,76 +110,66 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("byte value overflow : " + v);
     }
 
-    public static boolean deserializeBoolean(ReadBuffer readBuffer, JsonDeserializerOption option) {
-        byte firstByte = nextFirstValuableByte(readBuffer, option, false);
-        return deserializeBoolean(readBuffer, firstByte);
-    }
-
     public static boolean deserializeBoolean(ReadBuffer readBuffer, byte firstByte) {
         return switch (readBuffer) {
-            case HeapReadBuffer heapReadBuffer -> deserializeHeapBoolean(heapReadBuffer, firstByte);
-            case SegmentReadBuffer segmentReadBuffer -> deserializeSegmentBoolean(segmentReadBuffer, firstByte);
+            case HeapReadBuffer heapReadBuffer -> {
+                final byte[] bytes = heapReadBuffer.rawByteArray();
+                final int position = heapReadBuffer.intPosition();
+                if(firstByte == 't') {
+                    final int newPosition = Math.addExact(position, 3);
+                    if(newPosition > bytes.length) {
+                        throw new JsonDeserializerException("eof reached while deserializing boolean literal 'true' value");
+                    }
+                    if (ArrayAccess.getInt(bytes, position - 1) != COMPACT_TRUE) {
+                        throw new JsonDeserializerException("illegal boolean literal 'true' value");
+                    }
+                    heapReadBuffer.setPosition(newPosition);
+                    yield true;
+                } else if(firstByte == 'f') {
+                    final int newPosition = Math.addExact(position, 4);
+                    if(newPosition > bytes.length) {
+                        throw new JsonDeserializerException("eof reached while deserializing boolean literal 'false' value");
+                    }
+                    if (ArrayAccess.getInt(bytes, position) != COMPACT_ALSE) {
+                        throw new JsonDeserializerException("illegal boolean literal 'false' value");
+                    }
+                    heapReadBuffer.setPosition(newPosition);
+                    yield false;
+                } else {
+                    throw new JsonDeserializerException("illegal boolean literal value");
+                }
+            }
+            case SegmentReadBuffer segmentReadBuffer -> {
+                final MemorySegment segment = segmentReadBuffer.rawSegment();
+                final long position = segmentReadBuffer.longPosition();
+                if(firstByte == 't') {
+                    final long newPosition = Math.addExact(position, 3L);
+                    if(newPosition > segment.byteSize()) {
+                        throw new JsonDeserializerException("eof reached while deserializing boolean literal 'true' value");
+                    }
+                    if (SegmentAccess.getInt(segment, position - 1L) != COMPACT_TRUE) {
+                        throw new JsonDeserializerException("illegal boolean literal 'true' value");
+                    }
+                    segmentReadBuffer.setPosition(newPosition);
+                    yield true;
+                } else if(firstByte == 'f') {
+                    final long newPosition = Math.addExact(position, 4L);
+                    if(newPosition > segment.byteSize()) {
+                        throw new JsonDeserializerException("eof reached while deserializing boolean literal 'false' value");
+                    }
+                    if (SegmentAccess.getInt(segment, position) != COMPACT_ALSE) {
+                        throw new JsonDeserializerException("illegal boolean literal 'false' value");
+                    }
+                    segmentReadBuffer.setPosition(newPosition);
+                    yield false;
+                } else {
+                    throw new JsonDeserializerException("illegal boolean literal value");
+                }
+            }
         };
     }
 
-    private static boolean deserializeHeapBoolean(HeapReadBuffer heapReadBuffer, byte firstByte) {
-        byte[] bytes = heapReadBuffer.rawByteArray();
-        int position = heapReadBuffer.intPosition();
-        if(firstByte == 't') {
-            int newPosition = position + 4;
-            if(newPosition > bytes.length) {
-                throw new JsonDeserializerException("eof reached while reading boolean literal 'true' value");
-            }
-            if (ArrayAccess.getInt(bytes, position) != COMPACT_TRUE) {
-                throw new JsonDeserializerException("illegal boolean literal 'true' value");
-            }
-            heapReadBuffer.setPosition(newPosition);
-            return true;
-        } else if(firstByte == 'f') {
-            int newPosition = position + 5;
-            if(newPosition > bytes.length) {
-                throw new JsonDeserializerException("eof reached while reading boolean literal 'false' value");
-            }
-            if (ArrayAccess.getInt(bytes, position + 1) != COMPACT_ALSE) {
-                throw new JsonDeserializerException("illegal boolean literal 'false' value");
-            }
-            heapReadBuffer.setPosition(newPosition);
-            return false;
-        } else {
-            throw new JsonDeserializerException("illegal boolean literal value");
-        }
-    }
-
-    private static boolean deserializeSegmentBoolean(SegmentReadBuffer segmentReadBuffer, byte firstByte) {
-        MemorySegment segment = segmentReadBuffer.rawSegment();
-        long position = segmentReadBuffer.longPosition();
-        if(firstByte == 't') {
-            long newPosition = position + 4L;
-            if(newPosition > segment.byteSize()) {
-                throw new JsonDeserializerException("eof reached while reading boolean literal 'true' value");
-            }
-            if (SegmentAccess.getInt(segment, position) != COMPACT_TRUE) {
-                throw new JsonDeserializerException("illegal boolean literal 'true' value");
-            }
-            segmentReadBuffer.setPosition(newPosition);
-            return true;
-        } else if(firstByte == 'f') {
-            long newPosition = position + 5L;
-            if(newPosition > segment.byteSize()) {
-                throw new JsonDeserializerException("eof reached while reading boolean literal 'false' value");
-            }
-            if (SegmentAccess.getInt(segment, position + 1L) != COMPACT_ALSE) {
-                throw new JsonDeserializerException("illegal boolean literal 'false' value");
-            }
-            segmentReadBuffer.setPosition(newPosition);
-            return false;
-        } else {
-            throw new JsonDeserializerException("illegal boolean literal value");
-        }
-    }
-
-    public static short deserializeShort(ReadBuffer readBuffer, JsonDeserializerOption option) {
-        byte firstByte = nextFirstValuableByte(readBuffer, option, true);
+    public static short deserializeShort(ReadBuffer readBuffer, byte firstByte) {
         int v = JsonNumberUtil.readInt(readBuffer, firstByte);
         if(v >= Short.MIN_VALUE && v <= Short.MAX_VALUE) {
             return (short) v;
@@ -151,285 +177,336 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("short value overflow : " + v);
     }
 
-    public static char deserializeChar(ReadBuffer readBuffer, JsonDeserializerOption option, JsonDeserializerContext context) {
-        byte b = nextFirstValuableByte(readBuffer, option, true);
-        if (b != '"') {
-            throw new JsonDeserializerException("missing first quote, got : " + b);
+    public static char deserializeChar(ReadBuffer readBuffer, JsonDeserializerOption option, JsonDeserializerContext context, byte firstByte) {
+        if (firstByte != '"') {
+            throw new JsonDeserializerException("missing first quote, got : " + firstByte + " at index : " + readBuffer.intPosition());
         }
         parseString(readBuffer, option, context);
         return context.asChar();
     }
 
-    public static int deserializeInt(ReadBuffer readBuffer, JsonDeserializerOption option) {
-        byte firstByte = nextFirstValuableByte(readBuffer, option, true);
+    public static int deserializeInt(ReadBuffer readBuffer, byte firstByte) {
         return JsonNumberUtil.readInt(readBuffer, firstByte);
     }
 
-    public static long deserializeLong(ReadBuffer readBuffer, JsonDeserializerOption option) {
-        byte firstByte = nextFirstValuableByte(readBuffer, option, true);
+    public static long deserializeLong(ReadBuffer readBuffer, byte firstByte) {
         return JsonNumberUtil.readLong(readBuffer, firstByte);
     }
 
-    public static float deserializeFloat(ReadBuffer readBuffer, JsonDeserializerOption option) {
-        byte firstByte = nextFirstValuableByte(readBuffer, option, true);
+    public static float deserializeFloat(ReadBuffer readBuffer, byte firstByte) {
         return JsonNumberUtil.readFloat(readBuffer, firstByte);
     }
 
-    public static double deserializeDouble(ReadBuffer readBuffer, JsonDeserializerOption option) {
-        byte firstByte = nextFirstValuableByte(readBuffer, option, true);
+    public static double deserializeDouble(ReadBuffer readBuffer, byte firstByte) {
         return JsonNumberUtil.readDouble(readBuffer, firstByte);
     }
 
     public static byte[] deserializeByteArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
         byte[] r = new byte[ARR_INITIAL_SIZE];
-        int index = 0;
-        byte b = nextFirstValuableByte(readBuffer, option, true);
+        byte b = nextFirstValuableByte(readBuffer, option);
         if (b != '[') {
             throw new JsonDeserializerException("array start not found, got : " + b);
         }
-        b = nextFirstValuableByte(readBuffer, option, false);
+        b = nextFirstValuableByte(readBuffer, option);
         if(b == ']') {
             return Utils.emptyByteArray();
         }
-        for (int i = 0; i < option.maxArrayElements(); i++) {
-            byte v = deserializeByte(readBuffer, option);
+        for (int index = 0; index < option.maxArrayElements(); ) {
+            byte v = deserializeByte(readBuffer, b);
             if (index == r.length) {
-                int newLength = Math.addExact(r.length, r.length);
-                if (newLength > option.maxArrayElements()) {
-                    throw new JsonDeserializerException("too many array elements, current length : " + r.length);
-                }
+                int newLength = Math.min(r.length << 1, option.maxArrayElements()); // no overflow
                 r = Arrays.copyOf(r, newLength);
             }
             r[index++] = v;
-            b = nextFirstValuableByte(readBuffer, option, true);
+            b = nextFirstValuableByte(readBuffer, option);
             if (b == ']') {
-                return index == r.length ? r : Arrays.copyOf(r, index);
-            } else if (b != ',') {
-                throw new JsonDeserializerException("sep not found, got : " + b);
+                return index == r.length ? r : Arrays.copyOf(r, index); // no overflow
+            } else if (b == ',') {
+                b = nextFirstValuableByte(readBuffer, option);
+            } else {
+                throw new JsonDeserializerException("array sep not found, got : " + b);
             }
         }
-        throw new JsonDeserializerException("too many array elements, current length : " + r.length);
+        throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
     public static boolean[] deserializeBooleanArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
         boolean[] r = new boolean[ARR_INITIAL_SIZE];
-        int index = 0;
-        byte b = nextFirstValuableByte(readBuffer, option, true);
+        byte b = nextFirstValuableByte(readBuffer, option);
         if (b != '[') {
             throw new JsonDeserializerException("array start not found, got : " + b);
         }
-        b = nextFirstValuableByte(readBuffer, option, false);
-        if(b == ']') {
+        b = nextFirstValuableByte(readBuffer, option);
+        if (b == ']') {
             return Utils.emptyBooleanArray();
         }
-        for (int i = 0; i < option.maxArrayElements(); i++) {
-            boolean v = deserializeBoolean(readBuffer, option);
+        for (int index = 0; index < option.maxArrayElements(); ) {
+            boolean v = deserializeBoolean(readBuffer, b);
             if (index == r.length) {
-                int newLength = Math.addExact(r.length, r.length);
-                if (newLength > option.maxArrayElements()) {
-                    throw new JsonDeserializerException("too many array elements, current length : " + r.length);
-                }
+                int newLength = Math.min(r.length << 1, option.maxArrayElements());
                 r = Arrays.copyOf(r, newLength);
             }
             r[index++] = v;
-            b = nextFirstValuableByte(readBuffer, option, true);
+            b = nextFirstValuableByte(readBuffer, option);
             if (b == ']') {
-                return index == r.length ? r : Arrays.copyOf(r, index);
-            } else if (b != ',') {
-                throw new JsonDeserializerException("sep not found, got : " + b);
+                return Arrays.copyOf(r, index);
+            } else if (b == ',') {
+                b = nextFirstValuableByte(readBuffer, option);
+            } else {
+                throw new JsonDeserializerException("array separator expected, got : " + b);
             }
         }
-        throw new JsonDeserializerException("too many array elements, current length : " + r.length);
+        throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
     public static short[] deserializeShortArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
         short[] r = new short[ARR_INITIAL_SIZE];
-        int index = 0;
-        byte b = nextFirstValuableByte(readBuffer, option, true);
+        byte b = nextFirstValuableByte(readBuffer, option);
         if (b != '[') {
             throw new JsonDeserializerException("array start not found, got : " + b);
         }
-        b = nextFirstValuableByte(readBuffer, option, false);
-        if(b == ']') {
+        b = nextFirstValuableByte(readBuffer, option);
+        if (b == ']') {
             return Utils.emptyShortArray();
         }
-        for (int i = 0; i < option.maxArrayElements(); i++) {
-            short v = deserializeShort(readBuffer, option);
+        for (int index = 0; index < option.maxArrayElements(); ) {
+            short v = deserializeShort(readBuffer, b);
             if (index == r.length) {
-                int newLength = Math.addExact(r.length, r.length);
-                if (newLength > option.maxArrayElements()) {
-                    throw new JsonDeserializerException("too many array elements, current length : " + r.length);
-                }
+                int newLength = Math.min(r.length << 1, option.maxArrayElements());
                 r = Arrays.copyOf(r, newLength);
             }
             r[index++] = v;
-            b = nextFirstValuableByte(readBuffer, option, true);
+            b = nextFirstValuableByte(readBuffer, option);
             if (b == ']') {
-                return index == r.length ? r : Arrays.copyOf(r, index);
-            } else if (b != ',') {
-                throw new JsonDeserializerException("sep not found, got : " + b);
+                return Arrays.copyOf(r, index);
+            } else if (b == ',') {
+                b = nextFirstValuableByte(readBuffer, option);
+            } else {
+                throw new JsonDeserializerException("array separator expected, got : " + b);
             }
         }
-        throw new JsonDeserializerException("too many array elements, current length : " + r.length);
+        throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
     public static char[] deserializeCharArray(ReadBuffer readBuffer, JsonDeserializerOption option, JsonDeserializerContext context) {
         char[] r = new char[ARR_INITIAL_SIZE];
-        int index = 0;
-        byte b = nextFirstValuableByte(readBuffer, option, true);
+        byte b = nextFirstValuableByte(readBuffer, option);
         if (b != '[') {
             throw new JsonDeserializerException("array start not found, got : " + b);
         }
-        b = nextFirstValuableByte(readBuffer, option, false);
-        if(b == ']') {
+        b = nextFirstValuableByte(readBuffer, option);
+        if (b == ']') {
             return Utils.emptyCharArray();
         }
-        for (int i = 0; i < option.maxArrayElements(); i++) {
-            char v = deserializeChar(readBuffer, option, context);
+        for (int index = 0; index < option.maxArrayElements(); ) {
+            char v = deserializeChar(readBuffer, option, context, b);
             if (index == r.length) {
-                int newLength = Math.addExact(r.length, r.length);
-                if (newLength > option.maxArrayElements()) {
-                    throw new JsonDeserializerException("too many array elements, current length : " + r.length);
-                }
+                int newLength = Math.min(r.length << 1, option.maxArrayElements());
                 r = Arrays.copyOf(r, newLength);
             }
             r[index++] = v;
-            b = nextFirstValuableByte(readBuffer, option, true);
+            b = nextFirstValuableByte(readBuffer, option);
             if (b == ']') {
-                return index == r.length ? r : Arrays.copyOf(r, index);
-            } else if (b != ',') {
-                throw new JsonDeserializerException("sep not found, got : " + b);
+                return Arrays.copyOf(r, index);
+            } else if (b == ',') {
+                b = nextFirstValuableByte(readBuffer, option);
+            } else {
+                throw new JsonDeserializerException("array separator expected, got : " + b);
             }
         }
-        throw new JsonDeserializerException("too many array elements, current length : " + r.length);
+        throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
     public static int[] deserializeIntArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
         int[] r = new int[ARR_INITIAL_SIZE];
-        int index = 0;
-        byte b = nextFirstValuableByte(readBuffer, option, true);
+        byte b = nextFirstValuableByte(readBuffer, option);
         if (b != '[') {
             throw new JsonDeserializerException("array start not found, got : " + b);
         }
-        b = nextFirstValuableByte(readBuffer, option, false);
-        if(b == ']') {
+        b = nextFirstValuableByte(readBuffer, option);
+        if (b == ']') {
             return Utils.emptyIntArray();
         }
-        for (int i = 0; i < option.maxArrayElements(); i++) {
-            int v = deserializeInt(readBuffer, option);
+        for (int index = 0; index < option.maxArrayElements(); ) {
+            int v = deserializeInt(readBuffer, b);
             if (index == r.length) {
-                int newLength = Math.addExact(r.length, r.length);
-                if (newLength > option.maxArrayElements()) {
-                    throw new JsonDeserializerException("too many array elements, current length : " + r.length);
-                }
+                int newLength = Math.min(r.length << 1, option.maxArrayElements());
                 r = Arrays.copyOf(r, newLength);
             }
             r[index++] = v;
-            b = nextFirstValuableByte(readBuffer, option, true);
+            b = nextFirstValuableByte(readBuffer, option);
             if (b == ']') {
-                return index == r.length ? r : Arrays.copyOf(r, index);
-            } else if (b != ',') {
-                throw new JsonDeserializerException("sep not found, got : " + b);
+                return Arrays.copyOf(r, index);
+            } else if (b == ',') {
+                b = nextFirstValuableByte(readBuffer, option);
+            } else {
+                throw new JsonDeserializerException("array separator expected, got : " + b);
             }
         }
-        throw new JsonDeserializerException("too many array elements, current length : " + r.length);
+        throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
     public static long[] deserializeLongArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
         long[] r = new long[ARR_INITIAL_SIZE];
-        int index = 0;
-        byte b = nextFirstValuableByte(readBuffer, option, true);
+        byte b = nextFirstValuableByte(readBuffer, option);
         if (b != '[') {
             throw new JsonDeserializerException("array start not found, got : " + b);
         }
-        b = nextFirstValuableByte(readBuffer, option, false);
-        if(b == ']') {
+        b = nextFirstValuableByte(readBuffer, option);
+        if (b == ']') {
             return Utils.emptyLongArray();
         }
-        for (int i = 0; i < option.maxArrayElements(); i++) {
-            long v = deserializeLong(readBuffer, option);
+        for (int index = 0; index < option.maxArrayElements(); ) {
+            long v = deserializeLong(readBuffer, b);
             if (index == r.length) {
-                int newLength = Math.addExact(r.length, r.length);
-                if (newLength > option.maxArrayElements()) {
-                    throw new JsonDeserializerException("too many array elements, current length : " + r.length);
-                }
+                int newLength = Math.min(r.length << 1, option.maxArrayElements());
                 r = Arrays.copyOf(r, newLength);
             }
             r[index++] = v;
-            b = nextFirstValuableByte(readBuffer, option, true);
+            b = nextFirstValuableByte(readBuffer, option);
             if (b == ']') {
-                return index == r.length ? r : Arrays.copyOf(r, index);
-            } else if (b != ',') {
-                throw new JsonDeserializerException("sep not found, got : " + b);
+                return Arrays.copyOf(r, index);
+            } else if (b == ',') {
+                b = nextFirstValuableByte(readBuffer, option);
+            } else {
+                throw new JsonDeserializerException("array separator expected, got : " + b);
             }
         }
-        throw new JsonDeserializerException("too many array elements, current length : " + r.length);
+        throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
     public static float[] deserializeFloatArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
         float[] r = new float[ARR_INITIAL_SIZE];
-        int index = 0;
-        byte b = nextFirstValuableByte(readBuffer, option, true);
+        byte b = nextFirstValuableByte(readBuffer, option);
         if (b != '[') {
             throw new JsonDeserializerException("array start not found, got : " + b);
         }
-        b = nextFirstValuableByte(readBuffer, option, false);
-        if(b == ']') {
+        b = nextFirstValuableByte(readBuffer, option);
+        if (b == ']') {
             return Utils.emptyFloatArray();
         }
-        for (int i = 0; i < option.maxArrayElements(); i++) {
-            float v = deserializeFloat(readBuffer, option);
+        for (int index = 0; index < option.maxArrayElements(); ) {
+            float v = deserializeFloat(readBuffer, b);
             if (index == r.length) {
-                int newLength = Math.addExact(r.length, r.length);
-                if (newLength > option.maxArrayElements()) {
-                    throw new JsonDeserializerException("too many array elements, current length : " + r.length);
-                }
+                int newLength = Math.min(r.length << 1, option.maxArrayElements());
                 r = Arrays.copyOf(r, newLength);
             }
             r[index++] = v;
-            b = nextFirstValuableByte(readBuffer, option, true);
+            b = nextFirstValuableByte(readBuffer, option);
             if (b == ']') {
-                return index == r.length ? r : Arrays.copyOf(r, index);
-            } else if (b != ',') {
-                throw new JsonDeserializerException("sep not found, got : " + b);
+                return Arrays.copyOf(r, index);
+            } else if (b == ',') {
+                b = nextFirstValuableByte(readBuffer, option);
+            } else {
+                throw new JsonDeserializerException("array separator expected, got : " + b);
             }
         }
-        throw new JsonDeserializerException("too many array elements, current length : " + r.length);
+        throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
     public static double[] deserializeDoubleArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
         double[] r = new double[ARR_INITIAL_SIZE];
-        int index = 0;
-        byte b = nextFirstValuableByte(readBuffer, option, true);
+        byte b = nextFirstValuableByte(readBuffer, option);
         if (b != '[') {
             throw new JsonDeserializerException("array start not found, got : " + b);
         }
-        b = nextFirstValuableByte(readBuffer, option, false);
-        if(b == ']') {
+        b = nextFirstValuableByte(readBuffer, option);
+        if (b == ']') {
             return Utils.emptyDoubleArray();
         }
-        for (int i = 0; i < option.maxArrayElements(); i++) {
-            double v = deserializeDouble(readBuffer, option);
+        for (int index = 0; index < option.maxArrayElements(); ) {
+            double v = deserializeDouble(readBuffer, b);
             if (index == r.length) {
-                int newLength = Math.addExact(r.length, r.length);
-                if (newLength > option.maxArrayElements()) {
-                    throw new JsonDeserializerException("too many array elements, current length : " + r.length);
-                }
+                int newLength = Math.min(r.length << 1, option.maxArrayElements());
                 r = Arrays.copyOf(r, newLength);
             }
             r[index++] = v;
-            b = nextFirstValuableByte(readBuffer, option, true);
+            b = nextFirstValuableByte(readBuffer, option);
             if (b == ']') {
-                return index == r.length ? r : Arrays.copyOf(r, index);
-            } else if (b != ',') {
-                throw new JsonDeserializerException("sep not found, got : " + b);
+                return Arrays.copyOf(r, index);
+            } else if (b == ',') {
+                b = nextFirstValuableByte(readBuffer, option);
+            } else {
+                throw new JsonDeserializerException("array separator expected, got : " + b);
             }
         }
-        throw new JsonDeserializerException("too many array elements, current length : " + r.length);
+        throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
+    @FunctionalInterface
+    interface ObjectDeserializer<T> {
+        T deserialize(ReadBuffer readBuffer, JsonDeserializerOption option, JsonDeserializerContext context, byte firstByte);
+    }
+
+    private static <T> T[] deserializeObjectArray(ReadBuffer readBuffer, JsonDeserializerOption option, Class<T> componentType, ObjectDeserializer<T> deserializer) {
+        return deserializeObjectArray(readBuffer, option, null, componentType, deserializer);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T[] deserializeObjectArray(ReadBuffer readBuffer, JsonDeserializerOption option, JsonDeserializerContext context, Class<T> componentType, ObjectDeserializer<T> deserializer) {
+        T[] r = (T[]) Array.newInstance(componentType, ARR_INITIAL_SIZE);
+        byte b = nextFirstValuableByte(readBuffer, option);
+        if (b != '[') {
+            throw new JsonDeserializerException("array start not found, got : " + b);
+        }
+        b = nextFirstValuableByte(readBuffer, option);
+        if(b == ']') {
+            return (T[]) Utils.emptyObjectArray();
+        }
+        for (int index = 0; index < option.maxArrayElements(); ) {
+            T v = deserializeNull(readBuffer, b) ? null : deserializer.deserialize(readBuffer, option, context, b);
+            if (index == r.length) {
+                int newLength = Math.min(r.length << 1, option.maxArrayElements()); // no overflow
+                r = Arrays.copyOf(r, newLength);
+            }
+            r[index++] = v;
+            b = nextFirstValuableByte(readBuffer, option);
+            if (b == ']') {
+                return index == r.length ? r : Arrays.copyOf(r, index); // no overflow
+            } else if (b == ',') {
+                b = nextFirstValuableByte(readBuffer, option);
+            } else {
+                throw new JsonDeserializerException("array sep not found, got : " + b);
+            }
+        }
+        throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
+    }
+
+    public static Byte[] deserializeByteWrapperArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
+        return deserializeObjectArray(readBuffer, option, Byte.class, (r, _, _, b) -> deserializeByte(r, b));
+    }
+
+    public static Boolean[] deserializeBooleanWrapperArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
+        return deserializeObjectArray(readBuffer, option, Boolean.class, (r, _, _, b) -> deserializeBoolean(r, b));
+    }
+
+    public static Short[] deserializeShortWrapperArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
+        return deserializeObjectArray(readBuffer, option, Short.class, (r, _, _, b) -> deserializeShort(r, b));
+    }
+
+    public static Character[] deserializeCharacterWrapperArray(ReadBuffer readBuffer, JsonDeserializerOption option, JsonDeserializerContext context) {
+        return deserializeObjectArray(readBuffer, option, Character.class, JsonDeserializeUtil::deserializeChar);
+    }
+
+    public static Integer[] deserializeIntegerWrapperArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
+        return deserializeObjectArray(readBuffer, option, Integer.class, (r, _, _, b) -> deserializeInt(r, b));
+    }
+
+    public static Long[] deserializeLongWrapperArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
+        return deserializeObjectArray(readBuffer, option, Long.class, (r, _, _, b) -> deserializeLong(r, b));
+    }
+
+    public static Float[] deserializeFloatWrapperArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
+        return deserializeObjectArray(readBuffer, option, Float.class, (r, _, _, b) -> deserializeFloat(r, b));
+    }
+
+    public static Double[] deserializeDoubleWrapperArray(ReadBuffer readBuffer, JsonDeserializerOption option) {
+        return deserializeObjectArray(readBuffer, option, Double.class, (r, _, _, b) -> deserializeDouble(r, b));
+    }
+
+
     public static String deserializeString(ReadBuffer readBuffer, JsonDeserializerOption option, JsonDeserializerContext context) {
-        byte b = nextFirstValuableByte(readBuffer, option, true);
+        byte b = nextFirstValuableByte(readBuffer, option);
         if (b != '"') {
             throw new JsonDeserializerException("missing first quote, got : " + b);
         }
