@@ -5,9 +5,6 @@ import io.jingproject.marshall.Marshallable;
 @Marshallable
 public record StringEntity(
         String s1,
-        String s2,
-        String s3,
-        String s4,
-        String s5
+        String s2
 ) {
 }

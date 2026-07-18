@@ -16,8 +16,8 @@ import java.util.Objects;
  * the low collision rate of the original FNV algorithm.
  */
 public final class FnvHasher implements Hasher {
-    private static final int FNV_OFFSET_BASIS = 0x811C9DC5;
-    private static final int FNV_PRIME = 0x01000193;
+    private static final long FNV_OFFSET_BASIS = 0x6C62272E07BB0142L;
+    private static final long FNV_PRIME = 0x100000001B3L;
 
     static {
         try {
@@ -30,17 +30,14 @@ public final class FnvHasher implements Hasher {
     @Override
     public int hash(byte[] bytes, int offset, int len) {
         assert bytes != null && Objects.checkFromIndexSize(offset, len, bytes.length) >= 0;
-        int hash = FNV_OFFSET_BASIS;
+        long hash = FNV_OFFSET_BASIS;
         int index = 0;
         for (; index <= len - 8; index += 8) {
-            long v = ArrayAccess.getLong(bytes, offset + index, ByteOrder.BIG_ENDIAN);
-            hash ^= (int) (v >>> 32);
-            hash *= FNV_PRIME;
-            hash ^= (int) (v);
+            hash ^= ArrayAccess.getLong(bytes, offset + index, ByteOrder.BIG_ENDIAN);
             hash *= FNV_PRIME;
         }
         if(index <= len - 4) {
-            hash ^= ArrayAccess.getInt(bytes, offset + index, ByteOrder.BIG_ENDIAN);
+            hash ^= Integer.toUnsignedLong(ArrayAccess.getInt(bytes, offset + index, ByteOrder.BIG_ENDIAN));
             hash *= FNV_PRIME;
             index += 4;
         }
@@ -48,23 +45,20 @@ public final class FnvHasher implements Hasher {
             hash ^= Byte.toUnsignedInt(bytes[offset + index]);
             hash *= FNV_PRIME;
         }
-        return hash;
+        return Long.hashCode(hash);
     }
 
     @Override
     public int hash(MemorySegment segment, long offset, long len) {
         assert segment != null && Objects.checkFromIndexSize(offset, len, segment.byteSize()) >= 0L;
-        int hash = FNV_OFFSET_BASIS;
+        long hash = FNV_OFFSET_BASIS;
         long index = 0L;
         for (; index <= len - 8L; index += 8L) {
-            long v = SegmentAccess.getLong(segment, offset + index, ByteOrder.BIG_ENDIAN);
-            hash ^= (int) (v >>> 32);
-            hash *= FNV_PRIME;
-            hash ^= (int) (v);
+            hash ^= SegmentAccess.getLong(segment, offset + index, ByteOrder.BIG_ENDIAN);
             hash *= FNV_PRIME;
         }
         if(index <= len - 4L) {
-            hash ^= SegmentAccess.getInt(segment, offset + index, ByteOrder.BIG_ENDIAN);
+            hash ^= Integer.toUnsignedLong(SegmentAccess.getInt(segment, offset + index, ByteOrder.BIG_ENDIAN));
             hash *= FNV_PRIME;
             index += 4L;
         }
@@ -72,6 +66,6 @@ public final class FnvHasher implements Hasher {
             hash ^= Byte.toUnsignedInt(segment.get(ValueLayout.JAVA_BYTE, offset + index));
             hash *= FNV_PRIME;
         }
-        return hash;
+        return Long.hashCode(hash);
     }
 }

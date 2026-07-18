@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(value = Mode.AverageTime)
 @Warmup(iterations = 3, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 5, time = 10000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 3, time = 10000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 //@Fork(value = 1, jvmArgsAppend = {
@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 @Fork(value = 3)
 public class TwiSerializationBench {
     private static final int SIZE = 819200;
-    private final Twi twi = TwiUtil.deserializeTwiUsingJackson(TwiUtil.load());
+    private static final Twi twi = TwiUtil.deserializeTwiUsingJackson(TwiUtil.load());
     private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
     private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);
@@ -52,7 +52,7 @@ public class TwiSerializationBench {
 
     static void main() throws RunnerException {
         Options opt = new OptionsBuilder().include(TwiSerializationBench.class.getSimpleName())
-                .addProfiler(GCProfiler.class)
+                 .addProfiler(GCProfiler.class)
                 .build();
         new Runner(opt).run();
     }

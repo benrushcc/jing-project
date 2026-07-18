@@ -16,6 +16,7 @@ import java.util.concurrent.*;
 
 public class ReadFloatTest {
     private static final int BATCH = 1000000;
+    private static final int MAX_FP_SIZE = 256;
 
     private static void floatToStringTest(List<String> strList) {
         for (String str : strList) {
@@ -23,12 +24,12 @@ public class ReadFloatTest {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte fb1 = heapReadBuffer.readByte();
-            float f1 = JsonNumberUtil.readFloat(heapReadBuffer, fb1);
+            float f1 = JsonNumberUtil.readFloat(heapReadBuffer, MAX_FP_SIZE, fb1);
             Assertions.assertEquals(Float.floatToRawIntBits(f), Float.floatToRawIntBits(f1), "failed, heap float : " + str);
 
             SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(MemorySegment.ofArray(bytes));
             byte fb2 = segmentReadBuffer.readByte();
-            float f2 = JsonNumberUtil.readFloat(segmentReadBuffer, fb2);
+            float f2 = JsonNumberUtil.readFloat(segmentReadBuffer, MAX_FP_SIZE, fb2);
             Assertions.assertEquals(Float.floatToRawIntBits(f), Float.floatToRawIntBits(f2), "failed, segment float : " + str);
         }
     }
@@ -39,12 +40,12 @@ public class ReadFloatTest {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte fb1 = heapReadBuffer.readByte();
-            double f1 = JsonNumberUtil.readDouble(heapReadBuffer, fb1);
+            double f1 = JsonNumberUtil.readDouble(heapReadBuffer, MAX_FP_SIZE, fb1);
             Assertions.assertEquals(Double.doubleToRawLongBits(f), Double.doubleToRawLongBits(f1), "failed, heap double : " + str);
 
             SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(MemorySegment.ofArray(bytes));
             byte fb2 = segmentReadBuffer.readByte();
-            double f2 = JsonNumberUtil.readDouble(segmentReadBuffer, fb2);
+            double f2 = JsonNumberUtil.readDouble(segmentReadBuffer, MAX_FP_SIZE, fb2);
             Assertions.assertEquals(Double.doubleToRawLongBits(f), Double.doubleToRawLongBits(f2), "failed, segment double : " + str);
         }
     }
@@ -57,12 +58,12 @@ public class ReadFloatTest {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte fb1 = heapReadBuffer.readByte();
-            float f1 = JsonNumberUtil.readFloat(heapReadBuffer, fb1);
+            float f1 = JsonNumberUtil.readFloat(heapReadBuffer, MAX_FP_SIZE, fb1);
             Assertions.assertEquals(Float.floatToRawIntBits(f), Float.floatToRawIntBits(f1));
 
             SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(MemorySegment.ofArray(bytes));
             byte fb2 = segmentReadBuffer.readByte();
-            float f2 = JsonNumberUtil.readFloat(segmentReadBuffer, fb2);
+            float f2 = JsonNumberUtil.readFloat(segmentReadBuffer, MAX_FP_SIZE, fb2);
             Assertions.assertEquals(Float.floatToRawIntBits(f), Float.floatToRawIntBits(f2));
         }
     }
@@ -133,7 +134,7 @@ public class ReadFloatTest {
             double f = Double.parseDouble(str);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
             byte firstByte = heapReadBuffer.readByte();
-            double f1 = JsonNumberUtil.readDouble(heapReadBuffer, firstByte);
+            double f1 = JsonNumberUtil.readDouble(heapReadBuffer, MAX_FP_SIZE, firstByte);
             Assertions.assertEquals(Double.doubleToRawLongBits(f), Double.doubleToRawLongBits(f1));
         }
     }
@@ -157,7 +158,7 @@ public class ReadFloatTest {
         String str = "12.3.4"; // no exception thrown, only 12.3 would be parsed
         HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
         byte firstByte = heapReadBuffer.readByte();
-        Assertions.assertNotNull(JsonNumberUtil.parseFpStrRep(heapReadBuffer, firstByte));
+        Assertions.assertNotNull(JsonNumberUtil.parseFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte));
     }
 
     @Test
@@ -171,7 +172,7 @@ public class ReadFloatTest {
         for (String str : strList) {
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
             byte firstByte = heapReadBuffer.readByte();
-            Assertions.assertThrows(NumberFormatException.class, () -> JsonNumberUtil.parseFpStrRep(heapReadBuffer, firstByte), "str : " + str);
+            Assertions.assertThrows(NumberFormatException.class, () -> JsonNumberUtil.parseFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte), "str : " + str);
         }
     }
 }

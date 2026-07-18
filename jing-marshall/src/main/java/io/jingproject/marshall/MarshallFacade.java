@@ -14,20 +14,33 @@ public interface MarshallFacade {
 
     int totalElements();
 
+    /**
+     * get marshall info by index, index must be in [0, totalElements),
+     * throws IndexOutOfBoundsException if out of range
+     */
     MarshallInfo marshallInfoByIndex(int index);
 
+    /**
+     * look up info by the original java field name, null if not found
+     */
     MarshallInfo marshallInfoByFieldName(String fieldName);
 
     default MarshallInfo marshallInfoByFieldName(byte[] bytes) {
         return marshallInfoByFieldName(bytes, 0, bytes.length);
     }
 
+    /**
+     * look up info by a utf8 byte array slice as field name, null if not found
+     */
     MarshallInfo marshallInfoByFieldName(byte[] bytes, int offset, int len);
 
     default MarshallInfo marshallInfoByFieldName(MemorySegment segment) {
         return marshallInfoByFieldName(segment, 0L, segment.byteSize());
     }
 
+    /**
+     * look up info by a utf8 memory segment slice as field name, null if not found
+     */
     MarshallInfo marshallInfoByFieldName(MemorySegment segment, long offset, long len);
 
     default MarshallInfo marshallInfoByFieldName(byte[] bytes, Charset charset) {
@@ -56,18 +69,27 @@ public interface MarshallFacade {
         return marshallInfoByFieldName(name);
     }
 
+    /**
+     * look up info by the original java mapped name, null if not found
+     */
     MarshallInfo marshallInfoByMappedName(String mappedName);
 
     default MarshallInfo marshallInfoByMappedName(byte[] bytes) {
         return marshallInfoByMappedName(bytes, 0, bytes.length);
     }
 
+    /**
+     * look up info by a utf8 byte array slice as mapped name, null if not found
+     */
     MarshallInfo marshallInfoByMappedName(byte[] bytes, int offset, int len);
 
     default MarshallInfo marshallInfoByMappedName(MemorySegment segment) {
         return marshallInfoByMappedName(segment, 0L, segment.byteSize());
     }
 
+    /**
+     * look up info by a utf8 memory segment slice as mapped name, null if not found
+     */
     MarshallInfo marshallInfoByMappedName(MemorySegment segment, long offset, long len);
 
     default MarshallInfo marshallInfoByMappedName(byte[] bytes, Charset charset) {
@@ -96,14 +118,26 @@ public interface MarshallFacade {
         return marshallInfoByMappedName(mappedName);
     }
 
+    /**
+     * create a reader for extracting values from the given target,
+     * not supported for enum types, throw IllegalArgumentException if target type mismatch
+     */
     default MarshallReader newReader(Object target) {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * create a new empty writer for building an object,
+     * not supported for enum types
+     */
     default MarshallWriter newWriter() {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * construct a new instance from the writer's data,
+     * not supported for enum types, throw IllegalArgumentException if writer type mismatch
+     */
     default Object construct(MarshallWriter writer) {
         throw new UnsupportedOperationException();
     }

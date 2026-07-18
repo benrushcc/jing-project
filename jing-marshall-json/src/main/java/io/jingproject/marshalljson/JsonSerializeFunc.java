@@ -4,5 +4,6 @@ import io.jingproject.common.WriteBuffer;
 
 @FunctionalInterface
 public interface JsonSerializeFunc {
-    JsonSerializeResult serialize(JsonSerializerOption option, WriteBuffer writeBuffer, Object instance, int indent);
+    JsonSerializeResult serialize(JsonSerializerOption option, WriteBuffer writeBuffer, JsonSerializerContext context,
+                                  Object instance, int indent);
 }

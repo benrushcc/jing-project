@@ -9,8 +9,8 @@ public record MarshallProcessorInfo (
         List<MarshallFieldInfo> fieldInfos,
         Map<Class<?>, List<MarshallFieldInfo>> fieldTypeInfo,
         int fieldHashIndex,
-        Map<Integer, List<MarshallFieldInfo>> fieldHashInfo,
+        List<MarshallHashInfo> fieldHashInfos,
         int mappedHashIndex,
-        Map<Integer, List<MarshallFieldInfo>> mappedHashInfo
+        List<MarshallHashInfo> mappedHashInfos
 ) {
 }

@@ -27,23 +27,24 @@ import java.util.concurrent.TimeUnit;
 //        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=ser-simple-%p-%t.jfr,settings=profile",
 //        "-XX:FlightRecorderOptions=stackdepth=128"
 //})
-@Fork(value = 3)
+@Fork(value = 1)
 public class SimpleSerializationBench {
     private static final int BATCH = 10000;
     private static final int BUFFER_SIZE = 1024;
     private static final int STRING_SIZE = 16;
     private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    private SimpleEntity[] simpleEntities;
+
+    private final JsonMapper jsonMapper = JsonMapper.builder().build();
+    private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
+    private final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(BUFFER_SIZE);
+    private final WriteBuffer writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);
     private ThreadLocalRandom random;
-    private JsonMapper jsonMapper;
-    private JsonSerializer jsonDefaultSerializer;
-    private ByteArrayOutputStream byteArrayOutputStream;
-    private WriteBuffer writeBuffer;
+    private SimpleEntity[] simpleEntities;
 
     @Setup(Level.Iteration)
     public void setup() {
-        simpleEntities = new SimpleEntity[BATCH];
         random = ThreadLocalRandom.current();
+        simpleEntities = new SimpleEntity[BATCH];
         for (int i = 0; i < BATCH; i++) {
             int a = random.nextInt();
             long b = random.nextLong();
@@ -55,16 +56,12 @@ public class SimpleSerializationBench {
             }
             simpleEntities[i] = new SimpleEntity(a, b, c, d, sb.toString());
         }
-        jsonMapper = JsonMapper.builder().build();
-        jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
-        byteArrayOutputStream = new ByteArrayOutputStream(BUFFER_SIZE);
-        writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);
     }
 
     @TearDown(Level.Iteration)
     public void tearDown() {
-        simpleEntities = null;
         random = null;
+        simpleEntities = null;
     }
 
     @Benchmark

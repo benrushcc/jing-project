@@ -18,6 +18,7 @@ public final class HashUtil {
             new SumHasher(),      // 5
             new FnvHasher()       // 6
     );
+    private static final int FNV_INDEX = 6;
 
     private HashUtil() {
         throw new UnsupportedOperationException("utility class");
@@ -31,31 +32,39 @@ public final class HashUtil {
     // selects the hasher with the fewest collisions for the given entities,
     // returns its index; if a zero‑collision hasher exists, returns it immediately
     public static <T> int selectUtf8Hasher(List<T> entities, Function<T, byte[]> fn) {
-        int maxCollisions = Integer.MAX_VALUE;
-        int fallback = Integer.MIN_VALUE;
+        int minCollisions = Integer.MAX_VALUE;
+        int hashIndex = Integer.MIN_VALUE;
         Set<Integer> hs = new HashSet<>();
-        for(int index = 0; index < HASHERS.size(); index++) {
+        for(int index = 0; index < FNV_INDEX; index++) {
             Hasher hasher = hasher(index);
             int collisions = 0;
             for (T entity : entities) {
                 int hash = hasher.hash(fn.apply(entity));
                 if (!hs.add(hash)) {
-                    collisions++; // no overflow, can never exceed entities.size()
+                    collisions++; // no overflow, can never exceed entities.size(), which is 65535 for java beans
                 }
             }
             hs.clear();
             if (collisions == 0) {
                 return index;
             }
-            if (collisions < maxCollisions) {
-                maxCollisions = collisions;
-                fallback = index;
+            if (collisions < minCollisions) {
+                minCollisions = collisions;
+                hashIndex = index;
             }
         }
-        if(fallback < 0) {
-            throw new AssertionError();
+        // all simple hash have collisions, now we consider using fnv hash as fallback
+        if(minCollisions * 4 <= entities.size()) { // no overflow, see above
+            return hashIndex;
         }
-        return fallback;
+        Hasher fnvHasher = HASHERS.get(FNV_INDEX);
+        int fnvCollisions = 0;
+        for (T entity : entities) {
+            if (!hs.add(fnvHasher.hash(fn.apply(entity)))) {
+                fnvCollisions++; // no overflow, see above
+            }
+        }
+        return fnvCollisions < minCollisions ? FNV_INDEX : hashIndex;
     }
 
     // compacts all entity‑derived UTF‑8 byte arrays into one contiguous byte array

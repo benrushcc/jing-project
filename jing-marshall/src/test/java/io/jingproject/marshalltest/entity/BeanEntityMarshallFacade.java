@@ -52,14 +52,14 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByFieldName(String fieldName) {
-        int index = switch (fieldName) {
-            case "intValue" -> 0;
-            case "longValue" -> 1;
-            case "strValue" -> 2;
-            case "timeValue" -> 3;
-            default -> throw new IllegalArgumentException("fieldName not found: " + fieldName);
+        return switch (fieldName) {
+            case "intValue" -> FACADE_INFO.infos().get(0);
+            case "longValue" -> FACADE_INFO.infos().get(1);
+            case "strValue" -> FACADE_INFO.infos().get(2);
+            case "timeValue" -> FACADE_INFO.infos().get(3);
+            case null -> throw new IllegalArgumentException("fieldName is null");
+            default -> null;
         };
-        return FACADE_INFO.infos().get(index);
     }
 
     @Override
@@ -87,7 +87,7 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by fieldName");
+        return null;
     }
 
     @Override
@@ -115,19 +115,19 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by fieldName");
+        return null;
     }
 
     @Override
     public MarshallInfo marshallInfoByMappedName(String mappedName) {
-        int index = switch (mappedName) {
-            case "intValue" -> 0;
-            case "longValue" -> 1;
-            case "strValue" -> 2;
-            case "timeValue" -> 3;
-            default -> throw new IllegalArgumentException("mappedName not found: " + mappedName);
+        return switch (mappedName) {
+            case "intValue" -> FACADE_INFO.infos().get(0);
+            case "longValue" -> FACADE_INFO.infos().get(1);
+            case "strValue" -> FACADE_INFO.infos().get(2);
+            case "timeValue" -> FACADE_INFO.infos().get(3);
+            case null -> throw new IllegalArgumentException("mappedName is null");
+            default -> null;
         };
-        return FACADE_INFO.infos().get(index);
     }
 
     @Override
@@ -155,7 +155,7 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by mappedName");
+        return null;
     }
 
     @Override
@@ -183,7 +183,7 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by mappedName");
+        return null;
     }
 
     @Override

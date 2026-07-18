@@ -8,48 +8,29 @@ import io.jingproject.marshall.MarshallWriter;
 public final class JsonDeserializerObjNode extends JsonDeserializerNode {
     private MarshallFacade fc;
     private MarshallWriter writer;
+    private int count;
+    private int offset;
+    private int bitmapSize;
+    private int bitmapIndex;
 
-    public void setFc(MarshallFacade fc) {
+    public void init(MarshallFacade fc, JsonDeserializerOption option, JsonDeserializerContext context) {
         this.fc = fc;
-    }
-
-    private MarshallWriter writer() {
-        if(writer == null) {
-            writer = fc.newWriter();
+        this.writer = fc.newWriter();
+        this.count = 0;
+        this.offset = Integer.MIN_VALUE;
+        if(option.ensureAllFieldsPresent()) {
+            this.bitmapSize = JsonDeserializerContext.bitmapBytes(fc.totalElements());
+            this.bitmapIndex = context.bitmapIndex(bitmapSize);
+        } else {
+            this.bitmapSize = Integer.MIN_VALUE;
+            this.bitmapIndex = Integer.MIN_VALUE;
         }
-        return writer;
-    }
-
-    @Override
-    protected void reset() {
-        super.reset();
-        fc = null;
-        writer = null;
     }
 
     @Override
-    protected JsonDeserializeResult process(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context) {
-        final MarshallFacade fc = this.fc;
-        byte b;
-        // TODO 这一块状态的保存和记录需要再仔细的想一想
-        if(init()) {
-            b = JsonDeserializeUtil.nextFirstValuableByte(readBuffer, option);
-            if(b != (byte) '{') {
-                throw new JsonDeserializerException("object start not found, got : " + b);
-            }
-        }
-        // parsing key
-        b = JsonDeserializeUtil.nextFirstValuableByte(readBuffer, option);
-        if(b != (byte) '"') {
-            throw new JsonDeserializerException("key start not found, got : " + b);
-        }
-        JsonDeserializeUtil.parseString(readBuffer, option, context);
-        MarshallInfo marshallInfo = context.asMarshallInfo(fc);
-        if(marshallInfo == null) {
-            if(option.ensureAllFieldsPresent() && option.ignoreUnknownFields()) {
+    protected JsonDeserializeResult process(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, Object v) {
+        // TODO
 
-            }
-        }
         return null;
     }
 }

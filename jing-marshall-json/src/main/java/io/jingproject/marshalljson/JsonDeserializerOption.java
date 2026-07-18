@@ -23,17 +23,19 @@ public final class JsonDeserializerOption {
 
     private final Map<Class<?>, MarshallTransformerFacade> tfcMap;
     private final boolean consumeAllBytes;
-    private final boolean ignoreUnknownFields;
     private final boolean ensureAllFieldsPresent;
     private final int maxEmptyBytes;
     private final int maxNumberBytes;
     private final int maxStringBytes;
     private final int maxArrayElements;
     private final int maxMapElements;
+    private final int maxDummyElements;
+    private final int maxDummyArrayElements;
     private final int maxNestedSize;
+    private final int bufferSize;
 
     static {
-        if(MAX_EMPTY_SIZE <=  MIN_EMPTY_SIZE) {
+        if(MAX_EMPTY_SIZE <= MIN_EMPTY_SIZE) {
             throw new IllegalArgumentException("max empty size too small : " + MAX_EMPTY_SIZE);
         }
         if(MAX_NUMBER_SIZE <=  MIN_NUMBER_SIZE) {
@@ -50,19 +52,21 @@ public final class JsonDeserializerOption {
         }
     }
 
-    private JsonDeserializerOption(Map<Class<?>, MarshallTransformerFacade> tfcMap, boolean consumeAllBytes, boolean ignoreUnknownFields,
-                                  boolean ensureAllFieldsPresent, int maxEmptyBytes, int maxNumberBytes,
-                                  int maxStringBytes, int maxArrayElements, int maxMapElements, int maxNestedSize) {
+    private JsonDeserializerOption(Map<Class<?>, MarshallTransformerFacade> tfcMap, boolean consumeAllBytes, boolean ensureAllFieldsPresent,
+                                   int maxEmptyBytes, int maxNumberBytes, int maxStringBytes, int maxArrayElements, int maxMapElements,
+                                   int maxDummyElements, int maxDummyArrayElements, int maxNestedSize, int bufferSize) {
         this.tfcMap = tfcMap;
         this.consumeAllBytes = consumeAllBytes;
-        this.ignoreUnknownFields = ignoreUnknownFields;
         this.ensureAllFieldsPresent = ensureAllFieldsPresent;
         this.maxEmptyBytes = maxEmptyBytes;
         this.maxNumberBytes = maxNumberBytes;
         this.maxStringBytes = maxStringBytes;
         this.maxArrayElements = maxArrayElements;
         this.maxMapElements = maxMapElements;
+        this.maxDummyElements = maxDummyElements;
+        this.maxDummyArrayElements = maxDummyArrayElements;
         this.maxNestedSize = maxNestedSize;
+        this.bufferSize = bufferSize;
     }
 
     public static JsonDeserializerOption defaultOption() {
@@ -81,11 +85,7 @@ public final class JsonDeserializerOption {
         return consumeAllBytes;
     }
 
-    public boolean ignoreUnknownFields() {
-        return ignoreUnknownFields;
-    }
-
-    // 开启时，会记录object的每个field是否被赋值，只有每个字段都被赋值才能允许构造，否则不允许构造
+    // 开启时，会记录object的每个field是否被赋值，只有每个字段都被赋值才能允许构造，即使他们是被赋值为null
     // 关闭时，不会记录每个field的赋值情况，这意味着某些错误的json结构也会被允许，比如出现重复的key，后出现的key会覆盖先出现的值
     public boolean ensureAllFieldsPresent() {
         return ensureAllFieldsPresent;
@@ -111,21 +111,35 @@ public final class JsonDeserializerOption {
         return maxMapElements;
     }
 
+    public int maxDummyElements() {
+        return maxDummyElements;
+    }
+
+    public int maxDummyArrayElements() {
+        return maxDummyArrayElements;
+    }
+
     public int maxNestedSize() {
         return maxNestedSize;
+    }
+
+    public int bufferSize() {
+        return bufferSize;
     }
 
     public static class Builder {
         private final Set<MarshallTransformerFacade> transformerFacades = new HashSet<>();
         private boolean consumeAllBytes = true;
-        private boolean ignoreUnknownFields = true;
         private boolean ensureAllFieldsPresent = false;
         private int maxEmptyBytes = 256;
         private int maxNumberBytes = 24;
         private int maxStringBytes = 65535;
         private int maxArrayElements = 1000;
         private int maxMapElements = 200;
+        private int maxDummyElements = 4;
+        private int maxDummyArrayElements = 4;
         private int maxNestedSize = 64;
+        private int bufferSize = JsonDeserializerContext.DEFAULT_BUFFER_SIZE;
 
         public Builder registerTransformerClasses(Class<?>... transformers) {
             if(transformers == null || transformers.length == 0) {
@@ -158,11 +172,6 @@ public final class JsonDeserializerOption {
 
         public Builder setConsumeAllBytes(boolean consumeAllBytes) {
             this.consumeAllBytes = consumeAllBytes;
-            return this;
-        }
-
-        public Builder setIgnoreUnknownFields(boolean ignoreUnknownFields) {
-            this.ignoreUnknownFields = ignoreUnknownFields;
             return this;
         }
 
@@ -209,6 +218,22 @@ public final class JsonDeserializerOption {
             this.maxMapElements = maxMapElements;
         }
 
+        public void setMaxDummyElements(int maxDummyElements) {
+            // reuse map size limits for dummy elements, as they are structurally analogous.
+            if(maxMapElements < 0 || maxMapElements > MAX_MAP_SIZE) {
+                throw new IllegalArgumentException("maxDummyElements out of range : " + maxDummyElements);
+            }
+            this.maxDummyElements = maxDummyElements;
+        }
+
+        public void setMaxDummyArrayElements(int maxDummyArrayElements) {
+            // reuse array size limits for dummy array elements, as they are structurally analogous.
+            if(maxDummyArrayElements < 0 || maxDummyArrayElements > MAX_ARRAY_SIZE) {
+                throw new IllegalArgumentException("maxDummyArrayElements out of range : " + maxDummyArrayElements);
+            }
+            this.maxDummyArrayElements = maxDummyArrayElements;
+        }
+
         public Builder setMaxNestedSize(int maxNestedSize) {
             if(maxNestedSize < JsonDeserializerState.INITIAL_SIZE || maxNestedSize > JsonDeserializerState.MAX_SIZE) {
                 throw new IllegalArgumentException("maxNestedSize out of range : " + maxNestedSize);
@@ -217,13 +242,21 @@ public final class JsonDeserializerOption {
             return this;
         }
 
+        public void setBufferSize(int bufferSize) {
+            if(bufferSize < JsonDeserializerContext.DEFAULT_BUFFER_SIZE || bufferSize > MAX_STRING_SIZE) {
+                throw new IllegalArgumentException("bufferSize out of range : " + bufferSize);
+            }
+            this.bufferSize = bufferSize;
+        }
+
         public JsonDeserializerOption build() {
             Map<Class<?>, MarshallTransformerFacade> transformerFacadeMap = new HashMap<>();
             for (MarshallTransformerFacade fc : transformerFacades) {
                 transformerFacadeMap.put(fc.customType(), fc);
             }
-            return new JsonDeserializerOption(Map.copyOf(transformerFacadeMap), consumeAllBytes, ignoreUnknownFields, ensureAllFieldsPresent,
-                    maxEmptyBytes, maxNumberBytes, maxStringBytes, maxArrayElements, maxMapElements, maxNestedSize);
+            return new JsonDeserializerOption(Map.copyOf(transformerFacadeMap), consumeAllBytes, ensureAllFieldsPresent,
+                    maxEmptyBytes, maxNumberBytes, maxStringBytes, maxArrayElements,
+                    maxMapElements, maxDummyElements, maxDummyArrayElements, maxNestedSize, bufferSize);
         }
     }
 }

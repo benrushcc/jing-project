@@ -2,13 +2,15 @@ package io.jingproject.marshalljson;
 
 import io.jingproject.common.WriteBuffer;
 
-public final class JsonSerializerArrNode extends JsonSerializerNode {
-    private Object[] arr;
+import java.util.List;
+
+public final class JsonSerializerListNode extends JsonSerializerNode {
+    private List<?> list;
     private JsonSerializeFunc func;
 
-    public void init(JsonSerializerOption option, Object[] arr, int indent) {
-        this.arr = arr;
-        this.func = JsonSerializeUtil.valueSerializeFunc(option, arr.getClass().getComponentType());
+    public void init(JsonSerializerOption option, List<?> list, Class<?> elementType, int indent) {
+        this.list = list;
+        this.func = JsonSerializeUtil.valueSerializeFunc(option, elementType);
         this.indent = indent;
         this.index = 0;
         this.written = false;
@@ -16,8 +18,9 @@ public final class JsonSerializerArrNode extends JsonSerializerNode {
 
     @Override
     protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer, JsonSerializerContext context) {
-        for(int i = index; i < arr.length; i++) {
-            Object instance = arr[i];
+        final int size = list.size();
+        for(int i = index; i < size; i++) {
+            Object instance = list.get(i);
             if(instance == null) {
                 JsonSerializeUtil.serializeNull(writeBuffer);
                 continue ;

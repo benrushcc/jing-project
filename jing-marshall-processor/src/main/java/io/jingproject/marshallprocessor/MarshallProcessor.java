@@ -185,10 +185,10 @@ public final class MarshallProcessor extends AbstractProcessor {
         List<MarshallFieldInfo> fieldInfos = createFieldInfos(typeElements);
         Map<Class<?>, List<MarshallFieldInfo>> fieldTypeInfo = createTypeInfo(fieldInfos);
         int fieldHashIndex = HashUtil.selectUtf8Hasher(fieldInfos, MarshallFieldInfo::fieldNameUtf8Bytes);
-        Map<Integer, List<MarshallFieldInfo>> fieldHashInfo = createUtf8HashInfo(fieldInfos, MarshallFieldInfo::fieldNameUtf8Bytes, fieldHashIndex);
+        List<MarshallHashInfo> fieldHashInfos = createHashInfos(fieldInfos, MarshallFieldInfo::fieldNameUtf8Bytes, fieldHashIndex);
         int mappedHashIndex = HashUtil.selectUtf8Hasher(fieldInfos, MarshallFieldInfo::mappedNameUtf8Bytes);
-        Map<Integer, List<MarshallFieldInfo>> mappedHashInfo = createUtf8HashInfo(fieldInfos, MarshallFieldInfo::mappedNameUtf8Bytes, mappedHashIndex);
-        return new MarshallProcessorInfo(typeElements, fieldInfos, fieldTypeInfo, fieldHashIndex, fieldHashInfo, mappedHashIndex, mappedHashInfo);
+        List<MarshallHashInfo> mappedHashInfos = createHashInfos(fieldInfos, MarshallFieldInfo::mappedNameUtf8Bytes, mappedHashIndex);
+        return new MarshallProcessorInfo(typeElements, fieldInfos, fieldTypeInfo, fieldHashIndex, fieldHashInfos, mappedHashIndex, mappedHashInfos);
     }
 
     private List<TypeElement> createTypeElements(TypeElement t) {
@@ -230,6 +230,10 @@ public final class MarshallProcessor extends AbstractProcessor {
                 }
             }
         }
+        // guard against jvm's current 65535 field limits
+        if(fieldInfos.size() > 65535) {
+            throw new AnnotationProcessorException("too many fields : " + fieldInfos.size());
+        }
         return List.copyOf(fieldInfos);
     }
 
@@ -252,14 +256,16 @@ public final class MarshallProcessor extends AbstractProcessor {
         return Map.copyOf(r);
     }
 
-    private Map<Integer, List<MarshallFieldInfo>> createUtf8HashInfo(List<MarshallFieldInfo> fieldInfos, Function<MarshallFieldInfo, byte[]> fn, int hashIndex) {
-        Map<Integer, List<MarshallFieldInfo>> r = new HashMap<>();
+    private List<MarshallHashInfo> createHashInfos(List<MarshallFieldInfo> fieldInfos, Function<MarshallFieldInfo, byte[]> fn, int hashIndex) {
+        List<MarshallHashInfo> r = new ArrayList<>();
         Hasher hasher = HashUtil.hasher(hashIndex);
+        Map<Integer, List<MarshallFieldInfo>> m = new LinkedHashMap<>();
         for (MarshallFieldInfo fieldInfo : fieldInfos) {
             int hash = hasher.hash(fn.apply(fieldInfo));
-            r.computeIfAbsent(hash, _ -> new ArrayList<>()).add(fieldInfo);
+            m.computeIfAbsent(hash, _ -> new ArrayList<>()).add(fieldInfo);
         }
-        return Map.copyOf(r);
+        m.forEach((hash, fields) -> r.add(new MarshallHashInfo(hash, List.copyOf(fields))));
+        return List.copyOf(r);
     }
 
     private void writeMarshallReaderSource(GeneratorSource readerSource, GeneratorSource facadeSource, MarshallProcessorInfo info) {
@@ -596,50 +602,48 @@ public final class MarshallProcessor extends AbstractProcessor {
         String marshallInfoClassName = facadeSource.register(MarshallInfo.class);
         String stringClassName = facadeSource.register(String.class);
         String illegalArgumentExceptionClassName = facadeSource.register(IllegalArgumentException.class);
-        String lowerType = f ? "fieldName" : "mappedName";
-        String upperType = f ? "FieldName" : "MappedName";
+        String functionName = f ? "marshallInfoByFieldName" : "marshallInfoByMappedName";
+        String argName = f ? "fieldName" : "mappedName";
         GeneratorBlock b = new GeneratorBlock().addLine("@" + overrideClassName)
-                .addLine("public " + marshallInfoClassName + " marshallInfoBy" + upperType + "(" + stringClassName + " " + lowerType + ") {")
-                .indent().addLine("int index = switch (" + lowerType + ") {").indent();
+                .addLine("public " + marshallInfoClassName + " " + functionName + "(" + stringClassName + " " + argName + ") {")
+                .indent().addLine("return switch (" + argName + ") {").indent();
         for (MarshallFieldInfo fieldInfo : info.fieldInfos()) {
-            b.addLine("case " + AnnoUtil.escapeJavaStringLiteral(f ? fieldInfo.fieldName() : fieldInfo.mappedName(), builder) + " -> " + fieldInfo.marshallIndex() + ";");
+            b.addLine("case " + AnnoUtil.escapeJavaStringLiteral(f ? fieldInfo.fieldName() : fieldInfo.mappedName(), builder) + " -> FACADE_INFO.infos().get(" + fieldInfo.marshallIndex() + ");");
         }
-
-        return b.addLine("default -> throw new " + illegalArgumentExceptionClassName + "(" + AnnoUtil.javaStringLiteral(lowerType + " not found: ") + " + " + lowerType + ");").unindent().addLine("};")
-                .addLine("return FACADE_INFO.infos().get(index);").unindent().addLine("}").newLine();
+        return b.addLine("case null -> throw new " + illegalArgumentExceptionClassName + "(" + AnnoUtil.javaStringLiteral("fieldName is null") + ");")
+                .addLine("default -> null;").unindent().addLine("};").unindent().addLine("}").newLine();
     }
 
     private GeneratorBlock buildMarshallInfoByBinaryMethod(GeneratorSource facadeSource, MarshallProcessorInfo info, boolean f, boolean m) {
         String overrideClassName = facadeSource.register(Override.class);
         String marshallInfoClassName = facadeSource.register(MarshallInfo.class);
-        String illegalArgumentExceptionClassName = facadeSource.register(IllegalArgumentException.class);
         String paramType = m ? facadeSource.register(MemorySegment.class) : "byte[]";
         String paramName = m ? "segment" : "bytes";
         String paramUnit = m ? "long" : "int";
-        String lowerType = f ? "fieldName" : "mappedName";
-        String upperType = f ? "FieldName" : "MappedName";
+        String functionName = f ? "marshallInfoByFieldName" : "marshallInfoByMappedName";
+        String hasherName = f ? "fieldNameUtf8Hasher" : "mappedNameUtf8Hasher";
+        String eqName = f ? "fieldNameEquals" : "mappedNameEquals";
         GeneratorBlock b = new GeneratorBlock().addLine("@" + overrideClassName)
-                .addLine("public " + marshallInfoClassName + " marshallInfoBy" + upperType + "(" + paramType + " " +
+                .addLine("public " + marshallInfoClassName + " " + functionName + "(" + paramType + " " +
                         paramName + ", " + paramUnit + " offset, " + paramUnit + " len) {").indent()
-                .addLine("int hash = FACADE_INFO." + lowerType + "Utf8Hasher().hash(" + paramName + ", offset, len);")
+                .addLine("int hash = FACADE_INFO." + hasherName + "().hash(" + paramName + ", offset, len);")
                 .addLine("switch (hash) {").indent();
-        Map<Integer, List<MarshallFieldInfo>> hashInfo = f ? info.fieldHashInfo() : info.mappedHashInfo();
-        for (Map.Entry<Integer, List<MarshallFieldInfo>> entry : hashInfo.entrySet()) {
-            Integer hash = entry.getKey();
-            List<MarshallFieldInfo> fis = entry.getValue();
+        List<MarshallHashInfo> hashInfo = f ? info.fieldHashInfos() : info.mappedHashInfos();
+        for (MarshallHashInfo h : hashInfo) {
+            int hash = h.hash();
+            List<MarshallFieldInfo> fis = h.fieldInfos();
             b.addLine("case " + hash + " -> {").indent();
             for (MarshallFieldInfo fi : fis) {
                 String offset = String.valueOf(f ? fi.fieldNameOffset() : fi.mappedNameOffset());
                 String len = String.valueOf(f ? fi.fieldNameUtf8Bytes().length : fi.mappedNameUtf8Bytes().length);
-                b.addLine("if(FACADE_INFO." + lowerType + "Equals(" + String.join(", ", List.of(offset, len, paramName, "offset", "len")) + ")) {")
+                b.addLine("if(FACADE_INFO." + eqName + "(" + String.join(", ", List.of(offset, len, paramName, "offset", "len")) + ")) {")
                         .indent()
                         .addLine("return FACADE_INFO.infos().get(" + fi.marshallIndex() + ");")
                         .unindent().addLine("}");
             }
             b.unindent().addLine("}");
         }
-        return b.unindent().addLine("}")
-                .addLine("throw new " + illegalArgumentExceptionClassName + "(" + AnnoUtil.javaStringLiteral("marshallInfo not found by " + lowerType) + ");")
+        return b.unindent().addLine("}").addLine("return null;")
                 .unindent().addLine("}").newLine();
     }
 

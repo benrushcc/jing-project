@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(3)
-public class BigIntegerBench {
+public class BigIntegerMulBench {
 
     private static final int BATCH = 100000;
     private BigInteger[] bi1;

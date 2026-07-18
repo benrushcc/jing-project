@@ -4,6 +4,7 @@ import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.marshalljson.*;
 import io.jingproject.marshalljsontest.entity.BeanEntity;
 import io.jingproject.marshalljsontest.entity.EnumEntity;
+import io.jingproject.marshalljsontest.entity.RecursiveEntity;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +17,7 @@ import java.util.Map;
 @Tag("view-output")
 public class JsonSerializationTest {
     private static final JsonSerializer JSON_SERIALIZER = new JsonSerializer(JsonSerializerOption.defaultOption());
-    private static final int SIZE = 128;
+    private static final int SIZE = 1024;
 
     @Test
     public void testSerializeByteArray() {
@@ -133,6 +134,24 @@ public class JsonSerializationTest {
         String[] strings = {"abc", "你好", "hello world"};
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
         JSON_SERIALIZER.serializeArray(strings, writeBuffer);
+        String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
+        System.out.println(json);
+    }
+
+    @Test
+    public void testSerializeEmptyArray() {
+        String[] strings = {"", "", ""};
+        HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
+        JSON_SERIALIZER.serializeArray(strings, writeBuffer);
+        String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
+        System.out.println(json);
+    }
+
+    @Test
+    public void testSerializeRecursiveObject() {
+        RecursiveEntity recursiveEntity = RecursiveEntity.createRecursiveEntity(3);
+        HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
+        JSON_SERIALIZER.serializeMarshallableObject(recursiveEntity, writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
         System.out.println(json);
     }

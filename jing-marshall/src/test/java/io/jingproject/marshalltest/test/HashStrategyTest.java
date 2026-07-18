@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -40,184 +40,187 @@ public class HashStrategyTest {
         }
     }
 
-    private static void detectCollisions(int elements, Hasher hasher) {
+    private static void detectCollisions(int elementSize, Hasher hasher) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        int successfulCount = 0;
-        int maxCollisions = -1;
-        for (int i = 0; i < BATCH; i++) {
-            Set<byte[]> selectedWords = new LinkedHashSet<>();
-            while (selectedWords.size() < elements) {
+        int maxCollisions = Integer.MIN_VALUE;
+        int collisionTimes = 0;
+        Set<Integer> hashes = new HashSet<>(elementSize);
+        Set<Integer> filter = new HashSet<>(elementSize);
+        for(int r = 0; r < BATCH; r++) {
+            int col = 0;
+            int i = 0;
+            while (i < elementSize) {
                 int index = random.nextInt(WORDS.size());
-                byte[] word = WORDS.get(index);
-                selectedWords.add(word);
-            }
-            Set<Integer> hashes = new LinkedHashSet<>();
-            int collisions = 0;
-            for (byte[] selectedWord : selectedWords) {
-                int hash = hasher.hash(selectedWord);
-                if (!hashes.add(hash)) {
-                    collisions = Math.incrementExact(collisions);
+                if(filter.add(index)) {
+                    byte[] word = WORDS.get(index);
+                    int hash = hasher.hash(word);
+                    if(!hashes.add(hash)) {
+                        col++;
+                    }
+                    i++;
                 }
             }
-            if (collisions > maxCollisions) {
-                maxCollisions = collisions;
+            if(col > 0) {
+                collisionTimes = Math.incrementExact(collisionTimes);
             }
-            if (collisions == 0) {
-                successfulCount = Math.incrementExact(successfulCount);
+            if(col > maxCollisions) {
+                maxCollisions = col;
             }
+            filter.clear();
+            hashes.clear();
         }
-        System.out.println("Maximum collisions: " + maxCollisions);
-        System.out.println("Successful count: " + successfulCount);
-        System.out.println("Successful rate: " + (successfulCount * 100.0 / BATCH) + "%");
+        System.out.println("maximum collisions: " + maxCollisions);
+        System.out.println("collision count: " + collisionTimes);
+        System.out.println("collision rate: " + (collisionTimes * 100.0 / BATCH) + "%");
     }
 
     @Test
     public void testDetectLengthHashFor4Elements() {
-        // 45%
+        // 54% -> 3
         detectCollisions(4, LENGTH_HASHER);
     }
 
     @Test
     public void testDetectLengthHashFor8Elements() {
-        // 1.5%
+        // 98% -> 6, not usable
         detectCollisions(8, LENGTH_HASHER);
     }
 
     @Test
     public void testDetectLengthHashFor16Elements() {
-        // 0%
+        // 100% -> 12, not usable
         detectCollisions(16, LENGTH_HASHER);
     }
 
     @Test
     public void testOneByteHashFor4Elements() {
-        // 67%
+        // 30% -> 2
         detectCollisions(4, ONEBYTE_HASHER);
     }
 
     @Test
     public void testOneByteHashFor8Elements() {
-        // 14%
+        // 84% -> 5, not usable
         detectCollisions(8, ONEBYTE_HASHER);
     }
 
     @Test
     public void testOneByteHashFor16Elements() {
-        // 0.1%
+        // 100% -> 10, not usable
         detectCollisions(16, ONEBYTE_HASHER);
     }
 
     @Test
     public void testTwoByteHashFor4Elements() {
-        // 93%
+        // 6% -> 1
         detectCollisions(4, TWOBYTE_HASHER);
     }
 
     @Test
     public void testTwoByteHashFor8Elements() {
-        // 72%
+        // 26% -> 3
         detectCollisions(8, TWOBYTE_HASHER);
     }
 
     @Test
     public void testTwoByteHashFor16Elements() {
-        // 28%
+        // 72% -> 5, not usable
         detectCollisions(16, TWOBYTE_HASHER);
     }
 
     @Test
     public void testThreeByteHashFor4Elements() {
-        // 97%
+        // 1.3% -> 1
         detectCollisions(4, THREEBYTE_HASHER);
     }
 
     @Test
     public void testThreeByteHashFor8Elements() {
-        // 94%
+        // 5% -> 2
         detectCollisions(8, THREEBYTE_HASHER);
     }
 
     @Test
     public void testThreeByteHashFor16Elements() {
-        // 79%
+        // 20% -> 3
         detectCollisions(16, THREEBYTE_HASHER);
     }
 
     @Test
     public void testThreeByteHashFor32Elements() {
-        // 37%
+        // 62% -> 5 not usable
         detectCollisions(32, THREEBYTE_HASHER);
     }
 
     @Test
     public void testFourByteHashFor4Elements() {
-        // 99%
+        // 0.5% -> 1
         detectCollisions(4, FOURBYTE_HASHER);
     }
 
     @Test
     public void testFourByteHashFor8Elements() {
-        // 98%
+        // 1.2% -> 1
         detectCollisions(8, FOURBYTE_HASHER);
     }
 
     @Test
     public void testFourByteHashFor16Elements() {
-        // 93%
+        // 5.5% -> 2
         detectCollisions(16, FOURBYTE_HASHER);
     }
 
     @Test
     public void testFourByteHashFor32Elements() {
-        // 76%
+        // 22% -> 3
         detectCollisions(32, FOURBYTE_HASHER);
     }
 
     @Test
     public void testSumHashFor4Elements() {
-        // 100%
+        // 0.1% -> 1
         detectCollisions(4, SUM_HASHER);
     }
 
     @Test
     public void testSumHashFor8Elements() {
-        // 100%
+        // 0.1% -> 1
         detectCollisions(8, SUM_HASHER);
     }
 
     @Test
     public void testSumHashFor16Elements() {
-        // 100%
+        // 0.1% -> 1
         detectCollisions(16, SUM_HASHER);
     }
 
     @Test
     public void testSumHashFor32Elements() {
-        // 99.9%
+        // 1% -> 1
         detectCollisions(32, SUM_HASHER);
     }
 
     @Test
     public void testFnvHashFor32Elements() {
-        // 100%
+        // 0%
         detectCollisions(32, FNV_HASHER);
     }
 
     @Test
     public void testFnvHashFor128Elements() {
-        // 100%
+        // 0%
         detectCollisions(128, FNV_HASHER);
     }
 
     @Test
     public void testFnvHashFor512Elements() {
-        // 99.9%
+        // 0.1% -> 1
         detectCollisions(512, FNV_HASHER);
     }
 
     @Test
     public void testFnvHashFor2048Elements() {
-        // 99.9%
+        // 0.3% -> 1
         detectCollisions(2048, FNV_HASHER);
     }
 }

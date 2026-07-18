@@ -25,12 +25,13 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(3)
 public class MapSerializationBench {
-    private static final int SIZE = 16000;
+    private static final int BATCH = 1000;
+    private static final int BUFFER_SIZE = 16 * BATCH;
     private final Map<String, Integer> integerMap = createIntegerMap();
 
     private Map<String, Integer> createIntegerMap() {
         Map<String, Integer> map = new HashMap<>();
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < BATCH; i++) {
             map.put(i + "", i);
         }
         return Map.copyOf(map);
@@ -38,8 +39,8 @@ public class MapSerializationBench {
 
     private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
-    private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);
-    private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
+    private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(BUFFER_SIZE);
+    private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);
 
     @Benchmark
     public void jacksonSerialization(Blackhole blackhole) {

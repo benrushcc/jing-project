@@ -52,11 +52,11 @@ public final class JsonSerializerOption {
         private JsonIndentationLevel jsonIndentationLevel = JsonIndentationLevel.NONE;
         private int maxNestedSize = 64;
 
-        public Builder registerTransformerClasses(Class<?>... transformers) {
-            if(transformers == null || transformers.length == 0) {
+        public Builder setTransformerClasses(Class<?>... transformerClasses) {
+            if(transformerClasses == null || transformerClasses.length == 0) {
                 throw new IllegalArgumentException("transformers must not be null or empty");
             }
-            for (Class<?> transformer : transformers) {
+            for (Class<?> transformer : transformerClasses) {
                 if(transformer == null) {
                     throw new IllegalArgumentException("transformer must not be null");
                 }
@@ -104,9 +104,9 @@ public final class JsonSerializerOption {
 
         public JsonSerializerOption build() {
             Map<Class<?>, JsonSerializeFunc> funcMap = new HashMap<>();
-            transformerFacadeMap.forEach((k, v) -> funcMap.put(k, (_, w, o, _) -> {
-                JsonSerializeUtil.serializeJsonPrimitiveType((JsonPrimitiveType) v.toBuiltin(o), w);
-                return JsonSerializeResult.CONTINUE;
+            transformerFacadeMap.forEach((k, v) -> funcMap.put(k, (_, w, c, o, _) -> {
+                JsonSerializeUtil.serializeJsonPrimitiveType((JsonPrimitiveType) v.toBuiltin(o), w, c);
+                return JsonSerializeResult.Continue;
             }));
             return new JsonSerializerOption(Map.copyOf(funcMap), serializeNullInObjOrMap,
                     jsonIndentationLevel, maxNestedSize);

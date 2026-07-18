@@ -7,61 +7,34 @@ import java.util.Iterator;
 public final class JsonSerializerColNode extends JsonSerializerNode {
     private int size;
     private Iterator<?> iter;
-    private Class<?> elementType;
     private JsonSerializeFunc func;
 
-    public void setSize(int size) {
+    public void init(JsonSerializerOption option, int size, Iterator<?> iter, Class<?> elementType, int indent) {
         this.size = size;
-    }
-
-    public void setIter(Iterator<?> iter) {
         this.iter = iter;
-    }
-
-    public void setElementType(Class<?> elementType) {
-        this.elementType = elementType;
-    }
-
-    private JsonSerializeFunc func(JsonSerializerOption option) {
-        if(func == null) {
-            func = JsonSerializeUtil.valueSerializeFunc(option, elementType);
-        }
-        return func;
+        this.func = JsonSerializeUtil.valueSerializeFunc(option, elementType);
+        this.indent = indent;
+        this.index = 0;
+        this.written = false;
     }
 
     @Override
-    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer) {
-        final int size = this.size;
-        final Iterator<?> iter = this.iter;
-        final JsonSerializeFunc func = func(option);
-        int index = index();
-        if(index == 0) {
-            JsonSerializeUtil.serializeArrayStart(writeBuffer);
-        }
-        for( ; index < size; index++) {
+    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer, JsonSerializerContext context) {
+        for(int i = index; i < size; i++) {
             Object instance = iter.next();
             if(instance == null) {
                 JsonSerializeUtil.serializeNull(writeBuffer);
                 continue ;
             }
             serializeSep(option, writeBuffer);
-            JsonSerializeResult r = func.serialize(option, writeBuffer, instance, indent());
-            if(r == JsonSerializeResult.CONTINUE) {
+            JsonSerializeResult r = func.serialize(option, writeBuffer, context, instance, indent);
+            if(r == JsonSerializeResult.Continue) {
                 continue ;
             }
-            setIndex(index + 1);
+            index = i + 1;
             return r;
         }
         JsonSerializeUtil.serializeArrayEnd(writeBuffer);
-        return JsonSerializeResult.FINISHED;
-    }
-
-    @Override
-    protected void reset() {
-        super.reset();
-        this.size = Integer.MIN_VALUE;
-        this.iter = null;
-        this.elementType = null;
-        this.func = null;
+        return JsonSerializeResult.Finished;
     }
 }

@@ -13,40 +13,75 @@ public final class JsonDeserializer {
     }
 
     public byte[] deserializeByteArray(ReadBuffer readBuffer) {
-        return JsonDeserializeUtil.deserializeByteArray(readBuffer, option);
+        byte firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
+        if(!JsonDeserializeUtil.validateJsonArrayStart(firstByte)) {
+            throw new JsonDeserializerException("array start not found, got : " + firstByte);
+        }
+        return JsonDeserializeUtil.deserializeByteArray(option, readBuffer, firstByte);
     }
 
     public boolean[] deserializeBooleanArray(ReadBuffer readBuffer) {
-        return JsonDeserializeUtil.deserializeBooleanArray(readBuffer, option);
+        byte firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
+        if(!JsonDeserializeUtil.validateJsonArrayStart(firstByte)) {
+            throw new JsonDeserializerException("array start not found, got : " + firstByte);
+        }
+        return JsonDeserializeUtil.deserializeBooleanArray(option, readBuffer, firstByte);
     }
 
     public short[] deserializeShortArray(ReadBuffer readBuffer) {
-        return JsonDeserializeUtil.deserializeShortArray(readBuffer, option);
+        byte firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
+        if(!JsonDeserializeUtil.validateJsonArrayStart(firstByte)) {
+            throw new JsonDeserializerException("array start not found, got : " + firstByte);
+        }
+        return JsonDeserializeUtil.deserializeShortArray(option, readBuffer, firstByte);
     }
 
     public char[] deserializeCharArray(ReadBuffer readBuffer) {
-        JsonDeserializerContext context = new JsonDeserializerContext();
-        return JsonDeserializeUtil.deserializeCharArray(readBuffer, option, context);
+        JsonDeserializerContext context = new JsonDeserializerContext(option);
+        byte firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
+        if(!JsonDeserializeUtil.validateJsonArrayStart(firstByte)) {
+            throw new JsonDeserializerException("array start not found, got : " + firstByte);
+        }
+        return JsonDeserializeUtil.deserializeCharArray(option, readBuffer, context, firstByte);
     }
 
     public int[] deserializeIntArray(ReadBuffer readBuffer) {
-        return JsonDeserializeUtil.deserializeIntArray(readBuffer, option);
+        byte firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
+        if(!JsonDeserializeUtil.validateJsonArrayStart(firstByte)) {
+            throw new JsonDeserializerException("array start not found, got : " + firstByte);
+        }
+        return JsonDeserializeUtil.deserializeIntArray(option, readBuffer, firstByte);
     }
 
     public long[] deserializeLongArray(ReadBuffer readBuffer) {
-        return JsonDeserializeUtil.deserializeLongArray(readBuffer, option);
+        byte firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
+        if(!JsonDeserializeUtil.validateJsonArrayStart(firstByte)) {
+            throw new JsonDeserializerException("array start not found, got : " + firstByte);
+        }
+        return JsonDeserializeUtil.deserializeLongArray(option, readBuffer, firstByte);
     }
 
     public float[] deserializeFloatArray(ReadBuffer readBuffer) {
-        return JsonDeserializeUtil.deserializeFloatArray(readBuffer, option);
+        byte firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
+        if(!JsonDeserializeUtil.validateJsonArrayStart(firstByte)) {
+            throw new JsonDeserializerException("array start not found, got : " + firstByte);
+        }
+        return JsonDeserializeUtil.deserializeFloatArray(option, readBuffer, firstByte);
     }
 
     public double[] deserializeDoubleArray(ReadBuffer readBuffer) {
-        return JsonDeserializeUtil.deserializeDoubleArray(readBuffer, option);
+        byte firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
+        if(!JsonDeserializeUtil.validateJsonArrayStart(firstByte)) {
+            throw new JsonDeserializerException("array start not found, got : " + firstByte);
+        }
+        return JsonDeserializeUtil.deserializeDoubleArray(option, readBuffer, firstByte);
     }
 
+    @SuppressWarnings("unchecked")
     public <T> T deserializeMarshallableObject(Class<T> type, ReadBuffer readBuffer) {
-        return null;
+        JsonDeserializerState state = new JsonDeserializerState(option, readBuffer);
+        state.initMarshallableType(type);
+        return (T) state.process();
     }
 
     public <T> List<T> deserializeList(Class<T> type, ReadBuffer readBuffer) {
