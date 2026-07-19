@@ -71,7 +71,7 @@ public class TwiTest {
         }
     }
 
-    // 442181 with escapeslash, or 436137 without escapeslash
+    // 442181 when jing.marshalljson.escapeslash is enabled, or 436137 when it is disabled
     @Test
     public void serializeTwiTest() {
         String json = TwiUtil.load();

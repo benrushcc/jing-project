@@ -18,23 +18,24 @@ import java.io.ByteArrayOutputStream;
 import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(value = Mode.AverageTime)
-@Warmup(iterations = 2, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 3, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 3, time = 3000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 2, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(value = 1, jvmArgsAppend = {
-        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=ser-sarr-%p-%t.jfr,settings=profile",
-        "-XX:FlightRecorderOptions=stackdepth=128"
-})
-//@Fork(1)
+//@Fork(value = 1, jvmArgsAppend = {
+//        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=ser-sarr-%p-%t.jfr,settings=profile",
+//        "-XX:FlightRecorderOptions=stackdepth=128"
+//})
+@Fork(1)
 public class StringArraySerializationBench {
     private static final int BATCH = 1000;
     private static final int SIZE = 64;
     private static final int BUFFER_SIZE = SIZE * BATCH * 8;
-//    @Param({"empty", "ascii", "utf", "surr", "mostAscii"})
-    @Param({"empty"})
+
+    @Param({"empty", "ascii", "utf", "surr", "mostAscii"})
     @SuppressWarnings("unused")
     private String type;
+
     private String[] arr;
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());

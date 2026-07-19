@@ -24,7 +24,9 @@ public final class JsonSerializerContext {
     }
 
     public Object obj() {
-        return obj;
+        Object r = obj;
+        obj = null;
+        return r;
     }
 
     public void setObj(Object obj) {
@@ -32,7 +34,9 @@ public final class JsonSerializerContext {
     }
 
     public Object[] arr() {
-        return arr;
+        Object[] r = arr;
+        arr = null;
+        return r;
     }
 
     public void setArr(Object[] arr) {
@@ -40,7 +44,9 @@ public final class JsonSerializerContext {
     }
 
     public Collection<?> col() {
-        return col;
+        Collection<?> r = col;
+        col = null;
+        return r;
     }
 
     public void setCol(Collection<?> col) {
@@ -48,7 +54,9 @@ public final class JsonSerializerContext {
     }
 
     public Map<?, ?> map() {
-        return map;
+        Map<?, ?> r = map;
+        map = null;
+        return r;
     }
 
     public void setMap(Map<?, ?> map) {
@@ -56,7 +64,9 @@ public final class JsonSerializerContext {
     }
 
     public Class<?> firstType() {
-        return firstType;
+        Class<?> r = firstType;
+        firstType = null;
+        return r;
     }
 
     public void setFirstType(Class<?> firstType) {
@@ -64,7 +74,9 @@ public final class JsonSerializerContext {
     }
 
     public Class<?> secondType() {
-        return secondType;
+        Class<?> r = secondType;
+        secondType = null;
+        return r;
     }
 
     public void setSecondType(Class<?> secondType) {

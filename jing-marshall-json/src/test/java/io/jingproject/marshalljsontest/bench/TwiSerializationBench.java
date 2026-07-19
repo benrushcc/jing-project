@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 //        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=ser-twi-%p-%t.jfr,settings=profile",
 //        "-XX:FlightRecorderOptions:stackdepth=128"
 //})
-@Fork(value = 3)
+@Fork(3)
 public class TwiSerializationBench {
     private static final int SIZE = 819200;
     private static final Twi twi = TwiUtil.deserializeTwiUsingJackson(TwiUtil.load());

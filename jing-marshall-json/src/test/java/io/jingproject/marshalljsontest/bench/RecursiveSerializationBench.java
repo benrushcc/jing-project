@@ -19,14 +19,14 @@ import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(value = Mode.AverageTime)
 @Warmup(iterations = 3, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 5, time = 10000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 3, time = 10000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 //@Fork(value = 1, jvmArgsAppend = {
 //        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=ser-recur-%p-%t.jfr,settings=profile",
 //        "-XX:FlightRecorderOptions=stackdepth=128"
 //})
-@Fork(1)
+@Fork(3)
 public class RecursiveSerializationBench {
     private static final int BUFFER_SIZE = 65535;
     private static final RecursiveEntity r = RecursiveEntity.createRecursiveEntity(10);

@@ -1,38 +1,48 @@
 package io.jingproject.marshalljson;
 
+/**
+ * results of a serialization step that guide the subsequent processing flow.
+ * <p>
+ * each constant indicates what action the caller should take next. some results
+ * carry additional data stored in specific fields of {@link JsonSerializerContext}.
+ * </p>
+ */
 public enum JsonSerializeResult {
-    Continue,
-    Finished,
-    NewMarshallable,
-    NewArray,
-    NewCollection,
-    NewMap,
 
-//    JsonSerializeResult CONTINUE = new JsonSerializeContinue();
-//
-//    JsonSerializeResult FINISHED = new JsonSerializeFinished();
-//
-//    record JsonSerializeContinue() implements JsonSerializeResult {
-//
-//    }
-//
-//    record JsonSerializeFinished() implements JsonSerializeResult {
-//
-//    }
-//
-//    record JsonSerializeNewMarshallable(Object instance) implements JsonSerializeResult {
-//
-//    }
-//
-//    record JsonSerializeNewArray(Object[] arr) implements JsonSerializeResult {
-//
-//    }
-//
-//    record JsonSerializeNewCollection(Collection<?> col, Class<?> elementType) implements JsonSerializeResult {
-//
-//    }
-//
-//    record JsonSerializeNewMap(Map<?, ?> map, Class<?> keyType, Class<?> valueType) implements JsonSerializeResult {
-//
-//    }
+    /**
+     * the current field has been processed normally
+     */
+    Continue,
+
+    /**
+     * all fields of the current object have been processed
+     */
+    Finished,
+
+    /**
+     * the current field holds an object that requires further processing.
+     * the new object instance should be placed in {@link JsonSerializerContext#obj()}
+     */
+    NewMarshallable,
+
+    /**
+     * the current field holds an array that requires further processing.
+     * the new array should be placed in {@link JsonSerializerContext#arr()}
+     */
+    NewArray,
+
+    /**
+     * the current field holds a collection that requires further processing.
+     * the new collection should be placed in {@link JsonSerializerContext#col()}
+     * the element type should be placed in {@link JsonSerializerContext#firstType()}
+     */
+    NewCollection,
+
+    /**
+     * the current field holds a map that requires further processing.
+     * the new map should be placed in {@link JsonSerializerContext#map()}
+     * the key type should be placed in {@link JsonSerializerContext#firstType()}
+     * the value type should be placed in {@link JsonSerializerContext#secondType()}
+     */
+    NewMap
 }

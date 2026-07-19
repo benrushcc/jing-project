@@ -3,7 +3,6 @@ package io.jingproject.marshalljsontest.test;
 import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.marshalljson.JsonSerializeUtil;
 import io.jingproject.marshalljson.JsonSerializerContext;
-import io.jingproject.marshalljson.StringSerializer;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -13,6 +12,7 @@ import java.util.List;
 @Tag("view-output")
 public class StringSerializationTest {
 
+    // setting jing.marshalljson.vecsize=128 to better evaluate the vectorization strategy
     @Test
     public void stringTest() {
         List<String> strs = List.of(
