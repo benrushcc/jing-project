@@ -62,6 +62,15 @@ public final class Utils {
         return "_" + base + "$$" + tag;
     }
 
+    public static int roundUp(int value, int scale) {
+        if(value <= 0) {
+            throw new IllegalArgumentException("value must be positive");
+        }
+        if(scale < 2 || Integer.bitCount(scale) != 1) {
+            throw new IllegalArgumentException("scale must be power of 2");
+        }
+        return (Math.addExact(value, scale - 1)) & -scale;
+    }
 
     public static short compact(byte b0, byte b1) {
         return switch (ByteOrder.nativeOrder()) {

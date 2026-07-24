@@ -1,32 +1,16 @@
 package io.jingproject.marshalljson;
 
-public sealed interface JsonDeserializeResult {
+public enum JsonDeserializeResult {
 
-    JsonDeserializeResult CONTINUE = new JsonDeserializeContinue();
+    Continue,
 
-    JsonDeserializeResult DUMMY_FINISH = new JsonDeserializeFinished(JsonDeserializeUtil.dummyValue());
+    Finish,
 
-    JsonDeserializeResult DUMMY_OBJ = new JsonDeserializeNewDummyObj();
+    NewMarshallable,
 
-    JsonDeserializeResult DUMMY_ARR = new JsonDeserializeNewDummyArr();
+    NewDummyObj,
 
-    record JsonDeserializeContinue() implements JsonDeserializeResult {
+    NewDummyArr,
 
-    }
-
-    record JsonDeserializeFinished(Object result) implements JsonDeserializeResult {
-
-    }
-
-    record JsonDeserializeNewMarshallable(Class<?> marshallableType) implements JsonDeserializeResult {
-
-    }
-
-    record JsonDeserializeNewDummyObj() implements JsonDeserializeResult {
-
-    }
-
-    record JsonDeserializeNewDummyArr() implements JsonDeserializeResult {
-
-    }
+    DummyFinish,
 }

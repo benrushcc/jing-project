@@ -1,9 +1,6 @@
 package io.jingproject.marshalljson;
 
-import io.jingproject.common.HeapWriteBuffer;
-import io.jingproject.common.SegmentAccess;
-import io.jingproject.common.SegmentWriteBuffer;
-import io.jingproject.common.WriteBuffer;
+import io.jingproject.common.*;
 import io.jingproject.marshall.MarshallFacade;
 import io.jingproject.marshall.MarshallInfo;
 import io.jingproject.marshall.Marshalls;
@@ -11,21 +8,29 @@ import jdk.incubator.vector.*;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
+import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
+// indent never overflows int, as its value is limited by the practical JSON nesting depth.
 public final class JsonSerializeUtil {
+    // whether to escape '/', which was suggested for safely embedding JSON in HTML; it's not required by the JSON spec, so we leave it optional and default to false.
     private static final boolean ESCAPE_SLASH =
             Boolean.parseBoolean(System.getProperty("jing.marshalljson.escapeslash", "false"));
     private static final VectorSpecies<Short> SHORT_SPECIES;
     private static final VectorSpecies<Byte> BYTE_SPECIES;
-    private static final int LANE_COUNT;
-    private static final int NO_MOVE_COUNT;
+    private static final int NO_MOVE_MIN;
+    private static final int NO_MOVE_MAX;
     private static final byte[] WRITER_ESCAPE_TABLE = makeWriterEscapeTable();
     private static final byte[] HEX_BYTES = "0123456789abcdef".getBytes(StandardCharsets.US_ASCII);
 
     static {
-        int vecSize = Integer.parseInt(System.getProperty("jing.marshalljson.vecsize", "-1"));
+        try {
+            Class<Os> _ = MethodHandles.lookup().ensureInitialized(Os.class);
+        } catch (IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+        int vecSize = Integer.parseInt(System.getProperty("jing.marshalljson.serialize.vecsize", "-1"));
         if(vecSize < 0) {
             vecSize = ShortVector.SPECIES_PREFERRED.vectorBitSize();
         }
@@ -42,10 +47,10 @@ public final class JsonSerializeUtil {
                 SHORT_SPECIES = ShortVector.SPECIES_512;
                 BYTE_SPECIES = ByteVector.SPECIES_256;
             }
-            default -> throw new UnsupportedOperationException("vector size too small");
+            default -> throw new UnsupportedOperationException("unknown vector size : " + vecSize);
         }
-        LANE_COUNT = SHORT_SPECIES.length();
-        NO_MOVE_COUNT = Math.multiplyExact(LANE_COUNT, 4096); // for avx-512, string more than 128kb will not be moved
+        NO_MOVE_MIN = SHORT_SPECIES.length();
+        NO_MOVE_MAX = Math.multiplyExact(NO_MOVE_MIN, 1024); // for 128bit/512bit, string more than 8k/32k chars will not be moved
     }
 
     private JsonSerializeUtil() {
@@ -71,42 +76,52 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeObjStart(WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         writeBuffer.writeByte((byte) '{');
     }
 
     public static void serializeObjEnd(WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         writeBuffer.writeByte((byte) '}');
     }
 
     public static void serializeArrayStart(WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         writeBuffer.writeByte((byte) '[');
     }
 
     public static void serializeArrayEnd(WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         writeBuffer.writeByte((byte) ']');
     }
 
     public static void serializeQuote(WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         writeBuffer.writeByte((byte) '"');
     }
 
     public static void serializeComma(WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         writeBuffer.writeByte((byte) ',');
     }
 
     public static void serializeKvSep(WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         writeBuffer.writeBytes((byte) ':', (byte) ' ');
     }
 
     public static void serializeNull(WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         writeBuffer.writeBytes((byte) 'n', (byte) 'u', (byte) 'l', (byte) 'l');
     }
 
     public static void serializeByte(byte value, WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         JsonNumberUtil.writeInt(value, writeBuffer);
     }
 
     public static void serializeBoolean(boolean value, WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         if(value) {
             writeBuffer.writeBytes((byte) 't', (byte) 'r', (byte) 'u', (byte) 'e');
         } else {
@@ -115,10 +130,12 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeShort(short value, WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         JsonNumberUtil.writeInt(value, writeBuffer);
     }
 
     public static void serializeChar(char value, WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         serializeQuote(writeBuffer);
         if(Character.isSurrogate(value)) {
             throw new IllegalArgumentException("surrogates not supported");
@@ -137,6 +154,7 @@ public final class JsonSerializeUtil {
     }
 
     private static void serializeAsciiByte(byte b, WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         byte v = WRITER_ESCAPE_TABLE[b];
         if(v == 0) {
             writeBuffer.writeByte(b);
@@ -148,22 +166,27 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeInt(int value, WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         JsonNumberUtil.writeInt(value, writeBuffer);
     }
 
     public static void serializeLong(long value, WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         JsonNumberUtil.writeLong(value, writeBuffer);
     }
 
     public static void serializeFloat(float value, WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         JsonNumberUtil.writeFloat(value, writeBuffer);
     }
 
     public static void serializeDouble(double value, WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         JsonNumberUtil.writeDouble(value, writeBuffer);
     }
 
     public static void serializeIndent(int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
+        assert jsonIndentationLevel != null && writeBuffer != null;
         switch (jsonIndentationLevel) {
             case NONE -> {}
             case TWO -> {
@@ -192,7 +215,7 @@ public final class JsonSerializeUtil {
         }
         serializeArrayStart(writeBuffer);
         for(int i = 0; i < arr.length; i++) {
-            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer);
+            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer); // no overflow, indent is limited
             Object o = arr[i];
             if(o == null) {
                 serializeNull(writeBuffer);
@@ -215,7 +238,7 @@ public final class JsonSerializeUtil {
         }
         serializeArrayStart(writeBuffer);
         for(int i = 0; i < arr.length; i++) {
-            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer);
+            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer); // no overflow, indent is limited
             serializeByte(arr[i], writeBuffer);
             if(i != arr.length - 1) {
                 serializeComma(writeBuffer);
@@ -237,7 +260,7 @@ public final class JsonSerializeUtil {
         }
         serializeArrayStart(writeBuffer);
         for (int i = 0; i < arr.length; i++) {
-            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer);
+            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer); // no overflow, indent is limited
             serializeBoolean(arr[i], writeBuffer);
             if (i != arr.length - 1) {
                 serializeComma(writeBuffer);
@@ -248,18 +271,19 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeBooleanWrapperArray(Boolean[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, null, (o, w, _) -> serializeBoolean((Boolean) o, w));
     }
 
     public static void serializeShortArray(short[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
-        assert arr != null && writeBuffer != null;
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         if (arr.length == 0) {
             writeBuffer.writeBytes((byte) '[', (byte) ']');
             return;
         }
         serializeArrayStart(writeBuffer);
         for (int i = 0; i < arr.length; i++) {
-            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer);
+            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer); // no overflow, indent is limited
             serializeShort(arr[i], writeBuffer);
             if (i != arr.length - 1) {
                 serializeComma(writeBuffer);
@@ -270,18 +294,19 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeShortWrapperArray(Short[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, null, (o, w, _) -> serializeShort((Short) o, w));
     }
 
     public static void serializeCharArray(char[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
-        assert arr != null && writeBuffer != null;
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         if (arr.length == 0) {
             writeBuffer.writeBytes((byte) '[', (byte) ']');
             return;
         }
         serializeArrayStart(writeBuffer);
         for (int i = 0; i < arr.length; i++) {
-            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer);
+            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer); // no overflow, indent is limited
             serializeChar(arr[i], writeBuffer);
             if (i != arr.length - 1) {
                 serializeComma(writeBuffer);
@@ -292,18 +317,19 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeCharWrapperArray(Character[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, null, (o, w, _) -> serializeChar((Character) o, w));
     }
 
     public static void serializeIntArray(int[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
-        assert arr != null && writeBuffer != null;
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         if (arr.length == 0) {
             writeBuffer.writeBytes((byte) '[', (byte) ']');
             return;
         }
         serializeArrayStart(writeBuffer);
         for (int i = 0; i < arr.length; i++) {
-            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer);
+            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer); // no overflow, indent is limited
             serializeInt(arr[i], writeBuffer);
             if (i != arr.length - 1) {
                 serializeComma(writeBuffer);
@@ -314,18 +340,19 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeIntWrapperArray(Integer[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, null, (o, w, _) -> serializeInt((Integer) o, w));
     }
 
     public static void serializeLongArray(long[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
-        assert arr != null && writeBuffer != null;
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         if (arr.length == 0) {
             writeBuffer.writeBytes((byte) '[', (byte) ']');
             return;
         }
         serializeArrayStart(writeBuffer);
         for (int i = 0; i < arr.length; i++) {
-            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer);
+            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer); // no overflow, indent is limited
             serializeLong(arr[i], writeBuffer);
             if (i != arr.length - 1) {
                 serializeComma(writeBuffer);
@@ -336,18 +363,19 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeLongWrapperArray(Long[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, null, (o, w, _) -> serializeLong((Long) o, w));
     }
 
     public static void serializeFloatArray(float[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
-        assert arr != null && writeBuffer != null;
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         if (arr.length == 0) {
             writeBuffer.writeBytes((byte) '[', (byte) ']');
             return;
         }
         serializeArrayStart(writeBuffer);
         for (int i = 0; i < arr.length; i++) {
-            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer);
+            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer); // no overflow, indent is limited
             serializeFloat(arr[i], writeBuffer);
             if (i != arr.length - 1) {
                 serializeComma(writeBuffer);
@@ -358,18 +386,19 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeFloatWrapperArray(Float[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, null, (o, w, _) -> serializeFloat((Float) o, w));
     }
 
     public static void serializeDoubleArray(double[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
-        assert arr != null && writeBuffer != null;
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         if (arr.length == 0) {
             writeBuffer.writeBytes((byte) '[', (byte) ']');
             return;
         }
         serializeArrayStart(writeBuffer);
         for (int i = 0; i < arr.length; i++) {
-            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer);
+            serializeIndent(indent + 1, jsonIndentationLevel, writeBuffer); // no overflow, indent is limited
             serializeDouble(arr[i], writeBuffer);
             if (i != arr.length - 1) {
                 serializeComma(writeBuffer);
@@ -380,18 +409,25 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeDoubleWrapperArray(Double[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, null, (o, w, _) -> serializeDouble((Double) o, w));
     }
 
     public static void serializeNonEscapedUtf8Bytes(byte[] utf8Bytes, WriteBuffer writeBuffer) {
-        writeBuffer.ensureCapacity(utf8Bytes.length + 2);
+        assert utf8Bytes != null && writeBuffer != null;
+        final int len = utf8Bytes.length;
+        if(len == 0) {
+            writeBuffer.writeBytes((byte) '"', (byte) '"');
+            return ;
+        }
+        writeBuffer.ensureCapacity(Math.addExact(len, 2));
         switch (writeBuffer) {
             case HeapWriteBuffer heapWriteBuffer -> {
                 final byte[] bytes = heapWriteBuffer.rawByteArray();
                 int position = heapWriteBuffer.intPosition();
                 bytes[position++] = (byte) '"';
-                System.arraycopy(utf8Bytes, 0, bytes, position, utf8Bytes.length);
-                position += utf8Bytes.length;
+                System.arraycopy(utf8Bytes, 0, bytes, position, len);
+                position += len;
                 bytes[position++] = (byte) '"';
                 heapWriteBuffer.setPosition(position);
             }
@@ -399,8 +435,8 @@ public final class JsonSerializeUtil {
                 final MemorySegment segment = segmentWriteBuffer.rawSegment();
                 long position = segmentWriteBuffer.longPosition();
                 SegmentAccess.setByte(segment, position++, (byte) '"');
-                MemorySegment.copy(utf8Bytes, 0, segment, ValueLayout.JAVA_BYTE, position, utf8Bytes.length);
-                position += utf8Bytes.length;
+                MemorySegment.copy(utf8Bytes, 0, segment, ValueLayout.JAVA_BYTE, position, len);
+                position += len;
                 SegmentAccess.setByte(segment, position++, (byte) '"');
                 segmentWriteBuffer.setPosition(position);
             }
@@ -424,6 +460,7 @@ public final class JsonSerializeUtil {
     }
 
     private static void serializeEscapedUtf8BytesToHeap(byte[] utf8Bytes, int len, HeapWriteBuffer heapWriteBuffer) {
+        assert utf8Bytes != null && len > 0 && heapWriteBuffer != null;
         final byte[] bytes = heapWriteBuffer.rawByteArray();
         int position = heapWriteBuffer.intPosition();
         bytes[position++] = (byte) '"';
@@ -461,6 +498,7 @@ public final class JsonSerializeUtil {
     }
 
     private static void serializeEscapedUtf8BytesToSegment(byte[] utf8Bytes, int len, SegmentWriteBuffer segmentWriteBuffer) {
+        assert utf8Bytes != null && len > 0 && segmentWriteBuffer != null;
         final MemorySegment segment = segmentWriteBuffer.rawSegment();
         long position = segmentWriteBuffer.longPosition();
         SegmentAccess.setByte(segment, position++, (byte) '"');
@@ -498,12 +536,12 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeEscapedCharSequence(CharSequence charSequence, WriteBuffer writeBuffer, JsonSerializerContext context) {
-        assert charSequence != null && writeBuffer != null;
+        assert charSequence != null && writeBuffer != null && context != null;
         serializeEscapedString(charSequence.toString(), writeBuffer, context);
     }
 
     public static void serializeEscapedString(String str, WriteBuffer writeBuffer, JsonSerializerContext context) {
-        assert str != null && writeBuffer != null;
+        assert str != null && writeBuffer != null && context != null;
         final int len = str.length();
         if(len == 0) {
             writeBuffer.writeBytes((byte) '"', (byte) '"');
@@ -532,6 +570,7 @@ public final class JsonSerializeUtil {
     }
 
     private static int asciiCount(ShortVector shortVector) {
+        assert shortVector != null;
         VectorMask<Short> mask = shortVector.compare(VectorOperators.LT, (short) 0x20)
                 .or(shortVector.compare(VectorOperators.GT, (short) 0x7E))
                 .or(shortVector.compare(VectorOperators.EQ, (short) 0x22))
@@ -539,29 +578,34 @@ public final class JsonSerializeUtil {
         if (ESCAPE_SLASH) {
             mask = mask.or(shortVector.compare(VectorOperators.EQ, (short) 0x2F));
         }
+        // prefer firstTrue() for readability; if its performance turns out to be unstable,
+        // switch to the toLong() + trailingZeros approach below (commented out).
         return mask.firstTrue();
-//        long r = mask.toLong();
-//        if(r == 0L) {
-//            return LANE_COUNT;
-//        }
-//        return Long.numberOfTrailingZeros(r);
+
+        // long r = mask.toLong();
+        // if(r == 0L) {
+        //     return SHORT_SPECIES.length();
+        // }
+        // return Long.numberOfTrailingZeros(r);
     }
 
     private static int serializeEscapedStringToBytes(String str, int len, byte[] bytes, int offset, JsonSerializerContext context) {
-        final char[] buffer = context.charBuffer(len, LANE_COUNT, NO_MOVE_COUNT);
-        if(buffer == null) {
+        assert str != null && len > 0 && bytes != null && offset >= 0 && context != null;
+        if(len < NO_MOVE_MIN || len > NO_MOVE_MAX) {
             return serializeStrToBytes(str, len, bytes, offset);
         }
+        final char[] buffer = context.charBuffer(len);
         str.getChars(0, len, buffer, 0);
+        final int upper = SHORT_SPECIES.loopBound(len);
         int index = 0;
-        while (len - index >= LANE_COUNT) {
+        for ( ; index < upper; index += SHORT_SPECIES.length()) {
             ShortVector shortVector = ShortVector.fromCharArray(SHORT_SPECIES, buffer, index);
             ByteVector byteVector = (ByteVector) shortVector.convertShape(VectorOperators.S2B, BYTE_SPECIES, 0);
             byteVector.intoArray(bytes, offset);
             int matched = asciiCount(shortVector);
             offset += matched;
-            index += matched;
-            if(matched != LANE_COUNT) {
+            if(matched != SHORT_SPECIES.length()) {
+                index += matched;
                 break ;
             }
         }
@@ -572,20 +616,22 @@ public final class JsonSerializeUtil {
     }
 
     private static long serializeEscapedStringToSegment(String str, int len, MemorySegment segment, long offset, JsonSerializerContext context) {
-        final char[] buffer = context.charBuffer(len, LANE_COUNT, NO_MOVE_COUNT);
-        if(buffer == null) {
+        assert str != null && len > 0 && segment != null && offset >= 0L && context != null;
+        if(len < NO_MOVE_MIN || len > NO_MOVE_MAX) {
             return serializeStrToSegment(str, len, segment, offset);
         }
+        final char[] buffer = context.charBuffer(len);
         str.getChars(0, len, buffer, 0);
+        final int upper = SHORT_SPECIES.loopBound(len);
         int index = 0;
-        while (len - index >= LANE_COUNT) {
+        for ( ; index < upper; index += SHORT_SPECIES.length()) {
             ShortVector shortVector = ShortVector.fromCharArray(SHORT_SPECIES, buffer, index);
             ByteVector byteVector = (ByteVector) shortVector.convertShape(VectorOperators.S2B, BYTE_SPECIES, 0);
             byteVector.intoMemorySegment(segment, offset, ByteOrder.nativeOrder()); // byteOrder will be ignored
             int matched = asciiCount(shortVector);
             offset += matched;
-            index += matched;
-            if(matched != LANE_COUNT) {
+            if(matched != SHORT_SPECIES.length()) {
+                index += matched;
                 break ;
             }
         }
@@ -596,6 +642,7 @@ public final class JsonSerializeUtil {
     }
 
     private static int serializeStrToBytes(String str, int len, byte[] bytes, int offset) {
+        assert str != null && len > 0 && bytes != null && offset >= 0;
         int index = 0;
         while (index < len) {
             char c = str.charAt(index++);
@@ -622,6 +669,7 @@ public final class JsonSerializeUtil {
     }
 
     private static long serializeStrToSegment(String str, int len, MemorySegment segment, long offset) {
+        assert str != null && len > 0 && segment != null && offset >= 0L;
         int index = 0;
         while (index < len) {
             char c = str.charAt(index++);
@@ -648,6 +696,7 @@ public final class JsonSerializeUtil {
     }
 
     private static int serializeRemainingCharsToBytes(char[] buffer, int index, int len, byte[] bytes, int offset) {
+        assert buffer != null && index >= 0 && len > 0 && bytes != null && offset >= 0;
         while (index < len) {
             char c = buffer[index++];
             if(c < 0x80) {
@@ -673,6 +722,7 @@ public final class JsonSerializeUtil {
     }
 
     private static long serializeRemainingCharsToSegment(char[] buffer, int index, int len, MemorySegment segment, long offset) {
+        assert buffer != null && index >= 0 && len > 0 && segment != null && offset >= 0;
         while (index < len) {
             char c = buffer[index++];
             if(c < 0x80) {
@@ -698,6 +748,7 @@ public final class JsonSerializeUtil {
     }
 
     private static int serializeCharToBytes(char c, byte[] bytes, int offset) {
+        assert bytes != null && offset >= 0;
         int v = WRITER_ESCAPE_TABLE[c];
         if (v == 0) {
             bytes[offset++] = (byte) c;
@@ -716,6 +767,7 @@ public final class JsonSerializeUtil {
     }
 
     private static long serializeCharToSegment(char c, MemorySegment segment, long offset) {
+        assert segment != null && offset >= 0;
         int v = WRITER_ESCAPE_TABLE[c];
         if (v == 0) {
             SegmentAccess.setByte(segment, offset++, (byte) c);
@@ -734,18 +786,21 @@ public final class JsonSerializeUtil {
     }
 
     private static int serializeCharToBytes2(char c, byte[] bytes, int offset) {
+        assert bytes != null && offset >= 0;
         bytes[offset]     = (byte) (0xC0 | (c >> 6));
         bytes[offset + 1] = (byte) (0x80 | (c & 0x3F));
         return offset + 2;
     }
 
     private static long serializeCharToSegment2(char c, MemorySegment bytes, long offset) {
+        assert bytes != null && offset >= 0L;
         SegmentAccess.setByte(bytes, offset, (byte) (0xC0 | (c >> 6)));
         SegmentAccess.setByte(bytes, offset + 1L, (byte) (0x80 | (c & 0x3F)));
         return offset + 2L;
     }
 
     private static int serializeCharToBytes3(char c, byte[] bytes, int offset) {
+        assert bytes != null && offset >= 0;
         bytes[offset]     = (byte) (0xE0 | (c >> 12));
         bytes[offset + 1] = (byte) (0x80 | ((c >> 6) & 0x3F));
         bytes[offset + 2] = (byte) (0x80 | (c & 0x3F));
@@ -753,7 +808,7 @@ public final class JsonSerializeUtil {
     }
 
     private static long serializeCharToSegment3(char c, MemorySegment segment, long offset) {
-
+        assert segment != null && offset >= 0L;
         SegmentAccess.setByte(segment, offset, (byte) (0xE0 | (c >> 12)));
         SegmentAccess.setByte(segment, offset + 1L, (byte) (0x80 | ((c >> 6) & 0x3F)));
         SegmentAccess.setByte(segment, offset + 2L, (byte) (0x80 | (c & 0x3F)));
@@ -761,6 +816,7 @@ public final class JsonSerializeUtil {
     }
 
     private static int serializeCharToBytes4(char highSurrogate, char lowSurrogate, byte[] bytes, int offset) {
+        assert Character.isHighSurrogate(highSurrogate) && Character.isLowSurrogate(lowSurrogate) && bytes != null && offset >= 0;
         int cp = Character.toCodePoint(highSurrogate, lowSurrogate);
         bytes[offset]     = (byte) (0xF0 | (cp >> 18));
         bytes[offset + 1] = (byte) (0x80 | ((cp >> 12) & 0x3F));
@@ -770,6 +826,7 @@ public final class JsonSerializeUtil {
     }
 
     private static long serializeCharToSegment4(char highSurrogate, char lowSurrogate, MemorySegment segment, long offset) {
+        assert Character.isHighSurrogate(highSurrogate) && Character.isLowSurrogate(lowSurrogate) && segment != null && offset >= 0L;
         int cp = Character.toCodePoint(highSurrogate, lowSurrogate);
         SegmentAccess.setByte(segment, offset, (byte) (0xF0 | (cp >> 18)));
         SegmentAccess.setByte(segment, offset + 1L, (byte) (0x80 | ((cp >> 12) & 0x3F)));
@@ -779,15 +836,17 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeEscapedCharSequenceArray(CharSequence[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer, JsonSerializerContext context) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && context != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, context, (o, w, c) -> serializeEscapedCharSequence((CharSequence) o, w, c));
     }
 
     public static void serializeEscapedStringArray(String[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer, JsonSerializerContext context) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && context != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, context, (o, w, c) -> serializeEscapedString((String) o, w, c));
     }
 
     public static void serializeJsonPrimitiveType(JsonPrimitiveType jsonPrimitiveType, WriteBuffer writeBuffer, JsonSerializerContext context) {
-        assert jsonPrimitiveType != null && writeBuffer != null;
+        assert jsonPrimitiveType != null && writeBuffer != null && context != null;
         switch (jsonPrimitiveType) {
             case JsonBoolType jsonBoolType -> serializeJsonBoolType(jsonBoolType, writeBuffer);
             case JsonNumberType jsonNumberType -> serializeJsonNumberType(jsonNumberType, writeBuffer);
@@ -797,6 +856,7 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeJsonPrimitiveTypeArray(JsonPrimitiveType[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer, JsonSerializerContext context) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null && context != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, context, (o, w, c) -> serializeJsonPrimitiveType((JsonPrimitiveType) o, w, c));
     }
 
@@ -806,6 +866,7 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeJsonBoolTypeArray(JsonBoolType[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, null, (o, w, _) -> serializeJsonBoolType((JsonBoolType) o, w));
     }
 
@@ -815,6 +876,7 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeJsonNumberTypeArray(JsonNumberType[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, null, (o, w, _) -> serializeJsonNumberType((JsonNumberType) o, w));
     }
 
@@ -824,11 +886,12 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeJsonStrTypeArray(JsonStrType[] arr, int indent, JsonIndentationLevel jsonIndentationLevel, WriteBuffer writeBuffer, JsonSerializerContext context) {
+        assert arr != null && indent >= 1 && jsonIndentationLevel != null && writeBuffer != null && context != null;
         serializeObjArray(arr, indent, jsonIndentationLevel, writeBuffer, context, (o, w, c) -> serializeJsonStrType((JsonStrType) o, w, c));
     }
 
     public static void serializeEnum(Enum<?> enumValue, Class<?> rawType, WriteBuffer writeBuffer, JsonSerializerContext context) {
-        assert enumValue != null && rawType != null && writeBuffer != null;
+        assert enumValue != null && rawType != null && writeBuffer != null && context != null;
         MarshallFacade fc = Marshalls.getMarshallFacade(rawType);
         if(fc == null) {
             serializeEscapedString(enumValue.name(), writeBuffer, context);
@@ -845,6 +908,7 @@ public final class JsonSerializeUtil {
     }
 
     public static JsonSerializeFunc valueSerializeFunc(JsonSerializerOption option, Class<?> rawType) {
+        assert option != null && rawType != null;
         // builtin type has the highest priority
         if(rawType.isArray()) {
             JsonSerializeFunc builtinSerializeArrFunc = builtinSerializeArrayFunc(rawType);
@@ -877,6 +941,7 @@ public final class JsonSerializeUtil {
     }
 
     public static JsonSerializeFunc enumSerializeFunc(Class<?> rawType) {
+        assert rawType != null;
         MarshallFacade fc = Marshalls.getMarshallFacade(rawType);
         if(fc == null) {
             return (_, w, c, o, _) -> {
@@ -900,6 +965,7 @@ public final class JsonSerializeUtil {
     }
 
     public static JsonSerializeFunc builtinSerializeObjFunc(Class<?> rawType) {
+        assert rawType != null;
         if(rawType == Byte.class) {
             return (_, w, _, o, _) -> {
                 serializeByte((Byte) o, w);
@@ -976,6 +1042,7 @@ public final class JsonSerializeUtil {
     }
 
     public static JsonSerializeFunc builtinSerializeArrayFunc(Class<?> rawType) {
+        assert rawType != null;
         if(rawType == byte[].class) {
             return (op, w, _, o, ind) -> {
                 serializeByteArray((byte[]) o, ind, op.indentationLevel(), w);
@@ -1090,6 +1157,5 @@ public final class JsonSerializeUtil {
             return null;
         }
     }
-
 
 }

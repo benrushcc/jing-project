@@ -245,7 +245,7 @@ public final class Libs {
     }
 
     /**
-     * find target libDecriptor by given type
+     * find target libDescriptor by given type
      *
      * @return the library descriptor for the given type, or {@code null} if the library is missing or unsupported on current operating system
      * for optimal performance, callers should store the return value in a {@code static final} field

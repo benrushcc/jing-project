@@ -22,7 +22,7 @@ public class TwiTest {
 
     @Test
     public void loadTwiTest() {
-        String json = TwiUtil.load();
+        String json = TwiUtil.loadAsString();
         Assertions.assertNotNull(json);
     }
 
@@ -42,13 +42,13 @@ public class TwiTest {
     @Test
     @Tag("view-output")
     public void twiStatisticsTest() {
-        String json = TwiUtil.load();
+        String json = TwiUtil.loadAsString();
         UtfUtil.countUtf8Bytes(json.getBytes(StandardCharsets.UTF_8));
     }
 
     @Test
     public void jacksonDeserializeTwiTest() {
-        String json = TwiUtil.load();
+        String json = TwiUtil.loadAsString();
         Twi twi = TwiUtil.deserializeTwiUsingJackson(json);
         Assertions.assertNotNull(twi);
     }
@@ -56,7 +56,7 @@ public class TwiTest {
     // 477706
     @Test
     public void jacksonSerializeTwiTest() {
-        String json = TwiUtil.load();
+        String json = TwiUtil.loadAsString();
         Twi twi = TwiUtil.deserializeTwiUsingJackson(json);
         try(ByteArrayOutputStream outputStream = new ByteArrayOutputStream(819200)) {
             TwiUtil.serializeTwiUsingJackson(twi, outputStream);
@@ -74,7 +74,7 @@ public class TwiTest {
     // 442181 when jing.marshalljson.escapeslash is enabled, or 436137 when it is disabled
     @Test
     public void serializeTwiTest() {
-        String json = TwiUtil.load();
+        String json = TwiUtil.loadAsString();
         Twi twi = TwiUtil.deserializeTwiUsingJackson(json);
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(819200);
         TwiUtil.serializeTwi(twi, writeBuffer);

@@ -210,6 +210,7 @@ public final class JsonNumberUtil {
     }
 
     public static void writeInt(int value, WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         if (value == 0) {
             writeBuffer.writeByte(BYTE_ZERO);
         } else if (value == Integer.MIN_VALUE) {
@@ -223,20 +224,20 @@ public final class JsonNumberUtil {
     }
 
     private static int writePositiveInt(int value, WriteBuffer writeBuffer) {
-        assert value > 0;
-        int n = digitCount(value);
-        writeBuffer.ensureCapacity(n);
+        assert value > 0 && writeBuffer != null;
+        int digitCount = digitCount(value);
+        writeBuffer.ensureCapacity(digitCount);
         int position = writeBuffer.intPosition();
         return switch (writeBuffer) {
-            case HeapWriteBuffer heapWriteBuffer -> writePositiveIntToHeap(value, n, heapWriteBuffer.rawByteArray(), position);
-            case SegmentWriteBuffer segmentWriteBuffer -> writePositiveIntToSegment(value, n, segmentWriteBuffer.rawSegment(), position);
+            case HeapWriteBuffer heapWriteBuffer -> writePositiveIntToHeap(value, digitCount, heapWriteBuffer.rawByteArray(), position);
+            case SegmentWriteBuffer segmentWriteBuffer -> writePositiveIntToSegment(value, digitCount, segmentWriteBuffer.rawSegment(), position);
         };
     }
 
-    private static int writePositiveIntToHeap(int value, int n, byte[] bytes, int position) {
-        assert bytes != null && Objects.checkFromIndexSize(position, n, bytes.length) >= 0;
+    private static int writePositiveIntToHeap(int value, int digitCount, byte[] bytes, int position) {
+        assert bytes != null && Objects.checkFromIndexSize(position, digitCount, bytes.length) >= 0;
         int v;
-        switch (n) {
+        switch (digitCount) {
             case 10:
                 v = value / 100000000;
                 ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
@@ -288,10 +289,11 @@ public final class JsonNumberUtil {
         return position;
     }
 
-    private static int writePositiveIntToSegment(int value, int n, MemorySegment segment, int position) {
+    private static int writePositiveIntToSegment(int value, int digitCount, MemorySegment segment, int position) {
+        assert segment != null && Objects.checkFromIndexSize(position, digitCount, segment.byteSize()) >= 0L;
         long lp = position;
         int v;
-        switch (n) {
+        switch (digitCount) {
             case 10:
                 v = value / 100000000;
                 SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
@@ -344,6 +346,7 @@ public final class JsonNumberUtil {
     }
 
     public static void writeLong(long value, WriteBuffer writeBuffer) {
+        assert writeBuffer != null;
         if (value == 0L) {
             writeBuffer.writeByte(BYTE_ZERO);
         } else if (value == Long.MIN_VALUE) {
@@ -357,19 +360,20 @@ public final class JsonNumberUtil {
     }
 
     private static int writePositiveLong(long value, WriteBuffer writeBuffer) {
-        assert value > 0L;
-        int n = digitCount(value);
-        writeBuffer.ensureCapacity(n);
+        assert value > 0L && writeBuffer != null;
+        int digitCount = digitCount(value);
+        writeBuffer.ensureCapacity(digitCount);
         int position = writeBuffer.intPosition();
         return switch (writeBuffer) {
-            case HeapWriteBuffer heapWriteBuffer -> writePositiveLongToHeap(value, n, heapWriteBuffer.rawByteArray(), position);
-            case SegmentWriteBuffer segmentWriteBuffer -> writePositiveLongToSegment(value, n, segmentWriteBuffer.rawSegment(), position);
+            case HeapWriteBuffer heapWriteBuffer -> writePositiveLongToHeap(value, digitCount, heapWriteBuffer.rawByteArray(), position);
+            case SegmentWriteBuffer segmentWriteBuffer -> writePositiveLongToSegment(value, digitCount, segmentWriteBuffer.rawSegment(), position);
         };
     }
 
-    private static int writePositiveLongToHeap(long value, int n, byte[] bytes, int position) {
+    private static int writePositiveLongToHeap(long value, int digitCount, byte[] bytes, int position) {
+        assert bytes != null && Objects.checkFromIndexSize(position, digitCount, bytes.length) >= 0;
         int v;
-        switch (n) {
+        switch (digitCount) {
             case 18:
                 v = (int) (value / 1_000_000_000_000_000_0L);
                 ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
@@ -466,10 +470,11 @@ public final class JsonNumberUtil {
         return position;
     }
 
-    private static int writePositiveLongToSegment(long value, int n, MemorySegment segment, int position) {
+    private static int writePositiveLongToSegment(long value, int digitCount, MemorySegment segment, int position) {
+        assert segment != null && Objects.checkFromIndexSize(position, digitCount, segment.byteSize()) >= 0L;
         long lp = position;
         int v;
-        switch (n) {
+        switch (digitCount) {
             case 18:
                 v = (int) (value / 1_000_000_000_000_000_0L);
                 SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
@@ -567,7 +572,7 @@ public final class JsonNumberUtil {
     }
 
     public static void writeFloat(float f, WriteBuffer writeBuffer) {
-        assert Float.isFinite(f);
+        assert Float.isFinite(f) && writeBuffer != null;
         int bits = Float.floatToRawIntBits(f);
         boolean negative = (bits >>> (Float.SIZE - 1)) == 1;
         if ((bits & 0x7FFFFFFF) == 0) {
@@ -589,7 +594,7 @@ public final class JsonNumberUtil {
     }
 
     public static void writeDouble(double f, WriteBuffer writeBuffer) {
-        assert Double.isFinite(f);
+        assert Double.isFinite(f) && writeBuffer != null;
         long bits = Double.doubleToRawLongBits(f);
         boolean negative = (bits >>> (Double.SIZE - 1)) == 1L;
         if ((bits & 0x7FFFFFFFFFFFFFFFL) == 0L) {
@@ -611,6 +616,7 @@ public final class JsonNumberUtil {
     }
 
     private static BinaryFp buildBinaryFp(long b, FpSpec fpSpec) {
+        assert fpSpec == FLOAT_SPEC || fpSpec == DOUBLE_SPEC; // currently only float32 and float64 are supported
         long mant = b & ((1L << fpSpec.mantBits()) - 1);
         int exp = (int) ((b >>> fpSpec.mantBits()) & ((1L << fpSpec.expBits()) - 1));
         if (exp == 0) {
@@ -666,7 +672,7 @@ public final class JsonNumberUtil {
     private static Scalers prescale(int e, int p, int lp) {
         assert p >= POW10MIN && p <= POW10MAX;
         int s = -(e + lp + 3);
-        assert s >= 0;
+        assert s >= 0 && s < 64;
         int idx = (p - POW10MIN) << 1;
         long pmHi = POW10TAB[idx];
         long pmLo = POW10TAB[idx + 1];
@@ -675,7 +681,7 @@ public final class JsonNumberUtil {
 
     // no overflow
     private static long uscale(long x, Scalers c) {
-        assert c.s() >=0 && c.s() < 64;
+        assert c != null && c.s() >=0 && c.s() < 64;
         long hi = Math.unsignedMultiplyHigh(x, c.pmHi());
         long mid1 = x * c.pmHi();
         long sticky = 1L;
@@ -690,6 +696,7 @@ public final class JsonNumberUtil {
     }
 
     private static DecimalFp trimZeros(DecimalFp decimalFp) {
+        assert decimalFp != null;
         long d = decimalFp.d();
         int p = decimalFp.p();
         // cut 1 zero, or else return.
@@ -724,6 +731,7 @@ public final class JsonNumberUtil {
     }
 
     private static DecimalFp toDecimalFp(BinaryFp binaryFp, FpSpec fpSpec) {
+        assert binaryFp != null && (fpSpec == FLOAT_SPEC || fpSpec == DOUBLE_SPEC); // currently only float32 and float64 are supported
         long m = binaryFp.m();
         int e = binaryFp.e();
         int p;
@@ -752,30 +760,33 @@ public final class JsonNumberUtil {
     }
 
     private static void writeDecimalFp(DecimalFp decimalFp, WriteBuffer writeBuffer) {
+        assert decimalFp != null && writeBuffer != null;
         long d = decimalFp.d();
         int p = decimalFp.p();
-        int n = digitCount(d);
-        int sciE = p + n - 1;
+        int digitCount = digitCount(d);
+        int sciE = p + digitCount - 1;
         switch (writeBuffer) {
-            case HeapWriteBuffer heapWriteBuffer -> writeDecimalFpToHeap(d, p, n, sciE, heapWriteBuffer);
-            case SegmentWriteBuffer segmentWriteBuffer ->  writeDecimalFpToSegment(d, p, n, sciE, segmentWriteBuffer);
+            case HeapWriteBuffer heapWriteBuffer -> writeDecimalFpToHeap(d, p, digitCount, sciE, heapWriteBuffer);
+            case SegmentWriteBuffer segmentWriteBuffer ->  writeDecimalFpToSegment(d, p, digitCount, sciE, segmentWriteBuffer);
         }
     }
 
-    private static void writeDecimalFpToHeap(long d, int p, int n, int sciE, HeapWriteBuffer heapWriteBuffer) {
+    private static void writeDecimalFpToHeap(long d, int p, int digitCount, int sciE, HeapWriteBuffer heapWriteBuffer) {
+        assert heapWriteBuffer != null;
         int position = heapWriteBuffer.intPosition();
         byte[] bytes = heapWriteBuffer.rawByteArray();
         if (sciE >= MIN_SCI_EXP && sciE < MAX_SCI_EXP) {
-            position = writeFixedDecimalFpToHeap(d, p, n, bytes, position);
+            position = writeFixedDecimalFpToHeap(d, p, digitCount, bytes, position);
         } else {
-            position = writeSciDecimalFpToHeap(d, sciE, n, bytes, position);
+            position = writeSciDecimalFpToHeap(d, sciE, digitCount, bytes, position);
         }
         heapWriteBuffer.setPosition(position);
     }
 
-    private static int writeFixedDecimalFpToHeap(long d, int p, int n, byte[] bytes, int position) {
+    private static int writeFixedDecimalFpToHeap(long d, int p, int digitCount, byte[] bytes, int position) {
+        assert bytes != null;
         if(p >= 0) {
-            position = writePositiveLongToHeap(d, n, bytes, position);
+            position = writePositiveLongToHeap(d, digitCount, bytes, position);
             if(p > 0) {
                 int newPosition = position + p;
                 Arrays.fill(bytes, position, newPosition, BYTE_ZERO);
@@ -783,19 +794,19 @@ public final class JsonNumberUtil {
             }
         } else {
             int fracDigits = -p;
-            if (fracDigits >= n) {
+            if (fracDigits >= digitCount) {
                 ArrayAccess.setShort(bytes, position, ZERO_PERIOD);
                 position += 2;
-                int leadingZeros = fracDigits - n;
+                int leadingZeros = fracDigits - digitCount;
                 if (leadingZeros > 0) {
                     int newPosition = position + leadingZeros;
                     Arrays.fill(bytes, position, newPosition, BYTE_ZERO);
                     position = newPosition;
                 }
-                position = writePositiveLongToHeap(d, n, bytes, position);
+                position = writePositiveLongToHeap(d, digitCount, bytes, position);
             } else {
-                int dotPosition = position + (n - fracDigits);
-                position = writePositiveLongToHeap(d, n, bytes, position) + 1;
+                int dotPosition = position + (digitCount - fracDigits);
+                position = writePositiveLongToHeap(d, digitCount, bytes, position) + 1;
                 System.arraycopy(bytes, dotPosition, bytes, dotPosition + 1, fracDigits);
                 bytes[dotPosition] = BYTE_PERIOD;
             }
@@ -803,10 +814,11 @@ public final class JsonNumberUtil {
         return position;
     }
 
-    private static int writeSciDecimalFpToHeap(long d, int sciE, int n, byte[] bytes, int position) {
-        if (n > 1) {
+    private static int writeSciDecimalFpToHeap(long d, int sciE, int digitCount, byte[] bytes, int position) {
+        assert bytes != null;
+        if (digitCount > 1) {
             int startPosition = position + 1;
-            int endPosition = writePositiveLongToHeap(d, n, bytes, startPosition);
+            int endPosition = writePositiveLongToHeap(d, digitCount, bytes, startPosition);
             short shifted = Utils.compact(bytes[startPosition], BYTE_PERIOD);
             ArrayAccess.setShort(bytes, position, shifted);
             position = endPosition;
@@ -825,38 +837,40 @@ public final class JsonNumberUtil {
     }
 
 
-    private static void writeDecimalFpToSegment(long d, int p, int n, int sciE, SegmentWriteBuffer segmentWriteBuffer) {
+    private static void writeDecimalFpToSegment(long d, int p, int digitCount, int sciE, SegmentWriteBuffer segmentWriteBuffer) {
+        assert segmentWriteBuffer != null;
         int position = segmentWriteBuffer.intPosition();
         MemorySegment segment = segmentWriteBuffer.rawSegment();
         if (sciE >= MIN_SCI_EXP && sciE < MAX_SCI_EXP) {
-            position = writeFixedDecimalFpToSegment(d, p, n, segment, position);
+            position = writeFixedDecimalFpToSegment(d, p, digitCount, segment, position);
         } else {
-            position = writeSciDecimalFpToSegment(d, sciE, n, segment, position);
+            position = writeSciDecimalFpToSegment(d, sciE, digitCount, segment, position);
         }
         segmentWriteBuffer.setPosition(position);
     }
 
-    private static int writeFixedDecimalFpToSegment(long d, int p, int n, MemorySegment segment, int position) {
+    private static int writeFixedDecimalFpToSegment(long d, int p, int digitCount, MemorySegment segment, int position) {
+        assert segment != null;
         if (p >= 0) {
-            position = writePositiveLongToSegment(d, n, segment, position);
+            position = writePositiveLongToSegment(d, digitCount, segment, position);
             if (p > 0) {
                 segment.asSlice(position, p).fill(BYTE_ZERO);
                 position += p;
             }
         } else {
             int fracDigits = -p;
-            if (fracDigits >= n) {
+            if (fracDigits >= digitCount) {
                 SegmentAccess.setShort(segment, position, ZERO_PERIOD);
                 position += 2;
-                int leadingZeros = fracDigits - n;
+                int leadingZeros = fracDigits - digitCount;
                 if (leadingZeros > 0) {
                     segment.asSlice(position, leadingZeros).fill(BYTE_ZERO);
                     position += leadingZeros;
                 }
-                position = writePositiveLongToSegment(d, n, segment, position);
+                position = writePositiveLongToSegment(d, digitCount, segment, position);
             } else {
-                long dotPosition = position + (n - fracDigits);
-                position = writePositiveLongToSegment(d, n, segment, position) + 1;
+                long dotPosition = position + (digitCount - fracDigits);
+                position = writePositiveLongToSegment(d, digitCount, segment, position) + 1;
                 MemorySegment.copy(segment, dotPosition, segment, dotPosition + 1L, fracDigits);
                 SegmentAccess.setByte(segment, dotPosition, BYTE_PERIOD);
             }
@@ -864,10 +878,11 @@ public final class JsonNumberUtil {
         return position;
     }
 
-    private static int writeSciDecimalFpToSegment(long d, int sciE, int n, MemorySegment segment, int position) {
-        if (n > 1) {
+    private static int writeSciDecimalFpToSegment(long d, int sciE, int digitCount, MemorySegment segment, int position) {
+        assert segment != null;
+        if (digitCount > 1) {
             int startPosition = position + 1;
-            int endPosition = writePositiveLongToSegment(d, n, segment, startPosition);
+            int endPosition = writePositiveLongToSegment(d, digitCount, segment, startPosition);
             short shifted = Utils.compact(SegmentAccess.getByte(segment, startPosition), BYTE_PERIOD);
             SegmentAccess.setShort(segment, position, shifted);
             position = endPosition;

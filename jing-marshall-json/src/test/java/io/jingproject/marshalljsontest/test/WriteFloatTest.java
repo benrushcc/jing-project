@@ -84,7 +84,7 @@ public class WriteFloatTest {
 
     @Test
     public void writeTargetFloatTest() {
-        List<String> strList = List.of("-1.4E-45");
+        List<String> strList = List.of("-1.4E-45", "1.0");
         stringToFloatTest(strList);
     }
 
@@ -116,7 +116,7 @@ public class WriteFloatTest {
 
     @Test
     @Tag("exhaustive")
-    @Timeout(value = 1, unit = TimeUnit.HOURS)
+    @Timeout(value = 10, unit = TimeUnit.MINUTES)
     public void writeAllFloatTest() {
         final int SEGMENT_SIZE = 10000;
         final int BATCH_SIZE = 100;

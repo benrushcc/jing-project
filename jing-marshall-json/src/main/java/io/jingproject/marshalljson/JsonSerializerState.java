@@ -11,6 +11,9 @@ import java.util.Map;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+/**
+ *  state holder for a serialization run, managing a stack of {@link JsonSerializerNode} instances.
+ */
 public final class JsonSerializerState {
     public static final int INITIAL_SIZE = 4;
     public static final int MAX_SIZE = 4096;
@@ -19,14 +22,17 @@ public final class JsonSerializerState {
     private JsonSerializerNode[] nodes;
 
     public JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer) {
+        assert option != null && writeBuffer != null;
         this.option = option;
         this.writeBuffer = writeBuffer;
     }
 
+    /**
+     * initializes the state for serializing a single marshallable object.
+     * @param instance instance the object to serialize (must be marshallable)
+     */
     public void initMarshallableObject(Object instance) {
-        if(instance == null) {
-            throw new JsonSerializerException("marshallable object cannot be null");
-        }
+        assert instance != null;
         Class<?> type = instance.getClass();
         MarshallFacade fc = Marshalls.getMarshallFacade(type);
         if(fc == null) {
@@ -41,10 +47,12 @@ public final class JsonSerializerState {
         JsonSerializeUtil.serializeObjStart(writeBuffer);
     }
 
+    /**
+     * initializes the state for serializing an array of objects.
+     * @param arr the array to serialize (multi‑dimensional or generic arrays are not supported)
+     */
     public void initArray(Object[] arr) {
-        if(arr == null) {
-            throw new JsonSerializerException("null array");
-        }
+        assert arr != null;
         Class<?> componentType = arr.getClass().getComponentType();
         if(componentType.isArray()) {
             throw new JsonSerializerException("multi dimensional array not supported : " + componentType.getName());
@@ -61,13 +69,13 @@ public final class JsonSerializerState {
         JsonSerializeUtil.serializeArrayStart(writeBuffer);
     }
 
+    /**
+     * initializes the state for serializing a collection.
+     * @param collection the collection to serialize
+     * @param elementType the runtime element type (must be concrete, not generic)
+     */
     public <T> void initCol(Collection<T> collection, Class<T> elementType) {
-        if(collection == null) {
-            throw new JsonSerializerException("null collection");
-        }
-        if(elementType == null) {
-            throw new JsonSerializerException("null elementClass");
-        }
+        assert collection != null && elementType != null;
         if(elementType.getTypeParameters().length > 0) {
             throw new JsonSerializerException("generic collection not supported : " + elementType.getName());
         }
@@ -86,16 +94,15 @@ public final class JsonSerializerState {
         JsonSerializeUtil.serializeArrayStart(writeBuffer);
     }
 
+    /**
+     * initializes the state for serializing a map.
+     *
+     * @param map the map to serialize
+     * @param keyType the key type (must be String.class or CharSequence.class)
+     * @param valueType the value type (must be concrete, not generic)
+     */
     public <K, V> void initMap(Map<K, V> map, Class<K> keyType, Class<V> valueType) {
-        if(map == null) {
-            throw new JsonSerializerException("null map");
-        }
-        if(keyType == null) {
-            throw new JsonSerializerException("null keyType");
-        }
-        if(valueType == null) {
-            throw new JsonSerializerException("null valueType");
-        }
+        assert map != null && keyType != null && valueType != null;
         if(keyType != CharSequence.class && keyType != String.class) {
             throw new JsonSerializerException("key type not supported: " + keyType.getName());
         }
@@ -111,6 +118,16 @@ public final class JsonSerializerState {
         JsonSerializeUtil.serializeObjStart(writeBuffer);
     }
 
+    /**
+     * obtains a node from a pool, reusing an existing compatible node when possible, or creates a new one.
+     * <p>
+     * the usage pattern of node types is fairly consistent: once a particular type is needed at a certain depth,
+     * it tends to be reused again later, and nested structures require high‑frequency node allocation.
+     * however, the overall nesting depth is limited, so we keep a pool and perform a linear search
+     * for a reusable node (matching the given filter), then swap it to the target position.
+     * this approach reduces allocation pressure while maintaining good performance.
+     * </p>
+     */
     private JsonSerializerNode newNode(final int cur, Supplier<JsonSerializerNode> sup, Predicate<JsonSerializerNode> filter) {
         final JsonSerializerNode[] nds = this.nodes;
         int i = cur;
@@ -155,8 +172,16 @@ public final class JsonSerializerState {
         return r;
     }
 
+    /**
+     * drives the serialization process.
+     * <p>
+     * this method repeatedly processes the current top node and handles the returned
+     * result by either finishing the current level, or pushing a new child node onto the stack.
+     * the loop terminates when the stack becomes empty.
+     * </p>
+     */
     public void process() {
-        JsonSerializerContext context = new JsonSerializerContext();
+        final JsonSerializerContext context = new JsonSerializerContext();
         int cur = 0;
         for( ; ; ) {
             JsonSerializerNode n = nodes[cur];

@@ -12,11 +12,8 @@ public final class JsonSerializerContext {
     private Class<?> firstType;
     private Class<?> secondType;
 
-    public char[] charBuffer(int len, int min, int max) {
-        assert len > 0 && min > 1 && max > min && max <= (Integer.MAX_VALUE >> 1);
-        if(len < min || len > max) {
-            return null;
-        }
+    public char[] charBuffer(int len) {
+        assert len > 0;
         if(charBuffer == null || charBuffer.length < len) {
             charBuffer = new char[Integer.highestOneBit(len - 1) << 1]; // no overflow
         }

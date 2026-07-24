@@ -128,7 +128,7 @@ public final class DualLock<T extends Record> {
                 if (currentThread == t) {
                     // Could be spurious wakeup
                     LockSupport.park(this);
-                } else if (spin-- > 0) {
+                } else if (spinCount > 0 && spin-- > 0) {
                     Thread.onSpinWait();
                 } else {
                     if (handle.compareAndSet(this, current, currentThread)) {

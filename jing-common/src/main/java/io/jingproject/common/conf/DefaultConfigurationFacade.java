@@ -35,7 +35,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
                     .getContextClassLoader()
                     .getResourceAsStream(fullName);
             if (rawStream == null) {
-                continue;
+                continue ;
             }
             try (InputStream stream = new BufferedInputStream(rawStream)) {
                 r = switch (ext) {
@@ -44,7 +44,7 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
                     case "properties" -> new PropertiesCfgReader(stream).parse();
                     default -> throw new AssertionError();
                 };
-                break;
+                break ;
             } catch (IOException e) {
                 throw new ExceptionInInitializerError(e);
             }

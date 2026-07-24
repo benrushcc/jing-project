@@ -15,7 +15,7 @@ public final class JsonDeserializerDummyObjNode extends JsonDeserializerNode {
             assert v == JsonDeserializeUtil.dummyValue(); // dummy node could only receive dummy value
             byte firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
             if(firstByte == (byte) '}') {
-                return JsonDeserializeResult.DUMMY_FINISH;
+                return JsonDeserializeResult.DummyFinish;
             } else if(firstByte != (byte) ',') {
                 throw new JsonDeserializerException("illegal value end, got : " + firstByte);
             }
@@ -34,10 +34,10 @@ public final class JsonDeserializerDummyObjNode extends JsonDeserializerNode {
                     i++;
                 } else if(firstByte == (byte) '{') {
                     index = i + 1;
-                    return JsonDeserializeResult.DUMMY_OBJ;
+                    return JsonDeserializeResult.NewDummyObj;
                 } else if(firstByte == (byte) '[') {
                     index = i + 1;
-                    return JsonDeserializeResult.DUMMY_ARR;
+                    return JsonDeserializeResult.NewDummyArr;
                 } else {
                     throw new JsonDeserializerException("illegal value start, got : " + firstByte);
                 }

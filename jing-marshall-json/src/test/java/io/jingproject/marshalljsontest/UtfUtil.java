@@ -132,7 +132,8 @@ public final class UtfUtil {
                 throw new AssertionError("invalid utf-8 input");
             }
         }
-        System.out.println("UTF-8 byte sequence statistics:");
+        System.out.println("UTF-8 total bytes : " + utf8Bytes.length);
+        System.out.println("UTF-8 byte sequence statistics: ");
         System.out.println("1-byte characters: " + count1);
         System.out.println("escape characters: " + countEscape);
         System.out.println("2-byte characters: " + count2);

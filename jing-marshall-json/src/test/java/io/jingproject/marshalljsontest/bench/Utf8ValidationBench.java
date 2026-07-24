@@ -1,7 +1,6 @@
 package io.jingproject.marshalljsontest.bench;
 
-import com.google.common.base.Utf8;
-import io.jingproject.marshalljson.JsonDeserializeUtil;
+import io.jingproject.marshalljson.Utf8Validator;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
@@ -100,19 +99,19 @@ public class Utf8ValidationBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH)
-    public void testGuavaAsciiValidation(Blackhole blackhole) {
+    public void testScalarAsciiValidation(Blackhole blackhole) {
         for (int i = 0; i < BATCH; i++) {
             byte[] data = asciiList.get(i);
-            blackhole.consume(Utf8.isWellFormed(data, 0, data.length));
+            blackhole.consume(Utf8Validator.scalarValidate(data, 0, data.length));
         }
     }
 
     @Benchmark
     @OperationsPerInvocation(BATCH)
-    public void testGuavaUtfValidation(Blackhole blackhole) {
+    public void testScalarUtfValidation(Blackhole blackhole) {
         for (int i = 0; i < BATCH; i++) {
             byte[] data = utfList.get(i);
-            blackhole.consume(Utf8.isWellFormed(data, 0, data.length));
+            blackhole.consume(Utf8Validator.scalarValidate(data, 0, data.length));
         }
     }
 
@@ -121,7 +120,7 @@ public class Utf8ValidationBench {
     public void testVecAsciiValidation(Blackhole blackhole) {
         for (int i = 0; i < BATCH; i++) {
             byte[] data = asciiList.get(i);
-            blackhole.consume(JsonDeserializeUtil.validateUtf8(data, 0, data.length));
+            blackhole.consume(Utf8Validator.validate(data, 0, data.length));
         }
     }
 
@@ -130,7 +129,7 @@ public class Utf8ValidationBench {
     public void testVecUtfValidation(Blackhole blackhole) {
         for (int i = 0; i < BATCH; i++) {
             byte[] data = utfList.get(i);
-            blackhole.consume(JsonDeserializeUtil.validateUtf8(data, 0, data.length));
+            blackhole.consume(Utf8Validator.validate(data, 0, data.length));
         }
     }
 

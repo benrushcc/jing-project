@@ -12,6 +12,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.lang.foreign.Arena;
 import java.nio.charset.StandardCharsets;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -22,24 +23,29 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 5, time = 4000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(3)
+@Fork(1)
 public class WriteFloatBench {
     private static final int BATCH_SIZE = 10000;
     private static final int BUFFER_SIZE = 32;
+    private Random random;
     private float[] floats;
     private double[] doubles;
+    private float[] intFloats;
+    private double[] longDoubles;
     private Arena arena;
     private HeapWriteBuffer heapWriteBuffer;
     private SegmentWriteBuffer segmentWriteBuffer;
 
     @Setup(Level.Iteration)
     public void setup() {
+        random = ThreadLocalRandom.current();
         floats = new float[BATCH_SIZE];
         doubles = new double[BATCH_SIZE];
+        intFloats = new float[BATCH_SIZE];
+        longDoubles = new double[BATCH_SIZE];
         arena = Arena.ofConfined();
         heapWriteBuffer = new HeapWriteBuffer(BUFFER_SIZE);
         segmentWriteBuffer = new SegmentWriteBuffer(arena, BUFFER_SIZE);
-        ThreadLocalRandom random = ThreadLocalRandom.current();
         for (int i = 0; i < BATCH_SIZE; ) {
             float f = Float.intBitsToFloat(random.nextInt());
             if (Float.isFinite(f)) {
@@ -54,15 +60,56 @@ public class WriteFloatBench {
                 i++;
             }
         }
+        for (int i = 0; i < BATCH_SIZE; ) {
+            float f = (float) random.nextInt();
+            if (Float.isFinite(f)) {
+                intFloats[i] = f;
+                i++;
+            }
+        }
+        for (int i = 0; i < BATCH_SIZE; ) {
+            double f = (double) random.nextLong();
+            if (Double.isFinite(f)) {
+                longDoubles[i] = f;
+                i++;
+            }
+        }
     }
 
     @TearDown(Level.Iteration)
     public void tearDown() {
+        random = null;
         floats = null;
         doubles = null;
+        intFloats = null;
+        longDoubles = null;
         arena.close();
         heapWriteBuffer = null;
         segmentWriteBuffer = null;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void baselineHeap(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            byte[] randBytes = new byte[8];
+            random.nextBytes(randBytes);
+            heapWriteBuffer.writeBytes(randBytes);
+            blackhole.consume(heapWriteBuffer);
+            heapWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void baselineSegment(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            byte[] randBytes = new byte[8];
+            random.nextBytes(randBytes);
+            segmentWriteBuffer.writeBytes(randBytes);
+            blackhole.consume(segmentWriteBuffer);
+            segmentWriteBuffer.reset();
+        }
     }
 
     @Benchmark
@@ -115,6 +162,54 @@ public class WriteFloatBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
+    public void jdkWriteHeapIntFloat(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            float f = intFloats[index];
+            byte[] bytes = Float.toString(f).getBytes(StandardCharsets.US_ASCII);
+            heapWriteBuffer.writeBytes(bytes);
+            blackhole.consume(heapWriteBuffer);
+            heapWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void jdkWriteSegmentIntFloat(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            float f = intFloats[index];
+            byte[] bytes = Float.toString(f).getBytes(StandardCharsets.US_ASCII);
+            segmentWriteBuffer.writeBytes(bytes);
+            blackhole.consume(segmentWriteBuffer);
+            segmentWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void jdkWriteHeapLongDouble(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            double f = longDoubles[index];
+            byte[] bytes = Double.toString(f).getBytes(StandardCharsets.US_ASCII);
+            heapWriteBuffer.writeBytes(bytes);
+            blackhole.consume(heapWriteBuffer);
+            heapWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void jdkWriteSegmentLongDouble(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            double f = longDoubles[index];
+            byte[] bytes = Double.toString(f).getBytes(StandardCharsets.US_ASCII);
+            segmentWriteBuffer.writeBytes(bytes);
+            blackhole.consume(segmentWriteBuffer);
+            segmentWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
     public void uscaleWriteHeapFloat(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             float f = floats[index];
@@ -151,6 +246,50 @@ public class WriteFloatBench {
     public void uscaleWriteSegmentDouble(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             double f = doubles[index];
+            JsonNumberUtil.writeDouble(f, segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer);
+            segmentWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void uscaleWriteHeapIntFloat(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            float f = intFloats[index];
+            JsonNumberUtil.writeFloat(f, heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer);
+            heapWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void uscaleWriteSegmentIntFloat(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            float f = intFloats[index];
+            JsonNumberUtil.writeFloat(f, segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer);
+            segmentWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void uscaleWriteHeapLongDouble(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            double f = longDoubles[index];
+            JsonNumberUtil.writeDouble(f, heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer);
+            heapWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void uscaleWriteSegmentLongDouble(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            double f = longDoubles[index];
             JsonNumberUtil.writeDouble(f, segmentWriteBuffer);
             blackhole.consume(segmentWriteBuffer);
             segmentWriteBuffer.reset();

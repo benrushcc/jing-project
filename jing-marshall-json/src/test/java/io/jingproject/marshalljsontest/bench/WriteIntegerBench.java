@@ -12,23 +12,25 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.lang.foreign.Arena;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 // This test compares the performance of writing integers to WriteBuffer using a manual implementation versus using JDK's built‑in String‑based conversion.
 // The comparison is not completely fair because the JDK approach creates intermediate String objects, adding overhead. So the results should be taken only as a rough reference.
 @BenchmarkMode(value = Mode.AverageTime)
-@Warmup(iterations = 2, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 3, time = 2000, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 3, time = 2000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 5, time = 4000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(3)
+@Fork(1)
 public class WriteIntegerBench {
     private static final int BUFFER_SIZE = 32;
     private static final int SMALL_SIZE = 8000;
     private static final int MEDIUM_SIZE = 1000;
     private static final int HUGE_SIZE = 1000;
     private static final int BATCH_SIZE = SMALL_SIZE + MEDIUM_SIZE + HUGE_SIZE;
+    private Random random;
     private int[] intNums;
     private long[] longNums;
     private Arena arena;
@@ -37,7 +39,7 @@ public class WriteIntegerBench {
 
     @Setup(Level.Iteration)
     public void setup() {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
+        random = ThreadLocalRandom.current();
         intNums = new int[BATCH_SIZE];
         longNums = new long[BATCH_SIZE];
         arena = Arena.ofConfined();
@@ -71,6 +73,7 @@ public class WriteIntegerBench {
 
     @TearDown(Level.Iteration)
     public void tearDown() {
+        random = null;
         intNums = null;
         longNums = null;
         arena.close();
@@ -80,11 +83,35 @@ public class WriteIntegerBench {
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
+    public void baselineHeap(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            byte[] randomBytes = new byte[4];
+            random.nextBytes(randomBytes);
+            heapWriteBuffer.writeBytes(randomBytes);
+            blackhole.consume(heapWriteBuffer.intPosition());
+            heapWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void baselineSegment(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            byte[] randomBytes = new byte[4];
+            random.nextBytes(randomBytes);
+            segmentWriteBuffer.writeBytes(randomBytes);
+            blackhole.consume(segmentWriteBuffer.longPosition());
+            segmentWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
     public void jdkWriteHeapInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeInt0(intNums[index], heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer.intPosition());
             heapWriteBuffer.reset();
-            blackhole.consume(heapWriteBuffer);
         }
     }
 
@@ -93,8 +120,8 @@ public class WriteIntegerBench {
     public void jdkWriteHeapLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeLong0(longNums[index], heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer.intPosition());
             heapWriteBuffer.reset();
-            blackhole.consume(heapWriteBuffer);
         }
     }
 
@@ -103,8 +130,8 @@ public class WriteIntegerBench {
     public void jdkWriteSegmentInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeInt0(intNums[index], segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer.longPosition());
             segmentWriteBuffer.reset();
-            blackhole.consume(segmentWriteBuffer);
         }
     }
 
@@ -113,8 +140,8 @@ public class WriteIntegerBench {
     public void jdkWriteSegmentLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeLong0(longNums[index], segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer.longPosition());
             segmentWriteBuffer.reset();
-            blackhole.consume(segmentWriteBuffer);
         }
     }
 
@@ -123,8 +150,8 @@ public class WriteIntegerBench {
     public void singleWriteHeapInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeInt1(intNums[index], heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer.intPosition());
             heapWriteBuffer.reset();
-            blackhole.consume(heapWriteBuffer);
         }
     }
 
@@ -133,8 +160,8 @@ public class WriteIntegerBench {
     public void singleWriteHeapLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeLong1(longNums[index], heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer.intPosition());
             heapWriteBuffer.reset();
-            blackhole.consume(heapWriteBuffer);
         }
     }
 
@@ -143,8 +170,8 @@ public class WriteIntegerBench {
     public void singleWriteSegmentInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeInt1(intNums[index], segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer.longPosition());
             segmentWriteBuffer.reset();
-            blackhole.consume(segmentWriteBuffer);
         }
     }
 
@@ -153,8 +180,8 @@ public class WriteIntegerBench {
     public void singleWriteSegmentLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeLong1(longNums[index], segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer.longPosition());
             segmentWriteBuffer.reset();
-            blackhole.consume(segmentWriteBuffer);
         }
     }
 
@@ -163,8 +190,8 @@ public class WriteIntegerBench {
     public void lutWriteHeapInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeInt2(intNums[index], heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer.intPosition());
             heapWriteBuffer.reset();
-            blackhole.consume(heapWriteBuffer);
         }
     }
 
@@ -173,8 +200,8 @@ public class WriteIntegerBench {
     public void lutWriteHeapLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeLong2(longNums[index], heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer.intPosition());
             heapWriteBuffer.reset();
-            blackhole.consume(heapWriteBuffer);
         }
     }
 
@@ -183,8 +210,8 @@ public class WriteIntegerBench {
     public void lutWriteSegmentInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeInt2(intNums[index], segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer.longPosition());
             segmentWriteBuffer.reset();
-            blackhole.consume(segmentWriteBuffer);
         }
     }
 
@@ -193,8 +220,8 @@ public class WriteIntegerBench {
     public void lutWriteSegmentLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeLong2(longNums[index], segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer.longPosition());
             segmentWriteBuffer.reset();
-            blackhole.consume(segmentWriteBuffer);
         }
     }
 
@@ -203,8 +230,8 @@ public class WriteIntegerBench {
     public void jsonWriteHeapInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             JsonNumberUtil.writeInt(intNums[index], heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer.intPosition());
             heapWriteBuffer.reset();
-            blackhole.consume(heapWriteBuffer);
         }
     }
 
@@ -213,8 +240,8 @@ public class WriteIntegerBench {
     public void jsonWriteHeapLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             JsonNumberUtil.writeLong(longNums[index], heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer.intPosition());
             heapWriteBuffer.reset();
-            blackhole.consume(heapWriteBuffer);
         }
     }
 
@@ -223,8 +250,8 @@ public class WriteIntegerBench {
     public void jsonWriteSegmentInt(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             JsonNumberUtil.writeInt(intNums[index], segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer.longPosition());
             segmentWriteBuffer.reset();
-            blackhole.consume(segmentWriteBuffer);
         }
     }
 
@@ -233,8 +260,8 @@ public class WriteIntegerBench {
     public void jsonWriteSegmentLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             JsonNumberUtil.writeLong(longNums[index], segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer.longPosition());
             segmentWriteBuffer.reset();
-            blackhole.consume(segmentWriteBuffer);
         }
     }
 

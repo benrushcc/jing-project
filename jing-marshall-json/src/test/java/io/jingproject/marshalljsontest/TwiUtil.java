@@ -13,21 +13,33 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
+// TODO remove
 public final class TwiUtil {
     private TwiUtil() {
         throw new UnsupportedOperationException("utility class");
     }
 
-    public static String load() {
-        try (InputStream rawStream = Thread.currentThread().getContextClassLoader().getResourceAsStream("twitter.json")) {
-            if (rawStream == null) {
+    public static String loadAsString() {
+        try (InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream("twitter.json")) {
+            if (stream == null) {
                 throw new AssertionError("twitter.json file not found from resources");
             }
-            try (InputStreamReader reader = new InputStreamReader(rawStream, StandardCharsets.UTF_8)) {
+            try (InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
                 return reader.readAllAsString();
             }
         } catch (IOException e) {
-            throw new AssertionError("Failed to load words.txt file from resources", e);
+            throw new AssertionError("Failed to load twitter.json file from resources", e);
+        }
+    }
+
+    public static byte[] loadAsBytes() {
+        try (InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream("twitter.json")) {
+            if (stream == null) {
+                throw new AssertionError("twitter.json file not found from resources");
+            }
+            return stream.readAllBytes();
+        } catch (IOException e) {
+            throw new AssertionError("Failed to load twitter.json file from resources", e);
         }
     }
 

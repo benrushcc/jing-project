@@ -17,15 +17,14 @@ public final class JsonDeserializerState {
     private JsonDeserializerNode[] nodes;
 
     public JsonDeserializerState(JsonDeserializerOption option, ReadBuffer readBuffer) {
+        assert option != null && readBuffer != null;
         this.option = option;
         this.readBuffer = readBuffer;
         this.context = new JsonDeserializerContext(option);
     }
 
     public void initMarshallableType(Class<?> marshallableType) {
-        if(marshallableType == null) {
-            throw new JsonDeserializerException("marshallable type cannot be null");
-        }
+        assert marshallableType != null;
         MarshallFacade fc = Marshalls.getMarshallFacade(marshallableType);
         if(fc == null) {
             throw new JsonDeserializerException("type not marshallable : " + marshallableType.getName());
@@ -86,7 +85,7 @@ public final class JsonDeserializerState {
     }
 
     public Object process() {
-        JsonDeserializerContext context = new JsonDeserializerContext();
+        final JsonDeserializerContext context = new JsonDeserializerContext(option);
         Object v = null;
         int cur = 0;
         for( ; ; ) {
@@ -94,14 +93,16 @@ public final class JsonDeserializerState {
             JsonDeserializeResult r = n.process(option, readBuffer, context, v);
             v = null;
             switch (r) {
-                case JsonDeserializeResult.JsonDeserializeContinue _ -> throw new AssertionError("continue should have been filtered");
-                case JsonDeserializeResult.JsonDeserializeFinished(Object result) -> {
+                case Continue -> throw new AssertionError("continue should have been filtered");
+                case Finish -> {
+                    Object result = context.obj();
                     if(--cur < 0) {
                         return result;
                     }
                     v = result;
                 }
-                case JsonDeserializeResult.JsonDeserializeNewMarshallable(Class<?> marshallableType) -> {
+                case NewMarshallable -> {
+                    Class<?> marshallableType = context.type();
                     MarshallFacade fc = Marshalls.getMarshallFacade(marshallableType);
                     if(fc == null) {
                         throw new JsonSerializerException("not marshallable : " + marshallableType.getName());

@@ -116,7 +116,7 @@ public final class Anchor {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             lock.lock();
             try {
-                for (LifeCycle lc : lcs) {
+                for (LifeCycle lc : lcs.reversed()) {
                     try {
                         lc.stop();
                     } catch (Throwable e) {

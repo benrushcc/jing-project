@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 @Fork(3)
 public class TwiSerializationBench {
     private static final int SIZE = 819200;
-    private static final Twi twi = TwiUtil.deserializeTwiUsingJackson(TwiUtil.load());
+    private static final Twi twi = TwiUtil.deserializeTwiUsingJackson(TwiUtil.loadAsString());
     private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
     private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);

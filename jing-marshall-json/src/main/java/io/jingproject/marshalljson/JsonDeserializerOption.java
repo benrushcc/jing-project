@@ -1,5 +1,6 @@
 package io.jingproject.marshalljson;
 
+import io.jingproject.common.Utils;
 import io.jingproject.marshall.MarshallTransformerFacade;
 import io.jingproject.marshall.Marshalls;
 
@@ -19,6 +20,8 @@ public final class JsonDeserializerOption {
     private static final int MAX_ARRAY_SIZE = Integer.parseInt(System.getProperty("jing.marshalljson.maxarraysize", "4000"));
     private static final int MIN_MAP_SIZE = 20;
     private static final int MAX_MAP_SIZE = Integer.parseInt(System.getProperty("jing.marshalljson.maxmapsize", "800"));
+    public static final int DEFAULT_BYTE_BUFFER_SIZE = 64;
+    public static final int DEFAULT_CHAR_BUFFER_SIZE = 128;
     private static final JsonDeserializerOption DEFAULT_OPTION = JsonDeserializerOption.builder().build();
 
     private final Map<Class<?>, MarshallTransformerFacade> tfcMap;
@@ -32,7 +35,8 @@ public final class JsonDeserializerOption {
     private final int maxDummyElements;
     private final int maxDummyArrayElements;
     private final int maxNestedSize;
-    private final int bufferSize;
+    private final int charBufferSize;
+    private final int byteBufferSize;
 
     static {
         if(MAX_EMPTY_SIZE <= MIN_EMPTY_SIZE) {
@@ -54,7 +58,7 @@ public final class JsonDeserializerOption {
 
     private JsonDeserializerOption(Map<Class<?>, MarshallTransformerFacade> tfcMap, boolean consumeAllBytes, boolean ensureAllFieldsPresent,
                                    int maxEmptyBytes, int maxNumberBytes, int maxStringBytes, int maxArrayElements, int maxMapElements,
-                                   int maxDummyElements, int maxDummyArrayElements, int maxNestedSize, int bufferSize) {
+                                   int maxDummyElements, int maxDummyArrayElements, int maxNestedSize, int charBufferSize, int byteBufferSize) {
         this.tfcMap = tfcMap;
         this.consumeAllBytes = consumeAllBytes;
         this.ensureAllFieldsPresent = ensureAllFieldsPresent;
@@ -66,7 +70,8 @@ public final class JsonDeserializerOption {
         this.maxDummyElements = maxDummyElements;
         this.maxDummyArrayElements = maxDummyArrayElements;
         this.maxNestedSize = maxNestedSize;
-        this.bufferSize = bufferSize;
+        this.charBufferSize = charBufferSize;
+        this.byteBufferSize = byteBufferSize;
     }
 
     public static JsonDeserializerOption defaultOption() {
@@ -123,8 +128,12 @@ public final class JsonDeserializerOption {
         return maxNestedSize;
     }
 
-    public int bufferSize() {
-        return bufferSize;
+    public int charBufferSize() {
+        return charBufferSize;
+    }
+
+    public int byteBufferSize() {
+        return byteBufferSize;
     }
 
     public static class Builder {
@@ -139,7 +148,8 @@ public final class JsonDeserializerOption {
         private int maxDummyElements = 4;
         private int maxDummyArrayElements = 4;
         private int maxNestedSize = 64;
-        private int bufferSize = JsonDeserializerContext.DEFAULT_BUFFER_SIZE;
+        private int charBufferSize = DEFAULT_CHAR_BUFFER_SIZE;
+        private int byteBufferSize = DEFAULT_BYTE_BUFFER_SIZE;
 
         public Builder registerTransformerClasses(Class<?>... transformers) {
             if(transformers == null || transformers.length == 0) {
@@ -242,11 +252,18 @@ public final class JsonDeserializerOption {
             return this;
         }
 
-        public void setBufferSize(int bufferSize) {
-            if(bufferSize < JsonDeserializerContext.DEFAULT_BUFFER_SIZE || bufferSize > MAX_STRING_SIZE) {
-                throw new IllegalArgumentException("bufferSize out of range : " + bufferSize);
+        public void setCharBufferSize(int charBufferSize) {
+            if(charBufferSize < DEFAULT_CHAR_BUFFER_SIZE || charBufferSize > MAX_STRING_SIZE) {
+                throw new IllegalArgumentException("charBufferSize out of range : " + charBufferSize);
             }
-            this.bufferSize = bufferSize;
+            this.charBufferSize = Utils.roundUp(charBufferSize, 64);
+        }
+
+        public void setByteBufferSize(int byteBufferSize) {
+            if(byteBufferSize < DEFAULT_BYTE_BUFFER_SIZE || byteBufferSize > MAX_STRING_SIZE) {
+                throw new IllegalArgumentException("byteBufferSize out of range : " + byteBufferSize);
+            }
+            this.byteBufferSize = Utils.roundUp(byteBufferSize, 64);
         }
 
         public JsonDeserializerOption build() {
@@ -256,7 +273,7 @@ public final class JsonDeserializerOption {
             }
             return new JsonDeserializerOption(Map.copyOf(transformerFacadeMap), consumeAllBytes, ensureAllFieldsPresent,
                     maxEmptyBytes, maxNumberBytes, maxStringBytes, maxArrayElements,
-                    maxMapElements, maxDummyElements, maxDummyArrayElements, maxNestedSize, bufferSize);
+                    maxMapElements, maxDummyElements, maxDummyArrayElements, maxNestedSize, charBufferSize, byteBufferSize);
         }
     }
 }

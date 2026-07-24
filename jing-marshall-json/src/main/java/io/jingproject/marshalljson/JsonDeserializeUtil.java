@@ -1,21 +1,55 @@
 package io.jingproject.marshalljson;
 
 import io.jingproject.common.*;
-import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.*;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Array;
+import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.Objects;
 
 // all deserialize* methods assume firstByte is already validated externally, and it's not null
 public final class JsonDeserializeUtil {
+    private static final VectorSpecies<Short> SHORT_SPECIES;
+    private static final VectorSpecies<Byte> BYTE_SPECIES;
     private static final int COMPACT_TRUE = Utils.compact(Utils.compact((byte) 't', (byte) 'r'), Utils.compact((byte) 'u', (byte) 'e'));
     private static final int COMPACT_ALSE = Utils.compact(Utils.compact((byte) 'a', (byte) 'l'), Utils.compact((byte) 's', (byte) 'e'));
     private static final int COMPACT_NULL = Utils.compact(Utils.compact((byte) 'n', (byte) 'u'), Utils.compact((byte) 'l', (byte) 'l'));
-    private static final int ARR_INITIAL_SIZE = 4;
+    private static final int OBJ_ARR_INITIAL_SIZE = 8;
     private static final Object DUMMY = new Object();
+
+    static {
+        try {
+            Class<Os> _ = MethodHandles.lookup().ensureInitialized(Os.class);
+        } catch (IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+        int vecSize = Integer.parseInt(System.getProperty("jing.marshalljson.deserialize.vecsize", "-1"));
+        if(vecSize < 0) {
+            vecSize = ShortVector.SPECIES_PREFERRED.vectorBitSize();
+        }
+        switch (vecSize) {
+            case 64 -> {
+                SHORT_SPECIES = ShortVector.SPECIES_64;
+                BYTE_SPECIES = ByteVector.SPECIES_64;
+            }
+            case 128 -> {
+                SHORT_SPECIES = ShortVector.SPECIES_128;
+                BYTE_SPECIES = ByteVector.SPECIES_128;
+            }
+            case 256 -> {
+                SHORT_SPECIES = ShortVector.SPECIES_256;
+                BYTE_SPECIES = ByteVector.SPECIES_256;
+            }
+            case 512 -> {
+                SHORT_SPECIES = ShortVector.SPECIES_512;
+                BYTE_SPECIES = ByteVector.SPECIES_512;
+            }
+            default -> throw new UnsupportedOperationException("unknown vector size : " + vecSize);
+        }
+    }
 
     private JsonDeserializeUtil() {
         throw new UnsupportedOperationException("utility class");
@@ -202,8 +236,8 @@ public final class JsonDeserializeUtil {
 
     public static char deserializeChar(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
         assert option != null && readBuffer != null && validateJsonStringStart(firstByte);
-        parseString(option, readBuffer, context,firstByte);
-        return context.asSingleChar();
+        parseStringIntoChars(option, readBuffer, context, firstByte);
+        return context.asChar();
     }
 
     public static int deserializeInt(ReadBuffer readBuffer, byte firstByte) {
@@ -226,26 +260,21 @@ public final class JsonDeserializeUtil {
         return JsonNumberUtil.readDouble(readBuffer, option.maxNumberBytes(), firstByte);
     }
 
-    public static byte[] deserializeByteArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
+    public static byte[] deserializeByteArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
         assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
         byte b = nextFirstValuableByte(option, readBuffer);
         if(b == ']') {
             return Utils.emptyByteArray();
         }
-        byte[] r = new byte[ARR_INITIAL_SIZE];
         for (int index = 0; index < option.maxArrayElements(); ) {
             if(!validateJsonNumberStart(b)) {
                 throw new JsonDeserializerException("not a number start : " + b);
             }
             byte v = deserializeByte(readBuffer, b);
-            if (index == r.length) {
-                int newLength = Math.min(r.length << 1, option.maxArrayElements()); // no overflow
-                r = Arrays.copyOf(r, newLength);
-            }
-            r[index++] = v;
+            context.appendByte(v);
             b = nextFirstValuableByte(option, readBuffer);
             if (b == ']') {
-                return index == r.length ? r : Arrays.copyOf(r, index); // no overflow
+                return context.asByteArray();
             } else if (b == ',') {
                 b = nextFirstValuableByte(option, readBuffer);
             } else {
@@ -255,26 +284,21 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
-    public static boolean[] deserializeBooleanArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
+    public static boolean[] deserializeBooleanArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
         assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
         byte b = nextFirstValuableByte(option, readBuffer);
         if (b == ']') {
             return Utils.emptyBooleanArray();
         }
-        boolean[] r = new boolean[ARR_INITIAL_SIZE];
         for (int index = 0; index < option.maxArrayElements(); ) {
             if(b != (byte) 't' && b != (byte) 'f') {
                 throw new JsonDeserializerException("not a bool start : " + b);
             }
             boolean v = deserializeBoolean(readBuffer, b);
-            if (index == r.length) {
-                int newLength = Math.min(r.length << 1, option.maxArrayElements());
-                r = Arrays.copyOf(r, newLength);
-            }
-            r[index++] = v;
+            context.appendByte(v ? Byte.MAX_VALUE : Byte.MIN_VALUE);
             b = nextFirstValuableByte(option, readBuffer);
             if (b == ']') {
-                return Arrays.copyOf(r, index);
+                return context.asBooleanArray();
             } else if (b == ',') {
                 b = nextFirstValuableByte(option, readBuffer);
             } else {
@@ -284,26 +308,21 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
-    public static short[] deserializeShortArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
+    public static short[] deserializeShortArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
         assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
         byte b = nextFirstValuableByte(option, readBuffer);
         if (b == ']') {
             return Utils.emptyShortArray();
         }
-        short[] r = new short[ARR_INITIAL_SIZE];
         for (int index = 0; index < option.maxArrayElements(); ) {
             if(!validateJsonNumberStart(b)) {
                 throw new JsonDeserializerException("not a number start : " + b);
             }
             short v = deserializeShort(readBuffer, b);
-            if (index == r.length) {
-                int newLength = Math.min(r.length << 1, option.maxArrayElements());
-                r = Arrays.copyOf(r, newLength);
-            }
-            r[index++] = v;
+            context.appendShort(v);
             b = nextFirstValuableByte(option, readBuffer);
             if (b == ']') {
-                return Arrays.copyOf(r, index);
+                return context.asShortArray();
             } else if (b == ',') {
                 b = nextFirstValuableByte(option, readBuffer);
             } else {
@@ -319,20 +338,15 @@ public final class JsonDeserializeUtil {
         if (b == ']') {
             return Utils.emptyCharArray();
         }
-        char[] r = new char[ARR_INITIAL_SIZE];
         for (int index = 0; index < option.maxArrayElements(); ) {
             if(b != (byte) '"') {
                 throw new JsonDeserializerException("not a string start : " + b);
             }
             char v = deserializeChar(option, readBuffer, context, b);
-            if (index == r.length) {
-                int newLength = Math.min(r.length << 1, option.maxArrayElements());
-                r = Arrays.copyOf(r, newLength);
-            }
-            r[index++] = v;
+            context.appendChar(v);
             b = nextFirstValuableByte(option, readBuffer);
             if (b == ']') {
-                return Arrays.copyOf(r, index);
+                return context.asCharArray();
             } else if (b == ',') {
                 b = nextFirstValuableByte(option, readBuffer);
             } else {
@@ -342,26 +356,21 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
-    public static int[] deserializeIntArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
+    public static int[] deserializeIntArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
         assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
         byte b = nextFirstValuableByte(option, readBuffer);
         if (b == ']') {
             return Utils.emptyIntArray();
         }
-        int[] r = new int[ARR_INITIAL_SIZE];
         for (int index = 0; index < option.maxArrayElements(); ) {
             if(!validateJsonNumberStart(b)) {
                 throw new JsonDeserializerException("not a number start : " + b);
             }
             int v = deserializeInt(readBuffer, b);
-            if (index == r.length) {
-                int newLength = Math.min(r.length << 1, option.maxArrayElements());
-                r = Arrays.copyOf(r, newLength);
-            }
-            r[index++] = v;
+            context.appendInt(v);
             b = nextFirstValuableByte(option, readBuffer);
             if (b == ']') {
-                return Arrays.copyOf(r, index);
+                return context.asIntArray();
             } else if (b == ',') {
                 b = nextFirstValuableByte(option, readBuffer);
             } else {
@@ -371,26 +380,21 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
-    public static long[] deserializeLongArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
+    public static long[] deserializeLongArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
         assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
         byte b = nextFirstValuableByte(option, readBuffer);
         if (b == ']') {
             return Utils.emptyLongArray();
         }
-        long[] r = new long[ARR_INITIAL_SIZE];
         for (int index = 0; index < option.maxArrayElements(); ) {
             if(!validateJsonNumberStart(b)) {
                 throw new JsonDeserializerException("not a number start : " + b);
             }
             long v = deserializeLong(readBuffer, b);
-            if (index == r.length) {
-                int newLength = Math.min(r.length << 1, option.maxArrayElements());
-                r = Arrays.copyOf(r, newLength);
-            }
-            r[index++] = v;
+            context.appendLong(v);
             b = nextFirstValuableByte(option, readBuffer);
             if (b == ']') {
-                return Arrays.copyOf(r, index);
+                return context.asLongArray();
             } else if (b == ',') {
                 b = nextFirstValuableByte(option, readBuffer);
             } else {
@@ -400,26 +404,21 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
-    public static float[] deserializeFloatArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
+    public static float[] deserializeFloatArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
         assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
         byte b = nextFirstValuableByte(option, readBuffer);
         if (b == ']') {
             return Utils.emptyFloatArray();
         }
-        float[] r = new float[ARR_INITIAL_SIZE];
         for (int index = 0; index < option.maxArrayElements(); ) {
             if(!validateJsonNumberStart(b)) {
                 throw new JsonDeserializerException("not a number start : " + b);
             }
             float v = deserializeFloat(option, readBuffer, b);
-            if (index == r.length) {
-                int newLength = Math.min(r.length << 1, option.maxArrayElements());
-                r = Arrays.copyOf(r, newLength);
-            }
-            r[index++] = v;
+            context.appendFloat(v);
             b = nextFirstValuableByte(option, readBuffer);
             if (b == ']') {
-                return Arrays.copyOf(r, index);
+                return context.asFloatArray();
             } else if (b == ',') {
                 b = nextFirstValuableByte(option, readBuffer);
             } else {
@@ -429,26 +428,21 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
-    public static double[] deserializeDoubleArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
+    public static double[] deserializeDoubleArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
         assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
         byte b = nextFirstValuableByte(option, readBuffer);
         if (b == ']') {
             return Utils.emptyDoubleArray();
         }
-        double[] r = new double[ARR_INITIAL_SIZE];
         for (int index = 0; index < option.maxArrayElements(); ) {
             if(!validateJsonNumberStart(b)) {
                 throw new JsonDeserializerException("not a number start : " + b);
             }
             double v = deserializeDouble(option, readBuffer, b);
-            if (index == r.length) {
-                int newLength = Math.min(r.length << 1, option.maxArrayElements());
-                r = Arrays.copyOf(r, newLength);
-            }
-            r[index++] = v;
+            context.appendDouble(v);
             b = nextFirstValuableByte(option, readBuffer);
             if (b == ']') {
-                return Arrays.copyOf(r, index);
+                return context.asDoubleArray();
             } else if (b == ',') {
                 b = nextFirstValuableByte(option, readBuffer);
             } else {
@@ -471,7 +465,10 @@ public final class JsonDeserializeUtil {
         if(b == ']') {
             return (T[]) Utils.emptyObjectArray();
         }
-        T[] r = (T[]) Array.newInstance(componentType, ARR_INITIAL_SIZE);
+        T[] r = (T[]) context.objArr();
+        if(r == null) {
+            r = (T[]) Array.newInstance(componentType, OBJ_ARR_INITIAL_SIZE);
+        }
         for (int index = 0; index < option.maxArrayElements(); ) {
             T v = null;
             if(b == (byte) 'n') {
@@ -486,7 +483,8 @@ public final class JsonDeserializeUtil {
             r[index++] = v;
             b = nextFirstValuableByte(option, readBuffer);
             if (b == ']') {
-                return index == r.length ? r : Arrays.copyOf(r, index); // no overflow
+                context.setObjArr(r);
+                return Arrays.copyOf(r, index);
             } else if (b == ',') {
                 b = nextFirstValuableByte(option, readBuffer);
             } else {
@@ -586,8 +584,8 @@ public final class JsonDeserializeUtil {
 
     public static String deserializeString(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
         assert option != null && readBuffer != null && context != null && validateJsonStringStart(firstByte);
-        parseString(option, readBuffer, context, firstByte);
-        return context.asUtf8String();
+        parseStringIntoChars(option, readBuffer, context, firstByte);
+        return context.asString();
     }
 
     public static String[] deserializeStringArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
@@ -669,8 +667,8 @@ public final class JsonDeserializeUtil {
 
     public static JsonStrType deserializeJsonStrType(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
         assert option != null && readBuffer != null && context != null && validateJsonStringStart(firstByte);
-        parseString(option, readBuffer, context, firstByte);
-        return new JsonStrType(context.asUtf8String());
+        parseStringIntoChars(option, readBuffer, context, firstByte);
+        return new JsonStrType(context.asString());
     }
 
     public static JsonStrType[] deserializeJsonStrTypeArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
@@ -684,145 +682,431 @@ public final class JsonDeserializeUtil {
                 });
     }
 
-    public static void parseString(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
+    public static void parseStringIntoChars(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
         assert option != null && readBuffer != null && context != null && validateJsonStringStart(firstByte);
         switch (readBuffer) {
-            case HeapReadBuffer heapReadBuffer -> parseHeapString(option, heapReadBuffer, context);
-            case SegmentReadBuffer segmentReadBuffer -> parseSegmentString(option, segmentReadBuffer, context);
+            case HeapReadBuffer heapReadBuffer -> parseHeapStringIntoChars(option, heapReadBuffer, context);
+            case SegmentReadBuffer segmentReadBuffer -> parseSegmentStringIntoChars(option, segmentReadBuffer, context);
+            case null, default -> throw new AssertionError();
         }
     }
 
-    private static void parseHeapString(JsonDeserializerOption option, HeapReadBuffer heapReadBuffer, JsonDeserializerContext context) {
-        assert option != null && heapReadBuffer != null && context != null;
-        byte[] bytes = heapReadBuffer.rawByteArray();
-        int position = heapReadBuffer.intPosition();
-        int end = position + Math.min(bytes.length - position, option.maxStringBytes());
-        int index = position, offset = position;
-        while (index < end) {
-            byte b = bytes[index++];
-            if(b == '\\') {
-                int len = index - offset - 1;
-                if(len > 0) {
-                    context.appendBytes(bytes, offset, len);
+    private static int parseNonEscapedHeapStringIntoChars(byte[] bytes, int position, int avail, JsonDeserializerContext context) {
+        assert bytes != null && position >= 0 && avail > 0 && context != null;
+        final char[] buf = context.chars();
+        final int upper = BYTE_SPECIES.loopBound(Math.min(avail, buf.length));
+        for(int i = 0; i < upper; i += BYTE_SPECIES.length(), position += BYTE_SPECIES.length()) {
+            ByteVector byteVector = ByteVector.fromArray(BYTE_SPECIES, bytes, position);
+            ShortVector part0 = (ShortVector) byteVector.convertShape(VectorOperators.B2S, SHORT_SPECIES, 0);
+            ShortVector part1 = (ShortVector) byteVector.convertShape(VectorOperators.B2S, SHORT_SPECIES, 1);
+            part0.intoCharArray(buf, i);
+            part1.intoCharArray(buf, i + SHORT_SPECIES.length()); // no overflow
+            long mask = byteVector.lt((byte) 0x20)
+                    .or(byteVector.eq((byte) '\\'))
+                    .or(byteVector.eq((byte) '"')).toLong();
+            if(mask != 0L) {
+                int range = Long.numberOfTrailingZeros(mask);
+                context.setCharsIndex(i + range); // no overflow
+                return position + range; // no overflow
+            }
+        }
+        context.setCharsIndex(upper);
+        return position;
+    }
+
+    private static int parseEscapedHeapStringIntoChars(byte[] bytes, int position, int end, JsonDeserializerContext context) {
+        byte b = bytes[position++];
+        switch (b) {
+            case '\"' -> context.appendChar('\"');
+            case '\\' -> context.appendChar('\\');
+            case '/' -> context.appendChar('/');
+            case 'b' -> context.appendChar('\b');
+            case 'f' -> context.appendChar('\f');
+            case 'n' -> context.appendChar('\n');
+            case 'r' -> context.appendChar('\r');
+            case 't' -> context.appendChar('\t');
+            case 'u' -> {
+                if(end - position < 4) {
+                    throw new JsonDeserializerException("illegal unicode");
                 }
-                if(index == end) {
-                    throw new JsonDeserializerException("illegal escape");
+                char c = parseUnicode(bytes, position);
+                position += 4;
+                if(c >= 0xDC00 && c <= 0xDFFF) {
+                    throw new JsonDeserializerException("illegal low surrogate : " + c);
                 }
-                b = bytes[index++];
-                switch (b) {
-                    case '\"' -> context.appendByte((byte) '\"');
-                    case '\\' -> context.appendByte((byte) '\\');
-                    case '/' -> context.appendByte((byte) '/');
-                    case 'b' -> context.appendByte((byte) '\b');
-                    case 'f' -> context.appendByte((byte) '\f');
-                    case 'n' -> context.appendByte((byte) '\n');
-                    case 'r' -> context.appendByte((byte) '\r');
-                    case 't' -> context.appendByte((byte) '\t');
-                    case 'u' -> {
-                        if(end - index < 4) {
-                            throw new JsonDeserializerException("illegal unicode");
-                        }
-                        int cp = parseUnicode(bytes, index);
-                        index += 4;
-                        if(!Character.isValidCodePoint(cp)) {
-                            throw new JsonDeserializerException("illegal unicode codepoint : " + cp);
-                        }
-                        if(cp >= 0xDC00 && cp <= 0xDFFF) {
-                            throw new JsonDeserializerException("illegal low surrogate : " + cp);
-                        }
-                        if(cp >= 0xD800 && cp <= 0xDBFF) {
-                            if(end - index < 6 || bytes[index] != '\\' || bytes[index + 1] != 'u') {
-                                throw new JsonDeserializerException("illegal high surrogate without low surrogate");
-                            }
-                            int lcp = parseUnicode(bytes, index + 2);
-                            index += 6;
-                            if(lcp < 0xDC00 || lcp > 0xDFFF) {
-                                throw new JsonDeserializerException("illegal low surrogate : " + lcp);
-                            }
-                            cp = ((cp - 0xD800) << 10) + (lcp - 0xDC00) + 0x10000;
-                        }
-                        context.appendutf8CodePoint(cp);
+                if(c >= 0xD800 && c <= 0xDBFF) {
+                    if(end - position < 6 || bytes[position] != '\\' || bytes[position + 1] != 'u') {
+                        throw new JsonDeserializerException("illegal high surrogate without low surrogate");
                     }
-                    default -> throw new JsonDeserializerException("illegal escaped byte : " + b);
+                    char c1 = parseUnicode(bytes, position + 2);
+                    position += 6;
+                    if(c1 < 0xDC00 || c1 > 0xDFFF) {
+                        throw new JsonDeserializerException("illegal low surrogate : " + c1);
+                    }
+                    context.appendChars(c, c1);
+                } else {
+                    context.appendChar(c);
                 }
-                offset = index;
-            } else if(b == '"') {
-                int len = index - offset - 1;
-                if(len > 0) {
-                    context.appendBytes(bytes, offset, len);
-                }
+            }
+            default -> throw new JsonDeserializerException("illegal escaped byte : " + b);
+        }
+        return position;
+    }
+
+    private static void parseHeapStringIntoChars(JsonDeserializerOption option, HeapReadBuffer heapReadBuffer, JsonDeserializerContext context) {
+        assert option != null && heapReadBuffer != null && context != null;
+        final byte[] bytes = heapReadBuffer.rawByteArray();
+        final int position = heapReadBuffer.intPosition();
+        final int avail = Math.min(bytes.length - position, option.maxStringBytes());
+        if(avail == 0) {
+            throw new JsonDeserializerException("no string avaliable");
+        }
+        if(bytes[position] == '"') {
+            heapReadBuffer.setPosition(position + 1);
+            return ;
+        }
+        int index = parseNonEscapedHeapStringIntoChars(bytes, position, avail, context);
+        final int end = position + avail;
+        while (index < end) {
+            char c = (char) (bytes[index++] & 0xFF);
+            if (c == '\\') {
+                index = parseEscapedHeapStringIntoChars(bytes, index, end, context);
+            } else if(c == '"') {
                 heapReadBuffer.setPosition(index);
                 return ;
-            } else if(b < (byte) 0x20){
-                throw new JsonDeserializerException("illegal unescaped byte : " + b);
+            } else if(c < 0x20) {
+                throw new JsonDeserializerException("illegal unescaped ascii control byte : " + c);
+            } else if(c < 0x80) {
+                context.appendChar(c);
+            } else if(c < 0xE0) {
+                char c1 = (char) (bytes[index++] & 0xFF);
+                context.appendChar((char) (((c & 0x1F) << 6) | (c1 & 0x3F)));
+            } else if(c < 0xF0) {
+                char c1 = (char) (bytes[index++] & 0xFF);
+                char c2 = (char) (bytes[index++] & 0xFF);
+                context.appendChar((char) (((c & 0x0F) << 12) | ((c1 & 0x3F) << 6) | (c2 & 0x3F)));
+            } else {
+                char c1 = (char) (bytes[index++] & 0xFF);
+                char c2 = (char) (bytes[index++] & 0xFF);
+                char c3 = (char) (bytes[index++] & 0xFF);
+                char high = (char) (0xD800 | ((c & 0x07) << 8) | ((c1 & 0x3F) << 2) | ((c2 & 0x30) >>> 4));
+                char low = (char) (0xDC00 | ((c2 & 0x0F) << 6) | (c3 & 0x3F));
+                context.appendChars(high, low);
             }
         }
         throw new JsonDeserializerException("illegal json string");
     }
 
-    private static void parseSegmentString(JsonDeserializerOption option, SegmentReadBuffer segmentReadBuffer, JsonDeserializerContext context) {
-        assert option != null && segmentReadBuffer != null && context != null;
-        MemorySegment segment = segmentReadBuffer.rawSegment();
-        long position = segmentReadBuffer.longPosition();
-        long end = position + Math.min(segment.byteSize() - position, option.maxStringBytes()); // no overflow
-        long index = position, offset = position;
-        while (index < end) {
-            byte b = SegmentAccess.getByte(segment, index++);
-            if(b == '\\') {
-                int len = Math.toIntExact(index - offset - 1L);
-                if(len > 0) {
-                    context.appendSegment(segment, offset, len);
+    private static long parseNonEscapedSegmentStringIntoChars(MemorySegment segment, long position, int avail, JsonDeserializerContext context) {
+        assert segment != null && position >= 0L && avail > 0L && context != null;
+        final char[] buf = context.chars();
+        final int upper = BYTE_SPECIES.loopBound(Math.min(avail, buf.length));
+        for(int i = 0; i < upper; i += BYTE_SPECIES.length(), position += BYTE_SPECIES.length()) {
+            ByteVector byteVector = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, position, ByteOrder.nativeOrder()); // byteOrder will be ignored
+            ShortVector part0 = (ShortVector) byteVector.convertShape(VectorOperators.B2S, SHORT_SPECIES, 0);
+            ShortVector part1 = (ShortVector) byteVector.convertShape(VectorOperators.B2S, SHORT_SPECIES, 1);
+            part0.intoCharArray(buf, i);
+            part1.intoCharArray(buf, i + SHORT_SPECIES.length()); // no overflow
+            long mask = byteVector.lt((byte) 0x20)
+                    .or(byteVector.eq((byte) '\\'))
+                    .or(byteVector.eq((byte) '"')).toLong();
+            if(mask != 0L) {
+                int range = Long.numberOfTrailingZeros(mask);
+                context.setCharsIndex(i + range); // no overflow
+                return position + range; // no overflow
+            }
+        }
+        context.setCharsIndex(upper);
+        return position;
+    }
+
+    private static long parseEscapedSegmentStringIntoChars(MemorySegment segment, long position, long end, JsonDeserializerContext context) {
+        byte b = SegmentAccess.getByte(segment, position++);
+        switch (b) {
+            case '\"' -> context.appendChar('\"');
+            case '\\' -> context.appendChar('\\');
+            case '/' -> context.appendChar('/');
+            case 'b' -> context.appendChar('\b');
+            case 'f' -> context.appendChar('\f');
+            case 'n' -> context.appendChar('\n');
+            case 'r' -> context.appendChar('\r');
+            case 't' -> context.appendChar('\t');
+            case 'u' -> {
+                if(end - position < 4) {
+                    throw new JsonDeserializerException("illegal unicode");
                 }
-                if(index == end) {
-                    throw new JsonDeserializerException("illegal escape");
+                char c = parseUnicode(segment, position);
+                position += 4;
+                if(c >= 0xDC00 && c <= 0xDFFF) {
+                    throw new JsonDeserializerException("illegal low surrogate : " + c);
                 }
-                b = SegmentAccess.getByte(segment, index++);
-                switch (b) {
-                    case '\"' -> context.appendByte((byte) '\"');
-                    case '\\' -> context.appendByte((byte) '\\');
-                    case '/' -> context.appendByte((byte) '/');
-                    case 'b' -> context.appendByte((byte) '\b');
-                    case 'f' -> context.appendByte((byte) '\f');
-                    case 'n' -> context.appendByte((byte) '\n');
-                    case 'r' -> context.appendByte((byte) '\r');
-                    case 't' -> context.appendByte((byte) '\t');
-                    case 'u' -> {
-                        if(end - index < 4L) {
-                            throw new JsonDeserializerException("illegal unicode");
-                        }
-                        int cp = parseUnicode(segment, index);
-                        index += 4L;
-                        if(!Character.isValidCodePoint(cp)) {
-                            throw new JsonDeserializerException("illegal unicode codepoint : " + cp);
-                        }
-                        if(cp >= 0xDC00 && cp <= 0xDFFF) {
-                            throw new JsonDeserializerException("illegal low surrogate : " + cp);
-                        }
-                        if(cp >= 0xD800 && cp <= 0xDBFF) {
-                            if(end - index < 6L || SegmentAccess.getByte(segment, index) != '\\' || SegmentAccess.getByte(segment, index + 1L) != 'u') {
-                                throw new JsonDeserializerException("illegal high surrogate without low surrogate");
-                            }
-                            int lcp = parseUnicode(segment, index + 2L);
-                            index += 6L;
-                            if(lcp < 0xDC00 || lcp > 0xDFFF) {
-                                throw new JsonDeserializerException("illegal low surrogate : " + lcp);
-                            }
-                            cp = ((cp - 0xD800) << 10) + (lcp - 0xDC00) + 0x10000;
-                        }
-                        context.appendutf8CodePoint(cp);
+                if(c >= 0xD800 && c <= 0xDBFF) {
+                    if(end - position < 6L || SegmentAccess.getByte(segment, position) != '\\' || SegmentAccess.getByte(segment, position + 1L) != 'u') {
+                        throw new JsonDeserializerException("illegal high surrogate without low surrogate");
                     }
-                    default -> throw new JsonDeserializerException("illegal escaped byte : " + b);
+                    char c1 = parseUnicode(segment, position + 2L);
+                    position += 6;
+                    if(c1 < 0xDC00 || c1 > 0xDFFF) {
+                        throw new JsonDeserializerException("illegal low surrogate : " + c1);
+                    }
+                    context.appendChars(c, c1);
+                } else {
+                    context.appendChar(c);
                 }
-                offset = index;
-            } else if(b == '"') {
-                int len = Math.toIntExact(index - offset - 1L);
-                if(len > 0) {
-                    context.appendSegment(segment, offset, len);
-                }
+            }
+            default -> throw new JsonDeserializerException("illegal escaped byte : " + b);
+        }
+        return position;
+    }
+
+    private static void parseSegmentStringIntoChars(JsonDeserializerOption option, SegmentReadBuffer segmentReadBuffer, JsonDeserializerContext context) {
+        assert option != null && segmentReadBuffer != null && context != null;
+        final MemorySegment segment = segmentReadBuffer.rawSegment();
+        final long position = segmentReadBuffer.longPosition();
+        final int avail = Math.min(Math.toIntExact(segment.byteSize() - position), option.maxStringBytes());
+        if(avail == 0) {
+            throw new JsonDeserializerException("no string avaliable");
+        }
+        if(SegmentAccess.getByte(segment, position) == '"') {
+            segmentReadBuffer.setPosition(position + 1L);
+            return ;
+        }
+        long index = parseNonEscapedSegmentStringIntoChars(segment, position, avail, context);
+        final long end = position + avail;
+        while (index < end) {
+            char c = (char) (SegmentAccess.getByte(segment, index++) & 0xFF);
+            if (c == '\\') {
+                index = parseEscapedSegmentStringIntoChars(segment, index, end, context);
+            } else if(c == '"') {
                 segmentReadBuffer.setPosition(index);
                 return ;
-            } else if(b < (byte) 0x20){
-                throw new JsonDeserializerException("illegal unescaped byte : " + b);
+            } else if(c < 0x20) {
+                throw new JsonDeserializerException("illegal unescaped ascii control byte : " + c);
+            } else if(c < 0x80) {
+                context.appendChar(c);
+            } else if(c < 0xE0) {
+                char c1 = (char) (SegmentAccess.getByte(segment, index++) & 0xFF);
+                context.appendChar((char) (((c & 0x1F) << 6) | (c1 & 0x3F)));
+            } else if(c < 0xF0) {
+                char c1 = (char) (SegmentAccess.getByte(segment, index++) & 0xFF);
+                char c2 = (char) (SegmentAccess.getByte(segment, index++) & 0xFF);
+                context.appendChar((char) (((c & 0x0F) << 12) | ((c1 & 0x3F) << 6) | (c2 & 0x3F)));
+            } else {
+                char c1 = (char) (SegmentAccess.getByte(segment, index++) & 0xFF);
+                char c2 = (char) (SegmentAccess.getByte(segment, index++) & 0xFF);
+                char c3 = (char) (SegmentAccess.getByte(segment, index++) & 0xFF);
+                char high = (char) (0xD800 | ((c & 0x07) << 8) | ((c1 & 0x3F) << 2) | ((c2 & 0x30) >>> 4));
+                char low = (char) (0xDC00 | ((c2 & 0x0F) << 6) | (c3 & 0x3F));
+                context.appendChars(high, low);
+            }
+        }
+        throw new JsonDeserializerException("illegal json string");
+    }
+
+    public static void parseStringIntoBytes(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
+        assert option != null && readBuffer != null && context != null && validateJsonStringStart(firstByte);
+        switch (readBuffer) {
+            case HeapReadBuffer heapReadBuffer -> parseHeapStringIntoBytes(option, heapReadBuffer, context);
+            case SegmentReadBuffer segmentReadBuffer -> parseSegmentStringIntoBytes(option, segmentReadBuffer, context);
+            case null, default -> throw new AssertionError();
+        }
+    }
+
+    private static int parseNonEscapedHeapStringIntoBytes(byte[] bytes, int position, int avail, JsonDeserializerContext context) {
+        assert bytes != null && position >= 0 && avail > 0 && context != null;
+        final byte[] buf = context.bytes();
+        final int upper = BYTE_SPECIES.loopBound(Math.min(avail, buf.length));
+        for(int i = 0; i < upper; i += BYTE_SPECIES.length(), position += BYTE_SPECIES.length()) {
+            ByteVector byteVector = ByteVector.fromArray(BYTE_SPECIES, bytes, position);
+            byteVector.intoArray(buf, i);
+            long mask = byteVector.compare(VectorOperators.ULT, (byte) 0x20)
+                    .or(byteVector.eq((byte) '\\'))
+                    .or(byteVector.eq((byte) '"')).toLong();
+            if(mask != 0L) {
+                int range = Long.numberOfTrailingZeros(mask);
+                context.setBytesIndex(i + range); // no overflow
+                return position + range; // no overflow
+            }
+        }
+        context.setBytesIndex(upper);
+        return position;
+    }
+
+    private static int parseEscapedHeapStringIntoBytes(byte[] bytes, int position, int end, JsonDeserializerContext context) {
+        byte b = bytes[position++];
+        switch (b) {
+            case '\"' -> context.appendByte((byte) '\"');
+            case '\\' -> context.appendByte((byte) '\\');
+            case '/' -> context.appendByte((byte) '/');
+            case 'b' -> context.appendByte((byte) '\b');
+            case 'f' -> context.appendByte((byte) '\f');
+            case 'n' -> context.appendByte((byte) '\n');
+            case 'r' -> context.appendByte((byte) '\r');
+            case 't' -> context.appendByte((byte) '\t');
+            case 'u' -> {
+                if(end - position < 4) {
+                    throw new JsonDeserializerException("illegal unicode");
+                }
+                char c = parseUnicode(bytes, position);
+                position += 4;
+                if(c >= 0xDC00 && c <= 0xDFFF) {
+                    throw new JsonDeserializerException("illegal low surrogate : " + c);
+                }
+                if(c >= 0xD800 && c <= 0xDBFF) {
+                    if(end - position < 6 || bytes[position] != '\\' || bytes[position + 1] != 'u') {
+                        throw new JsonDeserializerException("illegal high surrogate without low surrogate");
+                    }
+                    char c1 = parseUnicode(bytes, position + 2);
+                    position += 6;
+                    if(c1 < 0xDC00 || c1 > 0xDFFF) {
+                        throw new JsonDeserializerException("illegal low surrogate : " + c1);
+                    }
+                    context.appendSurr(c, c1);
+                } else {
+                    context.appendNonSurr(c);
+                }
+            }
+            default -> throw new JsonDeserializerException("illegal escaped byte : " + b);
+        }
+        return position;
+    }
+
+    private static void parseHeapStringIntoBytes(JsonDeserializerOption option, HeapReadBuffer heapReadBuffer, JsonDeserializerContext context) {
+        assert option != null && heapReadBuffer != null && context != null;
+        final byte[] bytes = heapReadBuffer.rawByteArray();
+        final int position = heapReadBuffer.intPosition();
+        final int avail = Math.min(bytes.length - position, option.maxStringBytes());
+        if(avail == 0) {
+            throw new JsonDeserializerException("no string avaliable");
+        }
+        if(bytes[position] == '"') {
+            heapReadBuffer.setPosition(position + 1);
+            return ;
+        }
+        int p1 = parseNonEscapedHeapStringIntoBytes(bytes, position, avail, context);
+        int p2 = p1;
+        final int end = position + avail;
+        while (p1 < end) {
+            byte b = bytes[p1++];
+            if(b == '\\') {
+                int len = p1 - p2 - 1;
+                if(len > 0) {
+                    context.appendBytes(bytes, p2, len);
+                }
+                if(p1 == end) {
+                    throw new JsonDeserializerException("illegal escape at end of string");
+                }
+                p1 = parseEscapedHeapStringIntoBytes(bytes, p1, end, context);
+                p2 = p1;
+            } else if(b == '"') {
+                int len = p1 - p2 - 1;
+                if(len > 0) {
+                    context.appendBytes(bytes, p2, len);
+                }
+                heapReadBuffer.setPosition(p1);
+                return ;
+            } else if(b >= (byte) 0 && b < (byte) 0x20) {
+                throw new JsonDeserializerException("illegal unescaped ascii control byte : " + b);
+            }
+        }
+        throw new JsonDeserializerException("illegal json string");
+    }
+
+    private static long parseNonEscapedSegmentStringToBytes(MemorySegment segment, long position, int avail, JsonDeserializerContext context) {
+        assert segment != null && position >= 0L && avail > 0 && context != null;
+        final byte[] buf = context.bytes();
+        final int upper = BYTE_SPECIES.loopBound(Math.min(avail, buf.length));
+        for(int i = 0; i < upper; i += BYTE_SPECIES.length(), position += BYTE_SPECIES.length()) {
+            ByteVector byteVector = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, position, ByteOrder.nativeOrder()); // byteOrder will be ignored
+            byteVector.intoArray(buf, i);
+            long mask = byteVector.compare(VectorOperators.ULT, (byte) 0x20)
+                    .or(byteVector.eq((byte) '\\'))
+                    .or(byteVector.eq((byte) '"')).toLong();
+            if(mask != 0L) {
+                int range = Long.numberOfTrailingZeros(mask);
+                context.setBytesIndex(i + range); // no overflow
+                return position + range; // no overflow
+            }
+        }
+        context.setBytesIndex(upper);
+        return position;
+    }
+
+    private static long parseEscapedSegmentSequenceToBytes(MemorySegment segment, long position, long end, JsonDeserializerContext context) {
+        byte b = SegmentAccess.getByte(segment, position++);
+        switch (b) {
+            case '\"' -> context.appendByte((byte) '\"');
+            case '\\' -> context.appendByte((byte) '\\');
+            case '/' -> context.appendByte((byte) '/');
+            case 'b' -> context.appendByte((byte) '\b');
+            case 'f' -> context.appendByte((byte) '\f');
+            case 'n' -> context.appendByte((byte) '\n');
+            case 'r' -> context.appendByte((byte) '\r');
+            case 't' -> context.appendByte((byte) '\t');
+            case 'u' -> {
+                if(end - position < 4) {
+                    throw new JsonDeserializerException("illegal unicode");
+                }
+                char c = parseUnicode(segment, position);
+                position += 4;
+                if(c >= 0xDC00 && c <= 0xDFFF) {
+                    throw new JsonDeserializerException("illegal low surrogate : " + c);
+                }
+                if(c >= 0xD800 && c <= 0xDBFF) {
+                    if(end - position < 6 || SegmentAccess.getByte(segment, position) != '\\' || SegmentAccess.getByte(segment, position + 1L) != 'u') {
+                        throw new JsonDeserializerException("illegal high surrogate without low surrogate");
+                    }
+                    char c1 = parseUnicode(segment, position + 2L);
+                    position += 6;
+                    if(c1 < 0xDC00 || c1 > 0xDFFF) {
+                        throw new JsonDeserializerException("illegal low surrogate : " + c1);
+                    }
+                    context.appendSurr(c, c1);
+                } else {
+                    context.appendNonSurr(c);
+                }
+            }
+            default -> throw new JsonDeserializerException("illegal escaped byte : " + b);
+        }
+        return position;
+    }
+
+    private static void parseSegmentStringIntoBytes(JsonDeserializerOption option, SegmentReadBuffer segmentReadBuffer, JsonDeserializerContext context) {
+        assert option != null && segmentReadBuffer != null && context != null;
+        final MemorySegment segment = segmentReadBuffer.rawSegment();
+        final long position = segmentReadBuffer.longPosition();
+        final int avail = Math.min(Math.toIntExact(segment.byteSize() - position), option.maxStringBytes());
+        if(avail == 0) {
+            throw new JsonDeserializerException("no string avaliable");
+        }
+        if(SegmentAccess.getByte(segment, position) == '"') {
+            segmentReadBuffer.setPosition(position + 1L);
+            return ;
+        }
+        long p1 = parseNonEscapedSegmentStringToBytes(segment, position, avail, context);
+        long p2 = p1;
+        final long end = position + avail; // no overflow
+        while (p1 < end) {
+            byte b = SegmentAccess.getByte(segment, p1++);
+            if(b == '\\') {
+                int len = Math.toIntExact(p1 - p2 - 1L);
+                if(len > 0) {
+                    context.appendSegment(segment, p2, len);
+                }
+                if(p1 == end) {
+                    throw new JsonDeserializerException("illegal escape at end of string");
+                }
+                p1 = parseEscapedSegmentSequenceToBytes(segment, p1, end, context);
+                p2 = p1;
+            } else if(b == '"') {
+                int len = Math.toIntExact(p1 - p2 - 1L);
+                if(len > 0) {
+                    context.appendSegment(segment, p2, len);
+                }
+                segmentReadBuffer.setPosition(p1);
+                return ;
+            } else if(b >= (byte) 0 && b < (byte) 0x20) {
+                throw new JsonDeserializerException("illegal unescaped ascii control byte : " + b);
             }
         }
         throw new JsonDeserializerException("illegal json string");
@@ -902,22 +1186,19 @@ public final class JsonDeserializeUtil {
                         if(len - i < 4) {
                             throw new JsonDeserializerException("illegal unicode");
                         }
-                        int cp = parseUnicode(readBuffer);
+                        char c = parseUnicode(readBuffer);
                         i += 4;
-                        if(!Character.isValidCodePoint(cp)) {
-                            throw new JsonDeserializerException("illegal unicode codepoint : " + cp);
+                        if(c >= 0xDC00 && c <= 0xDFFF) {
+                            throw new JsonDeserializerException("illegal low surrogate : " + c);
                         }
-                        if(cp >= 0xDC00 && cp <= 0xDFFF) {
-                            throw new JsonDeserializerException("illegal low surrogate : " + cp);
-                        }
-                        if(cp >= 0xD800 && cp <= 0xDBFF) {
+                        if(c >= 0xD800 && c <= 0xDBFF) {
                             if(len - i < 6 || readBuffer.readByte() != '\\' || readBuffer.readByte() != 'u') {
                                 throw new JsonDeserializerException("illegal high surrogate without low surrogate");
                             }
-                            int lcp = parseUnicode(readBuffer);
+                            char c1 = parseUnicode(readBuffer);
                             i += 6;
-                            if(lcp < 0xDC00 || lcp > 0xDFFF) {
-                                throw new JsonDeserializerException("illegal low surrogate : " + lcp);
+                            if(c1 < 0xDC00 || c1 > 0xDFFF) {
+                                throw new JsonDeserializerException("illegal low surrogate : " + c1);
                             }
                         }
                     }
@@ -946,28 +1227,31 @@ public final class JsonDeserializeUtil {
         return true;
     }
 
-    private static int parseUnicode(ReadBuffer readBuffer) {
+    private static char parseUnicode(ReadBuffer readBuffer) {
+        assert readBuffer != null;
         int i1 = parseHex(readBuffer.readByte()) << 12;
         int i2 = parseHex(readBuffer.readByte()) << 8;
         int i3 = parseHex(readBuffer.readByte()) << 4;
         int i4 = parseHex(readBuffer.readByte());
-        return i1 | i2 | i3 | i4;
+        return (char) (i1 | i2 | i3 | i4);
     }
 
-    private static int parseUnicode(byte[] bytes, int index) {
+    private static char parseUnicode(byte[] bytes, int index) {
+        assert bytes != null && index >= 0 && index <= bytes.length - 4;
         int i1 = parseHex(bytes[index]) << 12;
         int i2 = parseHex(bytes[index + 1]) << 8;
         int i3 = parseHex(bytes[index + 2]) << 4;
         int i4 = parseHex(bytes[index + 3]);
-        return i1 | i2 | i3 | i4;
+        return (char) (i1 | i2 | i3 | i4);
     }
 
-    private static int parseUnicode(MemorySegment segment, long index) {
+    private static char parseUnicode(MemorySegment segment, long index) {
+        assert segment != null && index >= 0L && index <= segment.byteSize() - 4L;
         int i1 = parseHex(SegmentAccess.getByte(segment, index)) << 12;
         int i2 = parseHex(SegmentAccess.getByte(segment, index + 1)) << 8;
         int i3 = parseHex(SegmentAccess.getByte(segment, index + 2)) << 4;
         int i4 = parseHex(SegmentAccess.getByte(segment, index + 3));
-        return i1 | i2 | i3 | i4;
+        return (char) (i1 | i2 | i3 | i4);
     }
 
     private static int parseHex(byte b) {
@@ -982,56 +1266,24 @@ public final class JsonDeserializeUtil {
         }
     }
 
-    // copied from guava, with vector optimization for ascii fast path
-    public static boolean validateUtf8(byte[] bytes, int offset, int length) {
-        Objects.checkFromIndexSize(offset, length, bytes.length);
-        int end = offset + length;
-        int upperBound = ByteVector.SPECIES_PREFERRED.loopBound(end);
-        for(; offset < upperBound; offset += ByteVector.SPECIES_PREFERRED.length()) {
-            ByteVector byteVector = ByteVector.fromArray(ByteVector.SPECIES_PREFERRED, bytes, offset);
-            long l = byteVector.lt((byte) 0).toLong();
-            if(l != 0) {
-                offset += Long.numberOfTrailingZeros(l);
-                break ;
-            }
-        }
-        int b1, b2;
-        for( ; ; ) {
-            do {
-                if (offset >= end) {
-                    return true;
-                }
-            } while ((b1 = bytes[offset++]) >= 0);
-            if (b1 < (byte) 0xE0) {
-                if (offset == end) {
-                    return false;
-                }
-                if (b1 < (byte) 0xC2 || bytes[offset++] > (byte) 0xBF) {
-                    return false;
-                }
-            } else if (b1 < (byte) 0xF0) {
-                if (offset + 1 >= end) {
-                    return false;
-                }
-                b2 = bytes[offset++];
-                if (b2 > (byte) 0xBF
-                        || (b1 == (byte) 0xE0 && b2 < (byte) 0xA0)
-                        || (b1 == (byte) 0xED && b2 >= (byte) 0xA0)
-                        || bytes[offset++] > (byte) 0xBF) {
-                    return false;
-                }
-            } else {
-                if (offset + 2 >= end) {
-                    return false;
-                }
-                b2 = bytes[offset++];
-                if (b2 > (byte) 0xBF
-                        || (((b1 << 28) + (b2 - (byte) 0x90)) >> 30) != 0
-                        || bytes[offset++] > (byte) 0xBF
-                        || bytes[offset++] > (byte) 0xBF) {
-                    return false;
+    public static void validateUtf8ReadBuffer(ReadBuffer readBuffer) {
+        assert readBuffer != null;
+        switch (readBuffer) {
+            case HeapReadBuffer heapReadBuffer -> {
+                byte[] bytes = heapReadBuffer.rawByteArray();
+                int position = heapReadBuffer.intPosition();
+                if(!Utf8Validator.validate(bytes, position, bytes.length)) {
+                    throw new JsonDeserializerException("illegal utf-8 encoded heap readBuffer");
                 }
             }
+            case SegmentReadBuffer segmentReadBuffer -> {
+                MemorySegment segment = segmentReadBuffer.rawSegment();
+                long position = segmentReadBuffer.longPosition();
+                if(!Utf8Validator.validate(segment, position, segment.byteSize())) {
+                    throw new JsonDeserializerException("illegal utf-8 encoded segment readBuffer");
+                }
+            }
+            case null, default -> throw new AssertionError();
         }
     }
 }

@@ -12,7 +12,7 @@ import java.util.List;
 @Tag("view-output")
 public class StringSerializationTest {
 
-    // setting jing.marshalljson.vecsize=128 to better evaluate the vectorization strategy
+    // setting jing.marshalljson.serialize.vecsize=128 to better evaluate the vectorization strategy
     @Test
     public void stringTest() {
         List<String> strs = List.of(
