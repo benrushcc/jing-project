@@ -17,14 +17,12 @@ import java.util.function.Supplier;
 public final class JsonSerializerState {
     public static final int INITIAL_SIZE = 4;
     public static final int MAX_SIZE = 4096;
-    private final JsonSerializerOption option;
-    private final WriteBuffer writeBuffer;
+    private final JsonSerializerContext context;
     private JsonSerializerNode[] nodes;
 
     public JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer) {
         assert option != null && writeBuffer != null;
-        this.option = option;
-        this.writeBuffer = writeBuffer;
+        this.context = new JsonSerializerContext(option, writeBuffer);
     }
 
     /**
@@ -47,7 +45,7 @@ public final class JsonSerializerState {
         JsonSerializerObjNode objNode = new JsonSerializerObjNode();
         objNode.init(fc, instance, 1);
         nodes[0] = objNode;
-        JsonSerializeUtil.serializeObjStart(writeBuffer);
+        context.writeBuffer().writeByte((byte) '{');
     }
 
     /**
@@ -67,9 +65,9 @@ public final class JsonSerializerState {
             nodes = new JsonSerializerNode[INITIAL_SIZE];
         }
         JsonSerializerArrNode arrNode = new JsonSerializerArrNode();
-        arrNode.init(option, arr, 1);
+        arrNode.init(arr, 1, context);
         nodes[0] = arrNode;
-        JsonSerializeUtil.serializeArrayStart(writeBuffer);
+        context.writeBuffer().writeByte((byte) '[');
     }
 
     /**
@@ -87,14 +85,14 @@ public final class JsonSerializerState {
         }
         if(collection instanceof List<T> list) {
             JsonSerializerListNode listNode = new JsonSerializerListNode();
-            listNode.init(option, list, elementType, 1);
+            listNode.init(list, elementType, 1, context);
             nodes[0] = listNode;
         } else {
             JsonSerializerColNode colNode = new JsonSerializerColNode();
-            colNode.init(option, collection.size(), collection.iterator(), elementType, 1);
+            colNode.init(collection.size(), collection.iterator(), elementType, 1, context);
             nodes[0] = colNode;
         }
-        JsonSerializeUtil.serializeArrayStart(writeBuffer);
+        context.writeBuffer().writeByte((byte) '[');
     }
 
     /**
@@ -116,9 +114,9 @@ public final class JsonSerializerState {
             nodes = new JsonSerializerNode[INITIAL_SIZE];
         }
         JsonSerializerMapNode mapNode = new JsonSerializerMapNode();
-        mapNode.init(option, map.size(), map.entrySet().iterator(), valueType, 1);
+        mapNode.init(map.size(), map.entrySet().iterator(), valueType, 1, context);
         nodes[0] = mapNode;
-        JsonSerializeUtil.serializeObjStart(writeBuffer);
+        context.writeBuffer().writeByte((byte) '{');
     }
 
     /**
@@ -132,7 +130,8 @@ public final class JsonSerializerState {
      * </p>
      */
     private JsonSerializerNode newNode(final int cur, Supplier<JsonSerializerNode> sup, Predicate<JsonSerializerNode> filter) {
-        final JsonSerializerNode[] nds = this.nodes;
+        final JsonSerializerOption option = context.option();
+        final JsonSerializerNode[] nds = nodes;
         int i = cur;
         for( ; i < nds.length; i++) {
             JsonSerializerNode n = nds[i];
@@ -184,11 +183,10 @@ public final class JsonSerializerState {
      * </p>
      */
     public void process() {
-        final JsonSerializerContext context = new JsonSerializerContext();
         int cur = 0;
         for( ; ; ) {
             JsonSerializerNode n = nodes[cur];
-            JsonSerializeResult r = n.process(option, writeBuffer, context);
+            JsonSerializeResult r = n.process(context);
             switch (r) {
                 case Continue -> throw new AssertionError("continue should have been filtered");
                 case Finished -> {
@@ -206,25 +204,25 @@ public final class JsonSerializerState {
                     }
                     JsonSerializerObjNode objNode = (JsonSerializerObjNode) newNode(++cur, JsonSerializerObjNode::new, o -> o instanceof JsonSerializerObjNode);
                     objNode.init(fc, marshallable, n.indent + 1); // no overflow
-                    JsonSerializeUtil.serializeObjStart(writeBuffer);
+                    context.writeBuffer().writeByte((byte) '{');
                 }
                 case NewArray -> {
                     Object[] arr = context.arr();
                     JsonSerializerArrNode arrNode = (JsonSerializerArrNode) newNode(++cur, JsonSerializerArrNode::new, o -> o instanceof JsonSerializerArrNode);
-                    arrNode.init(option, arr, n.indent + 1); // no overflow
-                    JsonSerializeUtil.serializeArrayStart(writeBuffer);
+                    arrNode.init(arr, n.indent + 1, context); // no overflow
+                    context.writeBuffer().writeByte((byte) '[');
                 }
                 case NewCollection -> {
                     Collection<?> col = context.col();
                     Class<?> elementType = context.firstType();
                     if(col instanceof List<?> list) {
                         JsonSerializerListNode listNode = (JsonSerializerListNode) newNode(++cur, JsonSerializerListNode::new, o -> o instanceof JsonSerializerListNode);
-                        listNode.init(option, list, elementType, n.indent + 1); // no overflow
+                        listNode.init(list, elementType, n.indent + 1, context); // no overflow
                     } else {
                         JsonSerializerColNode colNode = (JsonSerializerColNode) newNode(++cur, JsonSerializerColNode::new, o -> o instanceof JsonSerializerColNode);
-                        colNode.init(option, col.size(), col.iterator(), elementType, n.indent + 1); // no overflow
+                        colNode.init(col.size(), col.iterator(), elementType, n.indent + 1, context); // no overflow
                     }
-                    JsonSerializeUtil.serializeArrayStart(writeBuffer);
+                    context.writeBuffer().writeByte((byte) '[');
                 }
                 case NewMap -> {
                     Map<?, ?> map = context.map();
@@ -234,8 +232,8 @@ public final class JsonSerializerState {
                         throw new JsonSerializerException("unsupported key type : " + keyType.getName());
                     }
                     JsonSerializerMapNode mapNode = (JsonSerializerMapNode) newNode(++cur, JsonSerializerMapNode::new, o -> o instanceof JsonSerializerMapNode);
-                    mapNode.init(option, map.size(), map.entrySet().iterator(), valueType, n.indent + 1); // no overflow
-                    JsonSerializeUtil.serializeObjStart(writeBuffer);
+                    mapNode.init(map.size(), map.entrySet().iterator(), valueType, n.indent + 1, context); // no overflow
+                    context.writeBuffer().writeByte((byte) '{');
                 }
                 case null, default -> throw new AssertionError();
             }

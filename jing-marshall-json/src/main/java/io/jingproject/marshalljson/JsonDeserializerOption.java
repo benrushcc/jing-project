@@ -166,7 +166,7 @@ public final class JsonDeserializerOption {
                     throw new IllegalArgumentException("custom type already exists : " + customType.getName());
                 }
                 // primitive types are not supported in generics, array types are not supported in transformers, so we don't need to double-check them
-                if(JsonSerializeUtil.builtinSerializeObjFunc(customType) != null) {
+                if(JsonSerializerContext.builtinSerializeObjFunc(customType) != null) {
                     throw new IllegalArgumentException("cannot override builtin type : " + customType.getName());
                 }
                 Class<?> builtinType = tfc.builtinType();

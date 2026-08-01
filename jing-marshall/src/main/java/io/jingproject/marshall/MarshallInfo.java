@@ -14,7 +14,6 @@ public record MarshallInfo(
         byte[] fieldNameUtf8Bytes,
         String mappedName,
         byte[] mappedNameUtf8Bytes,
-        Enum<?> enumValue,
         byte type, // currently [0, 50] are used
         byte flags // currently  4 bits used
 ) {
@@ -40,7 +39,6 @@ public record MarshallInfo(
                         int index,
                         String fieldName,
                         String mappedName,
-                        Enum<?> enumValue,
                         boolean skipSerializing,
                         boolean skipDeserializing) {
         byte[] fieldNameUtf8Bytes = fieldName.getBytes(StandardCharsets.UTF_8);
@@ -48,7 +46,7 @@ public record MarshallInfo(
         byte type = MarshallUtil.makeType(rawType, firstGenericType, secondGenericType);
         byte flags = MarshallUtil.makeFlags(fieldNameUtf8Bytes, mappedNameUtf8Bytes, skipSerializing, skipDeserializing);
         this(rawType, firstGenericType, secondGenericType, index,
-                fieldName, fieldNameUtf8Bytes, mappedName, mappedNameUtf8Bytes, enumValue, type, flags);
+                fieldName, fieldNameUtf8Bytes, mappedName, mappedNameUtf8Bytes, type, flags);
     }
 
     public boolean fieldNameSimple() {

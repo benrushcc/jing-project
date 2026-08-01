@@ -69,7 +69,7 @@ public final class JsonSerializerOption {
                     throw new IllegalArgumentException("custom type already exists : " + customType.getName());
                 }
                 // primitive types are not supported in generics, array types are not supported in transformers, so we don't need to double-check them
-                if(JsonSerializeUtil.builtinSerializeObjFunc(customType) != null) {
+                if(JsonSerializerContext.builtinSerializeObjFunc(customType) != null) {
                     throw new IllegalArgumentException("cannot override builtin type : " + customType.getName());
                 }
                 Class<?> builtinType = tfc.builtinType();
@@ -104,8 +104,8 @@ public final class JsonSerializerOption {
 
         public JsonSerializerOption build() {
             Map<Class<?>, JsonSerializeFunc> funcMap = new HashMap<>();
-            transformerFacadeMap.forEach((k, v) -> funcMap.put(k, (_, w, c, o, _) -> {
-                JsonSerializeUtil.serializeJsonPrimitiveType((JsonPrimitiveType) v.toBuiltin(o), w, c);
+            transformerFacadeMap.forEach((k, v) -> funcMap.put(k, (o, _, c) -> {
+                c.serializeJsonPrimitiveType((JsonPrimitiveType) v.toBuiltin(o));
                 return JsonSerializeResult.Continue;
             }));
             return new JsonSerializerOption(Map.copyOf(funcMap), serializeNullInObjOrMap,

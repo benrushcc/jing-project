@@ -535,13 +535,14 @@ public final class MarshallProcessor extends AbstractProcessor {
         for (MarshallFieldInfo fieldInfo : info.fieldInfos()) {
             Element fieldElement = fieldInfo.fieldElement();
             String fieldRawClassName = facadeSource.registerRawFieldElement(fieldElement);
-            List<String> genericTypeLiterals = List.of();
-            String enumValue = null;
-            if (fieldInfo.typeElement().getKind() == ElementKind.ENUM) {
-                enumValue = facadeSource.register(fieldInfo.typeElement()) + "." + fieldInfo.fieldName();
-            } else {
-                genericTypeLiterals = getGenericTypeLiterals(facadeSource, fieldElement.asType());
-            }
+            List<String> genericTypeLiterals = getGenericTypeLiterals(facadeSource, fieldElement.asType());
+//            List<String> genericTypeLiterals = List.of();
+//            String enumValue = null;
+//            if (fieldInfo.typeElement().getKind() == ElementKind.ENUM) {
+//                enumValue = facadeSource.register(fieldInfo.typeElement()) + "." + fieldInfo.fieldName();
+//            } else {
+//                genericTypeLiterals = getGenericTypeLiterals(facadeSource, fieldElement.asType());
+//            }
             String marshallInfoParams = String.join(", ", List.of(
                     fieldRawClassName + ".class",
                     !genericTypeLiterals.isEmpty() ? genericTypeLiterals.get(0) + ".class" : "null",
@@ -549,7 +550,6 @@ public final class MarshallProcessor extends AbstractProcessor {
                     String.valueOf(fieldInfo.marshallIndex()),
                     AnnoUtil.escapeJavaStringLiteral(fieldInfo.fieldName(), builder),
                     AnnoUtil.escapeJavaStringLiteral(fieldInfo.mappedName(), builder),
-                    enumValue == null ? "null" : enumValue,
                     String.valueOf(fieldInfo.skipSerializing()),
                     String.valueOf(fieldInfo.skipDeserializing())
             ));

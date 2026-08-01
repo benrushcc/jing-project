@@ -10,17 +10,17 @@ public final class JsonSerializerMapNode extends JsonSerializerNode {
     private Iterator<? extends Map.Entry<?, ?>> iter;
     private JsonSerializeFunc func;
 
-    public void init(JsonSerializerOption option, int size, Iterator<? extends Map.Entry<?, ?>> iter, Class<?> valueType, int indent) {
+    public void init(int size, Iterator<? extends Map.Entry<?, ?>> iter, Class<?> valueType, int indent, JsonSerializerContext c) {
         this.size = size;
         this.iter = iter;
-        this.func = JsonSerializeUtil.valueSerializeFunc(option, valueType);
+        this.func = c.valueSerializeFunc(valueType);
         this.indent = indent;
         this.index = 0;
         this.written = false;
     }
 
     @Override
-    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer, JsonSerializerContext context) {
+    protected JsonSerializeResult process(JsonSerializerContext c) {
         for(int i = index; i < size; i++) {
             Map.Entry<?, ?> entry = iter.next();
             Object key = entry.getKey();
@@ -29,33 +29,33 @@ public final class JsonSerializerMapNode extends JsonSerializerNode {
             }
             Object value = entry.getValue();
             if(value == null) {
-                if(option.serializeNullInObjOrMap()) {
-                    serializeKey(option, writeBuffer, context, key);
-                    JsonSerializeUtil.serializeNull(writeBuffer);
+                if(c.option().serializeNullInObjOrMap()) {
+                    serializeKey(key, c);
+                    c.serializeNull();
                 }
                 continue ;
             }
-            serializeKey(option, writeBuffer, context, key);
-            JsonSerializeResult r = func.serialize(option, writeBuffer, context, value, indent);
+            serializeKey(key, c);
+            JsonSerializeResult r = func.serialize(value, indent, c);
             if(r == JsonSerializeResult.Continue) {
                 continue ;
             }
             index = i + 1;
             return r;
         }
-        JsonSerializeUtil.serializeObjEnd(writeBuffer);
+        c.writeBuffer().writeByte((byte) '}');
         return JsonSerializeResult.Finished;
     }
 
-    private void serializeKey(JsonSerializerOption option, WriteBuffer writeBuffer, JsonSerializerContext context, Object key) {
-        serializeSep(option, writeBuffer);
+    private void serializeKey(Object key, JsonSerializerContext c) {
+        serializeSep(c);
         if (key instanceof String str) {
-            JsonSerializeUtil.serializeEscapedString(str, writeBuffer, context);
+            c.serializeEscapedString(str);
         } else if(key instanceof CharSequence charSequence) {
-            JsonSerializeUtil.serializeEscapedCharSequence(charSequence, writeBuffer, context);
+            c.serializeEscapedCharSequence(charSequence);
         } else {
             throw new JsonSerializerException("unsupported json key : " + key);
         }
-        JsonSerializeUtil.serializeKvSep(writeBuffer);
+        c.writeBuffer().writeBytes((byte) ':', (byte) ' ');
     }
 }

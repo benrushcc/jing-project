@@ -1,6 +1,5 @@
 package io.jingproject.marshalljson;
 
-import io.jingproject.common.WriteBuffer;
 import io.jingproject.marshall.MarshallFacade;
 import io.jingproject.marshall.MarshallInfo;
 import io.jingproject.marshall.MarshallReader;
@@ -19,50 +18,49 @@ public final class JsonSerializerObjNode extends JsonSerializerNode {
     
     @FunctionalInterface
     interface JsonSerializerObjFunc {
-        JsonSerializeResult serialize(JsonSerializerOption option, WriteBuffer writeBuffer, JsonSerializerContext context, 
-                                      Object fieldValue, MarshallInfo marshallInfo, int indent);
+        JsonSerializeResult serialize(Object fieldValue, MarshallInfo marshallInfo, int indent, JsonSerializerContext context);
     }
 
     static {
         Map<Class<?>, JsonSerializerObjFunc> r = new HashMap<>();
-        r.put(JsonPrimitiveType.class, (_, w, c, fi, _, _) -> {
-            JsonSerializeUtil.serializeJsonPrimitiveType((JsonPrimitiveType) fi, w, c);
+        r.put(JsonPrimitiveType.class, (o, _, _, c) -> {
+            c.serializeJsonPrimitiveType((JsonPrimitiveType) o);
             return JsonSerializeResult.Continue;
         });
-        r.put(JsonBoolType.class, (_, w, _, fi, _, _) -> {
-            JsonSerializeUtil.serializeJsonBoolType((JsonBoolType) fi, w);
+        r.put(JsonBoolType.class, (o, _, _, c) -> {
+            c.serializeJsonBoolType((JsonBoolType) o);
             return JsonSerializeResult.Continue;
         });
-        r.put(JsonNumberType.class, (_, w, _, fi, _, _) -> {
-            JsonSerializeUtil.serializeJsonNumberType((JsonNumberType) fi, w);
+        r.put(JsonNumberType.class, (o, _, _, c) -> {
+            c.serializeJsonNumberType((JsonNumberType) o);
             return JsonSerializeResult.Continue;
         });
-        r.put(JsonStrType.class, (_, w, c, fi, _, _) -> {
-            JsonSerializeUtil.serializeJsonStrType((JsonStrType) fi, w, c);
+        r.put(JsonStrType.class, (o, _, _, c) -> {
+            c.serializeJsonStrType((JsonStrType) o);
             return JsonSerializeResult.Continue;
         });
-        r.put(CharSequence[].class, (op, w, c, fi, _, ind) -> {
-            JsonSerializeUtil.serializeEscapedCharSequenceArray((CharSequence[]) fi, ind, op.indentationLevel(), w, c);
+        r.put(CharSequence[].class, (o, _, i, c) -> {
+            c.serializeEscapedCharSequenceArray((CharSequence[]) o, i);
             return JsonSerializeResult.Continue;
         });
-        r.put(String[].class, (op, w, c, fi, _, ind) -> {
-            JsonSerializeUtil.serializeEscapedStringArray((String[]) fi, ind, op.indentationLevel(), w, c);
+        r.put(String[].class, (o, _, i, c) -> {
+            c.serializeEscapedStringArray((String[]) o, i);
             return JsonSerializeResult.Continue;
         });
-        r.put(JsonPrimitiveType[].class, (op, w, c, fi, _, ind) -> {
-            JsonSerializeUtil.serializeJsonPrimitiveTypeArray((JsonPrimitiveType[]) fi, ind, op.indentationLevel(), w, c);
+        r.put(JsonPrimitiveType[].class, (o, _, i, c) -> {
+            c.serializeJsonPrimitiveTypeArray((JsonPrimitiveType[]) o, i);
             return JsonSerializeResult.Continue;
         });
-        r.put(JsonBoolType[].class, (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeJsonBoolTypeArray((JsonBoolType[]) fi, ind, op.indentationLevel(), w);
+        r.put(JsonBoolType[].class, (o, _, i, c) -> {
+            c.serializeJsonBoolTypeArray((JsonBoolType[]) o, i);
             return JsonSerializeResult.Continue;
         });
-        r.put(JsonNumberType[].class, (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeJsonNumberTypeArray((JsonNumberType[]) fi, ind, op.indentationLevel(), w);
+        r.put(JsonNumberType[].class, (o, _, i, c) -> {
+            c.serializeJsonNumberTypeArray((JsonNumberType[]) o, i);
             return JsonSerializeResult.Continue;
         });
-        r.put(JsonStrType[].class, (op, w, c, fi, _, ind) -> {
-            JsonSerializeUtil.serializeJsonStrTypeArray((JsonStrType[]) fi, ind, op.indentationLevel(), w, c);
+        r.put(JsonStrType[].class, (o, _, i, c) -> {
+            c.serializeJsonStrTypeArray((JsonStrType[]) o, i);
             return JsonSerializeResult.Continue;
         });
         DIRECT_SERIALIZABLE_FUNC_MAP = Map.copyOf(r);
@@ -74,7 +72,7 @@ public final class JsonSerializerObjNode extends JsonSerializerNode {
     
     static {
         FUNC_TABLE = new JsonSerializerObjFunc[MarshallUtil.TYPE_SIZE];
-        JsonSerializerObjFunc defaultFunc = (op, w, c, fi, inf, ind) -> {
+        JsonSerializerObjFunc defaultFunc = (o, inf, i, c) -> {
             // exclude generic types
             if(inf.firstGenericType() != null || inf.secondGenericType() != null) {
                 throw new JsonSerializerException("unsupported generic type : " + inf);
@@ -83,154 +81,154 @@ public final class JsonSerializerObjNode extends JsonSerializerNode {
             Class<?> rawType = inf.rawType();
             JsonSerializerObjFunc directSerializableFunc = directSerializableFunc(rawType);
             if(directSerializableFunc != null) {
-                return directSerializableFunc.serialize(op, w, c, fi, inf, ind);
+                return directSerializableFunc.serialize(o, inf, i, c);
             }
             // check if current type could be override by option
-            JsonSerializeFunc customFunc = op.customFunc(rawType);
+            JsonSerializeFunc customFunc = c.option().customFunc(rawType);
             if(customFunc != null) {
-                customFunc.serialize(op, w, c, fi, ind);
+                customFunc.serialize(o, i, c);
                 return JsonSerializeResult.Continue;
             }
             // assuming marshallable
-            c.setObj(fi);
+            c.setObj(o);
             return JsonSerializeResult.NewMarshallable;
         };
         Arrays.fill(FUNC_TABLE, defaultFunc);
         // builtin supported wrapper types
-        FUNC_TABLE[MarshallUtil.BYTE_WRAPPER_TYPE] = (_, w, _, fi, _, _) -> {
-            JsonSerializeUtil.serializeByte((byte) fi, w);
+        FUNC_TABLE[MarshallUtil.BYTE_WRAPPER_TYPE] = (o, _, _, c) -> {
+            c.serializeByte((byte) o);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.BOOLEAN_WRAPPER_TYPE] = (_, w, _, fi, _, _) -> {
-            JsonSerializeUtil.serializeBoolean((boolean) fi, w);
+        FUNC_TABLE[MarshallUtil.BOOLEAN_WRAPPER_TYPE] = (o, _, _, c) -> {
+            c.serializeBoolean((boolean) o);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.SHORT_WRAPPER_TYPE] = (_, w, _, fi, _, _) -> {
-            JsonSerializeUtil.serializeShort((short) fi, w);
+        FUNC_TABLE[MarshallUtil.SHORT_WRAPPER_TYPE] = (o, _, _, c) -> {
+            c.serializeShort((short) o);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.CHAR_WRAPPER_TYPE] = (_, w, _, fi, _, _) -> {
-            JsonSerializeUtil.serializeChar((char) fi, w);
+        FUNC_TABLE[MarshallUtil.CHAR_WRAPPER_TYPE] = (o, _, _, c) -> {
+            c.serializeChar((char) o);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.INT_WRAPPER_TYPE] = (_, w, _, fi, _, _) -> {
-            JsonSerializeUtil.serializeInt((int) fi, w);
+        FUNC_TABLE[MarshallUtil.INT_WRAPPER_TYPE] = (o, _, _, c) -> {
+            c.serializeInt((int) o);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.LONG_WRAPPER_TYPE] = (_, w, _, fi, _, _) -> {
-            JsonSerializeUtil.serializeLong((long) fi, w);
+        FUNC_TABLE[MarshallUtil.LONG_WRAPPER_TYPE] = (o, _, _, c) -> {
+            c.serializeLong((long) o);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.FLOAT_WRAPPER_TYPE] = (_, w, _, fi, _, _) -> {
-            JsonSerializeUtil.serializeFloat((float) fi, w);
+        FUNC_TABLE[MarshallUtil.FLOAT_WRAPPER_TYPE] = (o, _, _, c) -> {
+            c.serializeFloat((float) o);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.DOUBLE_WRAPPER_TYPE] = (_, w, _, fi, _, _) -> {
-            JsonSerializeUtil.serializeDouble((double) fi, w);
+        FUNC_TABLE[MarshallUtil.DOUBLE_WRAPPER_TYPE] = (o, _, _, c) -> {
+            c.serializeDouble((double) o);
             return JsonSerializeResult.Continue;
         };
         // builtin supported primitive array types
-        FUNC_TABLE[MarshallUtil.BYTE_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeByteArray((byte[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.BYTE_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeByteArray((byte[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.BOOLEAN_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeBooleanArray((boolean[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.BOOLEAN_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeBooleanArray((boolean[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.SHORT_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeShortArray((short[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.SHORT_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeShortArray((short[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.CHAR_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeCharArray((char[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.CHAR_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeCharArray((char[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.INT_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeIntArray((int[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.INT_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeIntArray((int[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.LONG_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeLongArray((long[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.LONG_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeLongArray((long[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.FLOAT_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeFloatArray((float[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.FLOAT_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeFloatArray((float[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.DOUBLE_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeDoubleArray((double[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.DOUBLE_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeDoubleArray((double[]) o, i);
             return JsonSerializeResult.Continue;
         };
         // builtin supported wrapper array types
-        FUNC_TABLE[MarshallUtil.BYTE_WRAPPER_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeByteWrapperArray((Byte[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.BYTE_WRAPPER_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeByteWrapperArray((Byte[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.BOOLEAN_WRAPPER_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeBooleanWrapperArray((Boolean[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.BOOLEAN_WRAPPER_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeBooleanWrapperArray((Boolean[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.SHORT_WRAPPER_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeShortWrapperArray((Short[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.SHORT_WRAPPER_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeShortWrapperArray((Short[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.CHAR_WRAPPER_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeCharWrapperArray((Character[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.CHAR_WRAPPER_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeCharWrapperArray((Character[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.INT_WRAPPER_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeIntWrapperArray((Integer[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.INT_WRAPPER_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeIntWrapperArray((Integer[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.LONG_WRAPPER_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeLongWrapperArray((Long[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.LONG_WRAPPER_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeLongWrapperArray((Long[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.FLOAT_WRAPPER_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeFloatWrapperArray((Float[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.FLOAT_WRAPPER_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeFloatWrapperArray((Float[]) o, i);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.DOUBLE_WRAPPER_ARRAY_TYPE] = (op, w, _, fi, _, ind) -> {
-            JsonSerializeUtil.serializeDoubleWrapperArray((Double[]) fi, ind, op.indentationLevel(), w);
+        FUNC_TABLE[MarshallUtil.DOUBLE_WRAPPER_ARRAY_TYPE] = (o, _, i, c) -> {
+            c.serializeDoubleWrapperArray((Double[]) o, i);
             return JsonSerializeResult.Continue;
         };
         // charsequence and string
-        FUNC_TABLE[MarshallUtil.CHARSEQUENCE_TYPE] = (_, w, context, fi, _, _) -> {
-            JsonSerializeUtil.serializeEscapedCharSequence((CharSequence) fi, w, context);
+        FUNC_TABLE[MarshallUtil.CHARSEQUENCE_TYPE] = (o, _, _, c) -> {
+            c.serializeEscapedCharSequence((CharSequence) o);
             return JsonSerializeResult.Continue;
         };
-        FUNC_TABLE[MarshallUtil.STRING_TYPE] = (_, w, context, fi, _, _) -> {
-            JsonSerializeUtil.serializeEscapedString((String) fi, w, context);
+        FUNC_TABLE[MarshallUtil.STRING_TYPE] = (o, _, _, c) -> {
+            c.serializeEscapedString((String) o);
             return JsonSerializeResult.Continue;
         };
         // array
-        FUNC_TABLE[MarshallUtil.ARRAY_TYPE] = (_, _, context, fi, _, _) -> {
-            context.setArr((Object[]) fi);
+        FUNC_TABLE[MarshallUtil.ARRAY_TYPE] = (o, _, _, c) -> {
+            c.setArr((Object[]) o);
             return JsonSerializeResult.NewArray;
         };
         // enum will be viewed as strings
-        FUNC_TABLE[MarshallUtil.ENUM_TYPE] = (op, w, context, fi, inf, ind) -> {
+        FUNC_TABLE[MarshallUtil.ENUM_TYPE] = (o, inf, i, c) -> {
             Class<?> rawType = inf.rawType();
-            JsonSerializeFunc customFunc = op.customFunc(rawType);
+            JsonSerializeFunc customFunc = c.option().customFunc(rawType);
             if(customFunc != null) {
-                customFunc.serialize(op, w, context, fi, ind);
+                customFunc.serialize(o, i, c);
             } else {
-                JsonSerializeUtil.serializeEnum((Enum<?>) fi, rawType, w, context);
+                c.serializeEnum((Enum<?>) o);
             }
             return JsonSerializeResult.Continue;
         };
         // collection type
-        FUNC_TABLE[MarshallUtil.COLLECTION_INTERFACE_TYPE] = FUNC_TABLE[MarshallUtil.COLLECTION_IMPL_TYPE] = (_, _, context, fi, inf, _) -> {
-            context.setCol((Collection<?>) fi);
-            context.setFirstType(inf.firstGenericType());
+        FUNC_TABLE[MarshallUtil.COLLECTION_INTERFACE_TYPE] = FUNC_TABLE[MarshallUtil.COLLECTION_IMPL_TYPE] = (o, inf, _, c) -> {
+            c.setCol((Collection<?>) o);
+            c.setFirstType(inf.firstGenericType());
             return JsonSerializeResult.NewCollection;
         };
         // map type
-        FUNC_TABLE[MarshallUtil.MAP_INTERFACE_TYPE] = FUNC_TABLE[MarshallUtil.MAP_IMPL_TYPE] = (_, _, context, fi, inf, _) -> {
-            context.setMap((Map<?, ?>) fi);
-            context.setFirstType(inf.firstGenericType());
-            context.setSecondType(inf.secondGenericType());
+        FUNC_TABLE[MarshallUtil.MAP_INTERFACE_TYPE] = FUNC_TABLE[MarshallUtil.MAP_IMPL_TYPE] = (o, inf, _, c) -> {
+            c.setMap((Map<?, ?>) o);
+            c.setFirstType(inf.firstGenericType());
+            c.setSecondType(inf.secondGenericType());
             return JsonSerializeResult.NewMap;
         };
     }
@@ -244,60 +242,60 @@ public final class JsonSerializerObjNode extends JsonSerializerNode {
     }
 
     @Override
-    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer, JsonSerializerContext context) {
+    protected JsonSerializeResult process(JsonSerializerContext c) {
         final int size = fc.totalElements();
         for(int i = index; i < size; i++) {
-            MarshallInfo marshallInfo = fc.marshallInfoByIndex(i);
-            if(marshallInfo.skipSerializing()) {
+            MarshallInfo inf = fc.marshallInfoByIndex(i);
+            if(inf.skipSerializing()) {
                 continue ;
             }
-            int type = marshallInfo.type() & MarshallUtil.TYPE_MASK;
+            int type = inf.type() & MarshallUtil.TYPE_MASK;
             if(type <= MarshallUtil.DOUBLE_TYPE) {
-                serializeKey(option, writeBuffer, marshallInfo);
-                serializePrimitiveValue(reader, writeBuffer, i, type);
+                serializeKey(inf, c);
+                serializePrimitiveValue(reader, i, type, c);
                 continue ;
             }
             Object fieldValue = reader.getObject(i);
             if(fieldValue == null) {
-                if(option.serializeNullInObjOrMap()) {
-                    serializeKey(option, writeBuffer, marshallInfo);
-                    JsonSerializeUtil.serializeNull(writeBuffer);
+                if(c.option().serializeNullInObjOrMap()) {
+                    serializeKey(inf, c);
+                    c.serializeNull();
                 }
                 continue ;
             }
-            serializeKey(option, writeBuffer, marshallInfo);
-            JsonSerializeResult r = FUNC_TABLE[type].serialize(option, writeBuffer, context, fieldValue, marshallInfo, indent);
+            serializeKey(inf, c);
+            JsonSerializeResult r = FUNC_TABLE[type].serialize(fieldValue, inf, indent, c);
             if(r == JsonSerializeResult.Continue) {
                 continue ;
             }
             index = i + 1;
             return r;
         }
-        JsonSerializeUtil.serializeObjEnd(writeBuffer);
+        c.writeBuffer().writeByte((byte) '}');
         return JsonSerializeResult.Finished;
     }
 
-    private void serializeKey(JsonSerializerOption option, WriteBuffer writeBuffer, MarshallInfo marshallInfo) {
-        serializeSep(option, writeBuffer);
+    private void serializeKey(MarshallInfo marshallInfo, JsonSerializerContext c) {
+        serializeSep(c);
         byte[] mappedNameUtf8Bytes = marshallInfo.mappedNameUtf8Bytes();
         if(marshallInfo.mappedNameSimple()) {
-            JsonSerializeUtil.serializeNonEscapedUtf8Bytes(mappedNameUtf8Bytes, writeBuffer);
+            c.serializeNonEscapedUtf8Bytes(mappedNameUtf8Bytes);
         } else {
-            JsonSerializeUtil.serializeEscapedUtf8Bytes(mappedNameUtf8Bytes, writeBuffer);
+            c.serializeEscapedUtf8Bytes(mappedNameUtf8Bytes);
         }
-        JsonSerializeUtil.serializeKvSep(writeBuffer);
+        c.writeBuffer().writeBytes((byte) ':', (byte) ' ');
     }
 
-    private static void serializePrimitiveValue(MarshallReader reader, WriteBuffer writeBuffer, int index, int z) {
-        switch (z) {
-            case MarshallUtil.BYTE_TYPE    -> JsonSerializeUtil.serializeByte(reader.getByte(index), writeBuffer);
-            case MarshallUtil.BOOLEAN_TYPE -> JsonSerializeUtil.serializeBoolean(reader.getBoolean(index), writeBuffer);
-            case MarshallUtil.SHORT_TYPE   -> JsonSerializeUtil.serializeShort(reader.getShort(index), writeBuffer);
-            case MarshallUtil.CHAR_TYPE    -> JsonSerializeUtil.serializeChar(reader.getChar(index), writeBuffer);
-            case MarshallUtil.INT_TYPE     -> JsonSerializeUtil.serializeInt(reader.getInt(index), writeBuffer);
-            case MarshallUtil.LONG_TYPE    -> JsonSerializeUtil.serializeLong(reader.getLong(index), writeBuffer);
-            case MarshallUtil.FLOAT_TYPE   -> JsonSerializeUtil.serializeFloat(reader.getFloat(index), writeBuffer);
-            case MarshallUtil.DOUBLE_TYPE  -> JsonSerializeUtil.serializeDouble(reader.getDouble(index), writeBuffer);
+    private static void serializePrimitiveValue(MarshallReader reader, int index, int type, JsonSerializerContext c) {
+        switch (type) {
+            case MarshallUtil.BYTE_TYPE    -> c.serializeByte(reader.getByte(index));
+            case MarshallUtil.BOOLEAN_TYPE -> c.serializeBoolean(reader.getBoolean(index));
+            case MarshallUtil.SHORT_TYPE   -> c.serializeShort(reader.getShort(index));
+            case MarshallUtil.CHAR_TYPE    -> c.serializeChar(reader.getChar(index));
+            case MarshallUtil.INT_TYPE     -> c.serializeInt(reader.getInt(index));
+            case MarshallUtil.LONG_TYPE    -> c.serializeLong(reader.getLong(index));
+            case MarshallUtil.FLOAT_TYPE   -> c.serializeFloat(reader.getFloat(index));
+            case MarshallUtil.DOUBLE_TYPE  -> c.serializeDouble(reader.getDouble(index));
             default -> throw new AssertionError();
         }
     }

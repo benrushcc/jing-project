@@ -11,10 +11,10 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
     private static final MarshallFacadeInfo FACADE_INFO;
 
     static {
-        MarshallInfo mi0 = new MarshallInfo(EnumEntity.class, null, null, 0, "INT", "INT", EnumEntity.INT, false, false);
-        MarshallInfo mi1 = new MarshallInfo(EnumEntity.class, null, null, 1, "LONG", "LONG", EnumEntity.LONG, false, false);
-        MarshallInfo mi2 = new MarshallInfo(EnumEntity.class, null, null, 2, "STR", "STR", EnumEntity.STR, false, false);
-        MarshallInfo mi3 = new MarshallInfo(EnumEntity.class, null, null, 3, "TIME", "TIME", EnumEntity.TIME, false, false);
+        MarshallInfo mi0 = new MarshallInfo(EnumEntity.class, null, null, 0, "INT", "INT", false, false);
+        MarshallInfo mi1 = new MarshallInfo(EnumEntity.class, null, null, 1, "LONG", "LONG", false, false);
+        MarshallInfo mi2 = new MarshallInfo(EnumEntity.class, null, null, 2, "STR", "STR", false, false);
+        MarshallInfo mi3 = new MarshallInfo(EnumEntity.class, null, null, 3, "TIME", "TIME", false, false);
         FACADE_INFO = new MarshallFacadeInfo(List.of(mi0, mi1, mi2, mi3));
     }
 

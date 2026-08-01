@@ -1,36 +1,34 @@
 package io.jingproject.marshalljson;
 
-import io.jingproject.common.WriteBuffer;
-
 public final class JsonSerializerArrNode extends JsonSerializerNode {
     private Object[] arr;
     private JsonSerializeFunc func;
 
-    public void init(JsonSerializerOption option, Object[] arr, int indent) {
+    public void init(Object[] arr, int indent, JsonSerializerContext c) {
         this.arr = arr;
-        this.func = JsonSerializeUtil.valueSerializeFunc(option, arr.getClass().getComponentType());
+        this.func = c.valueSerializeFunc(arr.getClass().getComponentType());
         this.indent = indent;
         this.index = 0;
         this.written = false;
     }
 
     @Override
-    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer, JsonSerializerContext context) {
+    protected JsonSerializeResult process(JsonSerializerContext c) {
         for(int i = index; i < arr.length; i++) {
             Object instance = arr[i];
             if(instance == null) {
-                JsonSerializeUtil.serializeNull(writeBuffer);
+                c.serializeNull();
                 continue ;
             }
-            serializeSep(option, writeBuffer);
-            JsonSerializeResult r = func.serialize(option, writeBuffer, context, instance, indent);
+            serializeSep(c);
+            JsonSerializeResult r = func.serialize(instance, indent, c);
             if(r == JsonSerializeResult.Continue) {
                 continue ;
             }
             index = i + 1;
             return r;
         }
-        JsonSerializeUtil.serializeArrayEnd(writeBuffer);
+        c.writeBuffer().writeByte((byte) ']');
         return JsonSerializeResult.Finished;
     }
 }

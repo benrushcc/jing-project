@@ -1,39 +1,37 @@
 package io.jingproject.marshalljson;
 
-import io.jingproject.common.WriteBuffer;
-
 import java.util.List;
 
 public final class JsonSerializerListNode extends JsonSerializerNode {
     private List<?> list;
     private JsonSerializeFunc func;
 
-    public void init(JsonSerializerOption option, List<?> list, Class<?> elementType, int indent) {
+    public void init(List<?> list, Class<?> elementType, int indent, JsonSerializerContext c) {
         this.list = list;
-        this.func = JsonSerializeUtil.valueSerializeFunc(option, elementType);
+        this.func = c.valueSerializeFunc(elementType);
         this.indent = indent;
         this.index = 0;
         this.written = false;
     }
 
     @Override
-    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer, JsonSerializerContext context) {
+    protected JsonSerializeResult process(JsonSerializerContext c) {
         final int size = list.size();
         for(int i = index; i < size; i++) {
             Object instance = list.get(i);
             if(instance == null) {
-                JsonSerializeUtil.serializeNull(writeBuffer);
+                c.serializeNull();
                 continue ;
             }
-            serializeSep(option, writeBuffer);
-            JsonSerializeResult r = func.serialize(option, writeBuffer, context, instance, indent);
+            serializeSep(c);
+            JsonSerializeResult r = func.serialize(instance, indent, c);
             if(r == JsonSerializeResult.Continue) {
                 continue ;
             }
             index = i + 1;
             return r;
         }
-        JsonSerializeUtil.serializeArrayEnd(writeBuffer);
+        c.writeBuffer().writeByte((byte) ']');
         return JsonSerializeResult.Finished;
     }
 }

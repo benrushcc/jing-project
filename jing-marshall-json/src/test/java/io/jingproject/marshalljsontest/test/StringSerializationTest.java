@@ -1,8 +1,8 @@
 package io.jingproject.marshalljsontest.test;
 
 import io.jingproject.common.HeapWriteBuffer;
-import io.jingproject.marshalljson.JsonSerializeUtil;
 import io.jingproject.marshalljson.JsonSerializerContext;
+import io.jingproject.marshalljson.JsonSerializerOption;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -40,10 +40,10 @@ public class StringSerializationTest {
                 "abcd\nabcd",
                 "http:\\/\\/abs.twimg.com\\/images\\/themes\\/theme1\\/bg.png"
         );
-        JsonSerializerContext context = new JsonSerializerContext();
         for (String str : strs) {
             HeapWriteBuffer writeBuffer = new HeapWriteBuffer(1000);
-            JsonSerializeUtil.serializeEscapedString(str, writeBuffer, context);
+            JsonSerializerContext context = new JsonSerializerContext(JsonSerializerOption.defaultOption(), writeBuffer);
+            context.serializeEscapedString(str);
             String jsonStr = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
             System.out.println(jsonStr);
         }

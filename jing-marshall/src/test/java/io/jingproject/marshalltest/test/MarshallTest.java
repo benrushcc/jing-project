@@ -1,6 +1,7 @@
 package io.jingproject.marshalltest.test;
 
 import io.jingproject.marshall.MarshallFacade;
+import io.jingproject.marshall.MarshallInfo;
 import io.jingproject.marshall.MarshallWriter;
 import io.jingproject.marshalltest.entity.*;
 import org.junit.jupiter.api.Assertions;
@@ -75,7 +76,8 @@ public class MarshallTest {
     @Test
     public void testMarshallEnum() {
         MarshallFacade marshallFacade = new EnumEntityMarshallFacade();
-        EnumEntity enumEntity = (EnumEntity) marshallFacade.marshallInfoByFieldName("INT").enumValue();
+        MarshallInfo marshallInfo = marshallFacade.marshallInfoByFieldName("INT");
+        EnumEntity enumEntity = EnumEntity.values()[marshallInfo.index()];
         Assertions.assertEquals(EnumEntity.INT, enumEntity);
     }
 }

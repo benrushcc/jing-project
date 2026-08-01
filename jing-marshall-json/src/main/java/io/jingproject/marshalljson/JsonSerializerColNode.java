@@ -9,32 +9,32 @@ public final class JsonSerializerColNode extends JsonSerializerNode {
     private Iterator<?> iter;
     private JsonSerializeFunc func;
 
-    public void init(JsonSerializerOption option, int size, Iterator<?> iter, Class<?> elementType, int indent) {
+    public void init(int size, Iterator<?> iter, Class<?> elementType, int indent, JsonSerializerContext c) {
         this.size = size;
         this.iter = iter;
-        this.func = JsonSerializeUtil.valueSerializeFunc(option, elementType);
+        this.func = c.valueSerializeFunc(elementType);
         this.indent = indent;
         this.index = 0;
         this.written = false;
     }
 
     @Override
-    protected JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer, JsonSerializerContext context) {
+    protected JsonSerializeResult process(JsonSerializerContext c) {
         for(int i = index; i < size; i++) {
             Object instance = iter.next();
             if(instance == null) {
-                JsonSerializeUtil.serializeNull(writeBuffer);
+                c.serializeNull();
                 continue ;
             }
-            serializeSep(option, writeBuffer);
-            JsonSerializeResult r = func.serialize(option, writeBuffer, context, instance, indent);
+            serializeSep(c);
+            JsonSerializeResult r = func.serialize(instance, indent, c);
             if(r == JsonSerializeResult.Continue) {
                 continue ;
             }
             index = i + 1;
             return r;
         }
-        JsonSerializeUtil.serializeArrayEnd(writeBuffer);
+        c.writeBuffer().writeByte((byte) ']');
         return JsonSerializeResult.Finished;
     }
 }

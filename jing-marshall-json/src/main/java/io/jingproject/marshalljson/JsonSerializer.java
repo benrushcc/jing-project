@@ -16,49 +16,49 @@ public final class JsonSerializer {
     public void serializeByteArray(byte[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializeUtil.serializeByteArray(arr, 1, option.indentationLevel(), writeBuffer);
+        new JsonSerializerContext(option, writeBuffer).serializeByteArray(arr, 1);
     }
 
     public void serializeBooleanArray(boolean[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializeUtil.serializeBooleanArray(arr, 1, option.indentationLevel(), writeBuffer);
+        new JsonSerializerContext(option, writeBuffer).serializeBooleanArray(arr, 1);
     }
 
     public void serializeShortArray(short[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializeUtil.serializeShortArray(arr, 1, option.indentationLevel(), writeBuffer);
+        new JsonSerializerContext(option, writeBuffer).serializeShortArray(arr, 1);
     }
 
     public void serializeCharArray(char[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializeUtil.serializeCharArray(arr, 1, option.indentationLevel(), writeBuffer);
+        new JsonSerializerContext(option, writeBuffer).serializeCharArray(arr, 1);
     }
 
     public void serializeIntArray(int[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializeUtil.serializeIntArray(arr, 1, option.indentationLevel(), writeBuffer);
+        new JsonSerializerContext(option, writeBuffer).serializeIntArray(arr, 1);
     }
 
     public void serializeLongArray(long[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializeUtil.serializeLongArray(arr, 1, option.indentationLevel(), writeBuffer);
+        new JsonSerializerContext(option, writeBuffer).serializeLongArray(arr, 1);
     }
 
     public void serializeFloatArray(float[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializeUtil.serializeFloatArray(arr, 1, option.indentationLevel(), writeBuffer);
+        new JsonSerializerContext(option, writeBuffer).serializeFloatArray(arr, 1);
     }
 
     public void serializeDoubleArray(double[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializeUtil.serializeDoubleArray(arr, 1, option.indentationLevel(), writeBuffer);
+        new JsonSerializerContext(option, writeBuffer).serializeDoubleArray(arr, 1);
     }
 
     public void serializeMarshallableObject(Object instance, WriteBuffer writeBuffer) {

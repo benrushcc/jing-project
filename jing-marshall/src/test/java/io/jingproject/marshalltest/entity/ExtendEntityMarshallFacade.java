@@ -17,12 +17,12 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
     static {
         try {
 
-            MarshallInfo mi0 = new MarshallInfo(int.class, null, null, 0, "intValue", "intValue", null, false, false);
-            MarshallInfo mi1 = new MarshallInfo(long.class, null, null, 1, "longValue", "longValue", null, false, false);
-            MarshallInfo mi2 = new MarshallInfo(String.class, null, null, 2, "strValue", "strValue", null, false, false);
-            MarshallInfo mi3 = new MarshallInfo(LocalDateTime.class, null, null, 3, "timeValue", "timeValue", null, false, false);
-            MarshallInfo mi4 = new MarshallInfo(Duration.class, null, null, 4, "durationValue", "durationValue", null, false, false);
-            MarshallInfo mi5 = new MarshallInfo(Map.class, Integer.class, String.class, 5, "mapValue", "mapValue", null, false, false);
+            MarshallInfo mi0 = new MarshallInfo(int.class, null, null, 0, "intValue", "intValue", false, false);
+            MarshallInfo mi1 = new MarshallInfo(long.class, null, null, 1, "longValue", "longValue", false, false);
+            MarshallInfo mi2 = new MarshallInfo(String.class, null, null, 2, "strValue", "strValue", false, false);
+            MarshallInfo mi3 = new MarshallInfo(LocalDateTime.class, null, null, 3, "timeValue", "timeValue", false, false);
+            MarshallInfo mi4 = new MarshallInfo(Duration.class, null, null, 4, "durationValue", "durationValue", false, false);
+            MarshallInfo mi5 = new MarshallInfo(Map.class, Integer.class, String.class, 5, "mapValue", "mapValue", false, false);
             FACADE_INFO = new MarshallFacadeInfo(List.of(mi0, mi1, mi2, mi3, mi4, mi5));
             MethodHandles.Lookup lookup = MethodHandles.lookup();
             MethodHandles.Lookup lookup0 = MethodHandles.privateLookupIn(BeanEntity.class, lookup);

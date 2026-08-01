@@ -1,7 +1,5 @@
 package io.jingproject.marshalljson;
 
-import io.jingproject.common.WriteBuffer;
-
 public sealed abstract class JsonSerializerNode
         permits JsonSerializerObjNode, JsonSerializerArrNode, JsonSerializerColNode,
         JsonSerializerListNode, JsonSerializerMapNode {
@@ -9,13 +7,13 @@ public sealed abstract class JsonSerializerNode
     protected int index = 0;
     protected boolean written = false;
 
-    protected abstract JsonSerializeResult process(JsonSerializerOption option, WriteBuffer writeBuffer, JsonSerializerContext context);
+    protected abstract JsonSerializeResult process(JsonSerializerContext c);
 
-    protected final void serializeSep(JsonSerializerOption option, WriteBuffer writeBuffer) {
+    protected final void serializeSep(JsonSerializerContext c) {
         if(written) {
-            JsonSerializeUtil.serializeComma(writeBuffer);
+            c.writeBuffer().writeByte((byte) ',');;
         }
         written = true;
-        JsonSerializeUtil.serializeIndent(indent, option.indentationLevel(), writeBuffer);
+        c.serializeIndent(indent);
     }
 }
