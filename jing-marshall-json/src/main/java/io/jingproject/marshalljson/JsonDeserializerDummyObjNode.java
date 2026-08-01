@@ -11,11 +11,13 @@ public final class JsonDeserializerDummyObjNode extends JsonDeserializerNode {
 
     @Override
     protected JsonDeserializeResult process(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, Object v) {
+        byte firstByte;
         if(v != null) {
             assert v == JsonDeserializeUtil.dummyValue(); // dummy node could only receive dummy value
-            byte firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
+            firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
             if(firstByte == (byte) '}') {
-                return JsonDeserializeResult.DummyFinish;
+                context.setObj(JsonDeserializeUtil.dummyValue());
+                return JsonDeserializeResult.Finish;
             } else if(firstByte != (byte) ',') {
                 throw new JsonDeserializerException("illegal value end, got : " + firstByte);
             }
@@ -23,14 +25,14 @@ public final class JsonDeserializerDummyObjNode extends JsonDeserializerNode {
         try {
             int i = index;
             while (i < option.maxDummyElements()) {
-                byte firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
+                firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
                 if(!JsonDeserializeUtil.validateJsonStringStart(firstByte)) {
                     throw new JsonDeserializerException("illegal key start, got : " + firstByte);
                 }
                 JsonDeserializeUtil.skipStringValue(option, readBuffer, firstByte);
                 JsonDeserializeUtil.skipColon(option, readBuffer);
                 firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
-                if(JsonDeserializeUtil.skipValue(option, readBuffer, firstByte)) {
+                if(JsonDeserializeUtil.skipAnyValue(option, readBuffer, firstByte)) {
                     i++;
                 } else if(firstByte == (byte) '{') {
                     index = i + 1;
@@ -42,9 +44,9 @@ public final class JsonDeserializerDummyObjNode extends JsonDeserializerNode {
                     throw new JsonDeserializerException("illegal value start, got : " + firstByte);
                 }
             }
-            throw new JsonDeserializerException("too many dummy elements");
+            throw new JsonDeserializerException("too many elements in dummy object");
         } catch (IndexOutOfBoundsException e) {
-            throw new JsonDeserializerException("eof reached while skipping dummy elements");
+            throw new JsonDeserializerException("eof reached while skipping elements in dummy object");
         }
     }
 }

@@ -33,3 +33,6 @@ jing-bindings/src/main/native/build/
 
 ### JFR files ###
 *.jfr
+
+## Mods jar files
+mods/*.jar

@@ -33,10 +33,13 @@ public final class JsonSerializerState {
      */
     public void initMarshallableObject(Object instance) {
         assert instance != null;
-        Class<?> type = instance.getClass();
-        MarshallFacade fc = Marshalls.getMarshallFacade(type);
+        Class<?> marshallableType = instance.getClass();
+        if(marshallableType.isEnum()) {
+            throw new JsonSerializerException("enum cannot be directly serialized");
+        }
+        MarshallFacade fc = Marshalls.getMarshallFacade(marshallableType);
         if(fc == null) {
-            throw new JsonSerializerException("type not marshallable : " + type.getName());
+            throw new JsonSerializerException("type not marshallable : " + marshallableType.getName());
         }
         if(nodes == null) {
             nodes = new JsonSerializerNode[INITIAL_SIZE];
@@ -194,14 +197,15 @@ public final class JsonSerializerState {
                     }
                 }
                 case NewMarshallable -> {
-                    Object instance = context.obj();
-                    Class<?> instanceType = instance.getClass();
-                    MarshallFacade fc = Marshalls.getMarshallFacade(instanceType);
+                    Object marshallable = context.obj();
+                    Class<?> marshallableType = marshallable.getClass();
+                    // assert !marshallableType.isEnum();
+                    MarshallFacade fc = Marshalls.getMarshallFacade(marshallableType);
                     if(fc == null) {
-                        throw new JsonSerializerException("not marshallable : " + instanceType.getName());
+                        throw new JsonSerializerException("type not marshallable : " + marshallableType.getName());
                     }
                     JsonSerializerObjNode objNode = (JsonSerializerObjNode) newNode(++cur, JsonSerializerObjNode::new, o -> o instanceof JsonSerializerObjNode);
-                    objNode.init(fc, instance, n.indent + 1); // no overflow
+                    objNode.init(fc, marshallable, n.indent + 1); // no overflow
                     JsonSerializeUtil.serializeObjStart(writeBuffer);
                 }
                 case NewArray -> {

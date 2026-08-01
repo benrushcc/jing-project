@@ -11,6 +11,8 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 // indent never overflows int, as its value is limited by the practical JSON nesting depth.
 public final class JsonSerializeUtil {
@@ -578,15 +580,7 @@ public final class JsonSerializeUtil {
         if (ESCAPE_SLASH) {
             mask = mask.or(shortVector.compare(VectorOperators.EQ, (short) 0x2F));
         }
-        // prefer firstTrue() for readability; if its performance turns out to be unstable,
-        // switch to the toLong() + trailingZeros approach below (commented out).
         return mask.firstTrue();
-
-        // long r = mask.toLong();
-        // if(r == 0L) {
-        //     return SHORT_SPECIES.length();
-        // }
-        // return Long.numberOfTrailingZeros(r);
     }
 
     private static int serializeEscapedStringToBytes(String str, int len, byte[] bytes, int offset, JsonSerializerContext context) {
@@ -891,7 +885,9 @@ public final class JsonSerializeUtil {
     }
 
     public static void serializeEnum(Enum<?> enumValue, Class<?> rawType, WriteBuffer writeBuffer, JsonSerializerContext context) {
-        assert enumValue != null && rawType != null && writeBuffer != null && context != null;
+        assert enumValue != null && rawType != null && rawType.isEnum() && writeBuffer != null && context != null;
+        // experiment
+        //MarshallFacade fc = Marshalls.getEnumMarshallFacade(rawType);
         MarshallFacade fc = Marshalls.getMarshallFacade(rawType);
         if(fc == null) {
             serializeEscapedString(enumValue.name(), writeBuffer, context);
@@ -941,7 +937,8 @@ public final class JsonSerializeUtil {
     }
 
     public static JsonSerializeFunc enumSerializeFunc(Class<?> rawType) {
-        assert rawType != null;
+        assert rawType != null && rawType.isEnum();
+        // MarshallFacade fc = Marshalls.getEnumMarshallFacade(rawType);
         MarshallFacade fc = Marshalls.getMarshallFacade(rawType);
         if(fc == null) {
             return (_, w, c, o, _) -> {
@@ -964,198 +961,172 @@ public final class JsonSerializeUtil {
         }
     }
 
+    private static final Map<Class<?>, JsonSerializeFunc> BUILTIN_SERIALIZE_OBJ_FUNC_MAP;
+
+    static {
+        Map<Class<?>, JsonSerializeFunc> r = new HashMap<>();
+        r.put(Byte.class, (_, w, _, o, _) -> {
+            serializeByte((Byte) o, w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Boolean.class, (_, w, _, o, _) -> {
+            serializeBoolean((Boolean) o, w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Short.class, (_, w, _, o, _) -> {
+            serializeShort((Short) o, w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Character.class, (_, w, _, o, _) -> {
+            serializeChar((Character) o, w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Integer.class, (_, w, _, o, _) -> {
+            serializeInt((Integer) o, w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Long.class, (_, w, _, o, _) -> {
+            serializeLong((Long) o, w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Float.class, (_, w, _, o, _) -> {
+            serializeFloat((Float) o, w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Double.class, (_, w, _, o, _) -> {
+            serializeDouble((Double) o, w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(CharSequence.class, (_, w, c, o, _) -> {
+            serializeEscapedCharSequence((CharSequence) o, w, c);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(String.class, (_, w, c, o, _) -> {
+            serializeEscapedString((String) o, w, c);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(JsonPrimitiveType.class, (_, w, c, o, _) -> {
+            serializeJsonPrimitiveType((JsonPrimitiveType) o, w, c);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(JsonBoolType.class, (_, w, _, o, _) -> {
+            serializeJsonBoolType((JsonBoolType) o, w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(JsonNumberType.class, (_, w, _, o, _) -> {
+            serializeJsonNumberType((JsonNumberType) o, w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(JsonStrType.class, (_, w, c, o, _) -> {
+            serializeJsonStrType((JsonStrType) o, w, c);
+            return JsonSerializeResult.Continue;
+        });
+        BUILTIN_SERIALIZE_OBJ_FUNC_MAP = Map.copyOf(r);
+    }
+
     public static JsonSerializeFunc builtinSerializeObjFunc(Class<?> rawType) {
         assert rawType != null;
-        if(rawType == Byte.class) {
-            return (_, w, _, o, _) -> {
-                serializeByte((Byte) o, w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == Boolean.class) {
-            return  (_, w, _, o, _) -> {
-                serializeBoolean((Boolean) o, w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == Short.class) {
-            return (_, w, _, o, _) -> {
-                serializeShort((Short) o, w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == Character.class) {
-            return (_, w, _, o, _) -> {
-                serializeChar((Character) o, w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == Integer.class) {
-            return (_, w, _, o, _) -> {
-                serializeInt((Integer) o, w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == Long.class) {
-            return (_, w, _, o, _) -> {
-                serializeLong((Long) o, w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == Float.class) {
-            return (_, w, _, o, _) -> {
-                serializeFloat((Float) o, w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == Double.class) {
-            return (_, w, _, o, _) -> {
-                serializeDouble((Double) o, w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == CharSequence.class) {
-            return (_, w, c, o, _) -> {
-                serializeEscapedCharSequence((CharSequence) o, w, c);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == String.class) {
-            return (_, w, c, o, _) -> {
-                serializeEscapedString((String) o, w, c);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == JsonPrimitiveType.class) {
-            return (_, w, c, o, _) -> {
-                serializeJsonPrimitiveType((JsonPrimitiveType) o, w, c);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == JsonBoolType.class) {
-            return (_, w, _, o, _) -> {
-                serializeJsonBoolType((JsonBoolType) o, w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == JsonNumberType.class) {
-            return (_, w, _, o, _) -> {
-                serializeJsonNumberType((JsonNumberType) o, w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if(rawType == JsonStrType.class) {
-            return (_, w, c, o, _) -> {
-                serializeJsonStrType((JsonStrType) o, w, c);
-                return JsonSerializeResult.Continue;
-            };
-        } else {
-            return null;
-        }
+        return BUILTIN_SERIALIZE_OBJ_FUNC_MAP.get(rawType);
+    }
+
+    private static final Map<Class<?>, JsonSerializeFunc> BUILTIN_SERIALIZE_ARRAY_FUNC_MAP;
+
+    static {
+        Map<Class<?>, JsonSerializeFunc> r = new HashMap<>();
+        r.put(byte[].class, (op, w, _, o, ind) -> {
+            serializeByteArray((byte[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(boolean[].class, (op, w, _, o, ind) -> {
+            serializeBooleanArray((boolean[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(short[].class, (op, w, _, o, ind) -> {
+            serializeShortArray((short[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(char[].class, (op, w, _, o, ind) -> {
+            serializeCharArray((char[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(int[].class, (op, w, _, o, ind) -> {
+            serializeIntArray((int[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(long[].class, (op, w, _, o, ind) -> {
+            serializeLongArray((long[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(float[].class, (op, w, _, o, ind) -> {
+            serializeFloatArray((float[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(double[].class, (op, w, _, o, ind) -> {
+            serializeDoubleArray((double[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Byte[].class, (op, w, _, o, ind) -> {
+            serializeByteWrapperArray((Byte[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Boolean[].class, (op, w, _, o, ind) -> {
+            serializeBooleanWrapperArray((Boolean[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Short[].class, (op, w, _, o, ind) -> {
+            serializeShortWrapperArray((Short[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Character[].class, (op, w, _, o, ind) -> {
+            serializeCharWrapperArray((Character[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Integer[].class, (op, w, _, o, ind) -> {
+            serializeIntWrapperArray((Integer[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Long[].class, (op, w, _, o, ind) -> {
+            serializeLongWrapperArray((Long[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Float[].class, (op, w, _, o, ind) -> {
+            serializeFloatWrapperArray((Float[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(Double[].class, (op, w, _, o, ind) -> {
+            serializeDoubleWrapperArray((Double[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(CharSequence[].class, (op, w, c, o, ind) -> {
+            serializeEscapedCharSequenceArray((CharSequence[]) o, ind, op.indentationLevel(), w, c);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(String[].class, (op, w, c, o, ind) -> {
+            serializeEscapedStringArray((String[]) o, ind, op.indentationLevel(), w, c);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(JsonPrimitiveType[].class, (op, w, c, o, ind) -> {
+            serializeJsonPrimitiveTypeArray((JsonPrimitiveType[]) o, ind, op.indentationLevel(), w, c);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(JsonBoolType[].class, (op, w, _, o, ind) -> {
+            serializeJsonBoolTypeArray((JsonBoolType[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(JsonNumberType[].class, (op, w, _, o, ind) -> {
+            serializeJsonNumberTypeArray((JsonNumberType[]) o, ind, op.indentationLevel(), w);
+            return JsonSerializeResult.Continue;
+        });
+        r.put(JsonStrType[].class, (op, w, c, o, ind) -> {
+            serializeJsonStrTypeArray((JsonStrType[]) o, ind, op.indentationLevel(), w, c);
+            return JsonSerializeResult.Continue;
+        });
+        BUILTIN_SERIALIZE_ARRAY_FUNC_MAP = Map.copyOf(r);
     }
 
     public static JsonSerializeFunc builtinSerializeArrayFunc(Class<?> rawType) {
         assert rawType != null;
-        if(rawType == byte[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeByteArray((byte[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == boolean[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeBooleanArray((boolean[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == short[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeShortArray((short[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == char[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeCharArray((char[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == int[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeIntArray((int[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == long[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeLongArray((long[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == float[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeFloatArray((float[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == double[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeDoubleArray((double[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == Byte[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeByteWrapperArray((Byte[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == Boolean[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeBooleanWrapperArray((Boolean[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == Short[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeShortWrapperArray((Short[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == Character[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeCharWrapperArray((Character[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == Integer[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeIntWrapperArray((Integer[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == Long[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeLongWrapperArray((Long[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == Float[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeFloatWrapperArray((Float[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == Double[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeDoubleWrapperArray((Double[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == CharSequence[].class) {
-            return (op, w, c, o, ind) -> {
-                serializeEscapedCharSequenceArray((CharSequence[]) o, ind, op.indentationLevel(), w, c);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == String[].class) {
-            return (op, w, c, o, ind) -> {
-                serializeEscapedStringArray((String[]) o, ind, op.indentationLevel(), w, c);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == JsonPrimitiveType[].class) {
-            return (op, w, c, o, ind) -> {
-                serializeJsonPrimitiveTypeArray((JsonPrimitiveType[]) o, ind, op.indentationLevel(), w, c);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == JsonBoolType[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeJsonBoolTypeArray((JsonBoolType[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == JsonNumberType[].class) {
-            return (op, w, _, o, ind) -> {
-                serializeJsonNumberTypeArray((JsonNumberType[]) o, ind, op.indentationLevel(), w);
-                return JsonSerializeResult.Continue;
-            };
-        } else if (rawType == JsonStrType[].class) {
-            return (op, w, c, o, ind) -> {
-                serializeJsonStrTypeArray((JsonStrType[]) o, ind, op.indentationLevel(), w, c);
-                return JsonSerializeResult.Continue;
-            };
-        } else {
-            return null;
-        }
+        return BUILTIN_SERIALIZE_ARRAY_FUNC_MAP.get(rawType);
     }
 
 }

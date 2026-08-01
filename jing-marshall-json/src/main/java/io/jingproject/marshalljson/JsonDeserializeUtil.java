@@ -460,7 +460,7 @@ public final class JsonDeserializeUtil {
     @SuppressWarnings("unchecked")
     private static <T> T[] deserializeObjectArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context,
                                                   byte firstByte, Class<T> componentType, ObjectDeserializer<T> deserializer) {
-        assert option != null && readBuffer != null && componentType != null && deserializer != null && validateJsonArrayStart(firstByte);
+        assert option != null && readBuffer != null && context != null && componentType != null && deserializer != null && validateJsonArrayStart(firstByte);
         byte b = nextFirstValuableByte(option, readBuffer);
         if(b == ']') {
             return (T[]) Utils.emptyObjectArray();
@@ -494,9 +494,9 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("too many array elements, limit : " + option.maxArrayElements());
     }
 
-    public static Byte[] deserializeByteWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
-        assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
-        return deserializeObjectArray(option, readBuffer, null, firstByte,
+    public static Byte[] deserializeByteWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
+        assert option != null && readBuffer != null && context != null && validateJsonArrayStart(firstByte);
+        return deserializeObjectArray(option, readBuffer, context, firstByte,
                 Byte.class, (_, r, _, b) -> {
                     if(!validateJsonNumberStart(b)) {
                         throw new JsonDeserializerException("not a number start : " + b);
@@ -505,9 +505,9 @@ public final class JsonDeserializeUtil {
                 });
     }
 
-    public static Boolean[] deserializeBooleanWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
-        assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
-        return deserializeObjectArray(option, readBuffer, null, firstByte,
+    public static Boolean[] deserializeBooleanWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
+        assert option != null && readBuffer != null && context != null && validateJsonArrayStart(firstByte);
+        return deserializeObjectArray(option, readBuffer, context, firstByte,
                 Boolean.class, (_, r, _, b) -> {
                     if(!validateJsonBoolStart(b)) {
                         throw new JsonDeserializerException("not a bool start : " + b);
@@ -516,9 +516,9 @@ public final class JsonDeserializeUtil {
                 });
     }
 
-    public static Short[] deserializeShortWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
-        assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
-        return deserializeObjectArray(option, readBuffer, null, firstByte,
+    public static Short[] deserializeShortWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
+        assert option != null && readBuffer != null && context != null && validateJsonArrayStart(firstByte);
+        return deserializeObjectArray(option, readBuffer, context, firstByte,
                 Short.class, (_, r, _, b) -> {
                     if(!validateJsonNumberStart(b)) {
                         throw new JsonDeserializerException("not a number start : " + b);
@@ -527,8 +527,8 @@ public final class JsonDeserializeUtil {
                 });
     }
 
-    public static Character[] deserializeCharacterWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
-        assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
+    public static Character[] deserializeCharWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
+        assert option != null && readBuffer != null && context != null && validateJsonArrayStart(firstByte);
         return deserializeObjectArray(option, readBuffer, context, firstByte,
                 Character.class, (op, r, c, b) -> {
                     if(!validateJsonStringStart(b)) {
@@ -538,9 +538,9 @@ public final class JsonDeserializeUtil {
                 });
     }
 
-    public static Integer[] deserializeIntegerWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
-        assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
-        return deserializeObjectArray(option, readBuffer, null, firstByte,
+    public static Integer[] deserializeIntWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
+        assert option != null && readBuffer != null && context != null && validateJsonArrayStart(firstByte);
+        return deserializeObjectArray(option, readBuffer, context, firstByte,
                 Integer.class, (_, r, _, b) -> {
                     if(!validateJsonNumberStart(b)) {
                         throw new JsonDeserializerException("not a number start : " + b);
@@ -549,9 +549,9 @@ public final class JsonDeserializeUtil {
                 });
     }
 
-    public static Long[] deserializeLongWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
-        assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
-        return deserializeObjectArray(option, readBuffer, null, firstByte,
+    public static Long[] deserializeLongWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
+        assert option != null && readBuffer != null && context != null && validateJsonArrayStart(firstByte);
+        return deserializeObjectArray(option, readBuffer, context, firstByte,
                 Long.class, (_, r, _, b) -> {
                     if(!validateJsonNumberStart(b)) {
                         throw new JsonDeserializerException("not a number start : " + b);
@@ -560,9 +560,9 @@ public final class JsonDeserializeUtil {
                 });
     }
 
-    public static Float[] deserializeFloatWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
-        assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
-        return deserializeObjectArray(option, readBuffer, null, firstByte,
+    public static Float[] deserializeFloatWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
+        assert option != null && readBuffer != null && context != null && validateJsonArrayStart(firstByte);
+        return deserializeObjectArray(option, readBuffer, context, firstByte,
                 Float.class, (op, r, _, b) -> {
                     if(!validateJsonNumberStart(b)) {
                         throw new JsonDeserializerException("not a number start : " + b);
@@ -571,9 +571,9 @@ public final class JsonDeserializeUtil {
                 });
     }
 
-    public static Double[] deserializeDoubleWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
-        assert option != null && readBuffer != null && validateJsonArrayStart(firstByte);
-        return deserializeObjectArray(option, readBuffer, null, firstByte,
+    public static Double[] deserializeDoubleWrapperArray(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, byte firstByte) {
+        assert option != null && readBuffer != null && context != null && validateJsonArrayStart(firstByte);
+        return deserializeObjectArray(option, readBuffer, context, firstByte,
                 Double.class, (op, r, _, b) -> {
                     if(!validateJsonNumberStart(b)) {
                         throw new JsonDeserializerException("not a number start : " + b);
@@ -1213,9 +1213,11 @@ public final class JsonDeserializeUtil {
         throw new JsonDeserializerException("illegal json string");
     }
 
-    public static boolean skipValue(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
+    public static boolean skipAnyValue(JsonDeserializerOption option, ReadBuffer readBuffer, byte firstByte) {
         assert option != null && readBuffer != null && validateJsonNonnullValueStart(firstByte);
-        if(validateJsonBoolStart(firstByte)) {
+        if(validateJsonNullStart(firstByte)) {
+            skipNullValue(readBuffer, firstByte);
+        }else if(validateJsonBoolStart(firstByte)) {
             skipBoolValue(readBuffer, firstByte);
         } else if(validateJsonStringStart(firstByte)) {
             skipStringValue(option, readBuffer, firstByte);

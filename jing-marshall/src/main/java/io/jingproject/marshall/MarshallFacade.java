@@ -14,6 +14,10 @@ public interface MarshallFacade {
 
     int totalElements();
 
+    default int primitiveElements() {
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * get marshall info by index, index must be in [0, totalElements),
      * throws IndexOutOfBoundsException if out of range

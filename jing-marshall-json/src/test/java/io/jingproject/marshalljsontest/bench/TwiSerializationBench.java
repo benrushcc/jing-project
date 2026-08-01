@@ -23,11 +23,11 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 3, time = 10000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-//@Fork(value = 1, jvmArgsAppend = {
-//        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=ser-twi-%p-%t.jfr,settings=profile",
-//        "-XX:FlightRecorderOptions:stackdepth=128"
-//})
-@Fork(3)
+@Fork(value = 1, jvmArgsAppend = {
+        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=ser-twi-%p-%t.jfr,settings=profile",
+        "-XX:FlightRecorderOptions:stackdepth=128"
+})
+//@Fork(3)
 public class TwiSerializationBench {
     private static final int SIZE = 819200;
     private static final Twi twi = TwiUtil.deserializeTwiUsingJackson(TwiUtil.loadAsString());
@@ -36,12 +36,12 @@ public class TwiSerializationBench {
     private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);
     private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
 
-    @Benchmark
-    public void jacksonSerialization(Blackhole blackhole) {
-        jsonMapper.writeValue(outputStream, twi);
-        blackhole.consume(outputStream.size());
-        outputStream.reset();
-    }
+//    @Benchmark
+//    public void jacksonSerialization(Blackhole blackhole) {
+//        jsonMapper.writeValue(outputStream, twi);
+//        blackhole.consume(outputStream.size());
+//        outputStream.reset();
+//    }
 
     @Benchmark
     public void jingDefaultSerialization(Blackhole blackhole) {

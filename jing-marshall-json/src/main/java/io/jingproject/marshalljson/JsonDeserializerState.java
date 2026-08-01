@@ -25,6 +25,9 @@ public final class JsonDeserializerState {
 
     public void initMarshallableType(Class<?> marshallableType) {
         assert marshallableType != null;
+        if(marshallableType.isEnum()) {
+            throw new JsonDeserializerException("enum cannot be directly deserialized");
+        }
         MarshallFacade fc = Marshalls.getMarshallFacade(marshallableType);
         if(fc == null) {
             throw new JsonDeserializerException("type not marshallable : " + marshallableType.getName());

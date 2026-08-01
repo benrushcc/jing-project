@@ -23,11 +23,11 @@ public final class JsonDeserializerContext {
 
     private static final int BITMAP_INITIAL_SIZE = 16;
     private char[] chars;
-    private int charsIndex;
+    private int charsIndex = 0;
     private byte[] bytes;
-    private int bytesIndex;
+    private int bytesIndex = 0;
     private byte[] bitmap;
-    private int bitmapIndex;
+    private int bitmapIndex = 0;
     private Object[] objArr = null;
     private Object obj = null;
     private Class<?> type = null;
@@ -36,22 +36,16 @@ public final class JsonDeserializerContext {
         if(charBufferSize > 0) {
             this.chars = new char[charBufferSize];
         }
-        this.charsIndex = 0;
         if(byteBufferSize > 0) {
             this.bytes = new byte[byteBufferSize];
         }
-        this.bytesIndex = 0;
         this.bitmap = null;
-        this.bitmapIndex = 0;
     }
 
     public JsonDeserializerContext(JsonDeserializerOption option) {
         this.chars = new char[option.charBufferSize()];
-        this.charsIndex = 0;
         this.bytes = new byte[option.byteBufferSize()];
-        this.bytesIndex = 0;
-        this.bitmap = option.ensureAllFieldsPresent() ? new byte[BITMAP_INITIAL_SIZE] : null;
-        this.bitmapIndex = 0;
+        this.bitmap = new byte[BITMAP_INITIAL_SIZE];
     }
 
     public Object[] objArr() {
@@ -329,11 +323,6 @@ public final class JsonDeserializerContext {
         return r;
     }
 
-    public static int bitmapBytes(int fieldCount) {
-        assert fieldCount >= 0 && fieldCount <= 8192;
-        return (fieldCount + 7) >> 3;
-    }
-
     private void ensureBitmapCapacity(int capacity) {
         int required = Math.addExact(capacity, bitmapIndex); // no overflow
         if(bitmap.length < required) {
@@ -345,8 +334,9 @@ public final class JsonDeserializerContext {
         }
     }
 
-    public int bitmapIndex(int requiredBytes) {
-        assert requiredBytes > 0 && requiredBytes < 8192; // a class have at most 65535 fields in jvm
+    public int bitmapIndex(int fieldCount) {
+        assert fieldCount >= 0 && fieldCount <= 8192; // a class have at most 65535 fields in jvm
+        int requiredBytes = (fieldCount + 7) >> 3;
         ensureBitmapCapacity(requiredBytes);
         int r = bitmapIndex;
         bitmapIndex += requiredBytes;
@@ -363,7 +353,25 @@ public final class JsonDeserializerContext {
         return (val & mask) != 0;
     }
 
-    public boolean assigned(int bIndex, int fieldCount) {
+    public boolean allPrimitiveFieldPresent(MarshallFacade fc, int bIndex, int fieldCount) {
+        assert bIndex >= 0 && bIndex < bitmapIndex && fieldCount >= 0 && fieldCount <= 8192;
+        for(int i = 0; i < fieldCount; i++) {
+            MarshallInfo marshallInfo = fc.marshallInfoByIndex(i);
+            if(marshallInfo.rawType().isPrimitive()) {
+                int byteOffset = bIndex + (i >> 3);
+                int bitOffset = i & 0x7;
+                byte mask = (byte) (1 << bitOffset);
+                byte val = bitmap[byteOffset];
+                if((val & mask) == 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+
+    public boolean allPresent(int bIndex, int fieldCount) {
         assert bIndex >= 0 && bIndex < bitmapIndex && fieldCount >= 0 && fieldCount <= 8192;
         int fullBytes = fieldCount >> 3;
         int remainingBits = fieldCount & 0x7;

@@ -39,12 +39,12 @@
 
         <!--  dependencies  -->
         <jmh.version>1.37</jmh.version>
-        <junit.version>6.0.3</junit.version>
+        <junit.version>6.1.1</junit.version>
 
         <!--  plugins  -->
         <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
-        <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
+        <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
         <maven-install-plugin.version>3.1.4</maven-install-plugin.version>
         <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
         <flatten-maven-plugin.version>1.7.0</flatten-maven-plugin.version> <!--  TODO remove in maven4  -->
@@ -78,6 +78,16 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>${maven-jar-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                        <configuration>
+                            <skipIfEmpty>true</skipIfEmpty>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <plugin>

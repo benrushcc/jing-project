@@ -90,8 +90,6 @@ public final class JsonDeserializerOption {
         return consumeAllBytes;
     }
 
-    // 开启时，会记录object的每个field是否被赋值，只有每个字段都被赋值才能允许构造，即使他们是被赋值为null
-    // 关闭时，不会记录每个field的赋值情况，这意味着某些错误的json结构也会被允许，比如出现重复的key，后出现的key会覆盖先出现的值
     public boolean ensureAllFieldsPresent() {
         return ensureAllFieldsPresent;
     }

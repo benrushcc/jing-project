@@ -28,6 +28,11 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
+    public int primitiveElements() {
+        return 2;
+    }
+
+    @Override
     public MarshallInfo marshallInfoByIndex(int index) {
         return FACADE_INFO.infos().get(index);
     }

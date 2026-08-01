@@ -11,6 +11,4 @@ public enum JsonDeserializeResult {
     NewDummyObj,
 
     NewDummyArr,
-
-    DummyFinish,
 }

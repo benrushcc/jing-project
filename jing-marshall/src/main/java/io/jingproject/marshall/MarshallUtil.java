@@ -9,7 +9,7 @@ import java.util.*;
 
 @ProcessorApi
 public final class MarshallUtil {
-    // currently 50 + 1 = 51 bits used
+    // currently [0, 50] are used
     public static final int BYTE_TYPE = 0;
     public static final int BOOLEAN_TYPE = 1;
     public static final int SHORT_TYPE = 2;
@@ -65,15 +65,79 @@ public final class MarshallUtil {
     public static final int MAP_INTERFACE_TYPE = 49;
     public static final int MAP_IMPL_TYPE = 50;
 
+    public static final int TYPE_SIZE = 64; // could expand up to 256 in the future
+    public static final int TYPE_MASK = TYPE_SIZE - 1;
+    private static final Class<?>[] CLS_TABLE;
+
+    static {
+        CLS_TABLE = new Class<?>[TYPE_SIZE];
+        CLS_TABLE[BYTE_TYPE] = byte.class;
+        CLS_TABLE[BOOLEAN_TYPE] = boolean.class;
+        CLS_TABLE[SHORT_TYPE] = short.class;
+        CLS_TABLE[CHAR_TYPE] = char.class;
+        CLS_TABLE[INT_TYPE] = int.class;
+        CLS_TABLE[LONG_TYPE] = long.class;
+        CLS_TABLE[FLOAT_TYPE] = float.class;
+        CLS_TABLE[DOUBLE_TYPE] = double.class;
+
+        CLS_TABLE[BYTE_WRAPPER_TYPE] = Byte.class;
+        CLS_TABLE[BOOLEAN_WRAPPER_TYPE] = Boolean.class;
+        CLS_TABLE[SHORT_WRAPPER_TYPE] = Short.class;
+        CLS_TABLE[CHAR_WRAPPER_TYPE] = Character.class;
+        CLS_TABLE[INT_WRAPPER_TYPE] = Integer.class;
+        CLS_TABLE[LONG_WRAPPER_TYPE] = Long.class;
+        CLS_TABLE[FLOAT_WRAPPER_TYPE] = Float.class;
+        CLS_TABLE[DOUBLE_WRAPPER_TYPE] = Double.class;
+
+        CLS_TABLE[BYTE_ARRAY_TYPE] = byte[].class;
+        CLS_TABLE[BOOLEAN_ARRAY_TYPE] = boolean[].class;
+        CLS_TABLE[SHORT_ARRAY_TYPE] = short[].class;
+        CLS_TABLE[CHAR_ARRAY_TYPE] = char[].class;
+        CLS_TABLE[INT_ARRAY_TYPE] = int[].class;
+        CLS_TABLE[LONG_ARRAY_TYPE] = long[].class;
+        CLS_TABLE[FLOAT_ARRAY_TYPE] = float[].class;
+        CLS_TABLE[DOUBLE_ARRAY_TYPE] = double[].class;
+
+        CLS_TABLE[BYTE_WRAPPER_ARRAY_TYPE] = Byte[].class;
+        CLS_TABLE[BOOLEAN_WRAPPER_ARRAY_TYPE] = Boolean[].class;
+        CLS_TABLE[SHORT_WRAPPER_ARRAY_TYPE] = Short[].class;
+        CLS_TABLE[CHAR_WRAPPER_ARRAY_TYPE] = Character[].class;
+        CLS_TABLE[INT_WRAPPER_ARRAY_TYPE] = Integer[].class;
+        CLS_TABLE[LONG_WRAPPER_ARRAY_TYPE] = Long[].class;
+        CLS_TABLE[FLOAT_WRAPPER_ARRAY_TYPE] = Float[].class;
+        CLS_TABLE[DOUBLE_WRAPPER_ARRAY_TYPE] = Double[].class;
+
+        CLS_TABLE[CHARSEQUENCE_TYPE] = CharSequence.class;
+        CLS_TABLE[STRING_TYPE] = String.class;
+        CLS_TABLE[UUID_TYPE] = UUID.class;
+        CLS_TABLE[BIG_INTEGER_TYPE] = BigInteger.class;
+        CLS_TABLE[BIG_DECIMAL_TYPE] = BigDecimal.class;
+        CLS_TABLE[LOCAL_DATE_TYPE] = LocalDate.class;
+        CLS_TABLE[LOCAL_TIME_TYPE] = LocalTime.class;
+        CLS_TABLE[LOCAL_DATE_TIME_TYPE] = LocalDateTime.class;
+        CLS_TABLE[OFFSET_TIME_TYPE] = OffsetTime.class;
+        CLS_TABLE[OFFSET_DATE_TIME_TYPE] = OffsetDateTime.class;
+    }
+
+    private static int scan(Class<?> target, int start, int end) {
+        for(int i = start; i <= end; i++) {
+            Class<?> c = CLS_TABLE[i];
+            if(c != null && target == c) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     private MarshallUtil() {
         throw new UnsupportedOperationException("utility class");
     }
 
     // currently 4 bits used
-    public static final long FIELD_NAME_SIMPLE_MASK = 1L;
-    public static final long MAPPED_NAME_SIMPLE_MASK = 1L << 1;
-    public static final long SKIP_SERIALIZATION_MASK = 1L << 2;
-    public static final long SKIP_DESERIALIZATION_MASK = 1L << 3;
+    public static final byte FIELD_NAME_SIMPLE_MASK = 1;
+    public static final byte MAPPED_NAME_SIMPLE_MASK = 1 << 1;
+    public static final byte SKIP_SERIALIZATION_MASK = 1 << 2;
+    public static final byte SKIP_DESERIALIZATION_MASK = 1 << 3;
 
     // checks if all bytes are alphanumeric, underscore, or hyphen.
     private static boolean isAlphanumericOrSeparator(byte[] utf8Bytes) {
@@ -96,206 +160,117 @@ public final class MarshallUtil {
     }
 
     // only interface in java.util are concerned
+    private static final Set<Class<?>> MAP_INTERFACE_SET = Set.of(Map.class, SequencedMap.class, SortedMap.class, NavigableMap.class);
+
+
     private static boolean isMapIntefaceType(Class<?> rawType) {
         assert rawType != null;
-        if(!rawType.isInterface()) {
-            return false;
-        }
-        return rawType == Map.class || rawType == SequencedMap.class || rawType == SortedMap.class || rawType == NavigableMap.class;
+        return MAP_INTERFACE_SET.contains(rawType);
     }
 
     // only common impl in java.util are concerned
+    private static final Set<Class<?>> MAP_IMPL_SET = Set.of(HashMap.class, LinkedHashMap.class, TreeMap.class);
+
     private static boolean isMapImplType(Class<?> rawType) {
         assert rawType != null;
-        return rawType == HashMap.class || rawType == LinkedHashMap.class || rawType == TreeMap.class;
+        return MAP_IMPL_SET.contains(rawType);
     }
 
-    // only interface in java.util are concerned
+    // only interface in java.util are concerned TODO 改成构造函数的map
+    private static final Set<Class<?>> COL_INTERFACE_SET = Set.of(Collection.class, List.class, Queue.class, Deque.class, Set.class,
+            SequencedCollection.class, SequencedSet.class, SortedSet.class, NavigableSet.class);
+
     private static boolean isCollectionInterfaceType(Class<?> rawType) {
         assert rawType != null;
-        if(!rawType.isInterface()) {
-            return false;
-        }
-        return rawType == Collection.class || rawType == List.class || rawType == Queue.class || rawType == Deque.class || rawType == Set.class
-                || rawType == SequencedCollection.class || rawType == SequencedSet.class || rawType == SortedSet.class || rawType == NavigableSet.class;
+        return COL_INTERFACE_SET.contains(rawType);
     }
 
     // only common impl in java.util are concerned
+    private static final Set<Class<?>> COL_IMPL_SET = Set.of(ArrayList.class, LinkedList.class, ArrayDeque.class,
+            PriorityQueue.class, HashSet.class, LinkedHashSet.class, TreeSet.class);
+
     private static boolean isCollectionImplType(Class<?> rawType) {
         assert rawType != null;
-        return rawType == ArrayList.class || rawType == LinkedList.class || rawType == ArrayDeque.class ||
-                rawType == PriorityQueue.class || rawType == HashSet.class || rawType == LinkedHashSet.class || rawType == TreeSet.class;
+        return COL_IMPL_SET.contains(rawType);
     }
 
     // returns the flag constant for a primitive type.
-    private static int makePrimitiveFlag(Class<?> rawType) {
+    private static int makePrimitiveType(Class<?> rawType) {
         assert rawType != null && rawType.isPrimitive();
-        if(rawType == byte.class) {
-            return BYTE_TYPE;
-        } else if(rawType == boolean.class) {
-            return BOOLEAN_TYPE;
-        }else if(rawType == short.class) {
-            return SHORT_TYPE;
-        } else if(rawType == char.class) {
-            return CHAR_TYPE;
-        } else if(rawType == int.class) {
-            return INT_TYPE;
-        } else if(rawType == long.class) {
-            return LONG_TYPE;
-        } else if(rawType == float.class) {
-            return FLOAT_TYPE;
-        } else if(rawType == double.class) {
-            return DOUBLE_TYPE;
-        } else {
+        int r = scan(rawType, BYTE_TYPE, DOUBLE_TYPE);
+        if(r < 0) {
             throw new AssertionError();
         }
+        return r;
     }
 
     // returns the flag constant for a wrapper type.
-    private static int makeRawFlag(Class<?> rawType) {
+    private static int makeRawType(Class<?> rawType) {
         assert rawType != null;
-        if(rawType == Byte.class) {
-            return BYTE_WRAPPER_TYPE;
-        } else if(rawType == Boolean.class) {
-            return BOOLEAN_WRAPPER_TYPE;
-        } else if(rawType == Short.class) {
-            return SHORT_WRAPPER_TYPE;
-        } else if(rawType == Character.class) {
-            return CHAR_WRAPPER_TYPE;
-        } else if(rawType == Integer.class) {
-            return INT_WRAPPER_TYPE;
-        } else if(rawType == Long.class) {
-            return LONG_WRAPPER_TYPE;
-        } else if(rawType == Float.class) {
-            return FLOAT_WRAPPER_TYPE;
-        } else if(rawType == Double.class) {
-            return DOUBLE_WRAPPER_TYPE;
-        } else if(rawType == CharSequence.class){
-            return CHARSEQUENCE_TYPE;
-        } else if(rawType == String.class) {
-            return STRING_TYPE;
-        } else if(rawType == UUID.class) {
-            return UUID_TYPE;
-        } else if(rawType == BigInteger.class) {
-            return BIG_INTEGER_TYPE;
-        } else if(rawType == BigDecimal.class) {
-            return BIG_DECIMAL_TYPE;
-        } else if(rawType == LocalDate.class) {
-            return LOCAL_DATE_TYPE;
-        } else if(rawType == LocalTime.class) {
-            return LOCAL_TIME_TYPE;
-        } else if(rawType == LocalDateTime.class) {
-            return LOCAL_DATE_TIME_TYPE;
-        } else if(rawType == OffsetTime.class) {
-            return OFFSET_TIME_TYPE;
-        } else if (rawType == OffsetDateTime.class) {
-            return OFFSET_DATE_TIME_TYPE;
-        } else {
-            return RAW_TYPE;
+        int r = scan(rawType, BYTE_WRAPPER_TYPE, DOUBLE_WRAPPER_TYPE);
+        if(r < 0) {
+            r = scan(rawType, CHARSEQUENCE_TYPE, OFFSET_DATE_TIME_TYPE);
+            if(r < 0) {
+                return RAW_TYPE;
+            }
         }
+        return r;
     }
 
     // returns the flag constant for a primitive array type.
-    private static int makePrimitiveArrayFlag(Class<?> rawType) {
+    private static int makePrimitiveArrayType(Class<?> rawType) {
         assert rawType != null && rawType.isArray() && rawType.getComponentType().isPrimitive();
-        if(rawType == byte[].class) {
-            return BYTE_ARRAY_TYPE;
-        } else if(rawType == boolean[].class) {
-            return BOOLEAN_ARRAY_TYPE;
-        } else if(rawType == short[].class) {
-            return SHORT_ARRAY_TYPE;
-        }  else if(rawType == char[].class) {
-            return CHAR_ARRAY_TYPE;
-        } else if(rawType == int[].class) {
-            return INT_ARRAY_TYPE;
-        } else if(rawType == long[].class) {
-            return LONG_ARRAY_TYPE;
-        } else if(rawType == float[].class) {
-            return FLOAT_ARRAY_TYPE;
-        } else if(rawType == double[].class) {
-            return DOUBLE_ARRAY_TYPE;
-        } else {
+        int r = scan(rawType, BYTE_ARRAY_TYPE, DOUBLE_ARRAY_TYPE);
+        if(r < 0) {
             throw new AssertionError();
         }
+        return r;
     }
 
     // returns the flag constant for a wrapper array type.
-    private static int makeWrapperArrayFlag(Class<?> rawType) {
-        assert rawType != null && rawType.isArray();
-        if(rawType == Byte[].class) {
-            return BYTE_WRAPPER_ARRAY_TYPE;
-        } else if(rawType == Boolean[].class) {
-            return BOOLEAN_WRAPPER_ARRAY_TYPE;
-        } else if(rawType == Short[].class) {
-            return SHORT_WRAPPER_ARRAY_TYPE;
-        } else if(rawType == Character[].class) {
-            return CHAR_WRAPPER_ARRAY_TYPE;
-        } else if(rawType == Integer[].class) {
-            return INT_WRAPPER_ARRAY_TYPE;
-        } else if(rawType == Long[].class) {
-            return LONG_WRAPPER_ARRAY_TYPE;
-        } else if(rawType == Float[].class) {
-            return FLOAT_WRAPPER_ARRAY_TYPE;
-        } else if(rawType == Double[].class) {
-            return DOUBLE_WRAPPER_ARRAY_TYPE;
-        } else {
+    private static int makeWrapperArrayType(Class<?> rawType) {
+        assert rawType != null && rawType.isArray() && !rawType.getComponentType().isPrimitive();
+        int r = scan(rawType, BYTE_WRAPPER_ARRAY_TYPE, DOUBLE_WRAPPER_ARRAY_TYPE);
+        if(r < 0) {
             return ARRAY_TYPE;
         }
+        return r;
     }
 
-    // calculate the shift based on its type
-    public static int makeShift(Class<?> rawType, Class<?> firstGenericType, Class<?> secondGenericType) {
+    public static byte makeType(Class<?> rawType, Class<?> firstGenericType, Class<?> secondGenericType) {
+        assert rawType != null;
+        int r;
         if(secondGenericType != null) {
             if(isMapIntefaceType(rawType)) {
-                return MAP_INTERFACE_TYPE;
-            }
-            if(isMapImplType(rawType)) {
-                return MAP_IMPL_TYPE;
-            }
-            return TWO_GENERIC_TYPE;
-        }
-        if(firstGenericType != null) {
-            if(isCollectionInterfaceType(rawType)) {
-                return COLLECTION_INTERFACE_TYPE;
-            }
-            if(isCollectionImplType(rawType)) {
-                return COLLECTION_IMPL_TYPE;
-            }
-            return ONE_GENERIC_TYPE;
-        }
-        if(rawType.isEnum()) {
-            return ENUM_TYPE;
-        }
-        if(rawType.isPrimitive()) {
-            return makePrimitiveFlag(rawType);
-        }
-        if(rawType.isArray()) {
-            Class<?> componentType = rawType.getComponentType();
-            if(componentType.isPrimitive()) {
-                return makePrimitiveArrayFlag(rawType);
+                r = MAP_INTERFACE_TYPE;
+            } else if(isMapImplType(rawType)) {
+                r = MAP_IMPL_TYPE;
             } else {
-                return makeWrapperArrayFlag(rawType);
+                r = TWO_GENERIC_TYPE;
             }
+        } else if(firstGenericType != null) {
+            if(isCollectionInterfaceType(rawType)) {
+                r = COLLECTION_INTERFACE_TYPE;
+            } else if(isCollectionImplType(rawType)) {
+                r = COLLECTION_IMPL_TYPE;
+            } else {
+                r = ONE_GENERIC_TYPE;
+            }
+        } else if(rawType.isEnum()) {
+            r = ENUM_TYPE;
+        } else if(rawType.isPrimitive()) {
+            r = makePrimitiveType(rawType);
+        } else if(rawType.isArray()) {
+            r = rawType.getComponentType().isPrimitive() ? makePrimitiveArrayType(rawType) : makeWrapperArrayType(rawType);
+        } else {
+            r = makeRawType(rawType);
         }
-        return makeRawFlag(rawType);
+        return (byte) r;
     }
 
-    public static long makeFlags(Class<?> rawType, Class<?> firstGenericType, Class<?> secondGenericType,
-                                 byte[] fieldNameUtf8Bytes, byte[] mappedNameUtf8Bytes, boolean skipSerializing, boolean skipDeserializing) {
-        // raw type must not be null
-        if(rawType == null) {
-            throw new IllegalArgumentException("rawType cannot be null");
-        }
-        // fieldNameUtf8Bytes must not be null
-        if(fieldNameUtf8Bytes == null || fieldNameUtf8Bytes.length == 0) {
-            throw new IllegalArgumentException("fieldNameUtf8Bytes cannot be null or blank");
-        }
-        // mappedNameUtf8Bytes must not be null
-        if(mappedNameUtf8Bytes == null || mappedNameUtf8Bytes.length == 0) {
-            throw new IllegalArgumentException("mappedNameUtf8Bytes cannot be null or blank");
-        }
-        // flags are made of shifts and masks
-        long r = 1L << (Long.SIZE - 1 - makeShift(rawType, firstGenericType, secondGenericType));
+    public static byte makeFlags(byte[] fieldNameUtf8Bytes, byte[] mappedNameUtf8Bytes, boolean skipSerializing, boolean skipDeserializing) {
+        assert fieldNameUtf8Bytes != null && fieldNameUtf8Bytes.length > 0 && mappedNameUtf8Bytes != null && mappedNameUtf8Bytes.length > 0;
+        byte r = 0;
         if(isAlphanumericOrSeparator(fieldNameUtf8Bytes)) {
             r |= FIELD_NAME_SIMPLE_MASK;
         }

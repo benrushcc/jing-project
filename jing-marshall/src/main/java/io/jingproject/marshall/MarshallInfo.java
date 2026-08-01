@@ -15,7 +15,8 @@ public record MarshallInfo(
         String mappedName,
         byte[] mappedNameUtf8Bytes,
         Enum<?> enumValue,
-        long flags // currently 51 + 4 = 55 bits used
+        byte type, // currently [0, 50] are used
+        byte flags // currently  4 bits used
 ) {
 
     public MarshallInfo {
@@ -44,29 +45,25 @@ public record MarshallInfo(
                         boolean skipDeserializing) {
         byte[] fieldNameUtf8Bytes = fieldName.getBytes(StandardCharsets.UTF_8);
         byte[] mappedNameUtf8Bytes = mappedName.getBytes(StandardCharsets.UTF_8);
-        long flags = MarshallUtil.makeFlags(rawType, firstGenericType, secondGenericType,
-                fieldNameUtf8Bytes, mappedNameUtf8Bytes, skipSerializing, skipDeserializing);
+        byte type = MarshallUtil.makeType(rawType, firstGenericType, secondGenericType);
+        byte flags = MarshallUtil.makeFlags(fieldNameUtf8Bytes, mappedNameUtf8Bytes, skipSerializing, skipDeserializing);
         this(rawType, firstGenericType, secondGenericType, index,
-                fieldName, fieldNameUtf8Bytes, mappedName, mappedNameUtf8Bytes, enumValue, flags);
-    }
-
-    public int flagType() {
-        return Long.numberOfLeadingZeros(flags);
+                fieldName, fieldNameUtf8Bytes, mappedName, mappedNameUtf8Bytes, enumValue, type, flags);
     }
 
     public boolean fieldNameSimple() {
-        return (flags & MarshallUtil.FIELD_NAME_SIMPLE_MASK) != 0L;
+        return (flags & MarshallUtil.FIELD_NAME_SIMPLE_MASK) != 0;
     }
 
     public boolean mappedNameSimple() {
-        return (flags & MarshallUtil.MAPPED_NAME_SIMPLE_MASK) != 0L;
+        return (flags & MarshallUtil.MAPPED_NAME_SIMPLE_MASK) != 0;
     }
 
     public boolean skipSerializing() {
-        return (flags & MarshallUtil.SKIP_SERIALIZATION_MASK) != 0L;
+        return (flags & MarshallUtil.SKIP_SERIALIZATION_MASK) != 0;
     }
 
     public boolean skipDeserializing() {
-        return (flags & MarshallUtil.SKIP_DESERIALIZATION_MASK) != 0L;
+        return (flags & MarshallUtil.SKIP_DESERIALIZATION_MASK) != 0;
     }
 }

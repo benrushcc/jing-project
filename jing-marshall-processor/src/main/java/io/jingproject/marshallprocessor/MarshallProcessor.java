@@ -168,6 +168,11 @@ public final class MarshallProcessor extends AbstractProcessor {
             if (!attrMappedName.isBlank()) {
                 mappedName = attrMappedName;
             }
+            if(t.getKind() == ElementKind.ENUM && (attr.skipSerializing() || attr.skipDeserializing())) {
+                throw new AnnotationProcessorException("enum constant doesn't support skip serializing or deserializing");
+            }
+            skipSerializing = attr.skipSerializing();
+            skipDeserializing = attr.skipDeserializing();
         }
         NamingConvention from = marshallable.from();
         NamingConvention to = marshallable.to();
@@ -434,6 +439,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                 buildPackagePrivateVhMethod(facadeSource, info),
                 buildMarshallableTypeMethod(facadeSource, info),
                 buildTotalElementsMethod(facadeSource, info),
+                buildPrimitiveElementsMethod(facadeSource, info),
                 buildMarshallInfoByIndexMethod(facadeSource),
                 buildMarshallInfoByStringMethod(facadeSource, info, true),
                 buildMarshallInfoByBinaryMethod(facadeSource, info, true, false),
@@ -583,6 +589,28 @@ public final class MarshallProcessor extends AbstractProcessor {
                 .addLine("public int totalElements() {")
                 .indent()
                 .addLine("return " + info.fieldInfos().size() + ";")
+                .unindent()
+                .addLine("}").newLine();
+    }
+
+    private GeneratorBlock buildPrimitiveElementsMethod(GeneratorSource facadeSource, MarshallProcessorInfo info) {
+        TypeElement targetElement = info.typeElements().getLast();
+        GeneratorBlock b = new GeneratorBlock();
+        if(targetElement.getKind() == ElementKind.ENUM) {
+            return b;
+        }
+        int primitiveElements = 0;
+        for (MarshallFieldInfo fieldInfo : info.fieldInfos()) {
+            Element fieldElement = fieldInfo.fieldElement();
+            if (fieldElement.asType().getKind().isPrimitive()) {
+                primitiveElements++;
+            }
+        }
+        String overrideClassName = facadeSource.register(Override.class);
+        return b.addLine("@" + overrideClassName)
+                .addLine("public int primitiveElements() {")
+                .indent()
+                .addLine("return " + primitiveElements + ";")
                 .unindent()
                 .addLine("}").newLine();
     }
