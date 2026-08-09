@@ -22,20 +22,9 @@ import java.util.concurrent.locks.ReentrantLock;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 public class ExBenchmark {
 
-    record IntHolder(int value) {
-
-    }
-
-    static final class MutableIntHolder {
-        private int value;
-
-        public int value() {
-            return value;
-        }
-
-        public void setValue(int value) {
-            this.value = value;
-        }
+    static void main() throws RunnerException {
+        Options opt = new OptionsBuilder().include(ExBenchmark.class.getSimpleName()).addProfiler(GCProfiler.class).build();
+        new Runner(opt).run();
     }
 
     @Benchmark
@@ -162,8 +151,19 @@ public class ExBenchmark {
         endLatch.await();
     }
 
-    static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(ExBenchmark.class.getSimpleName()).addProfiler(GCProfiler.class).build();
-        new Runner(opt).run();
+    record IntHolder(int value) {
+
+    }
+
+    static final class MutableIntHolder {
+        private int value;
+
+        public int value() {
+            return value;
+        }
+
+        public void setValue(int value) {
+            this.value = value;
+        }
     }
 }

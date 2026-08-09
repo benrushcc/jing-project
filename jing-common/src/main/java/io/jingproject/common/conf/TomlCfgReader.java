@@ -17,15 +17,69 @@ public final class TomlCfgReader {
         this.input = input;
     }
 
-    enum State {
-        INITIAL,
-        COMMENT,
-        TABLE_START,
-        VALUE_END,
-        KEY_START,
-        VALUE_START,
-        STR_START,
-        ARR_START,
+    // based on https://toml.io/en/v1.1.0#comment
+    private static boolean rejectCommentControlCharacter(int b) {
+        return (b >= 0x0000 && b <= 0x0008) || (b >= 0x000A && b <= 0x001F) || b == 0x007F;
+    }
+
+    private static void readTomlStrValue(InputStream input, ByteArrayOutputStream output) throws IOException {
+        boolean escaping = false;
+        int b;
+        while ((b = input.read()) != -1) {
+            if (escaping) {
+                switch (b) {
+                    case 'b' -> output.write('\b');
+                    case 't' -> output.write('\t');
+                    case 'n' -> output.write('\n');
+                    case 'f' -> output.write('\f');
+                    case 'r' -> output.write('\r');
+                    case 'e' -> output.write('\u001B');
+                    case '"' -> output.write('\"');
+                    case '\\' -> output.write('\\');
+                    case 'x' -> {
+                        int codePoint = CfgUtil.readUnicode(input, 2);
+                        if (!Character.isValidCodePoint(codePoint)) {
+                            throw new CfgException("invalid code point: " + codePoint);
+                        }
+                        if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
+                            throw new CfgException("invalid surrogate code point: " + codePoint);
+                        }
+                        CfgUtil.writeUnicodeInUtf8(output, codePoint);
+                    }
+                    case 'u' -> {
+                        int codePoint = CfgUtil.readUnicode(input, 4);
+                        if (!Character.isValidCodePoint(codePoint)) {
+                            throw new CfgException("invalid code point: " + codePoint);
+                        }
+                        if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
+                            throw new CfgException("invalid surrogate code point: " + codePoint);
+                        }
+                        CfgUtil.writeUnicodeInUtf8(output, codePoint);
+                    }
+                    case 'U' -> {
+                        int codePoint = CfgUtil.readUnicode(input, 8);
+                        if (!Character.isValidCodePoint(codePoint)) {
+                            throw new CfgException("invalid code point: " + codePoint);
+                        }
+                        if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
+                            throw new CfgException("invalid surrogate code point: " + codePoint);
+                        }
+                        CfgUtil.writeUnicodeInUtf8(output, codePoint);
+                    }
+                    default -> throw new CfgException("invalid escape sequence: " + b);
+                }
+                escaping = false;
+            } else {
+                if (b == '\\') {
+                    escaping = true;
+                } else if (b == '"') {
+                    return;
+                } else {
+                    output.write(b);
+                }
+            }
+        }
+        throw new CfgException("EOF reached");
     }
 
     public CfgObject parse() throws IOException {
@@ -155,68 +209,14 @@ public final class TomlCfgReader {
         }
     }
 
-    // based on https://toml.io/en/v1.1.0#comment
-    private static boolean rejectCommentControlCharacter(int b) {
-        return (b >= 0x0000 && b <= 0x0008) || (b >= 0x000A && b <= 0x001F) || b == 0x007F;
-    }
-
-    private static void readTomlStrValue(InputStream input, ByteArrayOutputStream output) throws IOException {
-        boolean escaping = false;
-        int b;
-        while ((b = input.read()) != -1) {
-            if (escaping) {
-                switch (b) {
-                    case 'b' -> output.write('\b');
-                    case 't' -> output.write('\t');
-                    case 'n' -> output.write('\n');
-                    case 'f' -> output.write('\f');
-                    case 'r' -> output.write('\r');
-                    case 'e' -> output.write('\u001B');
-                    case '"' -> output.write('\"');
-                    case '\\' -> output.write('\\');
-                    case 'x' -> {
-                        int codePoint = CfgUtil.readUnicode(input, 2);
-                        if (!Character.isValidCodePoint(codePoint)) {
-                            throw new CfgException("invalid code point: " + codePoint);
-                        }
-                        if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
-                            throw new CfgException("invalid surrogate code point: " + codePoint);
-                        }
-                        CfgUtil.writeUnicodeInUtf8(output, codePoint);
-                    }
-                    case 'u' -> {
-                        int codePoint = CfgUtil.readUnicode(input, 4);
-                        if (!Character.isValidCodePoint(codePoint)) {
-                            throw new CfgException("invalid code point: " + codePoint);
-                        }
-                        if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
-                            throw new CfgException("invalid surrogate code point: " + codePoint);
-                        }
-                        CfgUtil.writeUnicodeInUtf8(output, codePoint);
-                    }
-                    case 'U' -> {
-                        int codePoint = CfgUtil.readUnicode(input, 8);
-                        if (!Character.isValidCodePoint(codePoint)) {
-                            throw new CfgException("invalid code point: " + codePoint);
-                        }
-                        if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
-                            throw new CfgException("invalid surrogate code point: " + codePoint);
-                        }
-                        CfgUtil.writeUnicodeInUtf8(output, codePoint);
-                    }
-                    default -> throw new CfgException("invalid escape sequence: " + b);
-                }
-                escaping = false;
-            } else {
-                if (b == '\\') {
-                    escaping = true;
-                } else if (b == '"') {
-                    return;
-                } else {
-                    output.write(b);
-                }
-            }
-        }
-        throw new CfgException("EOF reached");
+    enum State {
+        INITIAL,
+        COMMENT,
+        TABLE_START,
+        VALUE_END,
+        KEY_START,
+        VALUE_START,
+        STR_START,
+        ARR_START,
     }
 }

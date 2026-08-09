@@ -4,7 +4,6 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
-import java.util.Objects;
 
 public final class SegmentReadBuffer implements ReadBuffer {
 
@@ -36,7 +35,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(int newPosition) {
-        assert newPosition >= 0L && newPosition <= buffer.byteSize();
+
         position = Math.toIntExact(newPosition);
     }
 
@@ -52,7 +51,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(long newPosition) {
-        assert newPosition >= 0L && newPosition <= buffer.byteSize();
+
         position = newPosition;
     }
 
@@ -69,7 +68,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
 
     @Override
     public void readBytes(byte[] bytes, int offset, int length) {
-        assert bytes != null && Objects.checkFromIndexSize(offset, bytes.length, length) >= 0;
+
         long newPosition = Math.addExact(position, length);
         if (newPosition > buffer.byteSize()) {
             throw new IndexOutOfBoundsException();
@@ -80,7 +79,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
 
     @Override
     public void readSegment(MemorySegment segment, long offset, long length) {
-        assert segment != null && Objects.checkFromIndexSize(offset, segment.byteSize(), length) >= 0;
+
         long newPosition = Math.addExact(position, length);
         if (newPosition > buffer.byteSize()) {
             throw new IndexOutOfBoundsException();

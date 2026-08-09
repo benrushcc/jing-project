@@ -28,6 +28,16 @@ public class MapSerializationBench {
     private static final int BATCH = 1000;
     private static final int BUFFER_SIZE = 16 * BATCH;
     private final Map<String, Integer> integerMap = createIntegerMap();
+    private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
+    private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
+    private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(BUFFER_SIZE);
+    private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);
+
+    static void main() throws RunnerException {
+        Options opt = new OptionsBuilder().include(MapSerializationBench.class.getSimpleName())
+                .addProfiler(GCProfiler.class).build();
+        new Runner(opt).run();
+    }
 
     private Map<String, Integer> createIntegerMap() {
         Map<String, Integer> map = new HashMap<>();
@@ -36,11 +46,6 @@ public class MapSerializationBench {
         }
         return Map.copyOf(map);
     }
-
-    private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
-    private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
-    private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(BUFFER_SIZE);
-    private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);
 
     @Benchmark
     public void jacksonSerialization(Blackhole blackhole) {
@@ -54,11 +59,5 @@ public class MapSerializationBench {
         jsonDefaultSerializer.serializeMap(integerMap, String.class, Integer.class, writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
         writeBuffer.setPosition(0);
-    }
-
-    static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(MapSerializationBench.class.getSimpleName())
-                .addProfiler(GCProfiler.class).build();
-        new Runner(opt).run();
     }
 }

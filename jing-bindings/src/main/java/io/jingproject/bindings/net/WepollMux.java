@@ -12,7 +12,6 @@ import java.lang.foreign.MemorySegment;
 @Fragile
 public final class WepollMux implements Mux {
     private static final WinBindings WIN_BINDINGS = Libs.getImpl(WinBindings.class);
-    private MemorySegment epfd = MemorySegment.NULL;
 
     static {
         if (WIN_BINDINGS == null) {
@@ -20,24 +19,10 @@ public final class WepollMux implements Mux {
         }
     }
 
-    @Override
-    public void init() {
-        if (epfd == null) {
-            throw new IllegalStateException("wepollMux already closed");
-        }
-        if (epfd.address() != 0L) {
-            throw new IllegalStateException("wepollMux already initialized");
-        }
-        MemorySegment fd = WIN_BINDINGS.wepollCreate();
-        if (NativeSegmentAccess.isErrPtr(fd)) {
-            int err = NativeSegmentAccess.errCode(fd);
-            throw new ForeignException("failed to create wepoll instance, err : " + err);
-        }
-        epfd = fd;
-    }
+    private MemorySegment epfd = MemorySegment.NULL;
 
     private static int getOp(int from, int to) {
-        assert from != to;
+
         if (from == Mux.MUX_NONE_FLAG) {
             return WIN_BINDINGS.wepollAdd();
         } else if (to == Mux.MUX_NONE_FLAG) {
@@ -59,6 +44,22 @@ public final class WepollMux implements Mux {
             r |= WIN_BINDINGS.wepollOut();
         }
         return r;
+    }
+
+    @Override
+    public void init() {
+        if (epfd == null) {
+            throw new IllegalStateException("wepollMux already closed");
+        }
+        if (epfd.address() != 0L) {
+            throw new IllegalStateException("wepollMux already initialized");
+        }
+        MemorySegment fd = WIN_BINDINGS.wepollCreate();
+        if (NativeSegmentAccess.isErrPtr(fd)) {
+            int err = NativeSegmentAccess.errCode(fd);
+            throw new ForeignException("failed to create wepoll instance, err : " + err);
+        }
+        epfd = fd;
     }
 
     @Override

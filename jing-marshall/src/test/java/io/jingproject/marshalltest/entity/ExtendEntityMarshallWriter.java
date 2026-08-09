@@ -6,7 +6,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-public record ExtendEntityMarshallWriter (
+public record ExtendEntityMarshallWriter(
         ExtendEntity instance
 ) implements MarshallWriter {
     @Override

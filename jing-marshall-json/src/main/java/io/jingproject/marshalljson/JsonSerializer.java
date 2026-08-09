@@ -64,16 +64,14 @@ public final class JsonSerializer {
     public void serializeMarshallableObject(Object instance, WriteBuffer writeBuffer) {
         Objects.requireNonNull(instance, "instance must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializerState state = new JsonSerializerState(option, writeBuffer);
-        state.initMarshallableObject(instance);
+        JsonSerializerState state = new JsonSerializerState(option, writeBuffer, instance);
         state.process();
     }
 
     public void serializeArray(Object[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializerState state = new JsonSerializerState(option, writeBuffer);
-        state.initArray(arr);
+        JsonSerializerState state = new JsonSerializerState(option, writeBuffer, arr);
         state.process();
     }
 
@@ -81,8 +79,7 @@ public final class JsonSerializer {
         Objects.requireNonNull(collection, "collection must not be null");
         Objects.requireNonNull(elementType, "elementType must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializerState state = new JsonSerializerState(option, writeBuffer);
-        state.initCol(collection, elementType);
+        JsonSerializerState state = new JsonSerializerState(option, writeBuffer, collection, elementType);
         state.process();
     }
 
@@ -91,8 +88,7 @@ public final class JsonSerializer {
         Objects.requireNonNull(keyType, "keyType must not be null");
         Objects.requireNonNull(valueType, "valueType must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        JsonSerializerState state = new JsonSerializerState(option, writeBuffer);
-        state.initMap(map, keyType, valueType);
+        JsonSerializerState state = new JsonSerializerState(option, writeBuffer, map, keyType, valueType);
         state.process();
     }
 }

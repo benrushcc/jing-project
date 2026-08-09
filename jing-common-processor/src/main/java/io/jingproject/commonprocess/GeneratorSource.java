@@ -37,6 +37,21 @@ public final class GeneratorSource {
         packageReferences.put(className, packageName); // register itself first to avoid later overwrite
     }
 
+    private static StringTokenizer buildTokenizer(String qualifiedName) {
+        StringBuilder sb = new StringBuilder();
+        for (char c : qualifiedName.toCharArray()) {
+            // & is not possible if enclosing typeElement is not generified
+            if (c == '<' || c == '>' || c == '[' || c == ']' || c == '?' || c == ',') {
+                sb.append(' ');
+            } else if (c == '&') {
+                throw new AssertionError();
+            } else {
+                sb.append(c);
+            }
+        }
+        return new StringTokenizer(sb.toString(), " ");
+    }
+
     public String packageName() {
         return packageName;
     }
@@ -85,21 +100,6 @@ public final class GeneratorSource {
             }
         }
         return qualifiedName;
-    }
-
-    private static StringTokenizer buildTokenizer(String qualifiedName) {
-        StringBuilder sb = new StringBuilder();
-        for (char c : qualifiedName.toCharArray()) {
-            // & is not possible if enclosing typeElement is not generified
-            if (c == '<' || c == '>' || c == '[' || c == ']' || c == '?' || c == ',') {
-                sb.append(' ');
-            } else if (c == '&') {
-                throw new AssertionError();
-            } else {
-                sb.append(c);
-            }
-        }
-        return new StringTokenizer(sb.toString(), " ");
     }
 
     public String register(Class<?> cls) {

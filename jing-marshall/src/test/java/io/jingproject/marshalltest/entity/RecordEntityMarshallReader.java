@@ -2,7 +2,7 @@ package io.jingproject.marshalltest.entity;
 
 import io.jingproject.marshall.MarshallReader;
 
-public record RecordEntityMarshallReader (
+public record RecordEntityMarshallReader(
         RecordEntity instance
 ) implements MarshallReader {
 

@@ -1,9 +1,8 @@
 package io.jingproject.marshalljson;
 
-import io.jingproject.common.ReadBuffer;
+public sealed abstract class JsonDeserializerNode
+        permits JsonDeserializerObjNode, JsonDeserializerListNode, JsonDeserializerMapNode, JsonDeserializerDummyObjNode, JsonDeserializerDummyArrNode {
 
-public abstract class JsonDeserializerNode {
-
-    protected abstract JsonDeserializeResult process(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, Object v);
+    protected abstract JsonDeserializeResult process(JsonDeserializerContext c, JsonDeserializeResult last);
 
 }

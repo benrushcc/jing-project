@@ -33,25 +33,30 @@ import java.util.concurrent.TimeUnit;
 public class StringBeanSerializationBench {
     private static final int BATCH = 1000;
     private static final int BUFFER_SIZE = 1000;
-    private StringEntity[] stringEntities;
-
-    @Param({"4", "16", "64", "256"})
-    @SuppressWarnings("unused")
-    private int size;
-
-    @Param({"empty", "ascii", "utf", "surr", "mostAscii"})
-    @SuppressWarnings("unused")
-    private String type;
-    private Random random;
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
     private final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(BUFFER_SIZE);
     private final WriteBuffer writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);
+    private StringEntity[] stringEntities;
+    @Param({"4", "16", "64", "256"})
+    @SuppressWarnings("unused")
+    private int size;
+    @Param({"empty", "ascii", "utf", "surr", "mostAscii"})
+    @SuppressWarnings("unused")
+    private String type;
+    private Random random;
+
+    static void main() throws RunnerException {
+        Options opt = new OptionsBuilder().include(StringBeanSerializationBench.class.getSimpleName())
+                .addProfiler(GCProfiler.class)
+                .build();
+        new Runner(opt).run();
+    }
 
     @Setup(Level.Iteration)
     public void setup() {
         stringEntities = new StringEntity[BATCH];
-        for(int i = 0; i < BATCH; i++) {
+        for (int i = 0; i < BATCH; i++) {
             String s1 = UtfUtil.randTypedString(type, size);
             String s2 = UtfUtil.randTypedString(type, size);
             stringEntities[i] = new StringEntity(s1, s2);
@@ -79,12 +84,5 @@ public class StringBeanSerializationBench {
         jsonDefaultSerializer.serializeMarshallableObject(stringEntities[idx], writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
         writeBuffer.setPosition(0);
-    }
-
-    static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(StringBeanSerializationBench.class.getSimpleName())
-                 .addProfiler(GCProfiler.class)
-                .build();
-        new Runner(opt).run();
     }
 }

@@ -15,7 +15,9 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.ByteArrayOutputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -32,13 +34,18 @@ import java.util.concurrent.TimeUnit;
 public class IntegerSerializationBench {
     private static final int BATCH = 64;
     private static final int BUFFER_SIZE = BATCH * 32;
-    private Random random;
-    private List<IntEntity> entities;
-
     private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
     private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(BUFFER_SIZE);
     private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);
+    private Random random;
+    private List<IntEntity> entities;
+
+    static void main() throws RunnerException {
+        Options opt = new OptionsBuilder().include(IntegerSerializationBench.class.getSimpleName())
+                .addProfiler(GCProfiler.class).build();
+        new Runner(opt).run();
+    }
 
     @Setup(Level.Iteration)
     public void setup() {
@@ -63,7 +70,7 @@ public class IntegerSerializationBench {
     @Benchmark
     @OperationsPerInvocation(BATCH)
     public void jacksonSerialization(Blackhole blackhole) {
-        for(int i = 0; i < BATCH; i++) {
+        for (int i = 0; i < BATCH; i++) {
             jsonMapper.writeValue(outputStream, entities.get(i));
             blackhole.consume(outputStream.size());
             outputStream.reset();
@@ -73,16 +80,10 @@ public class IntegerSerializationBench {
     @Benchmark
     @OperationsPerInvocation(BATCH)
     public void jingSerialization(Blackhole blackhole) {
-        for(int i = 0; i < BATCH; i++) {
+        for (int i = 0; i < BATCH; i++) {
             jsonDefaultSerializer.serializeMarshallableObject(entities.get(i), writeBuffer);
             blackhole.consume(writeBuffer.intPosition());
             writeBuffer.setPosition(0);
         }
-    }
-
-    static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(IntegerSerializationBench.class.getSimpleName())
-                .addProfiler(GCProfiler.class).build();
-        new Runner(opt).run();
     }
 }

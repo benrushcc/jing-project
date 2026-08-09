@@ -19,10 +19,28 @@ import java.util.concurrent.TimeUnit;
 // This test compares the performance of writing integers to WriteBuffer using a manual implementation versus using JDK's built‑in String‑based conversion.
 // The comparison is not completely fair because the JDK approach creates intermediate String objects, adding overhead. So the results should be taken only as a rough reference.
 @BenchmarkMode(value = Mode.AverageTime)
-@Warmup(iterations = 3, time = 2000, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 5, time = 4000, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 3, time = 3000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 3, time = 4000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
+//@Fork(value = 1, jvmArgsAppend = {
+//        "-Xbatch",
+//        "-XX:-TieredCompilation",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonNumberUtil::writeLong",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonNumberUtil::writeLong,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljsontest.JsonNumberUtil::writeLongToHeap",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljsontest.JsonNumberUtil::writeLongToHeap,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljsontest.JsonNumberUtil::writePositiveLongToHeap",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljsontest.JsonNumberUtil::writePositiveLongToHeap,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljsontest.NumberUtil::writeLong3",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljsontest.NumberUtil::writeLong3,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljsontest.NumberUtil::writeLongToHeap",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljsontest.NumberUtil::writeLongToHeap,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljsontest.NumberUtil::writePositiveLongToHeap",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljsontest.NumberUtil::writePositiveLongToHeap,PrintInlining",
+//        "-XX:+UnlockDiagnosticVMOptions",
+//        "-XX:PrintAssemblyOptions=intel",
+//})
 @Fork(1)
 public class WriteIntegerBench {
     private static final int BUFFER_SIZE = 32;
@@ -45,17 +63,17 @@ public class WriteIntegerBench {
         arena = Arena.ofConfined();
         heapWriteBuffer = new HeapWriteBuffer(BUFFER_SIZE);
         segmentWriteBuffer = new SegmentWriteBuffer(arena, BUFFER_SIZE);
-        for (int i = 0; i < SMALL_SIZE; i++) {
-            intNums[i] = random.nextInt(-1000, 1000);
-            longNums[i] = random.nextLong(-1000L, 1000L);
+        for (int j = 0; j < SMALL_SIZE; j++) {
+            intNums[j] = random.nextInt(-1000, 1000);
+            longNums[j] = random.nextLong(-1000L, 1000L);
         }
-        for (int i = 0; i < MEDIUM_SIZE; i++) {
-            intNums[i] = random.nextInt(-100000, 100000);
-            longNums[i] = random.nextLong(-100000L, 100000L);
+        for (int j = 0; j < MEDIUM_SIZE; j++) {
+            intNums[SMALL_SIZE + j] = random.nextInt(-100000, 100000);
+            longNums[SMALL_SIZE + j] = random.nextLong(-100000L, 100000L);
         }
-        for (int i = 0; i < HUGE_SIZE; i++) {
-            intNums[i] = random.nextInt();
-            longNums[i] = random.nextLong();
+        for (int j = 0; j < HUGE_SIZE; j++) {
+            intNums[SMALL_SIZE + MEDIUM_SIZE + j] = random.nextInt();
+            longNums[SMALL_SIZE + MEDIUM_SIZE + j] = random.nextLong();
         }
         for (int i = intNums.length - 1; i > 0; i--) {
             int j = random.nextInt(i + 1);
@@ -220,6 +238,46 @@ public class WriteIntegerBench {
     public void lutWriteSegmentLong(Blackhole blackhole) {
         for (int index = 0; index < BATCH_SIZE; index++) {
             NumberUtil.writeLong2(longNums[index], segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer.longPosition());
+            segmentWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void throughWriteHeapInt(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            NumberUtil.writeInt3(intNums[index], heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer.intPosition());
+            heapWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void throughWriteHeapLong(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            NumberUtil.writeLong3(longNums[index], heapWriteBuffer);
+            blackhole.consume(heapWriteBuffer.intPosition());
+            heapWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void throughWriteSegmentInt(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            NumberUtil.writeInt3(intNums[index], segmentWriteBuffer);
+            blackhole.consume(segmentWriteBuffer.longPosition());
+            segmentWriteBuffer.reset();
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(BATCH_SIZE)
+    public void throughWriteSegmentLong(Blackhole blackhole) {
+        for (int index = 0; index < BATCH_SIZE; index++) {
+            NumberUtil.writeLong3(longNums[index], segmentWriteBuffer);
             blackhole.consume(segmentWriteBuffer.longPosition());
             segmentWriteBuffer.reset();
         }

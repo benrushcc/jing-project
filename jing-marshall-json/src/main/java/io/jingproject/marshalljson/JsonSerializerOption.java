@@ -15,7 +15,7 @@ public final class JsonSerializerOption {
     private final int maxNestedSize;
 
     private JsonSerializerOption(Map<Class<?>, JsonSerializeFunc> funcMap, boolean serializeNullInObjOrMap,
-                                JsonIndentationLevel jsonIndentationLevel, int maxNestedSize) {
+                                 JsonIndentationLevel jsonIndentationLevel, int maxNestedSize) {
         this.funcMap = funcMap;
         this.serializeNullInObjOrMap = serializeNullInObjOrMap;
         this.jsonIndentationLevel = jsonIndentationLevel;
@@ -53,23 +53,23 @@ public final class JsonSerializerOption {
         private int maxNestedSize = 64;
 
         public Builder setTransformerClasses(Class<?>... transformerClasses) {
-            if(transformerClasses == null || transformerClasses.length == 0) {
+            if (transformerClasses == null || transformerClasses.length == 0) {
                 throw new IllegalArgumentException("transformers must not be null or empty");
             }
             for (Class<?> transformer : transformerClasses) {
-                if(transformer == null) {
+                if (transformer == null) {
                     throw new IllegalArgumentException("transformer must not be null");
                 }
                 MarshallTransformerFacade tfc = Marshalls.getMarshallTransformerFacade(transformer);
-                if(tfc == null) {
+                if (tfc == null) {
                     throw new IllegalArgumentException("transformer not found : " + transformer.getName());
                 }
                 Class<?> customType = tfc.customType();
-                if(transformerFacadeMap.containsKey(customType)) {
+                if (transformerFacadeMap.containsKey(customType)) {
                     throw new IllegalArgumentException("custom type already exists : " + customType.getName());
                 }
                 // primitive types are not supported in generics, array types are not supported in transformers, so we don't need to double-check them
-                if(JsonSerializerContext.builtinSerializeObjFunc(customType) != null) {
+                if (JsonSerializerContext.builtinSerializeObjFunc(customType) != null) {
                     throw new IllegalArgumentException("cannot override builtin type : " + customType.getName());
                 }
                 Class<?> builtinType = tfc.builtinType();
@@ -87,7 +87,7 @@ public final class JsonSerializerOption {
         }
 
         public Builder setIndentationLevel(JsonIndentationLevel jsonIndentationLevel) {
-            if(jsonIndentationLevel == null) {
+            if (jsonIndentationLevel == null) {
                 throw new IllegalArgumentException("jsonIndentationLevel must not be null");
             }
             this.jsonIndentationLevel = jsonIndentationLevel;
@@ -95,7 +95,7 @@ public final class JsonSerializerOption {
         }
 
         public Builder setMaxNestedSize(int maxNestedSize) {
-            if(maxNestedSize < JsonSerializerState.INITIAL_SIZE || maxNestedSize > JsonSerializerState.MAX_SIZE) {
+            if (maxNestedSize < JsonSerializerState.INITIAL_SIZE || maxNestedSize > JsonSerializerState.MAX_SIZE) {
                 throw new IllegalArgumentException("maxNestedSize out of range : " + maxNestedSize);
             }
             this.maxNestedSize = maxNestedSize;
@@ -112,5 +112,5 @@ public final class JsonSerializerOption {
                     jsonIndentationLevel, maxNestedSize);
         }
     }
-    
+
 }

@@ -4,13 +4,14 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public final class UtfUtil {
     private static final char[] ESCAPED = new char[]{'\t', '\r', '\n', '\f', '\"'};
+
     private UtfUtil() {
         throw new UnsupportedOperationException("utility class");
     }
 
     public static void appendAscii(StringBuilder sb) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        if(random.nextBoolean()) {
+        if (random.nextBoolean()) {
             sb.append((char) random.nextInt('a', 'z' + 1));
         } else {
             sb.append((char) random.nextInt('A', 'Z' + 1));
@@ -25,7 +26,7 @@ public final class UtfUtil {
     public static void appendUtf(StringBuilder sb) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         char c;
-        if(random.nextBoolean()) {
+        if (random.nextBoolean()) {
             c = (char) random.nextInt(0x800, 0xD800);
         } else {
             do {
@@ -98,7 +99,7 @@ public final class UtfUtil {
         StringBuilder sb = new StringBuilder(size);
         while (sb.length() < size) {
             int i = random.nextInt(10);
-            if(i == 0) {
+            if (i == 0) {
                 appendUtf(sb);
             } else {
                 appendAscii(sb);
@@ -115,7 +116,7 @@ public final class UtfUtil {
             int b = utf8Bytes[i] & 0xFF;
             if (b < 0x80) {
                 count1++;
-                if(b == (byte) '\\') {
+                if (b == (byte) '\\') {
                     countEscape++;
                 }
                 i++;

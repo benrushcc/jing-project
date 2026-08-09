@@ -37,6 +37,11 @@ public class ReadIntegerBench {
     private List<byte[]> longBytes;
     private List<MemorySegment> longSegments;
 
+    static void main() throws RunnerException {
+        Options opt = new OptionsBuilder().include(ReadIntegerBench.class.getSimpleName()).build();
+        new Runner(opt).run();
+    }
+
     @Setup(Level.Iteration)
     public void setup() {
         arena = Arena.ofConfined();
@@ -180,10 +185,5 @@ public class ReadIntegerBench {
             long value = JsonNumberUtil.readLong(segmentReadBuffer, firstByte);
             blackhole.consume(value);
         }
-    }
-
-    static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(ReadIntegerBench.class.getSimpleName()).build();
-        new Runner(opt).run();
     }
 }

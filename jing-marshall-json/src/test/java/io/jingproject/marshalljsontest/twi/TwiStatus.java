@@ -4,7 +4,7 @@ import io.jingproject.marshall.Marshallable;
 import io.jingproject.marshall.NamingConvention;
 
 @Marshallable(from = NamingConvention.CAMEL_CASE, to = NamingConvention.SNAKE_CASE)
-public record TwiStatus (
+public record TwiStatus(
         TwiMetaData metadata,
         String createdAt,
         long id,

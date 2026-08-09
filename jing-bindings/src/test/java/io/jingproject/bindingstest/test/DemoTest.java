@@ -51,7 +51,7 @@ public class DemoTest {
     @Test
     public void testStrToLong() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for(int i = 0; i < BATCH; i++) {
+        for (int i = 0; i < BATCH; i++) {
             long v = random.nextLong();
             String str = String.valueOf(v);
             MemorySegment segment = Arena.ofAuto().allocateFrom(str, StandardCharsets.UTF_8);
@@ -64,7 +64,7 @@ public class DemoTest {
     @Test
     public void testLongToStr() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for(int i = 0; i < BATCH; i++) {
+        for (int i = 0; i < BATCH; i++) {
             long v = random.nextLong();
             MemorySegment s1 = Arena.ofAuto().allocate(ValueLayout.JAVA_BYTE, 64);
             int i1 = JAVA_IMPL.longToStr(v, s1, 64);

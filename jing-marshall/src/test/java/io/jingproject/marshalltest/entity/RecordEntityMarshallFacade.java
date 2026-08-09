@@ -175,7 +175,7 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallReader newReader(Object target) {
-        if(target instanceof RecordEntity instance) {
+        if (target instanceof RecordEntity instance) {
             return new RecordEntityMarshallReader(instance);
         }
         throw new IllegalArgumentException("wrong target : " + target.getClass().getName());
@@ -188,7 +188,7 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public Object construct(MarshallWriter writer) {
-        if(writer instanceof RecordEntityMarshallWriter instance) {
+        if (writer instanceof RecordEntityMarshallWriter instance) {
             return instance.build();
         }
         throw new IllegalArgumentException("wrong writer : " + writer.getClass().getName());

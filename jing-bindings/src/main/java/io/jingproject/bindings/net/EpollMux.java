@@ -41,7 +41,7 @@ public final class EpollMux implements Mux {
     }
 
     private static int getOp(int from, int to) {
-        assert from != to;
+        
         if (from == Mux.MUX_NONE_FLAG) {
             return LINUX_BINDINGS.epollAdd();
         } else if (to == Mux.MUX_NONE_FLAG) {

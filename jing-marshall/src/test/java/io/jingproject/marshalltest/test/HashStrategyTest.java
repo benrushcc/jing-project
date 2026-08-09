@@ -46,24 +46,24 @@ public class HashStrategyTest {
         int collisionTimes = 0;
         Set<Integer> hashes = new HashSet<>(elementSize);
         Set<Integer> filter = new HashSet<>(elementSize);
-        for(int r = 0; r < BATCH; r++) {
+        for (int r = 0; r < BATCH; r++) {
             int col = 0;
             int i = 0;
             while (i < elementSize) {
                 int index = random.nextInt(WORDS.size());
-                if(filter.add(index)) {
+                if (filter.add(index)) {
                     byte[] word = WORDS.get(index);
                     int hash = hasher.hash(word);
-                    if(!hashes.add(hash)) {
+                    if (!hashes.add(hash)) {
                         col++;
                     }
                     i++;
                 }
             }
-            if(col > 0) {
+            if (col > 0) {
                 collisionTimes = Math.incrementExact(collisionTimes);
             }
-            if(col > maxCollisions) {
+            if (col > maxCollisions) {
                 maxCollisions = col;
             }
             filter.clear();

@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.*;
 import java.util.*;
+import java.util.function.Supplier;
 
 @ProcessorApi
 public final class MarshallUtil {
@@ -67,7 +68,47 @@ public final class MarshallUtil {
 
     public static final int TYPE_SIZE = 64; // could expand up to 256 in the future
     public static final int TYPE_MASK = TYPE_SIZE - 1;
+    // currently 4 bits used
+    public static final byte FIELD_NAME_SIMPLE_MASK = 1;
+    public static final byte MAPPED_NAME_SIMPLE_MASK = 1 << 1;
+    public static final byte SKIP_SERIALIZATION_MASK = 1 << 2;
+    public static final byte SKIP_DESERIALIZATION_MASK = 1 << 3;
     private static final Class<?>[] CLS_TABLE;
+    // only interface in java.util are concerned
+    private static final Map<Class<?>, Supplier<Map<?, ?>>> MAP_INTERFACE_FACTORY = Map.of(
+            Map.class, HashMap::new,
+            SequencedMap.class, LinkedHashMap::new,
+            SortedMap.class, TreeMap::new,
+            NavigableMap.class, TreeMap::new
+    );
+    // only common impl in java.util are concerned
+    private static final Map<Class<?>, Supplier<Map<?, ?>>> MAP_IMPL_FACTORY = Map.of(
+            HashMap.class, HashMap::new,
+            LinkedHashMap.class, LinkedHashMap::new,
+            TreeMap.class, TreeMap::new
+    );
+    // only interface in java.util are concerned
+    private static final Map<Class<?>, Supplier<Collection<?>>> COL_INTERFACE_FACTORY = Map.of(
+            Collection.class, ArrayList::new,
+            List.class, ArrayList::new,
+            Queue.class, ArrayDeque::new,
+            Deque.class, ArrayDeque::new,
+            Set.class, HashSet::new,
+            SequencedCollection.class, ArrayList::new,
+            SequencedSet.class, LinkedHashSet::new,
+            SortedSet.class, TreeSet::new,
+            NavigableSet.class, TreeSet::new
+    );
+    // only common impl in java.util are concerned
+    private static final Map<Class<?>, Supplier<Collection<?>>> COL_IMPL_FACTORY = Map.of(
+            ArrayList.class, ArrayList::new,
+            LinkedList.class, LinkedList::new,
+            ArrayDeque.class, ArrayDeque::new,
+            PriorityQueue.class, PriorityQueue::new,
+            HashSet.class, HashSet::new,
+            LinkedHashSet.class, LinkedHashSet::new,
+            TreeSet.class, TreeSet::new
+    );
 
     static {
         CLS_TABLE = new Class<?>[TYPE_SIZE];
@@ -119,86 +160,86 @@ public final class MarshallUtil {
         CLS_TABLE[OFFSET_DATE_TIME_TYPE] = OffsetDateTime.class;
     }
 
+
+    private MarshallUtil() {
+        throw new UnsupportedOperationException("utility class");
+    }
+
     private static int scan(Class<?> target, int start, int end) {
-        for(int i = start; i <= end; i++) {
+        for (int i = start; i <= end; i++) {
             Class<?> c = CLS_TABLE[i];
-            if(c != null && target == c) {
+            if (c != null && target == c) {
                 return i;
             }
         }
         return -1;
     }
 
-    private MarshallUtil() {
-        throw new UnsupportedOperationException("utility class");
-    }
-
-    // currently 4 bits used
-    public static final byte FIELD_NAME_SIMPLE_MASK = 1;
-    public static final byte MAPPED_NAME_SIMPLE_MASK = 1 << 1;
-    public static final byte SKIP_SERIALIZATION_MASK = 1 << 2;
-    public static final byte SKIP_DESERIALIZATION_MASK = 1 << 3;
-
     // checks if all bytes are alphanumeric, underscore, or hyphen.
     private static boolean isAlphanumericOrSeparator(byte[] utf8Bytes) {
         for (byte b : utf8Bytes) {
-            if(b >= (byte) '0' &&  b <= (byte) '9') {
-                continue ;
+            if (b >= (byte) '0' && b <= (byte) '9') {
+                continue;
             }
-            if(b >= (byte) 'a' && b <= (byte) 'z') {
-                continue ;
+            if (b >= (byte) 'a' && b <= (byte) 'z') {
+                continue;
             }
-            if(b >= (byte) 'A' &&  b <= (byte) 'Z') {
-                continue ;
+            if (b >= (byte) 'A' && b <= (byte) 'Z') {
+                continue;
             }
-            if(b == (byte) '_' || b == (byte) '-') {
-                continue ;
+            if (b == (byte) '_' || b == (byte) '-') {
+                continue;
             }
             return false;
         }
         return true;
     }
 
-    // only interface in java.util are concerned
-    private static final Set<Class<?>> MAP_INTERFACE_SET = Set.of(Map.class, SequencedMap.class, SortedMap.class, NavigableMap.class);
+    public static boolean isMapInterfaceType(Class<?> rawType) {
 
-
-    private static boolean isMapIntefaceType(Class<?> rawType) {
-        assert rawType != null;
-        return MAP_INTERFACE_SET.contains(rawType);
+        return MAP_INTERFACE_FACTORY.containsKey(rawType);
     }
 
-    // only common impl in java.util are concerned
-    private static final Set<Class<?>> MAP_IMPL_SET = Set.of(HashMap.class, LinkedHashMap.class, TreeMap.class);
+    public static Map<?, ?> newMapInterface(Class<?> rawType) {
 
-    private static boolean isMapImplType(Class<?> rawType) {
-        assert rawType != null;
-        return MAP_IMPL_SET.contains(rawType);
+        return MAP_INTERFACE_FACTORY.get(rawType).get();
     }
 
-    // only interface in java.util are concerned TODO 改成构造函数的map
-    private static final Set<Class<?>> COL_INTERFACE_SET = Set.of(Collection.class, List.class, Queue.class, Deque.class, Set.class,
-            SequencedCollection.class, SequencedSet.class, SortedSet.class, NavigableSet.class);
+    public static boolean isMapImplType(Class<?> rawType) {
 
-    private static boolean isCollectionInterfaceType(Class<?> rawType) {
-        assert rawType != null;
-        return COL_INTERFACE_SET.contains(rawType);
+        return MAP_IMPL_FACTORY.containsKey(rawType);
     }
 
-    // only common impl in java.util are concerned
-    private static final Set<Class<?>> COL_IMPL_SET = Set.of(ArrayList.class, LinkedList.class, ArrayDeque.class,
-            PriorityQueue.class, HashSet.class, LinkedHashSet.class, TreeSet.class);
+    public static Map<?, ?> newMapImpl(Class<?> rawType) {
 
-    private static boolean isCollectionImplType(Class<?> rawType) {
-        assert rawType != null;
-        return COL_IMPL_SET.contains(rawType);
+        return MAP_IMPL_FACTORY.get(rawType).get();
+    }
+
+    public static boolean isCollectionInterfaceType(Class<?> rawType) {
+
+        return COL_INTERFACE_FACTORY.containsKey(rawType);
+    }
+
+    public static Collection<?> newCollectionInterface(Class<?> rawType) {
+
+        return COL_INTERFACE_FACTORY.get(rawType).get();
+    }
+
+    public static boolean isCollectionImplType(Class<?> rawType) {
+
+        return COL_IMPL_FACTORY.containsKey(rawType);
+    }
+
+    public static Collection<?> newCollectionImpl(Class<?> rawType) {
+
+        return COL_IMPL_FACTORY.get(rawType).get();
     }
 
     // returns the flag constant for a primitive type.
     private static int makePrimitiveType(Class<?> rawType) {
-        assert rawType != null && rawType.isPrimitive();
+
         int r = scan(rawType, BYTE_TYPE, DOUBLE_TYPE);
-        if(r < 0) {
+        if (r < 0) {
             throw new AssertionError();
         }
         return r;
@@ -206,11 +247,11 @@ public final class MarshallUtil {
 
     // returns the flag constant for a wrapper type.
     private static int makeRawType(Class<?> rawType) {
-        assert rawType != null;
+
         int r = scan(rawType, BYTE_WRAPPER_TYPE, DOUBLE_WRAPPER_TYPE);
-        if(r < 0) {
+        if (r < 0) {
             r = scan(rawType, CHARSEQUENCE_TYPE, OFFSET_DATE_TIME_TYPE);
-            if(r < 0) {
+            if (r < 0) {
                 return RAW_TYPE;
             }
         }
@@ -219,9 +260,9 @@ public final class MarshallUtil {
 
     // returns the flag constant for a primitive array type.
     private static int makePrimitiveArrayType(Class<?> rawType) {
-        assert rawType != null && rawType.isArray() && rawType.getComponentType().isPrimitive();
+
         int r = scan(rawType, BYTE_ARRAY_TYPE, DOUBLE_ARRAY_TYPE);
-        if(r < 0) {
+        if (r < 0) {
             throw new AssertionError();
         }
         return r;
@@ -229,38 +270,38 @@ public final class MarshallUtil {
 
     // returns the flag constant for a wrapper array type.
     private static int makeWrapperArrayType(Class<?> rawType) {
-        assert rawType != null && rawType.isArray() && !rawType.getComponentType().isPrimitive();
+
         int r = scan(rawType, BYTE_WRAPPER_ARRAY_TYPE, DOUBLE_WRAPPER_ARRAY_TYPE);
-        if(r < 0) {
+        if (r < 0) {
             return ARRAY_TYPE;
         }
         return r;
     }
 
     public static byte makeType(Class<?> rawType, Class<?> firstGenericType, Class<?> secondGenericType) {
-        assert rawType != null;
+
         int r;
-        if(secondGenericType != null) {
-            if(isMapIntefaceType(rawType)) {
+        if (secondGenericType != null) {
+            if (isMapInterfaceType(rawType)) {
                 r = MAP_INTERFACE_TYPE;
-            } else if(isMapImplType(rawType)) {
+            } else if (isMapImplType(rawType)) {
                 r = MAP_IMPL_TYPE;
             } else {
                 r = TWO_GENERIC_TYPE;
             }
-        } else if(firstGenericType != null) {
-            if(isCollectionInterfaceType(rawType)) {
+        } else if (firstGenericType != null) {
+            if (isCollectionInterfaceType(rawType)) {
                 r = COLLECTION_INTERFACE_TYPE;
-            } else if(isCollectionImplType(rawType)) {
+            } else if (isCollectionImplType(rawType)) {
                 r = COLLECTION_IMPL_TYPE;
             } else {
                 r = ONE_GENERIC_TYPE;
             }
-        } else if(rawType.isEnum()) {
+        } else if (rawType.isEnum()) {
             r = ENUM_TYPE;
-        } else if(rawType.isPrimitive()) {
+        } else if (rawType.isPrimitive()) {
             r = makePrimitiveType(rawType);
-        } else if(rawType.isArray()) {
+        } else if (rawType.isArray()) {
             r = rawType.getComponentType().isPrimitive() ? makePrimitiveArrayType(rawType) : makeWrapperArrayType(rawType);
         } else {
             r = makeRawType(rawType);
@@ -269,18 +310,18 @@ public final class MarshallUtil {
     }
 
     public static byte makeFlags(byte[] fieldNameUtf8Bytes, byte[] mappedNameUtf8Bytes, boolean skipSerializing, boolean skipDeserializing) {
-        assert fieldNameUtf8Bytes != null && fieldNameUtf8Bytes.length > 0 && mappedNameUtf8Bytes != null && mappedNameUtf8Bytes.length > 0;
+
         byte r = 0;
-        if(isAlphanumericOrSeparator(fieldNameUtf8Bytes)) {
+        if (isAlphanumericOrSeparator(fieldNameUtf8Bytes)) {
             r |= FIELD_NAME_SIMPLE_MASK;
         }
-        if(isAlphanumericOrSeparator(mappedNameUtf8Bytes)) {
+        if (isAlphanumericOrSeparator(mappedNameUtf8Bytes)) {
             r |= MAPPED_NAME_SIMPLE_MASK;
         }
-        if(skipSerializing) {
+        if (skipSerializing) {
             r |= SKIP_SERIALIZATION_MASK;
         }
-        if(skipDeserializing) {
+        if (skipDeserializing) {
             r |= SKIP_DESERIALIZATION_MASK;
         }
         return r;

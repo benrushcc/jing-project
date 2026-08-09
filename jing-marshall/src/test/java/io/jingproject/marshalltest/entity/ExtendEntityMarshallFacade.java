@@ -245,7 +245,7 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallReader newReader(Object target) {
-        if(target instanceof ExtendEntity instance) {
+        if (target instanceof ExtendEntity instance) {
             return new ExtendEntityMarshallReader(instance);
         }
         throw new IllegalArgumentException("wrong target : " + target.getClass().getName());
@@ -259,7 +259,7 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public Object construct(MarshallWriter writer) {
-        if(writer instanceof ExtendEntityMarshallWriter(ExtendEntity instance)) {
+        if (writer instanceof ExtendEntityMarshallWriter(ExtendEntity instance)) {
             return instance;
         }
         throw new IllegalArgumentException("wrong writer : " + writer.getClass().getName());

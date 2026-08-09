@@ -95,6 +95,12 @@ public class WriteIntegerTest {
     }
 
     @Test
+    public void lutLoopWriteIntTest() {
+        testWriteInt(NumberUtil::writeInt3);
+        testWriteLong(NumberUtil::writeLong3);
+    }
+
+    @Test
     public void writeIntTest() {
         testWriteInt(JsonNumberUtil::writeInt);
         testWriteLong(JsonNumberUtil::writeLong);

@@ -37,6 +37,11 @@ public class MarshallBench {
     private LocalDateTime[] localDateTimeArray;
     private Duration[] durationArray;
 
+    static void main() throws RunnerException {
+        Options opt = new OptionsBuilder().include(MarshallBench.class.getSimpleName()).addProfiler(GCProfiler.class).build();
+        new Runner(opt).run();
+    }
+
     @Setup(Level.Iteration)
     public void setup() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -237,10 +242,5 @@ public class MarshallBench {
             RecordEntity instance = (RecordEntity) marshallFacade.construct(writer);
             blackhole.consume(instance);
         }
-    }
-
-    static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(MarshallBench.class.getSimpleName()).addProfiler(GCProfiler.class).build();
-        new Runner(opt).run();
     }
 }

@@ -4,7 +4,7 @@ import io.jingproject.marshall.MarshallWriter;
 
 import java.time.LocalDateTime;
 
-public record BeanEntityMarshallWriter (
+public record BeanEntityMarshallWriter(
         BeanEntity instance
 ) implements MarshallWriter {
 

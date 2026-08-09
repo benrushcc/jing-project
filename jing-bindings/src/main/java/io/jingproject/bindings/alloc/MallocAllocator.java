@@ -91,7 +91,7 @@ public final class MallocAllocator implements Allocator {
      */
     @Override
     public MemorySegment allocate(long byteSize, long byteAlignment) {
-        assert byteAlignment >= 1L && Long.bitCount(byteAlignment) == 1;
+
         if (addressArray == null) {
             throw new IllegalStateException("mallocBumper already closed");
         }

@@ -54,8 +54,8 @@ public final class Anchor {
             if (current == null) {
                 T result = supplier.get();
                 m.put(clazz, result);
-                if(result instanceof LifeCycle lc) {
-                    if(lcs.isEmpty()) {
+                if (result instanceof LifeCycle lc) {
+                    if (lcs.isEmpty()) {
                         addHook();
                     }
                     lcs.add(lc);

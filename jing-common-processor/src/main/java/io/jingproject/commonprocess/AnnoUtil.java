@@ -16,11 +16,11 @@ public final class AnnoUtil {
     }
 
     public static String javaStringLiteral(String str) {
-        return "\""  + str + "\"";
+        return "\"" + str + "\"";
     }
 
     public static String escapeJavaStringLiteral(String str, StringBuilder builder) {
-        if(!builder.isEmpty()) {
+        if (!builder.isEmpty()) {
             throw new AnnotationProcessorException("builder not empty");
         }
         builder.append("\"");
@@ -178,7 +178,7 @@ public final class AnnoUtil {
         if (typeElement.getNestingKind() != NestingKind.TOP_LEVEL) {
             throw new AnnotationProcessorException("typeElement must be top-level : " + typeElement);
         }
-        if(!typeElement.getModifiers().contains(Modifier.PUBLIC)) {
+        if (!typeElement.getModifiers().contains(Modifier.PUBLIC)) {
             throw new AnnotationProcessorException("typeElement must be public : " + typeElement);
         }
         if (!typeElement.getTypeParameters().isEmpty()) {
@@ -187,18 +187,18 @@ public final class AnnoUtil {
     }
 
     public static void checkFieldElementForRegister(Element element) {
-        if(!(element instanceof VariableElement) && !(element instanceof RecordComponentElement)) {
+        if (!(element instanceof VariableElement) && !(element instanceof RecordComponentElement)) {
             throw new AnnotationProcessorException("element must be of type variableElement or recordComponentElement : " + element);
         }
         checkTypeElementForRegister(castTypeElement(element.getEnclosingElement()));
         TypeMirror tm = element.asType();
-        if(tm.getKind() == TypeKind.ARRAY) {
+        if (tm.getKind() == TypeKind.ARRAY) {
             validateArray(castArrayType(tm));
-        } else if(tm.getKind() == TypeKind.DECLARED) {
+        } else if (tm.getKind() == TypeKind.DECLARED) {
             validateTypeArgs(castDeclaredType(tm).getTypeArguments());
         }
         String qualifiedName = element.toString();
-        if(qualifiedName.contains("extends") || qualifiedName.contains("super")) {
+        if (qualifiedName.contains("extends") || qualifiedName.contains("super")) {
             // supporting 'super' and 'extends' currently brings no benefits to the program
             // but significantly increases complexity, therefore they are not considered
             throw new AnnotationProcessorException("super and extends are not supported for registration");
@@ -210,7 +210,7 @@ public final class AnnoUtil {
             if (typeArg.getKind() == TypeKind.DECLARED) {
                 DeclaredType dt = castDeclaredType(typeArg);
                 TypeElement te = castTypeElement(dt.asElement());
-                if(!te.getTypeParameters().isEmpty()) {
+                if (!te.getTypeParameters().isEmpty()) {
                     throw new AnnotationProcessorException("generic type args cannot have any type args : " + te);
                 }
             } else {
@@ -225,12 +225,12 @@ public final class AnnoUtil {
         if (tmKind == TypeKind.DECLARED) {
             DeclaredType componentDeclaredType = AnnoUtil.castDeclaredType(tm);
             TypeElement componentTypeElement = AnnoUtil.castTypeElement(componentDeclaredType.asElement());
-            if(!componentTypeElement.getTypeParameters().isEmpty()) {
+            if (!componentTypeElement.getTypeParameters().isEmpty()) {
                 throw new AnnotationProcessorException("generic array not supported : " + componentTypeElement);
             }
-        } else if(tmKind == TypeKind.ARRAY) {
+        } else if (tmKind == TypeKind.ARRAY) {
             throw new AnnotationProcessorException("multi dimension array not supported : " + tm);
-        } else if(!tmKind.isPrimitive()) {
+        } else if (!tmKind.isPrimitive()) {
             throw new AnnotationProcessorException("unknown array type : " + tm);
         }
     }

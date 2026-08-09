@@ -23,7 +23,7 @@ public final class SumHasher implements Hasher {
 
     @Override
     public int hash(byte[] bytes, int offset, int len) {
-        assert bytes != null && Objects.checkFromIndexSize(offset, len, bytes.length) >= 0;
+        Objects.checkFromIndexSize(offset, len, bytes.length);
         int hash = 0;
         int index = 0;
         for (; index <= len - 4; index += 4) {
@@ -37,7 +37,7 @@ public final class SumHasher implements Hasher {
 
     @Override
     public int hash(MemorySegment segment, long offset, long len) {
-        assert segment != null && Objects.checkFromIndexSize(offset, len, segment.byteSize()) >= 0L;
+        Objects.checkFromIndexSize(offset, len, segment.byteSize());
         int hash = 0;
         long index = 0;
         for (; index <= len - 4L; index += 4L) {

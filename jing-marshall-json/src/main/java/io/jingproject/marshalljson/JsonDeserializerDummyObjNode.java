@@ -1,7 +1,5 @@
 package io.jingproject.marshalljson;
 
-import io.jingproject.common.ReadBuffer;
-
 public final class JsonDeserializerDummyObjNode extends JsonDeserializerNode {
     private int index;
 
@@ -10,34 +8,30 @@ public final class JsonDeserializerDummyObjNode extends JsonDeserializerNode {
     }
 
     @Override
-    protected JsonDeserializeResult process(JsonDeserializerOption option, ReadBuffer readBuffer, JsonDeserializerContext context, Object v) {
-        byte firstByte;
-        if(v != null) {
-            assert v == JsonDeserializeUtil.dummyValue(); // dummy node could only receive dummy value
-            firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
-            if(firstByte == (byte) '}') {
-                context.setObj(JsonDeserializeUtil.dummyValue());
-                return JsonDeserializeResult.Finish;
-            } else if(firstByte != (byte) ',') {
-                throw new JsonDeserializerException("illegal value end, got : " + firstByte);
-            }
+    protected JsonDeserializeResult process(JsonDeserializerContext c, JsonDeserializeResult last) {
+        byte firstByte = c.nextFirstValuableByte();
+        if (firstByte == (byte) '}') {
+            return JsonDeserializeResult.Trivial;
+        } else if (firstByte != (byte) ',') {
+            throw new JsonDeserializerException("illegal value end, got : " + firstByte);
         }
+        // since the skip* functions directly invokes readByte() to perform reads, an IndexOutOfBoundsException can occur at any moment, necessitating explicit catch handling
         try {
+            final int maxDummyElements = c.option().maxDummyElements();
             int i = index;
-            while (i < option.maxDummyElements()) {
-                firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
-                if(!JsonDeserializeUtil.validateJsonStringStart(firstByte)) {
+            while (i < maxDummyElements) {
+                firstByte = c.nextFirstValuableByte();
+                if (firstByte != (byte) '"') {
                     throw new JsonDeserializerException("illegal key start, got : " + firstByte);
                 }
-                JsonDeserializeUtil.skipStringValue(option, readBuffer, firstByte);
-                JsonDeserializeUtil.skipColon(option, readBuffer);
-                firstByte = JsonDeserializeUtil.nextFirstValuableByte(option, readBuffer);
-                if(JsonDeserializeUtil.skipAnyValue(option, readBuffer, firstByte)) {
+                c.skipStringValue(firstByte);
+                firstByte = c.skipColon();
+                if (c.skipAnyValue(firstByte)) {
                     i++;
-                } else if(firstByte == (byte) '{') {
+                } else if (firstByte == (byte) '{') {
                     index = i + 1;
                     return JsonDeserializeResult.NewDummyObj;
-                } else if(firstByte == (byte) '[') {
+                } else if (firstByte == (byte) '[') {
                     index = i + 1;
                     return JsonDeserializeResult.NewDummyArr;
                 } else {

@@ -42,6 +42,11 @@ public class DemoBench {
     private List<MemorySegment> lm;
     private List<MemorySegment> dm;
 
+    static void main() throws RunnerException {
+        Options opt = new OptionsBuilder().include(DemoBench.class.getSimpleName()).build();
+        new Runner(opt).run();
+    }
+
     @Setup(Level.Iteration)
     public void setup() {
         a = new int[BATCH_SIZE];
@@ -130,7 +135,7 @@ public class DemoBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testJavaLongToStr(Blackhole blackhole) {
-        try(Arena a = Arena.ofConfined()) {
+        try (Arena a = Arena.ofConfined()) {
             MemorySegment s = a.allocate(ValueLayout.JAVA_BYTE, 64);
             for (int i = 0; i < BATCH_SIZE; i++) {
                 blackhole.consume(JAVA_IMPL.longToStr(l[i], s, 64));
@@ -141,7 +146,7 @@ public class DemoBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testJavaDoubleToStr(Blackhole blackhole) {
-        try(Arena a = Arena.ofConfined()) {
+        try (Arena a = Arena.ofConfined()) {
             MemorySegment s = a.allocate(ValueLayout.JAVA_BYTE, 64);
             for (int i = 0; i < BATCH_SIZE; i++) {
                 blackhole.consume(JAVA_IMPL.doubleToStr(d[i], s, 64));
@@ -198,7 +203,7 @@ public class DemoBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testNativeLongToStr(Blackhole blackhole) {
-        try(Arena a = Arena.ofConfined()) {
+        try (Arena a = Arena.ofConfined()) {
             MemorySegment s = a.allocate(ValueLayout.JAVA_BYTE, 64);
             for (int i = 0; i < BATCH_SIZE; i++) {
                 blackhole.consume(NATIVE_IMPL.longToStr(l[i], s, 64));
@@ -209,16 +214,11 @@ public class DemoBench {
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void testNativeDoubleToStr(Blackhole blackhole) {
-        try(Arena a = Arena.ofConfined()) {
+        try (Arena a = Arena.ofConfined()) {
             MemorySegment s = a.allocate(ValueLayout.JAVA_BYTE, 64);
             for (int i = 0; i < BATCH_SIZE; i++) {
                 blackhole.consume(NATIVE_IMPL.doubleToStr(d[i], s, 64));
             }
         }
-    }
-
-    static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(DemoBench.class.getSimpleName()).build();
-        new Runner(opt).run();
     }
 }

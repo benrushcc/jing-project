@@ -14,6 +14,20 @@ public final class PropertiesCfgReader {
         this.input = input;
     }
 
+    private static Cfg buildCfgObject(String value) {
+        if (value.startsWith("[") && value.endsWith("]")) {
+            String arrStr = value.substring(1, Math.subtractExact(value.length(), 1));
+            List<String> arrItems = new ArrayList<>();
+            for (String item : arrStr.split(",")) {
+                if (!item.isBlank()) {
+                    arrItems.add(item);
+                }
+            }
+            return new CfgList(arrItems);
+        }
+        return new CfgItem(value);
+    }
+
     public CfgObject parse() throws IOException {
         CfgObject r = new CfgObject(new HashMap<>());
         CfgObject current = r;
@@ -59,19 +73,5 @@ public final class PropertiesCfgReader {
             }
             return r;
         }
-    }
-
-    private static Cfg buildCfgObject(String value) {
-        if (value.startsWith("[") && value.endsWith("]")) {
-            String arrStr = value.substring(1, Math.subtractExact(value.length(), 1));
-            List<String> arrItems = new ArrayList<>();
-            for (String item : arrStr.split(",")) {
-                if (!item.isBlank()) {
-                    arrItems.add(item);
-                }
-            }
-            return new CfgList(arrItems);
-        }
-        return new CfgItem(value);
     }
 }

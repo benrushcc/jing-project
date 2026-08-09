@@ -1,5 +1,6 @@
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -19,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 public class CollectArtifacts {
 
     private static final Map<String, String> DEPENDENCIES = new LinkedHashMap<>();
+
     static {
         DEPENDENCIES.put("org.junit.jupiter:junit-jupiter-api", "junit.version");
         DEPENDENCIES.put("org.openjdk.jmh:jmh-core", "jmh.version");
@@ -100,7 +102,7 @@ public class CollectArtifacts {
         Path targetFile = destDir.resolve(jarName);
         System.out.println("downloading dependency : " + jarName);
         ProcessBuilder pb = new ProcessBuilder(
-                System.getProperty("os.name").toLowerCase().contains("win") ? "mvn.cmd": "mvn",
+                System.getProperty("os.name").toLowerCase().contains("win") ? "mvn.cmd" : "mvn",
                 "dependency:get",
                 "-DgroupId=" + groupId,
                 "-DartifactId=" + artifactId,

@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 public final class Libs {
 
     /**
-     *  all the dynamic library search directories ordered by priority
+     * all the dynamic library search directories ordered by priority
      */
     private static final List<String> SEARCH_PATH = createSearchPath();
 
@@ -33,44 +33,6 @@ public final class Libs {
      * critical path could be disabled globally to ensure safepoint is always checked on each downcall
      */
     private static final boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
-
-    /**
-     * @return the available dynamic library serach paths on current machine
-     */
-    private static List<String> createSearchPath() {
-        List<String> r = new ArrayList<>();
-        String argPath = System.getProperty("jing.library.path");
-        if (argPath != null && !argPath.isBlank() && Files.isDirectory(Paths.get(argPath))) {
-            r.add(argPath);
-        }
-        String envPath = System.getenv("JING_LIBRARY_PATH");
-        if (envPath != null && !envPath.isBlank() && Files.isDirectory(Paths.get(envPath))) {
-            r.add(envPath);
-        }
-        for (String p : System.getProperty("java.library.path", "").split(File.pathSeparator)) {
-            if (!p.isBlank() && Files.isDirectory(Paths.get(p))) {
-                r.add(p);
-            }
-        }
-        if (r.isEmpty()) {
-            throw new ExceptionInInitializerError("cannot initialize library search path");
-        }
-        return List.copyOf(r);
-    }
-
-    /**
-     * @return the first searched path for given library name after mapping, or {@code null} if not found
-     */
-    private static Path searchLibrary(String mappedLibraryName) {
-        for (String searchPath : SEARCH_PATH) {
-            Path p = Paths.get(searchPath, mappedLibraryName);
-            if (Files.isRegularFile(p)) {
-                return p;
-            }
-        }
-        return null;
-    }
-
     private static final Map<Class<?>, LibDescriptor<?>> DESCRIPTORS;
 
     static {
@@ -113,6 +75,43 @@ public final class Libs {
 
     private Libs() {
         throw new UnsupportedOperationException("utility class");
+    }
+
+    /**
+     * @return the available dynamic library serach paths on current machine
+     */
+    private static List<String> createSearchPath() {
+        List<String> r = new ArrayList<>();
+        String argPath = System.getProperty("jing.library.path");
+        if (argPath != null && !argPath.isBlank() && Files.isDirectory(Paths.get(argPath))) {
+            r.add(argPath);
+        }
+        String envPath = System.getenv("JING_LIBRARY_PATH");
+        if (envPath != null && !envPath.isBlank() && Files.isDirectory(Paths.get(envPath))) {
+            r.add(envPath);
+        }
+        for (String p : System.getProperty("java.library.path", "").split(File.pathSeparator)) {
+            if (!p.isBlank() && Files.isDirectory(Paths.get(p))) {
+                r.add(p);
+            }
+        }
+        if (r.isEmpty()) {
+            throw new ExceptionInInitializerError("cannot initialize library search path");
+        }
+        return List.copyOf(r);
+    }
+
+    /**
+     * @return the first searched path for given library name after mapping, or {@code null} if not found
+     */
+    private static Path searchLibrary(String mappedLibraryName) {
+        for (String searchPath : SEARCH_PATH) {
+            Path p = Paths.get(searchPath, mappedLibraryName);
+            if (Files.isRegularFile(p)) {
+                return p;
+            }
+        }
+        return null;
     }
 
     public static MemorySegment addrFromVM(String methodName) {
@@ -171,7 +170,7 @@ public final class Libs {
         Class<?> rType = types.getFirst();
         MethodHandle mh = MethodHandles.throwException(rType, ForeignException.class);
         mh = mh.bindTo(new ForeignException("native method not found : " + methodName));
-        if(types.size() > 1) {
+        if (types.size() > 1) {
             mh = MethodHandles.dropArguments(mh, 0, types.subList(1, types.size()));
         }
         return mh;

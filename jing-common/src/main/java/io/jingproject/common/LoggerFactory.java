@@ -23,6 +23,11 @@ public final class LoggerFactory {
 
     static final class DefaultLoggerFacade implements LoggerFacade {
 
+        @Override
+        public Logger getLogger(Class<?> clazz) {
+            return new DefaultLogger(clazz);
+        }
+
         static final class DefaultLogger implements Logger {
             private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             private final Class<?> clazz;
@@ -57,11 +62,6 @@ public final class LoggerFactory {
                     }
                 }
             }
-        }
-
-        @Override
-        public Logger getLogger(Class<?> clazz) {
-            return new DefaultLogger(clazz);
         }
     }
 }

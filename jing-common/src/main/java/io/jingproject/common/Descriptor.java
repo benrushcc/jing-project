@@ -5,10 +5,6 @@ package io.jingproject.common;
  */
 public sealed interface Descriptor {
 
-    int asInt();
-
-    long asLong();
-
     static Descriptor of(int value) {
         return new IntDescriptor(value);
     }
@@ -16,6 +12,10 @@ public sealed interface Descriptor {
     static Descriptor of(long value) {
         return new LongDescriptor(value);
     }
+
+    int asInt();
+
+    long asLong();
 
     record IntDescriptor(int value) implements Descriptor {
         @Override

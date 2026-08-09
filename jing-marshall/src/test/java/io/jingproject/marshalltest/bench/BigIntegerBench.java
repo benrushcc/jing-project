@@ -27,6 +27,11 @@ public class BigIntegerBench {
     private long[] long1;
     private long[] long2;
 
+    static void main() throws RunnerException {
+        Options opt = new OptionsBuilder().include(BigInteger.class.getSimpleName()).build();
+        new Runner(opt).run();
+    }
+
     @Setup(Level.Iteration)
     public void setup() {
         bi1 = new BigInteger[BATCH];
@@ -72,10 +77,5 @@ public class BigIntegerBench {
             BigInteger b2 = bi2[i];
             bh.consume(b1.multiply(b2));
         }
-    }
-
-    static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(BigInteger.class.getSimpleName()).build();
-        new Runner(opt).run();
     }
 }

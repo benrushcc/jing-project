@@ -17,16 +17,49 @@ public final class JsonCfgReader {
         this.input = input;
     }
 
-    enum State {
-        INITIAL, // 初始状态，想要读取下一个'{'作为对象的开始
-        OBJ_START, // 已经读取到了对象的开始'{'，想要找下一个key的启动'"'或者对象的结束'}'
-        STR_ARR_OBJ_END, // 已经读取到了字符串，数组，对象的结束'"' ']' '}'，接下来找'}'或者','
-        EXPECT_KEY, // 想要读取下一个字符串key的起始双引号
-        KEY_START, // 已经读取到了key的开头'"'，接下来开始解析key的部分
-        KEY_END, // 已经读取到了key的结束'"'，接下来寻找分隔符':'
-        EXPECT_VALUE, // 已经读取到了':'，接下来找值的起始部分，可能是'"' '[' '{'中的一种
-        STR_START, // 已经读取到了值的起始'"'，接下来要找值结束'"'
-        ARR_START, // 已经读取到了数组的起始'['，接下来要读到数组的结束']'
+    private static void readJsonStrValue(InputStream input, ByteArrayOutputStream output) throws IOException {
+        boolean escaping = false;
+        int b;
+        while ((b = input.read()) != -1) {
+            if (escaping) {
+                switch (b) {
+                    case '\"' -> output.write('\"');
+                    case '\\' -> output.write('\\');
+                    case '/' -> output.write('/');
+                    case 'b' -> output.write('\b');
+                    case 'f' -> output.write('\f');
+                    case 'n' -> output.write('\n');
+                    case 'r' -> output.write('\r');
+                    case 't' -> output.write('\t');
+                    case 'u' -> {
+                        int codePoint = CfgUtil.readUnicode(input, 4);
+                        if (!Character.isValidCodePoint(codePoint)) {
+                            throw new CfgException("invalid code point: " + codePoint);
+                        }
+                        if (codePoint instanceof char highSurrogate && Character.isHighSurrogate(highSurrogate)) {
+                            CfgUtil.assume(input, '\\');
+                            CfgUtil.assume(input, 'u');
+                            int lowSurrogateCodePoint = CfgUtil.readUnicode(input, 4);
+                            if (lowSurrogateCodePoint instanceof char lowSurrogate && Character.isLowSurrogate(lowSurrogate) && Character.isSurrogatePair(highSurrogate, lowSurrogate)) {
+                                codePoint = Character.toCodePoint(highSurrogate, lowSurrogate);
+                            }
+                        }
+                        CfgUtil.writeUnicodeInUtf8(output, codePoint);
+                    }
+                    default -> throw new CfgException("invalid escape sequence: " + b);
+                }
+                escaping = false;
+            } else {
+                if (b == '\\') {
+                    escaping = true;
+                } else if (b == '"') {
+                    return;
+                } else {
+                    output.write(b);
+                }
+            }
+        }
+        throw new CfgException("EOF reached");
     }
 
     // 构建出来的Reader只能parse一次，继续parse是ub
@@ -151,48 +184,15 @@ public final class JsonCfgReader {
         }
     }
 
-    private static void readJsonStrValue(InputStream input, ByteArrayOutputStream output) throws IOException {
-        boolean escaping = false;
-        int b;
-        while ((b = input.read()) != -1) {
-            if (escaping) {
-                switch (b) {
-                    case '\"' -> output.write('\"');
-                    case '\\' -> output.write('\\');
-                    case '/' -> output.write('/');
-                    case 'b' -> output.write('\b');
-                    case 'f' -> output.write('\f');
-                    case 'n' -> output.write('\n');
-                    case 'r' -> output.write('\r');
-                    case 't' -> output.write('\t');
-                    case 'u' -> {
-                        int codePoint = CfgUtil.readUnicode(input, 4);
-                        if (!Character.isValidCodePoint(codePoint)) {
-                            throw new CfgException("invalid code point: " + codePoint);
-                        }
-                        if (codePoint instanceof char highSurrogate && Character.isHighSurrogate(highSurrogate)) {
-                            CfgUtil.assume(input, '\\');
-                            CfgUtil.assume(input, 'u');
-                            int lowSurrogateCodePoint = CfgUtil.readUnicode(input, 4);
-                            if (lowSurrogateCodePoint instanceof char lowSurrogate && Character.isLowSurrogate(lowSurrogate) && Character.isSurrogatePair(highSurrogate, lowSurrogate)) {
-                                codePoint = Character.toCodePoint(highSurrogate, lowSurrogate);
-                            }
-                        }
-                        CfgUtil.writeUnicodeInUtf8(output, codePoint);
-                    }
-                    default -> throw new CfgException("invalid escape sequence: " + b);
-                }
-                escaping = false;
-            } else {
-                if (b == '\\') {
-                    escaping = true;
-                } else if (b == '"') {
-                    return;
-                } else {
-                    output.write(b);
-                }
-            }
-        }
-        throw new CfgException("EOF reached");
+    enum State {
+        INITIAL, // 初始状态，想要读取下一个'{'作为对象的开始
+        OBJ_START, // 已经读取到了对象的开始'{'，想要找下一个key的启动'"'或者对象的结束'}'
+        STR_ARR_OBJ_END, // 已经读取到了字符串，数组，对象的结束'"' ']' '}'，接下来找'}'或者','
+        EXPECT_KEY, // 想要读取下一个字符串key的起始双引号
+        KEY_START, // 已经读取到了key的开头'"'，接下来开始解析key的部分
+        KEY_END, // 已经读取到了key的结束'"'，接下来寻找分隔符':'
+        EXPECT_VALUE, // 已经读取到了':'，接下来找值的起始部分，可能是'"' '[' '{'中的一种
+        STR_START, // 已经读取到了值的起始'"'，接下来要找值结束'"'
+        ARR_START, // 已经读取到了数组的起始'['，接下来要读到数组的结束']'
     }
 }

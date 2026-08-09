@@ -20,6 +20,29 @@ import java.lang.foreign.MemorySegment;
 public sealed interface Mmap permits WinMmap, PosixMmap {
 
     /**
+     * Returns the platform-specific singleton instance of {@link Mmap}.
+     * The implementation is selected based on the current operating system:
+     * - Windows: {@link WinMmap} (uses VirtualAlloc/VirtualFree API)
+     * - Linux/MacOS: {@link PosixMmap} (uses mmap/munmap API)
+     * <p>
+     *
+     * @return the platform-specific {@link Mmap} instance
+     */
+    static Mmap getInstance() {
+        class Holder {
+            static final Mmap INSTANCE = createMmapInstance();
+
+            static Mmap createMmapInstance() {
+                return switch (Os.current()) {
+                    case WINDOWS -> new WinMmap();
+                    case LINUX, MACOS -> new PosixMmap();
+                };
+            }
+        }
+        return Holder.INSTANCE;
+    }
+
+    /**
      * Returns the allocation granularity for memory reservations.
      * <p>
      * On Windows: This represents the minimum alignment boundary for reserved
@@ -93,27 +116,4 @@ public sealed interface Mmap permits WinMmap, PosixMmap {
      * @throws io.jingproject.ffm.ForeignException if the release operation fails
      */
     void release(MemorySegment mem);
-
-    /**
-     * Returns the platform-specific singleton instance of {@link Mmap}.
-     * The implementation is selected based on the current operating system:
-     * - Windows: {@link WinMmap} (uses VirtualAlloc/VirtualFree API)
-     * - Linux/MacOS: {@link PosixMmap} (uses mmap/munmap API)
-     * <p>
-     *
-     * @return the platform-specific {@link Mmap} instance
-     */
-    static Mmap getInstance() {
-        class Holder {
-            static final Mmap INSTANCE = createMmapInstance();
-
-            static Mmap createMmapInstance() {
-                return switch (Os.current()) {
-                    case WINDOWS -> new WinMmap();
-                    case LINUX, MACOS -> new PosixMmap();
-                };
-            }
-        }
-        return Holder.INSTANCE;
-    }
 }

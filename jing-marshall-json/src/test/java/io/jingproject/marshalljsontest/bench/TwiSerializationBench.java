@@ -27,6 +27,20 @@ import java.util.concurrent.TimeUnit;
 //        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=ser-twi-%p-%t.jfr,settings=profile",
 //        "-XX:FlightRecorderOptions:stackdepth=128"
 //})
+//@Fork(value = 1, jvmArgsAppend = {
+//        "-Xbatch",
+//        "-XX:-TieredCompilation",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonSerializerContext::serializeEscapedString",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonSerializerContext::serializeEscapedString,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonSerializerContext::serializeStrToBytes",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonSerializerContext::serializeStrToBytes,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonSerializerContext::serializeEscapedStringToHeap",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonSerializerContext::serializeEscapedStringToHeap,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonSerializerContext::serializeCharsToBytes",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonSerializerContext::serializeCharsToBytes,PrintInlining",
+//        "-XX:+UnlockDiagnosticVMOptions",
+//        "-XX:PrintAssemblyOptions=intel",
+//})
 @Fork(3)
 public class TwiSerializationBench {
     private static final int SIZE = 819200;
@@ -52,7 +66,7 @@ public class TwiSerializationBench {
 
     static void main() throws RunnerException {
         Options opt = new OptionsBuilder().include(TwiSerializationBench.class.getSimpleName())
-                 .addProfiler(GCProfiler.class)
+                .addProfiler(GCProfiler.class)
                 .build();
         new Runner(opt).run();
     }

@@ -121,6 +121,18 @@ public final class MmapSegment implements AutoCloseable {
     }
 
     /**
+     * Aligns an address to the specified boundary.
+     *
+     * @param addr          the address to align
+     * @param byteAlignment the alignment boundary (must be power of two)
+     * @return the aligned address
+     */
+    private static long align(long addr, long byteAlignment) {
+
+        return (addr + byteAlignment - 1) & (-byteAlignment);
+    }
+
+    /**
      * Ensures the memory segment is initialized.
      * <p>
      * If the segment hasn't been initialized yet, reserves the virtual address space
@@ -200,18 +212,6 @@ public final class MmapSegment implements AutoCloseable {
     }
 
     /**
-     * Aligns an address to the specified boundary.
-     *
-     * @param addr          the address to align
-     * @param byteAlignment the alignment boundary (must be power of two)
-     * @return the aligned address
-     */
-    private static long align(long addr, long byteAlignment) {
-        assert addr > 0L && Long.bitCount(byteAlignment) == 1;
-        return (addr + byteAlignment - 1) & (-byteAlignment);
-    }
-
-    /**
      * Allocates a slice of memory from the segment.
      * <p>
      * The allocation is aligned to the specified boundary and may trigger
@@ -224,7 +224,7 @@ public final class MmapSegment implements AutoCloseable {
      * @throws ForeignException          if memory commitment fails
      */
     public MemorySegment slice(long byteSize, long byteAlignment) {
-        assert byteSize > 0L && Long.bitCount(byteAlignment) == 1;
+
         checkInitialized();
         long alignedAddress = align(writeAddress, byteAlignment);
         long newWriteAddress = Math.addExact(alignedAddress, byteSize);

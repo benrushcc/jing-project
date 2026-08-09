@@ -1,14 +1,12 @@
 package io.jingproject.marshalljson;
 
-import io.jingproject.common.Os;
-import io.jingproject.common.SegmentAccess;
+import io.jingproject.common.*;
 import jdk.incubator.vector.*;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.Objects;
 
 public final class Utf8Validator {
     private static final byte TOO_SHORT = (byte) 1;
@@ -36,7 +34,6 @@ public final class Utf8Validator {
     private static final ByteVector INCOMPLETE;
     private static final VectorShuffle<Integer> FOUR_BYTES_FORWARD_SHIFT;
 
-
     static {
         try {
             Class<Os> _ = MethodHandles.lookup().ensureInitialized(Os.class);
@@ -44,7 +41,7 @@ public final class Utf8Validator {
             throw new ExceptionInInitializerError(e);
         }
         int vecSize = Integer.parseInt(System.getProperty("jing.marshalljson.utf8validator.vecsize", "-1"));
-        if(vecSize < 0) {
+        if (vecSize < 0) {
             vecSize = IntVector.SPECIES_PREFERRED.vectorBitSize();
         }
         switch (vecSize) {
@@ -119,8 +116,33 @@ public final class Utf8Validator {
         FOUR_BYTES_FORWARD_SHIFT = VectorShuffle.fromValues(INT_SPECIES, idx);
     }
 
+    private Utf8Validator() {
+        throw new UnsupportedOperationException("utility class");
+    }
+
+    public static void validate(ReadBuffer readBuffer) {
+
+        switch (readBuffer) {
+            case HeapReadBuffer heapReadBuffer -> {
+                byte[] bytes = heapReadBuffer.rawByteArray();
+                int position = heapReadBuffer.intPosition();
+                if (!Utf8Validator.validate(bytes, position, bytes.length)) {
+                    throw new JsonDeserializerException("illegal utf-8 encoded heap readBuffer");
+                }
+            }
+            case SegmentReadBuffer segmentReadBuffer -> {
+                MemorySegment segment = segmentReadBuffer.rawSegment();
+                long position = segmentReadBuffer.longPosition();
+                if (!Utf8Validator.validate(segment, position, segment.byteSize())) {
+                    throw new JsonDeserializerException("illegal utf-8 encoded segment readBuffer");
+                }
+            }
+            case null, default -> throw new AssertionError();
+        }
+    }
+
     public static boolean validate(byte[] bytes, int offset, int len) {
-        assert bytes != null && Objects.checkFromIndexSize(offset, len, bytes.length) >= 0;
+
         long errors = 0;
         long previousIncomplete = 0;
         int previousFourBytes = 0;
@@ -169,7 +191,7 @@ public final class Utf8Validator {
     }
 
     public static boolean validate(MemorySegment segment, long offset, long len) {
-        assert segment != null && Objects.checkFromIndexSize(offset, len, segment.byteSize()) >= 0L;
+
         long errors = 0;
         long previousIncomplete = 0;
         int previousFourBytes = 0;
@@ -218,10 +240,10 @@ public final class Utf8Validator {
     }
 
     public static boolean scalarValidate(byte[] bytes, int offset, int len) {
-        assert bytes != null && Objects.checkFromIndexSize(offset, len, bytes.length) >= 0;
+
         final int end = offset + len;
         int b1, b2;
-        for( ; ; ) {
+        for (; ; ) {
             do {
                 if (offset >= end) {
                     return true;
@@ -261,10 +283,10 @@ public final class Utf8Validator {
     }
 
     public static boolean scalarValidate(MemorySegment segment, long offset, long len) {
-        assert segment != null && Objects.checkFromIndexSize(offset, len, segment.byteSize()) >= 0L;
+
         final long end = offset + len;
         int b1, b2;
-        for( ; ; ) {
+        for (; ; ) {
             do {
                 if (offset >= end) {
                     return true;

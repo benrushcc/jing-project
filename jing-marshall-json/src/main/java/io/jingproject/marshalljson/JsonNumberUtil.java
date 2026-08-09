@@ -7,7 +7,6 @@ import java.lang.foreign.ValueLayout;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Objects;
 
 /**
  * floating-point parsing and printing algorithms are based on Russ Cox's
@@ -88,6 +87,10 @@ public final class JsonNumberUtil {
     private static final double DOUBLE_EXACT_I_HIGH = 1e15;
     private static final double DOUBLE_EXACT_I_LOW = 1e-15;
 
+    private JsonNumberUtil() {
+        throw new UnsupportedOperationException("utility class");
+    }
+
     // no overflow
     private static int[] makeLenTable() {
         int[] r = new int[64];
@@ -122,7 +125,7 @@ public final class JsonNumberUtil {
         BigInteger mask64 = BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE);
         BigInteger[] pow10 = new BigInteger[-POW10MIN + 1];
         pow10[0] = BigInteger.ONE;
-        for(int i = 1; i <= -POW10MIN; i++) {
+        for (int i = 1; i <= -POW10MIN; i++) {
             pow10[i] = pow10[i - 1].multiply(BigInteger.TEN);
         }
         int count = POW10MAX - POW10MIN + 1;
@@ -153,14 +156,14 @@ public final class JsonNumberUtil {
         BigInteger den = e >= 0 ? BigInteger.ONE : pow10[-e];
         BigInteger shifted = den.shiftLeft(128);
         int numPreShifted = shifted.bitLength() - num.bitLength() - 1;
-        if(numPreShifted > 0) {
+        if (numPreShifted > 0) {
             num = num.shiftLeft(numPreShifted);
         }
         while (num.compareTo(shifted) < 0) {
             num = num.shiftLeft(1);
         }
         int denPreShifted = num.bitLength() - shifted.bitLength() - 1;
-        if(denPreShifted > 0) {
+        if (denPreShifted > 0) {
             den = den.shiftLeft(denPreShifted);
             shifted = shifted.shiftLeft(denPreShifted);
         }
@@ -181,16 +184,11 @@ public final class JsonNumberUtil {
         return r;
     }
 
-    private JsonNumberUtil() {
-        throw new UnsupportedOperationException("utility class");
-    }
-
     public static boolean validateNumberStart(byte firstByte) {
         return firstByte == (byte) '-' || (firstByte >= (byte) '0' && firstByte <= (byte) '9');
     }
 
     private static int digitCount(int n) {
-        assert n > 0;
         int leadingZeros = Integer.numberOfLeadingZeros(n);
         int count = LEN_TABLE[leadingZeros + Long.SIZE - Integer.SIZE];
         if (n < POW_TABLE[count]) {
@@ -200,7 +198,6 @@ public final class JsonNumberUtil {
     }
 
     private static int digitCount(long n) {
-        assert n > 0L;
         int leadingZeros = Long.numberOfLeadingZeros(n);
         int count = LEN_TABLE[leadingZeros];
         if (n < POW_TABLE[count]) {
@@ -210,369 +207,155 @@ public final class JsonNumberUtil {
     }
 
     public static void writeInt(int value, WriteBuffer writeBuffer) {
-        assert writeBuffer != null;
-        if (value == 0) {
-            writeBuffer.writeByte(BYTE_ZERO);
-        } else if (value == Integer.MIN_VALUE) {
-            writeBuffer.writeBytes(MIN_INT_BYTES);
-        } else if (value > 0) {
-            writeBuffer.setPosition(writePositiveInt(value, writeBuffer));
-        } else {
-            writeBuffer.writeByte(BYTE_MINUS);
-            writeBuffer.setPosition(writePositiveInt(-value, writeBuffer));
+        writeBuffer.ensureCapacity(MIN_INT_BYTES.length);
+        switch (writeBuffer) {
+            case HeapWriteBuffer heapWriteBuffer -> writeIntToHeap(value, heapWriteBuffer);
+            case SegmentWriteBuffer segmentWriteBuffer -> writeIntToSegment(value, segmentWriteBuffer);
         }
     }
 
-    private static int writePositiveInt(int value, WriteBuffer writeBuffer) {
-        assert value > 0 && writeBuffer != null;
-        int digitCount = digitCount(value);
-        writeBuffer.ensureCapacity(digitCount);
-        int position = writeBuffer.intPosition();
-        return switch (writeBuffer) {
-            case HeapWriteBuffer heapWriteBuffer -> writePositiveIntToHeap(value, digitCount, heapWriteBuffer.rawByteArray(), position);
-            case SegmentWriteBuffer segmentWriteBuffer -> writePositiveIntToSegment(value, digitCount, segmentWriteBuffer.rawSegment(), position);
-        };
+    private static void writeIntToHeap(int value, HeapWriteBuffer heapWriteBuffer) {
+        final byte[] bytes = heapWriteBuffer.rawByteArray();
+        int position = heapWriteBuffer.intPosition();
+        if(value == 0L) {
+            bytes[position] = BYTE_ZERO;
+            heapWriteBuffer.setPosition(position + 1);
+            return ;
+        }
+        if(value == Integer.MIN_VALUE) {
+            System.arraycopy(MIN_INT_BYTES, 0, bytes, position, MIN_INT_BYTES.length);
+            heapWriteBuffer.setPosition(position + MIN_INT_BYTES.length);
+            return ;
+        }
+        if(value < 0L){
+            bytes[position++] = BYTE_MINUS;
+            value = -value;
+        }
+        heapWriteBuffer.setPosition(writePositiveIntToHeap(value, digitCount(value), bytes, position));
+    }
+
+    private static void writeIntToSegment(int value, SegmentWriteBuffer segmentWriteBuffer) {
+        final MemorySegment segment = segmentWriteBuffer.rawSegment();
+        int position = segmentWriteBuffer.intPosition();
+        if(value == 0L) {
+            SegmentAccess.setByte(segment, position, BYTE_ZERO);
+            segmentWriteBuffer.setPosition(position + 1);
+            return ;
+        }
+        if(value == Integer.MIN_VALUE) {
+            MemorySegment.copy(MIN_INT_BYTES, 0, segment, ValueLayout.JAVA_BYTE, position, MIN_INT_BYTES.length);
+            segmentWriteBuffer.setPosition(position + MIN_INT_BYTES.length);
+            return ;
+        }
+        if(value < 0L){
+            SegmentAccess.setByte(segment, position++, BYTE_MINUS);
+            value = -value;
+        }
+        segmentWriteBuffer.setPosition(writePositiveIntToSegment(value, digitCount(value), segment, position));
     }
 
     private static int writePositiveIntToHeap(int value, int digitCount, byte[] bytes, int position) {
-        assert bytes != null && Objects.checkFromIndexSize(position, digitCount, bytes.length) >= 0;
-        int v;
-        switch (digitCount) {
-            case 10:
-                v = value / 100000000;
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 100000000;
-            case 8:
-                v = value / 1000000;
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1000000;
-            case 6:
-                v = value / 10000;
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 10000;
-            case 4:
-                v = value / 100;
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 100;
-            case 2:
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[value]);
-                position += 2;
-                break;
-            case 9:
-                v = value / 10000000;
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 10000000;
-            case 7:
-                v = value / 100000;
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 100000;
-            case 5:
-                v = value / 1000;
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1000;
-            case 3:
-                v = value / 10;
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 10;
-            case 1:
-                bytes[position] = (byte) (BYTE_ZERO + value);
-                position++;
+        for(int index = position + digitCount - 2; index >= position; index -= 2) {
+            int d = value / 100;
+            short v = ITOA_LUT_TABLE[value - 100 * d];
+            value = d;
+            ArrayAccess.setShort(bytes, index, v);
         }
-        return position;
+        if((digitCount & 1) != 0) {
+            bytes[position] = (byte) (BYTE_ZERO + value);
+        }
+        return position + digitCount;
     }
 
     private static int writePositiveIntToSegment(int value, int digitCount, MemorySegment segment, int position) {
-        assert segment != null && Objects.checkFromIndexSize(position, digitCount, segment.byteSize()) >= 0L;
-        long lp = position;
-        int v;
-        switch (digitCount) {
-            case 10:
-                v = value / 100000000;
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 100000000;
-            case 8:
-                v = value / 1000000;
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1000000;
-            case 6:
-                v = value / 10000;
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 10000;
-            case 4:
-                v = value / 100;
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 100;
-            case 2:
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[value]);
-                lp += 2;
-                break;
-            case 9:
-                v = value / 10000000;
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 10000000;
-            case 7:
-                v = value / 100000;
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 100000;
-            case 5:
-                v = value / 1000;
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1000;
-            case 3:
-                v = value / 10;
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 10;
-            case 1:
-                SegmentAccess.setByte(segment, lp, (byte) (BYTE_ZERO + value));
-                lp++;
+        for(int index = position + digitCount - 2; index >= position; index -= 2) {
+            int d = value / 100;
+            short v = ITOA_LUT_TABLE[value - 100 * d];
+            value = d;
+            SegmentAccess.setShort(segment, index, v);
         }
-        return Math.toIntExact(lp);
+        if((digitCount & 1) != 0) {
+            SegmentAccess.setByte(segment, position, (byte) (BYTE_ZERO + value));
+        }
+        return position + digitCount;
     }
+
 
     public static void writeLong(long value, WriteBuffer writeBuffer) {
-        assert writeBuffer != null;
-        if (value == 0L) {
-            writeBuffer.writeByte(BYTE_ZERO);
-        } else if (value == Long.MIN_VALUE) {
-            writeBuffer.writeBytes(MIN_LONG_BYTES);
-        } else if (value > 0) {
-            writeBuffer.setPosition(writePositiveLong(value, writeBuffer));
-        } else {
-            writeBuffer.writeByte(BYTE_MINUS);
-            writeBuffer.setPosition(writePositiveLong(-value, writeBuffer));
+        writeBuffer.ensureCapacity(MIN_LONG_BYTES.length);
+        switch (writeBuffer) {
+            case HeapWriteBuffer heapWriteBuffer -> writeLongToHeap(value, heapWriteBuffer);
+            case SegmentWriteBuffer segmentWriteBuffer -> writeLongToSegment(value, segmentWriteBuffer);
         }
     }
 
-    private static int writePositiveLong(long value, WriteBuffer writeBuffer) {
-        assert value > 0L && writeBuffer != null;
-        int digitCount = digitCount(value);
-        writeBuffer.ensureCapacity(digitCount);
-        int position = writeBuffer.intPosition();
-        return switch (writeBuffer) {
-            case HeapWriteBuffer heapWriteBuffer -> writePositiveLongToHeap(value, digitCount, heapWriteBuffer.rawByteArray(), position);
-            case SegmentWriteBuffer segmentWriteBuffer -> writePositiveLongToSegment(value, digitCount, segmentWriteBuffer.rawSegment(), position);
-        };
+    private static void writeLongToHeap(long value, HeapWriteBuffer heapWriteBuffer) {
+        final byte[] bytes = heapWriteBuffer.rawByteArray();
+        int position = heapWriteBuffer.intPosition();
+        if(value == 0L) {
+            bytes[position] = BYTE_ZERO;
+            heapWriteBuffer.setPosition(position + 1);
+            return ;
+        }
+        if(value == Long.MIN_VALUE) {
+            System.arraycopy(MIN_LONG_BYTES, 0, bytes, position, MIN_LONG_BYTES.length);
+            heapWriteBuffer.setPosition(position + MIN_LONG_BYTES.length);
+            return ;
+        }
+        if(value < 0L){
+            bytes[position++] = BYTE_MINUS;
+            value = -value;
+        }
+        heapWriteBuffer.setPosition(writePositiveLongToHeap(value, digitCount(value), bytes, position));
+    }
+
+    private static void writeLongToSegment(long value, SegmentWriteBuffer segmentWriteBuffer) {
+        final MemorySegment segment = segmentWriteBuffer.rawSegment();
+        int position = segmentWriteBuffer.intPosition();
+        if(value == 0L) {
+            SegmentAccess.setByte(segment, position, BYTE_ZERO);
+            segmentWriteBuffer.setPosition(position + 1);
+            return ;
+        }
+        if(value == Long.MIN_VALUE) {
+            MemorySegment.copy(MIN_LONG_BYTES, 0, segment, ValueLayout.JAVA_BYTE, position, MIN_LONG_BYTES.length);
+            segmentWriteBuffer.setPosition(position + MIN_LONG_BYTES.length);
+            return ;
+        }
+        if(value < 0L){
+            SegmentAccess.setByte(segment, position++, BYTE_MINUS);
+            value = -value;
+        }
+        segmentWriteBuffer.setPosition(writePositiveLongToSegment(value, digitCount(value), segment, position));
     }
 
     private static int writePositiveLongToHeap(long value, int digitCount, byte[] bytes, int position) {
-        assert bytes != null && Objects.checkFromIndexSize(position, digitCount, bytes.length) >= 0;
-        int v;
-        switch (digitCount) {
-            case 18:
-                v = (int) (value / 1_000_000_000_000_000_0L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000_000_000_000_0L;
-            case 16:
-                v = (int) (value / 1_000_000_000_000_00L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000_000_000_00L;
-            case 14:
-                v = (int) (value / 1_000_000_000_000L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000_000_000L;
-            case 12:
-                v = (int) (value / 1_000_000_000_0L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000_000_0L;
-            case 10:
-                v = (int) (value / 1_000_000_00L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000_00L;
-            case 8:
-                v = (int) (value / 1_000_000L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000L;
-            case 6:
-                v = (int) (value / 1_000_0L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_0L;
-            case 4:
-                v = (int) (value / 100L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 100L;
-            case 2:
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[(int) value]);
-                position += 2;
-                break;
-            case 19:
-                v = (int) (value / 1_000_000_000_000_000_00L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000_000_000_000_00L;
-            case 17:
-                v = (int) (value / 1_000_000_000_000_000L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000_000_000_000L;
-            case 15:
-                v = (int) (value / 1_000_000_000_000_0L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000_000_000_0L;
-            case 13:
-                v = (int) (value / 1_000_000_000_00L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000_000_00L;
-            case 11:
-                v = (int) (value / 1_000_000_000L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000_000L;
-            case 9:
-                v = (int) (value / 1_000_000_0L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_000_0L;
-            case 7:
-                v = (int) (value / 1_000_00L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000_00L;
-            case 5:
-                v = (int) (value / 1_000L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 1_000L;
-            case 3:
-                v = (int) (value / 10L);
-                ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[v]);
-                position += 2;
-                value -= v * 10L;
-            case 1:
-                bytes[position] = (byte) (BYTE_ZERO + value);
-                position++;
+        for(int index = position + digitCount - 2; index >= position; index -= 2) {
+            long d = value / 100L;
+            short v = ITOA_LUT_TABLE[(int) (value - 100L * d)];
+            value = d;
+            ArrayAccess.setShort(bytes, index, v);
         }
-        return position;
+        if((digitCount & 1) != 0) {
+            bytes[position] = (byte) (BYTE_ZERO + value);
+        }
+        return position + digitCount;
     }
 
     private static int writePositiveLongToSegment(long value, int digitCount, MemorySegment segment, int position) {
-        assert segment != null && Objects.checkFromIndexSize(position, digitCount, segment.byteSize()) >= 0L;
-        long lp = position;
-        int v;
-        switch (digitCount) {
-            case 18:
-                v = (int) (value / 1_000_000_000_000_000_0L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000_000_000_000_0L;
-            case 16:
-                v = (int) (value / 1_000_000_000_000_00L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000_000_000_00L;
-            case 14:
-                v = (int) (value / 1_000_000_000_000L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000_000_000L;
-            case 12:
-                v = (int) (value / 1_000_000_000_0L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000_000_0L;
-            case 10:
-                v = (int) (value / 1_000_000_00L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000_00L;
-            case 8:
-                v = (int) (value / 1_000_000L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000L;
-            case 6:
-                v = (int) (value / 1_000_0L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_0L;
-            case 4:
-                v = (int) (value / 100L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 100L;
-            case 2:
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[(int) value]);
-                lp += 2;
-                break;
-            case 19:
-                v = (int) (value / 1_000_000_000_000_000_00L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000_000_000_000_00L;
-            case 17:
-                v = (int) (value / 1_000_000_000_000_000L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000_000_000_000L;
-            case 15:
-                v = (int) (value / 1_000_000_000_000_0L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000_000_000_0L;
-            case 13:
-                v = (int) (value / 1_000_000_000_00L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000_000_00L;
-            case 11:
-                v = (int) (value / 1_000_000_000L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000_000L;
-            case 9:
-                v = (int) (value / 1_000_000_0L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_000_0L;
-            case 7:
-                v = (int) (value / 1_000_00L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000_00L;
-            case 5:
-                v = (int) (value / 1_000L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 1_000L;
-            case 3:
-                v = (int) (value / 10L);
-                SegmentAccess.setShort(segment, lp, ITOA_LUT_TABLE[v]);
-                lp += 2;
-                value -= v * 10L;
-            case 1:
-                SegmentAccess.setByte(segment, lp, (byte) (BYTE_ZERO + value));
-                lp++;
+        for(int index = position + digitCount - 2; index >= position; index -= 2) {
+            long d = value / 100L;
+            short v = ITOA_LUT_TABLE[(int) (value - 100L * d)];
+            value = d;
+            SegmentAccess.setShort(segment, index, v);
         }
-        return Math.toIntExact(lp);
+        if((digitCount & 1) != 0) {
+            SegmentAccess.setByte(segment, position, (byte) (BYTE_ZERO + value));
+        }
+        return position + digitCount;
     }
 
     public static void writeFloat(float f, WriteBuffer writeBuffer) {
-        assert Float.isFinite(f) && writeBuffer != null;
         int bits = Float.floatToRawIntBits(f);
         boolean negative = (bits >>> (Float.SIZE - 1)) == 1;
         if ((bits & 0x7FFFFFFF) == 0) {
@@ -594,7 +377,6 @@ public final class JsonNumberUtil {
     }
 
     public static void writeDouble(double f, WriteBuffer writeBuffer) {
-        assert Double.isFinite(f) && writeBuffer != null;
         long bits = Double.doubleToRawLongBits(f);
         boolean negative = (bits >>> (Double.SIZE - 1)) == 1L;
         if ((bits & 0x7FFFFFFFFFFFFFFFL) == 0L) {
@@ -615,8 +397,8 @@ public final class JsonNumberUtil {
         writeDecimalFp(decimalFp, writeBuffer);
     }
 
+    // currently only float32 and float64 are supported
     private static BinaryFp buildBinaryFp(long b, FpSpec fpSpec) {
-        assert fpSpec == FLOAT_SPEC || fpSpec == DOUBLE_SPEC; // currently only float32 and float64 are supported
         long mant = b & ((1L << fpSpec.mantBits()) - 1);
         int exp = (int) ((b >>> fpSpec.mantBits()) & ((1L << fpSpec.expBits()) - 1));
         if (exp == 0) {
@@ -652,27 +434,22 @@ public final class JsonNumberUtil {
     private static int skewed(int e) {
         // skewed computes the skewed footprint of m * 2**e,
         // which is ⌊log₁₀ 3/4 * 2**e⌋ = ⌊e*(log₁₀ 2)-(log₁₀ 4/3)⌋.
-        assert e <= Integer.MAX_VALUE / 631305;
         return (e * 631305 - 261663) >> 21;
     }
 
     private static int log10Pow2(int x) {
         // log₁₀ 2 ≈ 0.30102999566 ≈ 78913 / 2^18
-        assert x <= Integer.MAX_VALUE / 78913;
         return (x * 78913) >> 18;
     }
 
     private static int log2Pow10(int x) {
         // log₂ 10 ≈ 3.32192809489 ≈ 108853 / 2^15
-        assert x <= Integer.MAX_VALUE / 108853;
         return (x * 108853) >> 15;
     }
 
     // no overflow
     private static Scalers prescale(int e, int p, int lp) {
-        assert p >= POW10MIN && p <= POW10MAX;
         int s = -(e + lp + 3);
-        assert s >= 0 && s < 64;
         int idx = (p - POW10MIN) << 1;
         long pmHi = POW10TAB[idx];
         long pmLo = POW10TAB[idx + 1];
@@ -681,7 +458,6 @@ public final class JsonNumberUtil {
 
     // no overflow
     private static long uscale(long x, Scalers c) {
-        assert c != null && c.s() >=0 && c.s() < 64;
         long hi = Math.unsignedMultiplyHigh(x, c.pmHi());
         long mid1 = x * c.pmHi();
         long sticky = 1L;
@@ -696,7 +472,6 @@ public final class JsonNumberUtil {
     }
 
     private static DecimalFp trimZeros(DecimalFp decimalFp) {
-        assert decimalFp != null;
         long d = decimalFp.d();
         int p = decimalFp.p();
         // cut 1 zero, or else return.
@@ -731,9 +506,9 @@ public final class JsonNumberUtil {
     }
 
     private static DecimalFp toDecimalFp(BinaryFp binaryFp, FpSpec fpSpec) {
-        assert binaryFp != null && (fpSpec == FLOAT_SPEC || fpSpec == DOUBLE_SPEC); // currently only float32 and float64 are supported
-        long m = binaryFp.m();
-        int e = binaryFp.e();
+        // currently only float32 and float64 are supported
+        final long m = binaryFp.m();
+        final int e = binaryFp.e();
         int p;
         long min;
         int z = Long.SIZE - 1 - fpSpec.mantBits();
@@ -747,32 +522,31 @@ public final class JsonNumberUtil {
             p = -log10Pow2(e + z);
             min = m - (1L << (z - 1));
         }
-        long max = m + (1L << (z - 1));
-        int odd = (int) (m >>> z) & 1;
+        final long max = m + (1L << (z - 1));
+        final int odd = (int) (m >>> z) & 1;
         Scalers pre = prescale(e, p, log2Pow10(p));
-        long dmin = uceil(unudge(uscale(min, pre), odd));
-        long dmax = ufloor(unudge(uscale(max, pre), -odd));
-        long d = Long.divideUnsigned(dmax, 10L);
-        if(Long.compareUnsigned(d * 10L, dmin) >= 0) {
+        final long dmin = uceil(unudge(uscale(min, pre), odd));
+        final long dmax = ufloor(unudge(uscale(max, pre), -odd));
+        final long d = Long.divideUnsigned(dmax, 10L);
+        if (Long.compareUnsigned(d * 10L, dmin) >= 0) {
             return trimZeros(new DecimalFp(d, -(p - 1)));
         }
         return new DecimalFp(Long.compareUnsigned(dmin, dmax) < 0 ? uround(uscale(m, pre)) : dmin, -p);
     }
 
     private static void writeDecimalFp(DecimalFp decimalFp, WriteBuffer writeBuffer) {
-        assert decimalFp != null && writeBuffer != null;
         long d = decimalFp.d();
         int p = decimalFp.p();
         int digitCount = digitCount(d);
         int sciE = p + digitCount - 1;
         switch (writeBuffer) {
             case HeapWriteBuffer heapWriteBuffer -> writeDecimalFpToHeap(d, p, digitCount, sciE, heapWriteBuffer);
-            case SegmentWriteBuffer segmentWriteBuffer ->  writeDecimalFpToSegment(d, p, digitCount, sciE, segmentWriteBuffer);
+            case SegmentWriteBuffer segmentWriteBuffer ->
+                    writeDecimalFpToSegment(d, p, digitCount, sciE, segmentWriteBuffer);
         }
     }
 
     private static void writeDecimalFpToHeap(long d, int p, int digitCount, int sciE, HeapWriteBuffer heapWriteBuffer) {
-        assert heapWriteBuffer != null;
         int position = heapWriteBuffer.intPosition();
         byte[] bytes = heapWriteBuffer.rawByteArray();
         if (sciE >= MIN_SCI_EXP && sciE < MAX_SCI_EXP) {
@@ -784,10 +558,9 @@ public final class JsonNumberUtil {
     }
 
     private static int writeFixedDecimalFpToHeap(long d, int p, int digitCount, byte[] bytes, int position) {
-        assert bytes != null;
-        if(p >= 0) {
+        if (p >= 0) {
             position = writePositiveLongToHeap(d, digitCount, bytes, position);
-            if(p > 0) {
+            if (p > 0) {
                 int newPosition = position + p;
                 Arrays.fill(bytes, position, newPosition, BYTE_ZERO);
                 position = newPosition;
@@ -815,7 +588,6 @@ public final class JsonNumberUtil {
     }
 
     private static int writeSciDecimalFpToHeap(long d, int sciE, int digitCount, byte[] bytes, int position) {
-        assert bytes != null;
         if (digitCount > 1) {
             int startPosition = position + 1;
             int endPosition = writePositiveLongToHeap(d, digitCount, bytes, startPosition);
@@ -825,7 +597,7 @@ public final class JsonNumberUtil {
         } else {
             bytes[position++] = (byte) (BYTE_ZERO + d);
         }
-        if(sciE < 0) {
+        if (sciE < 0) {
             ArrayAccess.setShort(bytes, position, E_MINUS);
             position += 2;
             sciE = -sciE;
@@ -836,9 +608,7 @@ public final class JsonNumberUtil {
         return position;
     }
 
-
     private static void writeDecimalFpToSegment(long d, int p, int digitCount, int sciE, SegmentWriteBuffer segmentWriteBuffer) {
-        assert segmentWriteBuffer != null;
         int position = segmentWriteBuffer.intPosition();
         MemorySegment segment = segmentWriteBuffer.rawSegment();
         if (sciE >= MIN_SCI_EXP && sciE < MAX_SCI_EXP) {
@@ -850,7 +620,6 @@ public final class JsonNumberUtil {
     }
 
     private static int writeFixedDecimalFpToSegment(long d, int p, int digitCount, MemorySegment segment, int position) {
-        assert segment != null;
         if (p >= 0) {
             position = writePositiveLongToSegment(d, digitCount, segment, position);
             if (p > 0) {
@@ -879,7 +648,6 @@ public final class JsonNumberUtil {
     }
 
     private static int writeSciDecimalFpToSegment(long d, int sciE, int digitCount, MemorySegment segment, int position) {
-        assert segment != null;
         if (digitCount > 1) {
             int startPosition = position + 1;
             int endPosition = writePositiveLongToSegment(d, digitCount, segment, startPosition);
@@ -889,7 +657,7 @@ public final class JsonNumberUtil {
         } else {
             SegmentAccess.setByte(segment, position++, (byte) (BYTE_ZERO + d));
         }
-        if(sciE < 0) {
+        if (sciE < 0) {
             SegmentAccess.setShort(segment, position, E_MINUS);
             position += 2;
             sciE = -sciE;
@@ -901,7 +669,6 @@ public final class JsonNumberUtil {
     }
 
     public static int readInt(ReadBuffer readBuffer, byte firstByte) {
-        assert readBuffer != null && validateNumberStart(firstByte);
         return switch (readBuffer) {
             case HeapReadBuffer heapReadBuffer -> readHeapInt(heapReadBuffer, firstByte);
             case SegmentReadBuffer segmentReadBuffer -> readSegmentInt(segmentReadBuffer, firstByte);
@@ -913,13 +680,12 @@ public final class JsonNumberUtil {
     }
 
     private static int readHeapInt(HeapReadBuffer heapReadBuffer, byte firstByte) {
-        assert heapReadBuffer != null && validateNumberStart(firstByte);
         final byte[] bytes = heapReadBuffer.rawByteArray();
         int position = heapReadBuffer.intPosition();
         boolean positive = true;
         int r;
         if (firstByte == BYTE_MINUS) {
-            if(position == bytes.length) {
+            if (position == bytes.length) {
                 throw new JsonDeserializerException("illegal leading minus sign");
             }
             positive = false;
@@ -935,16 +701,16 @@ public final class JsonNumberUtil {
         }
         while (position < bytes.length) {
             byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])];
-            if(b > 0) {
-                break ;
+            if (b > 0) {
+                break;
             }
-            if(negativeIntOverflow(r, b)) {
+            if (negativeIntOverflow(r, b)) {
                 throw new JsonDeserializerException("integer overflow");
             }
             r = r * 10 + b;
             position++;
         }
-        if(positive && r == Integer.MIN_VALUE) {
+        if (positive && r == Integer.MIN_VALUE) {
             throw new JsonDeserializerException("integer overflow");
         }
         heapReadBuffer.setPosition(position);
@@ -952,14 +718,13 @@ public final class JsonNumberUtil {
     }
 
     private static int readSegmentInt(SegmentReadBuffer segmentReadBuffer, byte firstByte) {
-        assert segmentReadBuffer != null && validateNumberStart(firstByte);
         final MemorySegment segment = segmentReadBuffer.rawSegment();
         int position = segmentReadBuffer.intPosition();
         int len = Math.toIntExact(segment.byteSize());
         boolean positive = true;
         int r;
         if (firstByte == BYTE_MINUS) {
-            if(position == segment.byteSize()) {
+            if (position == segment.byteSize()) {
                 throw new JsonDeserializerException("illegal leading minus sign");
             }
             positive = false;
@@ -975,16 +740,16 @@ public final class JsonNumberUtil {
         }
         while (position < len) {
             byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))];
-            if(b > 0) {
-                break ;
+            if (b > 0) {
+                break;
             }
-            if(negativeIntOverflow(r, b)) {
+            if (negativeIntOverflow(r, b)) {
                 throw new JsonDeserializerException("integer overflow");
             }
-            r =  r * 10 + b;
+            r = r * 10 + b;
             position++;
         }
-        if(positive && r == Integer.MIN_VALUE) {
+        if (positive && r == Integer.MIN_VALUE) {
             throw new JsonDeserializerException("integer overflow");
         }
         segmentReadBuffer.setPosition(position);
@@ -992,7 +757,6 @@ public final class JsonNumberUtil {
     }
 
     public static long readLong(ReadBuffer readBuffer, byte firstByte) {
-        assert readBuffer != null && validateNumberStart(firstByte);
         return switch (readBuffer) {
             case HeapReadBuffer heapReadBuffer -> readHeapLong(heapReadBuffer, firstByte);
             case SegmentReadBuffer segmentReadBuffer -> readSegmentLong(segmentReadBuffer, firstByte);
@@ -1009,7 +773,7 @@ public final class JsonNumberUtil {
         boolean positive = true;
         long r;
         if (firstByte == BYTE_MINUS) {
-            if(position == bytes.length) {
+            if (position == bytes.length) {
                 throw new JsonDeserializerException("illegal leading minus sign");
             }
             positive = false;
@@ -1025,16 +789,16 @@ public final class JsonNumberUtil {
         }
         while (position < bytes.length) {
             byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[position])];
-            if(b > 0) {
-                break ;
+            if (b > 0) {
+                break;
             }
-            if(negativeLongOverflow(r, b)) {
+            if (negativeLongOverflow(r, b)) {
                 throw new JsonDeserializerException("long overflow");
             }
             r = r * 10L + b;
             position++;
         }
-        if(positive && r == Long.MIN_VALUE) {
+        if (positive && r == Long.MIN_VALUE) {
             throw new JsonDeserializerException("long overflow");
         }
         heapReadBuffer.setPosition(position);
@@ -1044,11 +808,11 @@ public final class JsonNumberUtil {
     private static long readSegmentLong(SegmentReadBuffer segmentReadBuffer, byte firstByte) {
         final MemorySegment segment = segmentReadBuffer.rawSegment();
         int position = segmentReadBuffer.intPosition();
-        int len = Math.toIntExact(segment.byteSize());
+        final int len = Math.toIntExact(segment.byteSize());
         boolean positive = true;
         long r;
         if (firstByte == BYTE_MINUS) {
-            if(position == segment.byteSize()) {
+            if (position == segment.byteSize()) {
                 throw new JsonDeserializerException("illegal leading minus sign");
             }
             positive = false;
@@ -1064,16 +828,16 @@ public final class JsonNumberUtil {
         }
         while (position < len) {
             byte b = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, position))];
-            if(b > 0) {
-                break ;
+            if (b > 0) {
+                break;
             }
-            if(negativeLongOverflow(r, b)) {
+            if (negativeLongOverflow(r, b)) {
                 throw new JsonDeserializerException("long overflow");
             }
-            r =  r * 10L + b;
+            r = r * 10L + b;
             position++;
         }
-        if(positive && r == Long.MIN_VALUE) {
+        if (positive && r == Long.MIN_VALUE) {
             throw new JsonDeserializerException("long overflow");
         }
         segmentReadBuffer.setPosition(position);
@@ -1084,10 +848,10 @@ public final class JsonNumberUtil {
     // Enforces strict format validation; patterns like ".123E0123" are rejected,
     // although they are acceptable by the JDK parser.
     public static FpStrRep parseFpStrRep(ReadBuffer readBuffer, int maxNumberBytes, byte firstByte) {
-        assert readBuffer != null && maxNumberBytes >= MAX_DOUBLE_CAPACITY && validateNumberStart(firstByte);
         return switch (readBuffer) {
             case HeapReadBuffer heapReadBuffer -> parseHeapFpStrRep(heapReadBuffer, maxNumberBytes, firstByte);
-            case SegmentReadBuffer segmentReadBuffer -> parseSegmentFpStrRep(segmentReadBuffer, maxNumberBytes, firstByte);
+            case SegmentReadBuffer segmentReadBuffer ->
+                    parseSegmentFpStrRep(segmentReadBuffer, maxNumberBytes, firstByte);
         };
     }
 
@@ -1102,19 +866,19 @@ public final class JsonNumberUtil {
         long d;
         int frac = 0;
         int p = 0;
-        if(firstByte == BYTE_MINUS) {
-            if(index == end) {
+        if (firstByte == BYTE_MINUS) {
+            if (index == end) {
                 throw new JsonDeserializerException("illegal leading minus sign");
             }
             neg = true;
             firstByte = bytes[index++];
         }
-        if(firstByte == BYTE_ZERO) {
-            if(index == end) {
+        if (firstByte == BYTE_ZERO) {
+            if (index == end) {
                 return new FpStrRep(neg, false, 0L, p, 0);
             }
             byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(bytes[index])];
-            if(v <= 0) {
+            if (v <= 0) {
                 throw new JsonDeserializerException("leading zero");
             }
             d = 0L;
@@ -1127,10 +891,10 @@ public final class JsonNumberUtil {
         while (index < end) {
             b = bytes[index];
             byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
-            if(v > 0) {
-                break ;
+            if (v > 0) {
+                break;
             }
-            if(nd < MAX_DECIMAL_ND) {
+            if (nd < MAX_DECIMAL_ND) {
                 d = d * 10L - v;
                 nd++;
             } else {
@@ -1139,16 +903,16 @@ public final class JsonNumberUtil {
             index++;
         }
         // processing optional fraction part
-        if(b == BYTE_PERIOD) {
-            if(++index == end) {
+        if (b == BYTE_PERIOD) {
+            if (++index == end) {
                 throw new JsonDeserializerException("leading period with no digits");
             }
             b = bytes[index++];
             byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
-            if(v > 0) {
+            if (v > 0) {
                 throw new JsonDeserializerException("illegal start of number : " + b);
             }
-            if(nd < MAX_DECIMAL_ND) {
+            if (nd < MAX_DECIMAL_ND) {
                 d = d * 10L - v;
                 nd++;
                 frac++;
@@ -1156,10 +920,10 @@ public final class JsonNumberUtil {
             while (index < end) {
                 b = bytes[index];
                 v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
-                if(v > 0) {
-                    break ;
+                if (v > 0) {
+                    break;
                 }
-                if(nd < MAX_DECIMAL_ND) {
+                if (nd < MAX_DECIMAL_ND) {
                     d = d * 10L - v;
                     nd++;
                     frac++;
@@ -1171,30 +935,30 @@ public final class JsonNumberUtil {
         }
         // processing optional exponent part
         // note that leading zeros are allowed in the exponent partaccording to the JSON specification
-        if(b == BYTE_E || b == BYTE_e) {
-            if(++index == end) {
+        if (b == BYTE_E || b == BYTE_e) {
+            if (++index == end) {
                 throw new JsonDeserializerException("leading exponent with no digits");
             }
             b = bytes[index++];
-            if(b == BYTE_MINUS || b == BYTE_PLUS) {
-                if(index == end) {
+            if (b == BYTE_MINUS || b == BYTE_PLUS) {
+                if (index == end) {
                     throw new JsonDeserializerException("leading exponent sign with no digits");
                 }
                 negExp = b == BYTE_MINUS;
                 b = bytes[index++];
             }
             byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
-            if(v > 0) {
+            if (v > 0) {
                 throw new JsonDeserializerException("illegal start of number : " + b);
             }
             p = -v;
             while (index < end) {
                 b = bytes[index];
                 v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
-                if(v > 0) {
-                    break ;
+                if (v > 0) {
+                    break;
                 }
-                if(p < MAX_DECIMAL_P) {
+                if (p < MAX_DECIMAL_P) {
                     p = p * 10 - v;
                 }
                 index++;
@@ -1215,19 +979,19 @@ public final class JsonNumberUtil {
         long d;
         int frac = 0;
         int p = 0;
-        if(firstByte == BYTE_MINUS) {
-            if(index == end) {
+        if (firstByte == BYTE_MINUS) {
+            if (index == end) {
                 throw new JsonDeserializerException("illegal leading minus sign");
             }
             neg = true;
             firstByte = SegmentAccess.getByte(segment, index++);
         }
-        if(firstByte == BYTE_ZERO) {
-            if(index == end) {
+        if (firstByte == BYTE_ZERO) {
+            if (index == end) {
                 return new FpStrRep(neg, false, 0L, p, 0);
             }
             byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(SegmentAccess.getByte(segment, index))];
-            if(v <= 0) {
+            if (v <= 0) {
                 throw new JsonDeserializerException("leading zero");
             }
             d = 0L;
@@ -1240,10 +1004,10 @@ public final class JsonNumberUtil {
         while (index < end) {
             b = SegmentAccess.getByte(segment, index);
             byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
-            if(v > 0) {
-                break ;
+            if (v > 0) {
+                break;
             }
-            if(nd < MAX_DECIMAL_ND) {
+            if (nd < MAX_DECIMAL_ND) {
                 d = d * 10L - v;
                 nd++;
             } else {
@@ -1252,16 +1016,16 @@ public final class JsonNumberUtil {
             index++;
         }
         // processing optional fraction part
-        if(b == BYTE_PERIOD) {
-            if(++index == end) {
+        if (b == BYTE_PERIOD) {
+            if (++index == end) {
                 throw new JsonDeserializerException("leading period with no digits");
             }
             b = SegmentAccess.getByte(segment, index++);
             byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
-            if(v > 0) {
+            if (v > 0) {
                 throw new JsonDeserializerException("illegal start of number : " + b);
             }
-            if(nd < MAX_DECIMAL_ND) {
+            if (nd < MAX_DECIMAL_ND) {
                 d = d * 10L - v;
                 nd++;
                 frac++;
@@ -1269,10 +1033,10 @@ public final class JsonNumberUtil {
             while (index < end) {
                 b = SegmentAccess.getByte(segment, index);
                 v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
-                if(v > 0) {
-                    break ;
+                if (v > 0) {
+                    break;
                 }
-                if(nd < MAX_DECIMAL_ND) {
+                if (nd < MAX_DECIMAL_ND) {
                     d = d * 10L - v;
                     nd++;
                     frac++;
@@ -1284,30 +1048,30 @@ public final class JsonNumberUtil {
         }
         // processing optional exponent part
         // note that leading zeros are allowed in the exponent partaccording to the JSON specification
-        if(b == BYTE_E || b == BYTE_e) {
-            if(++index == end) {
+        if (b == BYTE_E || b == BYTE_e) {
+            if (++index == end) {
                 throw new JsonDeserializerException("leading exponent with no digits");
             }
             b = SegmentAccess.getByte(segment, index++);
-            if(b == BYTE_MINUS || b == BYTE_PLUS) {
-                if(index == end) {
+            if (b == BYTE_MINUS || b == BYTE_PLUS) {
+                if (index == end) {
                     throw new JsonDeserializerException("leading exponent sign with no digits");
                 }
                 negExp = b == BYTE_MINUS;
                 b = SegmentAccess.getByte(segment, index++);
             }
             byte v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
-            if(v > 0) {
+            if (v > 0) {
                 throw new JsonDeserializerException("illegal start of number : " + b);
             }
             p = -v;
             while (index < end) {
                 b = SegmentAccess.getByte(segment, index);
                 v = ZERO_NINE_TABLE[Byte.toUnsignedInt(b)];
-                if(v > 0) {
-                    break ;
+                if (v > 0) {
+                    break;
                 }
-                if(p < MAX_DECIMAL_P) {
+                if (p < MAX_DECIMAL_P) {
                     p = p * 10 - v;
                 }
                 index++;
@@ -1326,41 +1090,41 @@ public final class JsonNumberUtil {
     }
 
     public static float parseFloat(ReadBuffer readBuffer, FpStrRep rep) {
-        if(rep.trunc()) {
+        if (rep.trunc()) {
             return parseFloatFallback(readBuffer, rep);
         }
-        int sign = rep.negative() ? (1 << (FLOAT_SPEC.mantBits() + FLOAT_SPEC.expBits())) : 0;
-        long d = rep.d();
-        int p = rep.p();
-        if(d == 0L || p < FLOAT_SPEC.minDecExp() - MAX_DECIMAL_ND - 2) {
+        final int sign = rep.negative() ? (1 << (FLOAT_SPEC.mantBits() + FLOAT_SPEC.expBits())) : 0;
+        final long d = rep.d();
+        final int p = rep.p();
+        if (d == 0L || p < FLOAT_SPEC.minDecExp() - MAX_DECIMAL_ND - 2) {
             return Float.intBitsToFloat(sign);
         }
-        if(p > FLOAT_SPEC.maxDecExp() + 2) {
+        if (p > FLOAT_SPEC.maxDecExp() + 2) {
             return Float.intBitsToFloat(sign | (0xff << FLOAT_SPEC.mantBits()));
         }
-        if(d >> FLOAT_SPEC.mantBits() == 0L) {
+        if (d >> FLOAT_SPEC.mantBits() == 0L) {
             float f = (float) Math.toIntExact(rep.negative() ? -d : d);
-            if(p == 0) {
+            if (p == 0) {
                 return f;
-            } else if(p > 0 && p <= FLOAT_EXACT_I + FLOAT_EXACT_P) {
+            } else if (p > 0 && p <= FLOAT_EXACT_I + FLOAT_EXACT_P) {
                 int tp = p;
-                if(tp > FLOAT_EXACT_P) {
+                if (tp > FLOAT_EXACT_P) {
                     f *= FLOAT_POW_10[tp - FLOAT_EXACT_P];
                     tp = FLOAT_EXACT_P;
                 }
-                if(f >= FLOAT_EXACT_I_LOW && f <= FLOAT_EXACT_I_HIGH) {
+                if (f >= FLOAT_EXACT_I_LOW && f <= FLOAT_EXACT_I_HIGH) {
                     return f * FLOAT_POW_10[tp];
                 }
-            } else if(p < 0 && p >= -FLOAT_EXACT_P) {
-                return f /  FLOAT_POW_10[-p];
+            } else if (p < 0 && p >= -FLOAT_EXACT_P) {
+                return f / FLOAT_POW_10[-p];
             }
         }
-        int lp = log2Pow10(p);
-        int shift = Long.numberOfLeadingZeros(d);
-        int b = Long.SIZE - shift;
+        final int lp = log2Pow10(p);
+        final int shift = Long.numberOfLeadingZeros(d);
+        final int b = Long.SIZE - shift;
         int fe = Math.min(FLOAT_SPEC.mantBits() - FLOAT_SPEC.bias() - 1, FLOAT_SPEC.mantBits() + 1 - b - lp);
         Scalers scalers = prescale(fe - shift, p, lp);
-        if(scalers.s() >= Long.SIZE) {
+        if (scalers.s() >= Long.SIZE) {
             return Float.intBitsToFloat(sign);
         }
         long u = uscale(d << shift, scalers);
@@ -1368,12 +1132,12 @@ public final class JsonNumberUtil {
             u = (u >>> 1) | (u & 1);
             fe--;
         }
-        int m = sign | Math.toIntExact(uround(u));
-        if((m & (1 << FLOAT_SPEC.mantBits())) == 0) {
+        final int m = sign | Math.toIntExact(uround(u));
+        if ((m & (1 << FLOAT_SPEC.mantBits())) == 0) {
             return Float.intBitsToFloat(m);
         }
-        int e = -fe;
-        if(e >= (1 << FLOAT_SPEC.expBits()) - 1 - FLOAT_SPEC.mantBits() + FLOAT_SPEC.bias()) {
+        final int e = -fe;
+        if (e >= (1 << FLOAT_SPEC.expBits()) - 1 - FLOAT_SPEC.mantBits() + FLOAT_SPEC.bias()) {
             return parseFloatFallback(readBuffer, rep);
         }
         return Float.intBitsToFloat(
@@ -1382,7 +1146,7 @@ public final class JsonNumberUtil {
     }
 
     private static float parseFloatFallback(ReadBuffer readBuffer, FpStrRep FpStrRep) {
-        int len = FpStrRep.len();
+        final int len = FpStrRep.len();
         switch (readBuffer) {
             case HeapReadBuffer heapReadBuffer -> {
                 byte[] bytes = heapReadBuffer.rawByteArray();
@@ -1409,41 +1173,41 @@ public final class JsonNumberUtil {
     }
 
     public static double parseDouble(ReadBuffer readBuffer, FpStrRep rep) {
-        if(rep.trunc()) {
+        if (rep.trunc()) {
             return parseDoubleFallback(readBuffer, rep);
         }
-        long sign = rep.negative() ? (1L << (DOUBLE_SPEC.mantBits() + DOUBLE_SPEC.expBits())) : 0L;
-        long d = rep.d();
-        int p = rep.p();
-        if(d == 0L || p < DOUBLE_SPEC.minDecExp() - MAX_DECIMAL_ND - 2) {
+        final long sign = rep.negative() ? (1L << (DOUBLE_SPEC.mantBits() + DOUBLE_SPEC.expBits())) : 0L;
+        final long d = rep.d();
+        final int p = rep.p();
+        if (d == 0L || p < DOUBLE_SPEC.minDecExp() - MAX_DECIMAL_ND - 2) {
             return Double.longBitsToDouble(sign);
         }
-        if(p > DOUBLE_SPEC.maxDecExp() + 2) {
+        if (p > DOUBLE_SPEC.maxDecExp() + 2) {
             return Double.longBitsToDouble(sign | (0x7ffL << DOUBLE_SPEC.mantBits()));
         }
-        if(d >>> DOUBLE_SPEC.mantBits() == 0L) {
+        if (d >>> DOUBLE_SPEC.mantBits() == 0L) {
             double f = (double) (rep.negative() ? -d : d);
-            if(p == 0) {
+            if (p == 0) {
                 return f;
-            } else if(p > 0 && p <= DOUBLE_EXACT_I + DOUBLE_EXACT_P) {
+            } else if (p > 0 && p <= DOUBLE_EXACT_I + DOUBLE_EXACT_P) {
                 int tp = p;
-                if(tp > DOUBLE_EXACT_P) {
+                if (tp > DOUBLE_EXACT_P) {
                     f *= DOUBLE_POW_10[tp - DOUBLE_EXACT_P];
                     tp = DOUBLE_EXACT_P;
                 }
-                if(f >= DOUBLE_EXACT_I_LOW && f <= DOUBLE_EXACT_I_HIGH) {
+                if (f >= DOUBLE_EXACT_I_LOW && f <= DOUBLE_EXACT_I_HIGH) {
                     return f * DOUBLE_POW_10[tp];
                 }
-            } else if(p < 0 && p >= -DOUBLE_EXACT_P) {
+            } else if (p < 0 && p >= -DOUBLE_EXACT_P) {
                 return f / DOUBLE_POW_10[-p];
             }
         }
-        int lp = log2Pow10(p);
-        int shift = Long.numberOfLeadingZeros(d);
-        int b = Long.SIZE - shift;
+        final int lp = log2Pow10(p);
+        final int shift = Long.numberOfLeadingZeros(d);
+        final int b = Long.SIZE - shift;
         int fe = Math.min(DOUBLE_SPEC.mantBits() - DOUBLE_SPEC.bias() - 1, DOUBLE_SPEC.mantBits() + 1 - b - lp);
         Scalers scalers = prescale(fe - shift, p, lp);
-        if(scalers.s() >= Long.SIZE) {
+        if (scalers.s() >= Long.SIZE) {
             return Double.longBitsToDouble(sign);
         }
         long u = uscale(d << shift, scalers);
@@ -1451,12 +1215,12 @@ public final class JsonNumberUtil {
             u = (u >>> 1) | (u & 1);
             fe--;
         }
-        long m = sign | uround(u);
-        if((m & (1L << DOUBLE_SPEC.mantBits())) == 0L) {
+        final long m = sign | uround(u);
+        if ((m & (1L << DOUBLE_SPEC.mantBits())) == 0L) {
             return Double.longBitsToDouble(m);
         }
-        int e = -fe;
-        if(e >= (1 << DOUBLE_SPEC.expBits()) - 1 - DOUBLE_SPEC.mantBits() + DOUBLE_SPEC.bias()) {
+        final int e = -fe;
+        if (e >= (1 << DOUBLE_SPEC.expBits()) - 1 - DOUBLE_SPEC.mantBits() + DOUBLE_SPEC.bias()) {
             return parseDoubleFallback(readBuffer, rep);
         }
         return Double.longBitsToDouble(
@@ -1465,7 +1229,7 @@ public final class JsonNumberUtil {
     }
 
     private static double parseDoubleFallback(ReadBuffer readBuffer, FpStrRep FpStrRep) {
-        int len = FpStrRep.len();
+        final int len = FpStrRep.len();
         switch (readBuffer) {
             case HeapReadBuffer heapReadBuffer -> {
                 byte[] bytes = heapReadBuffer.rawByteArray();
@@ -1514,7 +1278,7 @@ public final class JsonNumberUtil {
     /**
      * Holds precomputed scaling constants (a 128-bit multiplier pm and a shift count s) for a given BinaryFp value.
      */
-    public record Scalers (
+    public record Scalers(
             long pmHi,
             long pmLo,
             int s

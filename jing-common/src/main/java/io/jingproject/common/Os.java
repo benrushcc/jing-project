@@ -13,6 +13,12 @@ public enum Os {
 
     MACOS;
 
+    /**
+     * For now, to keep things simple, we only support Windows, Linux, and macOS.
+     * Other platforms? We'll leave that fun challenge to whoever’s destined to do it :)
+     */
+    private static final Os CURRENT = detectCurrentOsType();
+
     static {
         long byteSize = ValueLayout.JAVA_BYTE.byteSize();
         if (byteSize != 1L) {
@@ -47,12 +53,6 @@ public enum Os {
             throw new ExceptionInInitializerError("Unsupported address layout size: " + addressSize);
         }
     }
-
-    /**
-     * For now, to keep things simple, we only support Windows, Linux, and macOS.
-     * Other platforms? We'll leave that fun challenge to whoever’s destined to do it :)
-     */
-    private static final Os CURRENT = detectCurrentOsType();
 
     /**
      * Detects which OS the program is running on.

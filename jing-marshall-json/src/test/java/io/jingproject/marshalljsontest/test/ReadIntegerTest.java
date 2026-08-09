@@ -66,7 +66,7 @@ public class ReadIntegerTest {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte firstByte = heapReadBuffer.readByte();
-            Assertions.assertThrows(NumberFormatException.class, () -> JsonNumberUtil.readInt(heapReadBuffer,firstByte), "failed, str : " + str);
+            Assertions.assertThrows(NumberFormatException.class, () -> JsonNumberUtil.readInt(heapReadBuffer, firstByte), "failed, str : " + str);
         }
         for (String str : wrongFormatValues) {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
@@ -79,13 +79,13 @@ public class ReadIntegerTest {
     @Test
     public void readLongTest() {
         List<String> stringList = new ArrayList<>();
-        for(long l = Long.MIN_VALUE; l <= Long.MIN_VALUE + RANGE; l++) {
+        for (long l = Long.MIN_VALUE; l <= Long.MIN_VALUE + RANGE; l++) {
             stringList.add(String.valueOf(l));
         }
-        for(long l = -RANGE; l <= RANGE; l++) {
+        for (long l = -RANGE; l <= RANGE; l++) {
             stringList.add(String.valueOf(l));
         }
-        for(long l = Long.MAX_VALUE - RANGE; l < Long.MAX_VALUE; l++) {
+        for (long l = Long.MAX_VALUE - RANGE; l < Long.MAX_VALUE; l++) {
             stringList.add(String.valueOf(l));
         }
         stringList.add(String.valueOf(Long.MAX_VALUE));
@@ -94,7 +94,7 @@ public class ReadIntegerTest {
             byte[] bytes = s.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte firstByte = heapReadBuffer.readByte();
-            long l1 = JsonNumberUtil.readLong(heapReadBuffer,firstByte);
+            long l1 = JsonNumberUtil.readLong(heapReadBuffer, firstByte);
             Assertions.assertEquals(l, l1);
         }
     }

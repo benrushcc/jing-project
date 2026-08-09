@@ -21,6 +21,10 @@ import java.util.concurrent.TimeUnit;
 @Fork(3)
 public class AccessPatternBench {
     private static final byte b = (byte) '0';
+    private static final short SHORT_CONSTANT = Utils.compact((byte) (b + 1), (byte) (b + 2));
+    private static final int INT_CONSTANT = Utils.compact(Utils.compact((byte) (b + 2), (byte) (b + 3)), Utils.compact((byte) (b + 1), (byte) (b + 2)));
+    private static final long LONG_CONSTANT = Utils.compact(Utils.compact(Utils.compact(b, (byte) (b + 1)), Utils.compact((byte) (b + 2), (byte) (b + 3))),
+            Utils.compact(Utils.compact((byte) (b + 4), (byte) (b + 5)), Utils.compact((byte) (b + 6), (byte) (b + 7))));
     private Random random;
     private byte[] bytes;
 
@@ -39,7 +43,7 @@ public class AccessPatternBench {
     @Benchmark
     public void directAccess(Blackhole blackhole) {
         int position = 0;
-        for(int i = 0; i < 4000; i++) {
+        for (int i = 0; i < 4000; i++) {
             int cp = random.nextInt(0x110000);
             bytes[position++] = (byte) (0xF0 | (cp >> 18));
             bytes[position++] = (byte) (0x80 | ((cp >> 12) & 0x3F));
@@ -49,11 +53,10 @@ public class AccessPatternBench {
         blackhole.consume(position);
     }
 
-
     @Benchmark
     public void directAccessConstant(Blackhole blackhole) {
         int position = 0;
-        for(int i = 0; i < 4000; i++) {
+        for (int i = 0; i < 4000; i++) {
             bytes[position++] = b;
             bytes[position++] = b + 1;
             bytes[position++] = b + 2;
@@ -65,7 +68,7 @@ public class AccessPatternBench {
     @Benchmark
     public void mixedShortAccess(Blackhole blackhole) {
         int position = 0;
-        for(int i = 0; i < 4000; i++) {
+        for (int i = 0; i < 4000; i++) {
             int cp = random.nextInt(0x110000);
             bytes[position++] = (byte) (0xF0 | (cp >> 18));
             ArrayAccess.setShort(bytes, position, Utils.compact((byte) (0x80 | ((cp >> 12) & 0x3F)), (byte) (0x80 | ((cp >> 6) & 0x3F))));
@@ -75,12 +78,10 @@ public class AccessPatternBench {
         blackhole.consume(position);
     }
 
-    private static final short SHORT_CONSTANT = Utils.compact((byte) (b + 1), (byte) (b + 2));
-
     @Benchmark
     public void mixedShortAccessConstant(Blackhole blackhole) {
         int position = 0;
-        for(int i = 0; i < 4000; i++) {
+        for (int i = 0; i < 4000; i++) {
             bytes[position++] = b;
             ArrayAccess.setShort(bytes, position, SHORT_CONSTANT);
             position += 2;
@@ -92,7 +93,7 @@ public class AccessPatternBench {
     @Benchmark
     public void mixedIntAccess(Blackhole blackhole) {
         int position = 0;
-        for(int i = 0; i < 2000; i++) {
+        for (int i = 0; i < 2000; i++) {
             int cp = random.nextInt(0x110000);
             int cp2 = random.nextInt(0x110000);
             bytes[position++] = (byte) (0xF0 | (cp >> 18));
@@ -106,11 +107,10 @@ public class AccessPatternBench {
         blackhole.consume(position);
     }
 
-    private static final int INT_CONSTANT = Utils.compact(Utils.compact((byte) (b + 2), (byte) (b + 3)), Utils.compact((byte) (b + 1), (byte) (b + 2)));
     @Benchmark
     public void mixedIntAccessConstant(Blackhole blackhole) {
         int position = 0;
-        for(int i = 0; i < 2000; i++) {
+        for (int i = 0; i < 2000; i++) {
             bytes[position++] = b;
             bytes[position++] = b + 1;
             ArrayAccess.setInt(bytes, position, INT_CONSTANT);
@@ -123,7 +123,7 @@ public class AccessPatternBench {
     @Benchmark
     public void longAccess(Blackhole blackhole) {
         int position = 0;
-        for(int i = 0; i < 2000; i++) {
+        for (int i = 0; i < 2000; i++) {
             int cp = random.nextInt(0x110000);
             int cp2 = random.nextInt(0x110000);
             short s1 = Utils.compact((byte) (0xF0 | (cp >> 18)), (byte) (0x80 | ((cp >> 12) & 0x3F)));
@@ -137,13 +137,10 @@ public class AccessPatternBench {
         blackhole.consume(position);
     }
 
-    private static final long LONG_CONSTANT = Utils.compact(Utils.compact(Utils.compact(b, (byte) (b + 1)), Utils.compact((byte) (b + 2), (byte) (b + 3))),
-            Utils.compact(Utils.compact((byte) (b + 4), (byte) (b + 5)), Utils.compact((byte) (b + 6), (byte) (b + 7))));
-
     @Benchmark
     public void longAccessConstant(Blackhole blackhole) {
         int position = 0;
-        for(int i = 0; i < 2000; i++) {
+        for (int i = 0; i < 2000; i++) {
             ArrayAccess.setLong(bytes, position, LONG_CONSTANT);
             position += 8;
         }

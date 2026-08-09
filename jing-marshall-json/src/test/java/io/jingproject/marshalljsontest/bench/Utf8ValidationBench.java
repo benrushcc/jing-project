@@ -26,15 +26,15 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 //@Fork(value = 1, jvmArgsAppend = {
 //        "-Xbatch",
+//        "-XX:-TieredCompilation",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.Utf8Validator::validate",
 //        "-XX:+UnlockDiagnosticVMOptions",
 //        "-XX:PrintAssemblyOptions=intel",
-//        "-XX:CompileCommand=dontinline,io.jingproject.marshalljson.JsonDeserializeUtil::*",
-//        "-XX:CompileCommand=PrintOptoAssembly,io.jingproject.marshalljson.JsonDeserializeUtil::*"
 //})
- @Fork(3)
+@Fork(3)
 public class Utf8ValidationBench {
-    private static final String[] ASCII_DATA = {"a"," abc", "something", "wtf", "why u bully me!", "zywoo", "tyloo", "elephant"};
-    private static final String[] UTF_DATA = {"a"," abc", "something", "wtf", "why u bully me!", "zywoo", "tyloo", "éléphant","®", "↧","😨","😧","😦","😱","😫","😩"};
+    private static final String[] ASCII_DATA = {"a", " abc", "something", "wtf", "why u bully me!", "zywoo", "tyloo", "elephant"};
+    private static final String[] UTF_DATA = {"a", " abc", "something", "wtf", "why u bully me!", "zywoo", "tyloo", "éléphant", "®", "↧", "😨", "😧", "😦", "😱", "😫", "😩"};
     private static final int BATCH = 1000;
     @SuppressWarnings("unused")
     @Param({"16", "64", "256"})
@@ -45,6 +45,11 @@ public class Utf8ValidationBench {
     private CharsetDecoder decoder;
     private CharBuffer charBuffer;
 
+    static void main() throws RunnerException {
+        Options opt = new OptionsBuilder().include(Utf8ValidationBench.class.getSimpleName()).build();
+        new Runner(opt).run();
+    }
+
     @Setup(Level.Iteration)
     public void setup() {
         random = ThreadLocalRandom.current();
@@ -53,7 +58,7 @@ public class Utf8ValidationBench {
         for (int i = 0; i < BATCH; i++) {
             StringBuilder sb1 = new StringBuilder();
             StringBuilder sb2 = new StringBuilder();
-            for(int j = 0; j < N; j++) {
+            for (int j = 0; j < N; j++) {
                 sb1.append(ASCII_DATA[random.nextInt(ASCII_DATA.length)]);
                 sb2.append(UTF_DATA[random.nextInt(UTF_DATA.length)]);
             }
@@ -131,10 +136,5 @@ public class Utf8ValidationBench {
             byte[] data = utfList.get(i);
             blackhole.consume(Utf8Validator.validate(data, 0, data.length));
         }
-    }
-
-    static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(Utf8ValidationBench.class.getSimpleName()).build();
-        new Runner(opt).run();
     }
 }

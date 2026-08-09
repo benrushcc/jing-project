@@ -58,7 +58,7 @@ public class TwiTest {
     public void jacksonSerializeTwiTest() {
         String json = TwiUtil.loadAsString();
         Twi twi = TwiUtil.deserializeTwiUsingJackson(json);
-        try(ByteArrayOutputStream outputStream = new ByteArrayOutputStream(819200)) {
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(819200)) {
             TwiUtil.serializeTwiUsingJackson(twi, outputStream);
             byte[] content = outputStream.toByteArray();
             Assertions.assertTrue(content.length > 0);

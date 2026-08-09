@@ -22,7 +22,7 @@ public final class FourByteHasher implements Hasher {
 
     @Override
     public int hash(byte[] bytes, int offset, int len) {
-        assert bytes != null && Objects.checkFromIndexSize(offset, len, bytes.length) >= 0;
+        Objects.checkFromIndexSize(offset, len, bytes.length);
         int i1 = Byte.toUnsignedInt(bytes[offset]);
         int i2 = len > 1 ? Byte.toUnsignedInt(bytes[offset + 1]) : 0;
         int i3 = len > 2 ? Byte.toUnsignedInt(bytes[offset + len - 1]) : 0;
@@ -32,7 +32,7 @@ public final class FourByteHasher implements Hasher {
 
     @Override
     public int hash(MemorySegment segment, long offset, long len) {
-        assert segment != null && Objects.checkFromIndexSize(offset, len, segment.byteSize()) >= 0L;
+        Objects.checkFromIndexSize(offset, len, segment.byteSize());
         int i1 = Byte.toUnsignedInt(segment.get(ValueLayout.JAVA_BYTE, offset));
         int i2 = len > 1L ? Byte.toUnsignedInt(segment.get(ValueLayout.JAVA_BYTE, offset + 1L)) : 0;
         int i3 = len > 2L ? Byte.toUnsignedInt(segment.get(ValueLayout.JAVA_BYTE, offset + len - 1L)) : 0;

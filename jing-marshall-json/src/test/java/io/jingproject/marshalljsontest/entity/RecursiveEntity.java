@@ -12,6 +12,27 @@ public final class RecursiveEntity {
     private RecursiveEntity left;
     private RecursiveEntity right;
 
+    public static RecursiveEntity createRecursiveEntity(int level) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        Deque<RecursiveEntity> q = new ArrayDeque<>();
+        RecursiveEntity root = new RecursiveEntity();
+        q.addLast(root);
+        int range = 1;
+        for (int i = 0; i < level; i++) {
+            for (int j = 0; j < range; j++) {
+                RecursiveEntity r = q.removeFirst();
+                r.setValue(random.nextInt(10));
+                RecursiveEntity left = new RecursiveEntity();
+                RecursiveEntity right = new RecursiveEntity();
+                r.setLeft(left);
+                r.setRight(right);
+                q.addLast(left);
+                q.addLast(right);
+            }
+        }
+        return root;
+    }
+
     public int getValue() {
         return value;
     }
@@ -34,26 +55,5 @@ public final class RecursiveEntity {
 
     public void setRight(RecursiveEntity right) {
         this.right = right;
-    }
-
-    public static RecursiveEntity createRecursiveEntity(int level) {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        Deque<RecursiveEntity> q = new ArrayDeque<>();
-        RecursiveEntity root = new RecursiveEntity();
-        q.addLast(root);
-        int range = 1;
-        for(int i = 0; i < level; i++) {
-            for(int j = 0; j < range; j++) {
-                RecursiveEntity r = q.removeFirst();
-                r.setValue(random.nextInt(10));
-                RecursiveEntity left = new RecursiveEntity();
-                RecursiveEntity right = new RecursiveEntity();
-                r.setLeft(left);
-                r.setRight(right);
-                q.addLast(left);
-                q.addLast(right);
-            }
-        }
-        return root;
     }
 }

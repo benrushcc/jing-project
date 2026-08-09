@@ -1,8 +1,8 @@
 # FFI documentation
 
 这篇文档是有关于FFI机制的一个教学文档，是给不熟悉FFI概念的开发者了解什么是FFI，以及jing项目是如何配合FFI的机制来做封装设计的
-读完这篇文档的读者应该对FFI有一个基本的认识，并且知道如何使用jing项目中提供的一些FFI基建去完成自己的功能集
-FFI的全称是Foreign Function Interface，完整的定义可以参考 https://en.wikipedia.org/wiki/Foreign_function_interface
+读完这篇文档的读者应该对FFI有一个基本的认识，并且知道如何使用jing项目中提供的一些FFI基建去完成自己的功能集 FFI的全称是Foreign
+Function Interface，完整的定义可以参考 https://en.wikipedia.org/wiki/Foreign_function_interface
 在接下来的文档中，FFI特指jing项目对于java22中推出的 [JEP 454: Foreign Function & Memory API](https://openjdk.org/jeps/454)
 功能的整合，以提供更好的一套编程模型
 

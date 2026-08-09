@@ -40,13 +40,13 @@ public final class SegmentWriteBuffer implements WriteBuffer {
         }
         this.alloc = allocator;
         this.seg = allocator.allocate(initialSize);
-        assert this.seg.isNative();
+        
         this.position = 0L;
         this.limit = limit;
     }
 
     private void growBufferIfNeeded(long requiredCapacity) {
-        assert requiredCapacity > 0L;
+        
         long currentCapacity = seg.byteSize();
         if (currentCapacity < requiredCapacity) {
             long growedCapacity = Math.addExact(seg.byteSize(), seg.byteSize());
@@ -67,7 +67,7 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public void setPosition(int newPosition) {
-        assert newPosition >= 0 && newPosition <= seg.byteSize();
+        
         position = newPosition;
     }
 
@@ -78,7 +78,7 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public void setPosition(long newPosition) {
-        assert newPosition >= 0 && newPosition <= seg.byteSize();
+        
         position = newPosition;
     }
 
@@ -163,7 +163,7 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeBytes(byte[] bytes, int offset, int length) {
-        assert bytes != null && Objects.checkFromIndexSize(offset, length, bytes.length) >= 0;
+        
         long newPosition = Math.addExact(position, length);
         growBufferIfNeeded(newPosition);
         MemorySegment.copy(bytes, offset, seg, ValueLayout.JAVA_BYTE, position, length);
@@ -172,7 +172,7 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeRepeated(byte b, int count) {
-        assert count > 0;
+        
         long newPosition = Math.addExact(position, count);
         growBufferIfNeeded(newPosition);
         seg.asSlice(position, count).fill(b);
@@ -181,7 +181,7 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeSegment(MemorySegment segment, long offset, long length) {
-        assert segment != null && Objects.checkFromIndexSize(offset, length, segment.byteSize()) >= 0L;
+        
         long newPosition = Math.addExact(position, length);
         growBufferIfNeeded(newPosition);
         MemorySegment.copy(segment, offset, seg, position, length);

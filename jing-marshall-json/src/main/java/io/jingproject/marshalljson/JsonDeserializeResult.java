@@ -1,6 +1,9 @@
 package io.jingproject.marshalljson;
 
 public enum JsonDeserializeResult {
+    Start,
+
+    Trivial,
 
     Continue,
 
@@ -8,7 +11,15 @@ public enum JsonDeserializeResult {
 
     NewMarshallable,
 
+    NewList,
+
+    NewMap,
+
     NewDummyObj,
 
-    NewDummyArr,
+    NewDummyArr;
+
+    public boolean isNested() {
+        return ordinal() > Finish.ordinal();
+    }
 }

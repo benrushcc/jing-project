@@ -5,7 +5,6 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.Objects;
 
 public final class HeapWriteBuffer implements WriteBuffer {
 
@@ -38,7 +37,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
         if (buffer == null || buffer.length == 0) {
             throw new IllegalArgumentException("empty buffer");
         }
-        if(limit < 0) {
+        if (limit < 0) {
             throw new IllegalArgumentException("limit must be positive");
         }
         this.buffer = buffer;
@@ -47,12 +46,11 @@ public final class HeapWriteBuffer implements WriteBuffer {
     }
 
     private void growBufferIfNeeded(int requiredCapacity) {
-        assert requiredCapacity > 0;
         int currentCapacity = buffer.length;
         if (currentCapacity < requiredCapacity) {
             int growedCapacity = Math.addExact(currentCapacity, currentCapacity);
             int newLength = Math.max(growedCapacity, requiredCapacity);
-            if(newLength > limit) {
+            if (newLength > limit) {
                 throw new SizeLimitExceededException(newLength, limit);
             }
             buffer = Arrays.copyOf(buffer, newLength);
@@ -66,7 +64,6 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void setPosition(int newPosition) {
-        assert newPosition >= 0 && newPosition <= buffer.length;
         position = newPosition;
     }
 
@@ -77,13 +74,12 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void setPosition(long newPosition) {
-        assert newPosition >= 0L && Math.toIntExact(newPosition) <= buffer.length;
         position = Math.toIntExact(newPosition);
     }
 
     @Override
     public void ensureCapacity(int capacity) {
-        if(capacity < 0) {
+        if (capacity < 0) {
             throw new IllegalArgumentException("capacity must be positive");
         }
         growBufferIfNeeded(Math.addExact(position, capacity));
@@ -91,7 +87,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void ensureCapacity(long capacity) {
-        if(capacity < 0L) {
+        if (capacity < 0L) {
             throw new IllegalArgumentException("capacity must be positive");
         }
         growBufferIfNeeded(Math.addExact(position, Math.toIntExact(capacity)));
@@ -162,7 +158,6 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeBytes(byte[] bytes, int offset, int length) {
-        assert bytes != null && Objects.checkFromIndexSize(offset, length, bytes.length) >= 0;
         int newPosition = Math.addExact(position, length);
         growBufferIfNeeded(newPosition);
         System.arraycopy(bytes, offset, buffer, position, length);
@@ -171,7 +166,6 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeRepeated(byte b, int count) {
-        assert count > 0;
         int newPosition = Math.addExact(position, count);
         growBufferIfNeeded(newPosition);
         Arrays.fill(buffer, position, newPosition, b);
@@ -180,7 +174,6 @@ public final class HeapWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeSegment(MemorySegment segment, long offset, long length) {
-        assert segment != null && Objects.checkFromIndexSize(offset, length, segment.byteSize()) >= 0;
         int intLength = Math.toIntExact(length);
         int newPosition = Math.addExact(position, intLength);
         growBufferIfNeeded(newPosition);

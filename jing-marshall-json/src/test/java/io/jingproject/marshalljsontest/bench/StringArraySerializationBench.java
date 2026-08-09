@@ -31,16 +31,20 @@ public class StringArraySerializationBench {
     private static final int BATCH = 1000;
     private static final int SIZE = 64;
     private static final int BUFFER_SIZE = SIZE * BATCH * 8;
-
-    @Param({"empty", "ascii", "utf", "surr", "mostAscii"})
-    @SuppressWarnings("unused")
-    private String type;
-
-    private String[] arr;
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
     private final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(BUFFER_SIZE);
     private final WriteBuffer writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);
+    @Param({"empty", "ascii", "utf", "surr", "mostAscii"})
+    @SuppressWarnings("unused")
+    private String type;
+    private String[] arr;
+
+    static void main() throws RunnerException {
+        Options opt = new OptionsBuilder().include(StringArraySerializationBench.class.getSimpleName())
+                .addProfiler(GCProfiler.class).build();
+        new Runner(opt).run();
+    }
 
     @Setup(Level.Iteration)
     public void setup() {
@@ -62,11 +66,5 @@ public class StringArraySerializationBench {
         jsonDefaultSerializer.serializeArray(arr, writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
         writeBuffer.setPosition(0);
-    }
-
-    static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(StringArraySerializationBench.class.getSimpleName())
-                .addProfiler(GCProfiler.class).build();
-        new Runner(opt).run();
     }
 }

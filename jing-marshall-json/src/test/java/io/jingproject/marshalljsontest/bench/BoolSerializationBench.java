@@ -28,6 +28,16 @@ import java.util.concurrent.TimeUnit;
 public class BoolSerializationBench {
     private static final int SIZE = 16000;
     private final Map<String, Boolean> boolMap = createBoolMap();
+    private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
+    private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
+    private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);
+    private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
+
+    static void main() throws RunnerException {
+        Options opt = new OptionsBuilder().include(BoolSerializationBench.class.getSimpleName())
+                .addProfiler(GCProfiler.class).build();
+        new Runner(opt).run();
+    }
 
     private Map<String, Boolean> createBoolMap() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -37,11 +47,6 @@ public class BoolSerializationBench {
         }
         return Map.copyOf(map);
     }
-
-    private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
-    private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
-    private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);
-    private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
 
     @Benchmark
     public void jacksonSerialization(Blackhole blackhole) {
@@ -55,11 +60,5 @@ public class BoolSerializationBench {
         jsonDefaultSerializer.serializeMap(boolMap, String.class, Boolean.class, writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
         writeBuffer.setPosition(0);
-    }
-
-    static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(BoolSerializationBench.class.getSimpleName())
-                .addProfiler(GCProfiler.class).build();
-        new Runner(opt).run();
     }
 }

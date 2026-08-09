@@ -40,8 +40,7 @@ jing-maven-plugin，这个插件的作用是，检测到jing-providers.json的�
 with的麻烦事
 
 @Provider的这一套机制是为了方便开发者将自己编写的类的细节通过SPI的机制提供给第三方库，省去了手动为生成类在module-info中还需要编写provide
-with的麻烦
-可以更好的关注到自己的实现层面上，只需做好相应的maven配置即可
+with的麻烦 可以更好的关注到自己的实现层面上，只需做好相应的maven配置即可
 
 @Provider也可以作为一个偷懒的做法，用在非生成类的SPI提供方上面，利用这一套机制也可以实现服务方的暴露
 
@@ -58,6 +57,6 @@ with的麻烦
 
 对于方法而言，没有任何的限制，方法调用是源代码生成时字符串拼接的一部分，完全由开发者自己进行控制
 
-对于字段而言，包含class中field对应的的VariableElement，record中RECORD_COMPONENT对应的的RecordComponentElement，enum中的Enum Constant对应的VariableElement之类的
-限制是外层必须为满足条件的TypeElement，字段如果为数组，则不能为多维数组或泛型数组，字段如果带有泛型，那么泛型参数不能再有其他的泛型参数
+对于字段而言，包含class中field对应的的VariableElement，record中RECORD_COMPONENT对应的的RecordComponentElement，enum中的Enum
+Constant对应的VariableElement之类的 限制是外层必须为满足条件的TypeElement，字段如果为数组，则不能为多维数组或泛型数组，字段如果带有泛型，那么泛型参数不能再有其他的泛型参数
 字段的类型中不能出现extends或super的情况，对于?通配符则没有额外的限制

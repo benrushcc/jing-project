@@ -8,232 +8,175 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
 
-/**
- *  state holder for a serialization run, managing a stack of {@link JsonSerializerNode} instances.
- */
 public final class JsonSerializerState {
     public static final int INITIAL_SIZE = 4;
     public static final int MAX_SIZE = 4096;
     private final JsonSerializerContext context;
-    private JsonSerializerNode[] nodes;
+    private final JsonSerializerNode rootNode;
 
-    public JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer) {
-        assert option != null && writeBuffer != null;
-        this.context = new JsonSerializerContext(option, writeBuffer);
-    }
+    public JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer, Object instance) {
 
-    /**
-     * initializes the state for serializing a single marshallable object.
-     * @param instance instance the object to serialize (must be marshallable)
-     */
-    public void initMarshallableObject(Object instance) {
-        assert instance != null;
         Class<?> marshallableType = instance.getClass();
-        if(marshallableType.isEnum()) {
+        if (marshallableType.isEnum()) {
             throw new JsonSerializerException("enum cannot be directly serialized");
         }
         MarshallFacade fc = Marshalls.getMarshallFacade(marshallableType);
-        if(fc == null) {
+        if (fc == null) {
             throw new JsonSerializerException("type not marshallable : " + marshallableType.getName());
         }
-        if(nodes == null) {
-            nodes = new JsonSerializerNode[INITIAL_SIZE];
-        }
-        JsonSerializerObjNode objNode = new JsonSerializerObjNode();
-        objNode.init(fc, instance, 1);
-        nodes[0] = objNode;
-        context.writeBuffer().writeByte((byte) '{');
+        JsonSerializerNode objNode = new JsonSerializerNode();
+        objNode.initObj(fc, instance, 1);
+        writeBuffer.writeByte((byte) '{');
+        this.context = new JsonSerializerContext(option, writeBuffer);
+        this.rootNode = objNode;
     }
 
-    /**
-     * initializes the state for serializing an array of objects.
-     * @param arr the array to serialize (multi‑dimensional or generic arrays are not supported)
-     */
-    public void initArray(Object[] arr) {
-        assert arr != null;
+    public JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer, Object[] arr) {
+
         Class<?> componentType = arr.getClass().getComponentType();
-        if(componentType.isArray()) {
+        if (componentType.isArray()) {
             throw new JsonSerializerException("multi dimensional array not supported : " + componentType.getName());
         }
-        if(componentType.getTypeParameters().length > 0) {
+        if (componentType.getTypeParameters().length > 0) {
             throw new JsonSerializerException("generic array not supported : " + componentType.getName());
         }
-        if(nodes == null) {
-            nodes = new JsonSerializerNode[INITIAL_SIZE];
-        }
-        JsonSerializerArrNode arrNode = new JsonSerializerArrNode();
-        arrNode.init(arr, 1, context);
-        nodes[0] = arrNode;
-        context.writeBuffer().writeByte((byte) '[');
+        JsonSerializerNode arrNode = new JsonSerializerNode();
+        arrNode.initArr(arr, 1, JsonSerializerContext.valueSerializeFunc(option, arr.getClass().getComponentType()));
+        writeBuffer.writeByte((byte) '[');
+        this.context = new JsonSerializerContext(option, writeBuffer);
+        this.rootNode = arrNode;
     }
 
-    /**
-     * initializes the state for serializing a collection.
-     * @param collection the collection to serialize
-     * @param elementType the runtime element type (must be concrete, not generic)
-     */
-    public <T> void initCol(Collection<T> collection, Class<T> elementType) {
-        assert collection != null && elementType != null;
-        if(elementType.getTypeParameters().length > 0) {
+    public <T> JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer, Collection<T> collection, Class<T> elementType) {
+
+        if (elementType.getTypeParameters().length > 0) {
             throw new JsonSerializerException("generic collection not supported : " + elementType.getName());
         }
-        if(nodes == null) {
-            nodes = new JsonSerializerNode[INITIAL_SIZE];
-        }
-        if(collection instanceof List<T> list) {
-            JsonSerializerListNode listNode = new JsonSerializerListNode();
-            listNode.init(list, elementType, 1, context);
-            nodes[0] = listNode;
+        JsonSerializerNode n = new JsonSerializerNode();
+        JsonSerializeFunc fn = JsonSerializerContext.valueSerializeFunc(option, elementType);
+        if (collection instanceof List<T> list) {
+            n.initList(list, 1, fn);
         } else {
-            JsonSerializerColNode colNode = new JsonSerializerColNode();
-            colNode.init(collection.size(), collection.iterator(), elementType, 1, context);
-            nodes[0] = colNode;
+            n.initCol(collection.size(), collection.iterator(), 1, fn);
         }
-        context.writeBuffer().writeByte((byte) '[');
+        writeBuffer.writeByte((byte) '[');
+        this.context = new JsonSerializerContext(option, writeBuffer);
+        this.rootNode = n;
     }
 
-    /**
-     * initializes the state for serializing a map.
-     *
-     * @param map the map to serialize
-     * @param keyType the key type (must be String.class or CharSequence.class)
-     * @param valueType the value type (must be concrete, not generic)
-     */
-    public <K, V> void initMap(Map<K, V> map, Class<K> keyType, Class<V> valueType) {
-        assert map != null && keyType != null && valueType != null;
-        if(keyType != CharSequence.class && keyType != String.class) {
+    public <K, V> JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer, Map<K, V> map, Class<K> keyType, Class<V> valueType) {
+
+        if (keyType != CharSequence.class && keyType != String.class) {
             throw new JsonSerializerException("key type not supported: " + keyType.getName());
         }
-        if(valueType.getTypeParameters().length > 0) {
+        if (valueType.getTypeParameters().length > 0) {
             throw new JsonSerializerException("generic map value type not supported: " + valueType.getName());
         }
-        if(nodes == null) {
-            nodes = new JsonSerializerNode[INITIAL_SIZE];
-        }
-        JsonSerializerMapNode mapNode = new JsonSerializerMapNode();
-        mapNode.init(map.size(), map.entrySet().iterator(), valueType, 1, context);
-        nodes[0] = mapNode;
-        context.writeBuffer().writeByte((byte) '{');
+        JsonSerializerNode mapNode = new JsonSerializerNode();
+        mapNode.initMap(map.size(), map.entrySet().iterator(), 1, JsonSerializerContext.valueSerializeFunc(option, valueType));
+        writeBuffer.writeByte((byte) '{');
+        this.context = new JsonSerializerContext(option, writeBuffer);
+        this.rootNode = mapNode;
     }
 
-    /**
-     * obtains a node from a pool, reusing an existing compatible node when possible, or creates a new one.
-     * <p>
-     * the usage pattern of node types is fairly consistent: once a particular type is needed at a certain depth,
-     * it tends to be reused again later, and nested structures require high‑frequency node allocation.
-     * however, the overall nesting depth is limited, so we keep a pool and perform a linear search
-     * for a reusable node (matching the given filter), then swap it to the target position.
-     * this approach reduces allocation pressure while maintaining good performance.
-     * </p>
-     */
-    private JsonSerializerNode newNode(final int cur, Supplier<JsonSerializerNode> sup, Predicate<JsonSerializerNode> filter) {
-        final JsonSerializerOption option = context.option();
-        final JsonSerializerNode[] nds = nodes;
-        int i = cur;
-        for( ; i < nds.length; i++) {
-            JsonSerializerNode n = nds[i];
-            if(n == null) {
-                // new and swap
-                JsonSerializerNode r = sup.get();
-                nds[i] = nds[cur];
-                nds[cur] = r;
-                return r;
-            }
-            if(filter.test(n)) {
-                // swap
-                if(i != cur) {
-                    nds[i] = nds[cur];
-                    nds[cur] = n;
-                }
-                return n;
-            }
-        }
-        // try in-place replacement if we can't grow
-        if(nds.length == option.maxNestedSize()) {
-            if(cur == nds.length) {
-                throw new IllegalStateException("exceeded maximum nested size : " + option.maxNestedSize() + ", might be circular dependency");
-            }
-            JsonSerializerNode r = sup.get();
-            nds[cur] = r;
-            return r;
-        }
-        // tried every existing node, now grow and allocate new one
-        int newLength = Math.addExact(nodes.length, nodes.length);
-        if(newLength > option.maxNestedSize()) {
-            throw new IllegalStateException("exceeded maximum nested size : " + option.maxNestedSize() + ", might be circular dependency");
-        }
-        nodes = Arrays.copyOf(nodes, newLength);
-        if(i != cur) {
-            nodes[i] = nodes[cur];
-        }
-        JsonSerializerNode r = sup.get();
-        nodes[cur] = r;
-        return r;
-    }
-
-    /**
-     * drives the serialization process.
-     * <p>
-     * this method repeatedly processes the current top node and handles the returned
-     * result by either finishing the current level, or pushing a new child node onto the stack.
-     * the loop terminates when the stack becomes empty.
-     * </p>
-     */
     public void process() {
-        int cur = 0;
-        for( ; ; ) {
-            JsonSerializerNode n = nodes[cur];
-            JsonSerializeResult r = n.process(context);
+        final JsonSerializerContext c = context;
+        final JsonSerializerOption option = c.option();
+        final WriteBuffer w = c.writeBuffer();
+        final int maxNestedSize = option.maxNestedSize();
+        JsonSerializerNode[] nodes = new JsonSerializerNode[INITIAL_SIZE];
+        JsonSerializerNode n = nodes[0] = rootNode;
+        int p = 0;
+        for (; ; ) {
+            JsonSerializeResult r = n.process(c);
             switch (r) {
                 case Continue -> throw new AssertionError("continue should have been filtered");
                 case Finished -> {
-                    if(--cur < 0) {
-                        return ;
+                    if (--p < 0) {
+                        return;
                     }
+                    n = nodes[p];
                 }
                 case NewMarshallable -> {
-                    Object marshallable = context.obj();
+                    int ind = n.indent();
+                    Object marshallable = c.obj();
                     Class<?> marshallableType = marshallable.getClass();
-                    // assert !marshallableType.isEnum();
                     MarshallFacade fc = Marshalls.getMarshallFacade(marshallableType);
-                    if(fc == null) {
+                    if (fc == null) {
                         throw new JsonSerializerException("type not marshallable : " + marshallableType.getName());
                     }
-                    JsonSerializerObjNode objNode = (JsonSerializerObjNode) newNode(++cur, JsonSerializerObjNode::new, o -> o instanceof JsonSerializerObjNode);
-                    objNode.init(fc, marshallable, n.indent + 1); // no overflow
-                    context.writeBuffer().writeByte((byte) '{');
+                    if (++p == nodes.length) {
+                        int newLength = nodes.length << 1; // no overflow
+                        if (newLength > maxNestedSize) {
+                            throw new JsonSerializerException("exceeded maximum nested size : " + maxNestedSize);
+                        }
+                        nodes = Arrays.copyOf(nodes, newLength);
+                    }
+                    n = nodes[p];
+                    if (n == null) {
+                        n = nodes[p] = new JsonSerializerNode();
+                    }
+                    n.initObj(fc, marshallable, ind + 1); // no overflow
+                    w.writeByte((byte) '{');
                 }
                 case NewArray -> {
-                    Object[] arr = context.arr();
-                    JsonSerializerArrNode arrNode = (JsonSerializerArrNode) newNode(++cur, JsonSerializerArrNode::new, o -> o instanceof JsonSerializerArrNode);
-                    arrNode.init(arr, n.indent + 1, context); // no overflow
-                    context.writeBuffer().writeByte((byte) '[');
+                    int ind = n.indent();
+                    Object[] arr = (Object[]) c.obj();
+                    if (++p == nodes.length) {
+                        int newLength = nodes.length << 1; // no overflow
+                        if (newLength > maxNestedSize) {
+                            throw new JsonSerializerException("exceeded maximum nested size : " + maxNestedSize);
+                        }
+                        nodes = Arrays.copyOf(nodes, newLength);
+                    }
+                    n = nodes[p];
+                    if (n == null) {
+                        n = nodes[p] = new JsonSerializerNode();
+                    }
+                    n.initArr(arr, ind + 1, JsonSerializerContext.valueSerializeFunc(option, arr.getClass().getComponentType())); // no overflow
+                    w.writeByte((byte) '[');
                 }
                 case NewCollection -> {
-                    Collection<?> col = context.col();
-                    Class<?> elementType = context.firstType();
-                    if(col instanceof List<?> list) {
-                        JsonSerializerListNode listNode = (JsonSerializerListNode) newNode(++cur, JsonSerializerListNode::new, o -> o instanceof JsonSerializerListNode);
-                        listNode.init(list, elementType, n.indent + 1, context); // no overflow
-                    } else {
-                        JsonSerializerColNode colNode = (JsonSerializerColNode) newNode(++cur, JsonSerializerColNode::new, o -> o instanceof JsonSerializerColNode);
-                        colNode.init(col.size(), col.iterator(), elementType, n.indent + 1, context); // no overflow
+                    int ind = n.indent();
+                    Collection<?> col = (Collection<?>) c.obj();
+                    Class<?> elementType = c.type();
+                    if (++p == nodes.length) {
+                        int newLength = nodes.length << 1; // no overflow
+                        if (newLength > maxNestedSize) {
+                            throw new JsonSerializerException("exceeded maximum nested size : " + maxNestedSize);
+                        }
+                        nodes = Arrays.copyOf(nodes, newLength);
                     }
-                    context.writeBuffer().writeByte((byte) '[');
+                    n = nodes[p];
+                    if (n == null) {
+                        n = nodes[p] = new JsonSerializerNode();
+                    }
+                    JsonSerializeFunc fn = JsonSerializerContext.valueSerializeFunc(option, elementType);
+                    if (col instanceof List<?> list) {
+                        n.initList(list, ind + 1, fn); // no overflow
+                    } else {
+                        n.initCol(col.size(), col.iterator(), ind + 1, fn); // no overflow
+                    }
+                    w.writeByte((byte) '[');
                 }
                 case NewMap -> {
-                    Map<?, ?> map = context.map();
-                    Class<?> keyType = context.firstType();
-                    Class<?> valueType = context.secondType();
-                    if(keyType != CharSequence.class && keyType != String.class) {
-                        throw new JsonSerializerException("unsupported key type : " + keyType.getName());
+                    int ind = n.indent();
+                    Map<?, ?> map = (Map<?, ?>) c.obj();
+                    Class<?> valueType = c.type();
+                    if (++p == nodes.length) {
+                        int newLength = nodes.length << 1; // no overflow
+                        if (newLength > maxNestedSize) {
+                            throw new JsonSerializerException("exceeded maximum nested size : " + maxNestedSize);
+                        }
+                        nodes = Arrays.copyOf(nodes, newLength);
                     }
-                    JsonSerializerMapNode mapNode = (JsonSerializerMapNode) newNode(++cur, JsonSerializerMapNode::new, o -> o instanceof JsonSerializerMapNode);
-                    mapNode.init(map.size(), map.entrySet().iterator(), valueType, n.indent + 1, context); // no overflow
-                    context.writeBuffer().writeByte((byte) '{');
+                    n = nodes[p];
+                    if (n == null) {
+                        n = nodes[p] = new JsonSerializerNode();
+                    }
+                    n.initMap(map.size(), map.entrySet().iterator(), ind + 1, JsonSerializerContext.valueSerializeFunc(option, valueType)); // no overflow
+                    w.writeByte((byte) '{');
                 }
                 case null, default -> throw new AssertionError();
             }

@@ -27,21 +27,21 @@ public enum JsonSerializeResult {
 
     /**
      * the current field holds an array that requires further processing.
-     * the new array should be placed in {@link JsonSerializerContext#arr()}
+     * the new array should be placed in {@link JsonSerializerContext#obj()}
      */
     NewArray,
 
     /**
      * the current field holds a collection that requires further processing.
-     * the new collection should be placed in {@link JsonSerializerContext#col()}
-     * the element type should be placed in {@link JsonSerializerContext#firstType()}
+     * the new collection should be placed in {@link JsonSerializerContext#obj()}
+     * the element type should be placed in {@link JsonSerializerContext#type()}
      */
     NewCollection,
 
     /**
      * the current field holds a map that requires further processing.
-     * the new map should be placed in {@link JsonSerializerContext#map()}
-     * the key type should be placed in {@link JsonSerializerContext#firstType()}
+     * the new map should be placed in {@link JsonSerializerContext#obj()}
+     * the key type should be placed in {@link JsonSerializerContext#type()}
      * the value type should be placed in {@link JsonSerializerContext#secondType()}
      */
     NewMap

@@ -19,16 +19,16 @@ public record MarshallInfo(
 ) {
 
     public MarshallInfo {
-        if(rawType == null) {
+        if (rawType == null) {
             throw new IllegalArgumentException("rawType cannot be null");
         }
-        if(rawType == void.class || firstGenericType == void.class || secondGenericType == void.class) {
+        if (rawType == void.class || firstGenericType == void.class || secondGenericType == void.class) {
             throw new IllegalArgumentException("type cannot be void");
         }
-        if(fieldName == null || fieldName.isBlank() || fieldNameUtf8Bytes == null || fieldNameUtf8Bytes.length == 0) {
+        if (fieldName == null || fieldName.isBlank() || fieldNameUtf8Bytes == null || fieldNameUtf8Bytes.length == 0) {
             throw new IllegalArgumentException("fieldName cannot be blank");
         }
-        if(mappedName == null || mappedName.isBlank() || mappedNameUtf8Bytes == null || mappedNameUtf8Bytes.length == 0) {
+        if (mappedName == null || mappedName.isBlank() || mappedNameUtf8Bytes == null || mappedNameUtf8Bytes.length == 0) {
             throw new IllegalArgumentException("mappedName cannot be blank");
         }
     }

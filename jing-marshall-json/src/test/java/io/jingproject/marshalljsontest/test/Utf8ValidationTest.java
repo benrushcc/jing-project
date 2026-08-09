@@ -26,7 +26,7 @@ public class Utf8ValidationTest {
     }
 
     private static void validateTwoBytes(byte first, byte[] buffer) {
-        for(int i1 = -128; i1 < 128; i1++) {
+        for (int i1 = -128; i1 < 128; i1++) {
             for (int offset : OFFSETS) {
                 Arrays.fill(buffer, (byte) 0);
                 buffer[offset] = first;
@@ -37,8 +37,8 @@ public class Utf8ValidationTest {
     }
 
     private static void validateThreeBytes(byte first, byte[] buffer) {
-        for(int i1 = -128; i1 < 128; i1++) {
-            for(int i2 = -128; i2 < 128; i2++) {
+        for (int i1 = -128; i1 < 128; i1++) {
+            for (int i2 = -128; i2 < 128; i2++) {
                 for (int offset : OFFSETS) {
                     Arrays.fill(buffer, (byte) 0);
                     buffer[offset] = first;
@@ -51,9 +51,9 @@ public class Utf8ValidationTest {
     }
 
     private static void validateFourBytes(byte first, byte[] buffer) {
-        for(int i1 = -128; i1 < 128; i1++) {
-            for(int i2 = -128; i2 < 128; i2++) {
-                for(int i3 = -128; i3 < 128; i3++) {
+        for (int i1 = -128; i1 < 128; i1++) {
+            for (int i2 = -128; i2 < 128; i2++) {
+                for (int i3 = -128; i3 < 128; i3++) {
                     for (int offset : OFFSETS) {
                         Arrays.fill(buffer, (byte) 0);
                         buffer[offset] = first;
@@ -70,8 +70,8 @@ public class Utf8ValidationTest {
     @Test
     public void testOneByteValidation() {
         byte[] buffer = new byte[BUFFER_SIZE];
-        for(int i = -128; i < 128; i++) {
-            for(int offset : OFFSETS) {
+        for (int i = -128; i < 128; i++) {
+            for (int offset : OFFSETS) {
                 Arrays.fill(buffer, (byte) 0);
                 buffer[offset] = (byte) i;
                 test(buffer);
@@ -82,7 +82,7 @@ public class Utf8ValidationTest {
     @Test
     public void testTwoByteValidation() {
         byte[] buffer = new byte[BUFFER_SIZE];
-        for(int i = -128; i < 128; i++) {
+        for (int i = -128; i < 128; i++) {
             validateTwoBytes((byte) i, buffer);
         }
     }
@@ -92,7 +92,7 @@ public class Utf8ValidationTest {
     @Timeout(value = 1, unit = TimeUnit.MINUTES)
     public void testThreeByteValidation() {
         byte[] buffer = new byte[BUFFER_SIZE];
-        for(int i = -128; i < 128; i++) {
+        for (int i = -128; i < 128; i++) {
             validateThreeBytes((byte) i, buffer);
         }
     }
@@ -102,7 +102,7 @@ public class Utf8ValidationTest {
     @Timeout(value = 10, unit = TimeUnit.MINUTES)
     public void testFourByteValidation() throws InterruptedException {
         final CountDownLatch latch = new CountDownLatch(256);
-        for(int i = -128; i < 128; i++) {
+        for (int i = -128; i < 128; i++) {
             byte b = (byte) i;
             new Thread(() -> {
                 validateFourBytes(b, new byte[BUFFER_SIZE]);
