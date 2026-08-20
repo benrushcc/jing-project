@@ -33,24 +33,10 @@ public final class JsonNumberUtil {
     private static final FpSpec DOUBLE_SPEC = new FpSpec(52, 11, -1023, -1085, 308, -324);
     private static final int MAX_FLOAT_CAPACITY = 15; // same as MAX_CHARS in jdk/internal/math/FloatToDecimal.java
     private static final int MAX_DOUBLE_CAPACITY = 24; // same as MAX_CHARS in jdk/internal/math/DoubleToDecimal.java
-    private static final short NEG_ZERO = Utils.compact(BYTE_MINUS, BYTE_ZERO);
-    private static final short ZERO_PERIOD = Utils.compact(BYTE_ZERO, BYTE_PERIOD);
-    private static final short E_MINUS = Utils.compact(BYTE_E, BYTE_MINUS);
     private static final int POW10MIN = -348;
     private static final int POW10MAX = 347;
     private static final long[] POW10TAB = makePow10Table(); // huge table
     private static final byte[] ZERO_NINE_TABLE = makeZeroNineTable();
-
-    // precomputed constants used by trimZeros()
-    private static final long MAX_UINT_64 = 0xFFFFFFFFFFFFFFFFL;
-    private static final long DIV_1_E_8_M = 0xc767074b22e90e21L;  // inverse of 5^8
-    private static final long DIV_1_E_4_M = 0xd288ce703afb7e91L;  // inverse of 5^4
-    private static final long DIV_1_E_2_M = 0x8f5c28f5c28f5c29L;  // inverse of 5^2
-    private static final long DIV_1_E_1_M = 0xcccccccccccccccdL;  // inverse of 5
-    private static final long DIV_1_E_8_LE = Long.divideUnsigned(MAX_UINT_64, 100_000_000L);
-    private static final long DIV_1_E_4_LE = Long.divideUnsigned(MAX_UINT_64, 10_000L);
-    private static final long DIV_1_E_2_LE = Long.divideUnsigned(MAX_UINT_64, 100L);
-    private static final long DIV_1_E_1_LE = Long.divideUnsigned(MAX_UINT_64, 10L);
 
     private static final int MIN_SCI_EXP = -3; // align with jdk format, inclusive
     private static final int MAX_SCI_EXP = 7; // align with jdk format, exclusive
@@ -280,7 +266,6 @@ public final class JsonNumberUtil {
         return position + digitCount;
     }
 
-
     public static void writeLong(long value, WriteBuffer writeBuffer) {
         writeBuffer.ensureCapacity(MIN_LONG_BYTES.length);
         switch (writeBuffer) {
@@ -356,45 +341,192 @@ public final class JsonNumberUtil {
     }
 
     public static void writeFloat(float f, WriteBuffer writeBuffer) {
-        int bits = Float.floatToRawIntBits(f);
-        boolean negative = (bits >>> (Float.SIZE - 1)) == 1;
-        if ((bits & 0x7FFFFFFF) == 0) {
-            if (negative) {
-                writeBuffer.writeShort(NEG_ZERO);
-            } else {
-                writeBuffer.writeByte(BYTE_ZERO);
-            }
-            return;
-        }
         writeBuffer.ensureCapacity(MAX_FLOAT_CAPACITY);
-        if (negative) {
-            bits &= ~(1 << (Float.SIZE - 1));
-            writeBuffer.writeByte(BYTE_MINUS);
+        final int bits = Float.floatToRawIntBits(f);
+        final boolean negative = bits < 0;
+        switch (writeBuffer) {
+            case HeapWriteBuffer heapWriteBuffer -> {
+                final byte[] bytes = heapWriteBuffer.rawByteArray();
+                int position = heapWriteBuffer.intPosition();
+                if(negative) {
+                    bytes[position++] = BYTE_MINUS;
+                }
+                if((bits & 0x7FFFFFFF) == 0) {
+                    bytes[position++] = BYTE_ZERO;
+                    heapWriteBuffer.setPosition(position);
+                    return ;
+                }
+                BinaryFp binaryFp = buildBinaryFp(bits, FLOAT_SPEC);
+                DecimalFp decimalFp = toDecimalFp(binaryFp, FLOAT_SPEC);
+                heapWriteBuffer.setPosition(writeDecimalFpToHeap(decimalFp, bytes, position));
+            }
+            case SegmentWriteBuffer segmentWriteBuffer -> {
+                final MemorySegment segment = segmentWriteBuffer.rawSegment();
+                int position = segmentWriteBuffer.intPosition();
+                if(negative) {
+                    SegmentAccess.setByte(segment, position++, BYTE_MINUS);
+                }
+                if((bits & 0x7FFFFFFF) == 0) {
+                    SegmentAccess.setByte(segment, position++, BYTE_ZERO);
+                    segmentWriteBuffer.setPosition(position);
+                    return ;
+                }
+                BinaryFp binaryFp = buildBinaryFp(bits, FLOAT_SPEC);
+                DecimalFp decimalFp = toDecimalFp(binaryFp, FLOAT_SPEC);
+                segmentWriteBuffer.setPosition(writeDecimalFpToSegment(decimalFp, segment, position));
+            }
         }
-        BinaryFp binaryFp = buildBinaryFp(bits, FLOAT_SPEC);
-        DecimalFp decimalFp = toDecimalFp(binaryFp, FLOAT_SPEC);
-        writeDecimalFp(decimalFp, writeBuffer);
     }
 
     public static void writeDouble(double f, WriteBuffer writeBuffer) {
-        long bits = Double.doubleToRawLongBits(f);
-        boolean negative = (bits >>> (Double.SIZE - 1)) == 1L;
-        if ((bits & 0x7FFFFFFFFFFFFFFFL) == 0L) {
-            if (negative) {
-                writeBuffer.writeShort(NEG_ZERO);
-            } else {
-                writeBuffer.writeByte(BYTE_ZERO);
-            }
-            return;
-        }
         writeBuffer.ensureCapacity(MAX_DOUBLE_CAPACITY);
-        if (negative) {
-            bits &= ~(1L << (Double.SIZE - 1));
-            writeBuffer.writeByte(BYTE_MINUS);
+        final long bits = Double.doubleToRawLongBits(f);
+        final boolean negative = bits < 0L;
+        switch (writeBuffer) {
+            case HeapWriteBuffer heapWriteBuffer -> {
+                final byte[] bytes = heapWriteBuffer.rawByteArray();
+                int position = heapWriteBuffer.intPosition();
+                if(negative) {
+                    bytes[position++] = BYTE_MINUS;
+                }
+                if((bits & 0x7FFFFFFFFFFFFFFFL) == 0L) {
+                    bytes[position++] = BYTE_ZERO;
+                    heapWriteBuffer.setPosition(position);
+                    return ;
+                }
+                BinaryFp binaryFp = buildBinaryFp(bits, DOUBLE_SPEC);
+                DecimalFp decimalFp = toDecimalFp(binaryFp, DOUBLE_SPEC);
+                heapWriteBuffer.setPosition(writeDecimalFpToHeap(decimalFp, bytes, position));
+            }
+            case SegmentWriteBuffer segmentWriteBuffer -> {
+                final MemorySegment segment = segmentWriteBuffer.rawSegment();
+                int position = segmentWriteBuffer.intPosition();
+                if(negative) {
+                    SegmentAccess.setByte(segment, position++, BYTE_MINUS);
+                }
+                if((bits & 0x7FFFFFFFFFFFFFFFL) == 0L) {
+                    SegmentAccess.setByte(segment, position++, BYTE_ZERO);
+                    segmentWriteBuffer.setPosition(position);
+                    return ;
+                }
+                BinaryFp binaryFp = buildBinaryFp(bits, DOUBLE_SPEC);
+                DecimalFp decimalFp = toDecimalFp(binaryFp, DOUBLE_SPEC);
+                segmentWriteBuffer.setPosition(writeDecimalFpToSegment(decimalFp, segment, position));
+            }
         }
-        BinaryFp binaryFp = buildBinaryFp(bits, DOUBLE_SPEC);
-        DecimalFp decimalFp = toDecimalFp(binaryFp, DOUBLE_SPEC);
-        writeDecimalFp(decimalFp, writeBuffer);
+    }
+
+    private static int writeDecimalFpToHeap(DecimalFp decimalFp, byte[] bytes, int position) {
+        long d = decimalFp.d();
+        int p = decimalFp.p();
+        int digitCount = digitCount(d);
+        int sciE = p + digitCount - 1;
+        if (sciE >= MIN_SCI_EXP && sciE < MAX_SCI_EXP) {
+            return writeFixedDecimalFpToHeap(d, p, digitCount, bytes, position);
+        }
+        return writeSciDecimalFpToHeap(d, sciE, digitCount, bytes, position);
+    }
+
+    private static int writeDecimalFpToSegment(DecimalFp decimalFp, MemorySegment segment, int position) {
+        long d = decimalFp.d();
+        int p = decimalFp.p();
+        int digitCount = digitCount(d);
+        int sciE = p + digitCount - 1;
+        if (sciE >= MIN_SCI_EXP && sciE < MAX_SCI_EXP) {
+            return writeFixedDecimalFpToSegment(d, p, digitCount, segment, position);
+        }
+        return writeSciDecimalFpToSegment(d, sciE, digitCount, segment, position);
+    }
+
+    private static int writeFixedDecimalFpToHeap(long d, int p, int digitCount, byte[] bytes, int position) {
+        int sum = digitCount + p;
+        int shift = sum <= 0 ? 2 - sum : (p < 0 ? 1 : 0);
+        int r = writePositiveLongToHeap(d, digitCount, bytes, position + shift);
+        if(shift == 0) {
+            int end = r + p;
+            Arrays.fill(bytes, r, end, BYTE_ZERO);
+            return end;
+        }
+        if(shift == 1) {
+            System.arraycopy(bytes, position + 1, bytes, position, sum);
+            bytes[position + sum] = BYTE_PERIOD;
+            return r;
+        }
+        Arrays.fill(bytes, position, position + shift, BYTE_ZERO);
+        bytes[position + 1] = BYTE_PERIOD;
+        return r;
+    }
+
+    private static int writeFixedDecimalFpToSegment(long d, int p, int digitCount, MemorySegment segment, int position) {
+        int sum = digitCount + p;
+        int shift = sum <= 0 ? 2 - sum : (p < 0 ? 1 : 0);
+        int r = writePositiveLongToSegment(d, digitCount, segment, position + shift);
+        if(shift == 0) {
+            segment.asSlice(r, p).fill(BYTE_ZERO);
+            return r + p;
+        }
+        if(shift == 1) {
+            MemorySegment.copy(segment, position + 1, segment, position, sum);
+            SegmentAccess.setByte(segment, position + sum, BYTE_PERIOD);
+            return r;
+        }
+        segment.asSlice(position, shift).fill(BYTE_ZERO);
+        SegmentAccess.setByte(segment, position + 1, BYTE_PERIOD);
+        return r;
+    }
+
+    private static int writeSciDecimalFpToHeap(long d, int sciE, int digitCount, byte[] bytes, int position) {
+        if(digitCount == 1) {
+            bytes[position++] = (byte) (BYTE_ZERO + d);
+        } else {
+            int r = writePositiveLongToHeap(d, digitCount, bytes, position + 1);
+            bytes[position] = bytes[position + 1];
+            bytes[position + 1] = BYTE_PERIOD;
+            position = r;
+        }
+        bytes[position++] = BYTE_E;
+        if (sciE < 0) {
+            bytes[position++] = BYTE_MINUS;
+            sciE = -sciE;
+        }
+        if(sciE < 10) {
+            bytes[position] = (byte) (BYTE_ZERO + sciE);
+            return position + 1;
+        }
+        if(sciE < 100) {
+            ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[sciE]);
+            return position + 2;
+        }
+        ArrayAccess.setShort(bytes, position, ITOA_LUT_TABLE[sciE / 10]);
+        bytes[position + 2] = (byte) (BYTE_ZERO + (sciE % 10));
+        return position + 3;
+    }
+
+    private static int writeSciDecimalFpToSegment(long d, int sciE, int digitCount, MemorySegment segment, int position) {
+        if(digitCount == 1) {
+            SegmentAccess.setByte(segment, position++, (byte) (BYTE_ZERO + d));
+        } else {
+            int r = writePositiveLongToSegment(d, digitCount, segment, position + 1);
+            SegmentAccess.setByte(segment, position, SegmentAccess.getByte(segment, position + 1));
+            SegmentAccess.setByte(segment, position + 1, BYTE_PERIOD);
+            position = r;
+        }
+        SegmentAccess.setByte(segment, position++, BYTE_E);
+        if (sciE < 0) {
+            SegmentAccess.setByte(segment, position++, BYTE_MINUS);
+            sciE = -sciE;
+        }
+        if(sciE < 10) {
+            SegmentAccess.setByte(segment, position, (byte) (BYTE_ZERO + sciE));
+            return position + 1;
+        }
+        if(sciE < 100) {
+            SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[sciE]);
+            return position + 2;
+        }
+        SegmentAccess.setShort(segment, position, ITOA_LUT_TABLE[sciE / 10]);
+        SegmentAccess.setByte(segment, position + 2, (byte) (BYTE_ZERO + (sciE % 10)));
+        return position + 3;
     }
 
     // currently only float32 and float64 are supported
@@ -456,10 +588,11 @@ public final class JsonNumberUtil {
         return new Scalers(pmHi, pmLo, s);
     }
 
-    // no overflow
+    // no overflow, current VM implementation still emits three multiplication instructions; with the advent of int128, this can be shortened to two multiplication instructions
     private static long uscale(long x, Scalers c) {
-        long hi = Math.unsignedMultiplyHigh(x, c.pmHi());
-        long mid1 = x * c.pmHi();
+        final long pmHi = c.pmHi();
+        final long mid1 = x * pmHi;
+        long hi = Math.unsignedMultiplyHigh(x, pmHi);
         long sticky = 1L;
         if ((hi & ((1L << c.s()) - 1L)) == 0L) {
             long mid2 = Math.unsignedMultiplyHigh(x, c.pmLo());
@@ -474,39 +607,20 @@ public final class JsonNumberUtil {
     private static DecimalFp trimZeros(DecimalFp decimalFp) {
         long d = decimalFp.d();
         int p = decimalFp.p();
-        // cut 1 zero, or else return.
-        long tmp = Long.rotateRight(d * DIV_1_E_1_M, 1);
-        if (Long.compareUnsigned(tmp, DIV_1_E_1_LE) > 0) {
+        long div = Math.unsignedMultiplyHigh(d, 0xCCCCCCCCCCCCCCCDL) >>> 3;
+        if(d - div * 10L != 0L) {
             return decimalFp;
         }
-        d = tmp;
-        p += 1;
-        // cut 8 zeros, then 4, then 2, then 1.
-        tmp = Long.rotateRight(d * DIV_1_E_8_M, 8);
-        if (Long.compareUnsigned(tmp, DIV_1_E_8_LE) <= 0) {
-            d = tmp;
-            p += 8;
-        }
-        tmp = Long.rotateRight(d * DIV_1_E_4_M, 4);
-        if (Long.compareUnsigned(tmp, DIV_1_E_4_LE) <= 0) {
-            d = tmp;
-            p += 4;
-        }
-        tmp = Long.rotateRight(d * DIV_1_E_2_M, 2);
-        if (Long.compareUnsigned(tmp, DIV_1_E_2_LE) <= 0) {
-            d = tmp;
-            p += 2;
-        }
-        tmp = Long.rotateRight(d * DIV_1_E_1_M, 1);
-        if (Long.compareUnsigned(tmp, DIV_1_E_1_LE) <= 0) {
-            d = tmp;
+        do {
+            d = div;
+            div = d / 10;
             p += 1;
-        }
+        } while (d - div * 10L == 0L);
         return new DecimalFp(d, p);
     }
 
+    // currently only float32 and float64 are supported
     private static DecimalFp toDecimalFp(BinaryFp binaryFp, FpSpec fpSpec) {
-        // currently only float32 and float64 are supported
         final long m = binaryFp.m();
         final int e = binaryFp.e();
         int p;
@@ -527,145 +641,11 @@ public final class JsonNumberUtil {
         Scalers pre = prescale(e, p, log2Pow10(p));
         final long dmin = uceil(unudge(uscale(min, pre), odd));
         final long dmax = ufloor(unudge(uscale(max, pre), -odd));
-        final long d = Long.divideUnsigned(dmax, 10L);
+        final long d = Math.unsignedMultiplyHigh(dmax, 0xCCCCCCCCCCCCCCCDL) >>> 3;
         if (Long.compareUnsigned(d * 10L, dmin) >= 0) {
             return trimZeros(new DecimalFp(d, -(p - 1)));
         }
         return new DecimalFp(Long.compareUnsigned(dmin, dmax) < 0 ? uround(uscale(m, pre)) : dmin, -p);
-    }
-
-    private static void writeDecimalFp(DecimalFp decimalFp, WriteBuffer writeBuffer) {
-        long d = decimalFp.d();
-        int p = decimalFp.p();
-        int digitCount = digitCount(d);
-        int sciE = p + digitCount - 1;
-        switch (writeBuffer) {
-            case HeapWriteBuffer heapWriteBuffer -> writeDecimalFpToHeap(d, p, digitCount, sciE, heapWriteBuffer);
-            case SegmentWriteBuffer segmentWriteBuffer ->
-                    writeDecimalFpToSegment(d, p, digitCount, sciE, segmentWriteBuffer);
-        }
-    }
-
-    private static void writeDecimalFpToHeap(long d, int p, int digitCount, int sciE, HeapWriteBuffer heapWriteBuffer) {
-        int position = heapWriteBuffer.intPosition();
-        byte[] bytes = heapWriteBuffer.rawByteArray();
-        if (sciE >= MIN_SCI_EXP && sciE < MAX_SCI_EXP) {
-            position = writeFixedDecimalFpToHeap(d, p, digitCount, bytes, position);
-        } else {
-            position = writeSciDecimalFpToHeap(d, sciE, digitCount, bytes, position);
-        }
-        heapWriteBuffer.setPosition(position);
-    }
-
-    private static int writeFixedDecimalFpToHeap(long d, int p, int digitCount, byte[] bytes, int position) {
-        if (p >= 0) {
-            position = writePositiveLongToHeap(d, digitCount, bytes, position);
-            if (p > 0) {
-                int newPosition = position + p;
-                Arrays.fill(bytes, position, newPosition, BYTE_ZERO);
-                position = newPosition;
-            }
-        } else {
-            int fracDigits = -p;
-            if (fracDigits >= digitCount) {
-                ArrayAccess.setShort(bytes, position, ZERO_PERIOD);
-                position += 2;
-                int leadingZeros = fracDigits - digitCount;
-                if (leadingZeros > 0) {
-                    int newPosition = position + leadingZeros;
-                    Arrays.fill(bytes, position, newPosition, BYTE_ZERO);
-                    position = newPosition;
-                }
-                position = writePositiveLongToHeap(d, digitCount, bytes, position);
-            } else {
-                int dotPosition = position + (digitCount - fracDigits);
-                position = writePositiveLongToHeap(d, digitCount, bytes, position) + 1;
-                System.arraycopy(bytes, dotPosition, bytes, dotPosition + 1, fracDigits);
-                bytes[dotPosition] = BYTE_PERIOD;
-            }
-        }
-        return position;
-    }
-
-    private static int writeSciDecimalFpToHeap(long d, int sciE, int digitCount, byte[] bytes, int position) {
-        if (digitCount > 1) {
-            int startPosition = position + 1;
-            int endPosition = writePositiveLongToHeap(d, digitCount, bytes, startPosition);
-            short shifted = Utils.compact(bytes[startPosition], BYTE_PERIOD);
-            ArrayAccess.setShort(bytes, position, shifted);
-            position = endPosition;
-        } else {
-            bytes[position++] = (byte) (BYTE_ZERO + d);
-        }
-        if (sciE < 0) {
-            ArrayAccess.setShort(bytes, position, E_MINUS);
-            position += 2;
-            sciE = -sciE;
-        } else {
-            bytes[position++] = BYTE_E;
-        }
-        position = writePositiveIntToHeap(sciE, digitCount(sciE), bytes, position);
-        return position;
-    }
-
-    private static void writeDecimalFpToSegment(long d, int p, int digitCount, int sciE, SegmentWriteBuffer segmentWriteBuffer) {
-        int position = segmentWriteBuffer.intPosition();
-        MemorySegment segment = segmentWriteBuffer.rawSegment();
-        if (sciE >= MIN_SCI_EXP && sciE < MAX_SCI_EXP) {
-            position = writeFixedDecimalFpToSegment(d, p, digitCount, segment, position);
-        } else {
-            position = writeSciDecimalFpToSegment(d, sciE, digitCount, segment, position);
-        }
-        segmentWriteBuffer.setPosition(position);
-    }
-
-    private static int writeFixedDecimalFpToSegment(long d, int p, int digitCount, MemorySegment segment, int position) {
-        if (p >= 0) {
-            position = writePositiveLongToSegment(d, digitCount, segment, position);
-            if (p > 0) {
-                segment.asSlice(position, p).fill(BYTE_ZERO);
-                position += p;
-            }
-        } else {
-            int fracDigits = -p;
-            if (fracDigits >= digitCount) {
-                SegmentAccess.setShort(segment, position, ZERO_PERIOD);
-                position += 2;
-                int leadingZeros = fracDigits - digitCount;
-                if (leadingZeros > 0) {
-                    segment.asSlice(position, leadingZeros).fill(BYTE_ZERO);
-                    position += leadingZeros;
-                }
-                position = writePositiveLongToSegment(d, digitCount, segment, position);
-            } else {
-                long dotPosition = position + (digitCount - fracDigits);
-                position = writePositiveLongToSegment(d, digitCount, segment, position) + 1;
-                MemorySegment.copy(segment, dotPosition, segment, dotPosition + 1L, fracDigits);
-                SegmentAccess.setByte(segment, dotPosition, BYTE_PERIOD);
-            }
-        }
-        return position;
-    }
-
-    private static int writeSciDecimalFpToSegment(long d, int sciE, int digitCount, MemorySegment segment, int position) {
-        if (digitCount > 1) {
-            int startPosition = position + 1;
-            int endPosition = writePositiveLongToSegment(d, digitCount, segment, startPosition);
-            short shifted = Utils.compact(SegmentAccess.getByte(segment, startPosition), BYTE_PERIOD);
-            SegmentAccess.setShort(segment, position, shifted);
-            position = endPosition;
-        } else {
-            SegmentAccess.setByte(segment, position++, (byte) (BYTE_ZERO + d));
-        }
-        if (sciE < 0) {
-            SegmentAccess.setShort(segment, position, E_MINUS);
-            position += 2;
-            sciE = -sciE;
-        } else {
-            SegmentAccess.setByte(segment, position++, BYTE_E);
-        }
-        position = writePositiveIntToSegment(sciE, digitCount(sciE), segment, position);
-        return position;
     }
 
     public static int readInt(ReadBuffer readBuffer, byte firstByte) {
@@ -849,13 +829,13 @@ public final class JsonNumberUtil {
     // although they are acceptable by the JDK parser.
     public static FpStrRep parseFpStrRep(ReadBuffer readBuffer, int maxNumberBytes, byte firstByte) {
         return switch (readBuffer) {
-            case HeapReadBuffer heapReadBuffer -> parseHeapFpStrRep(heapReadBuffer, maxNumberBytes, firstByte);
+            case HeapReadBuffer heapReadBuffer -> parseFpStrRepFromHeap(heapReadBuffer, maxNumberBytes, firstByte);
             case SegmentReadBuffer segmentReadBuffer ->
-                    parseSegmentFpStrRep(segmentReadBuffer, maxNumberBytes, firstByte);
+                    parseFpStrRepFromSegment(segmentReadBuffer, maxNumberBytes, firstByte);
         };
     }
 
-    private static FpStrRep parseHeapFpStrRep(HeapReadBuffer heapReadBuffer, int maxNumberBytes, byte firstByte) {
+    public static FpStrRep parseFpStrRepFromHeap(HeapReadBuffer heapReadBuffer, int maxNumberBytes, byte firstByte) {
         final byte[] bytes = heapReadBuffer.rawByteArray();
         final int position = heapReadBuffer.intPosition();
         final int end = position + Math.min(bytes.length - position, maxNumberBytes - 1); // no overflow
@@ -968,7 +948,7 @@ public final class JsonNumberUtil {
         return new FpStrRep(neg, trunc, d, p, index - position);
     }
 
-    private static FpStrRep parseSegmentFpStrRep(SegmentReadBuffer segmentReadBuffer, int maxNumberBytes, byte firstByte) {
+    public static FpStrRep parseFpStrRepFromSegment(SegmentReadBuffer segmentReadBuffer, int maxNumberBytes, byte firstByte) {
         final MemorySegment segment = segmentReadBuffer.rawSegment();
         final long position = segmentReadBuffer.longPosition();
         final long end = Math.addExact(position, Math.min(segment.byteSize() - position, maxNumberBytes - 1)); // no overflow

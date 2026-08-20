@@ -196,42 +196,34 @@ public final class MarshallUtil {
     }
 
     public static boolean isMapInterfaceType(Class<?> rawType) {
-
         return MAP_INTERFACE_FACTORY.containsKey(rawType);
     }
 
     public static Map<?, ?> newMapInterface(Class<?> rawType) {
-
         return MAP_INTERFACE_FACTORY.get(rawType).get();
     }
 
     public static boolean isMapImplType(Class<?> rawType) {
-
         return MAP_IMPL_FACTORY.containsKey(rawType);
     }
 
     public static Map<?, ?> newMapImpl(Class<?> rawType) {
-
         return MAP_IMPL_FACTORY.get(rawType).get();
     }
 
     public static boolean isCollectionInterfaceType(Class<?> rawType) {
-
         return COL_INTERFACE_FACTORY.containsKey(rawType);
     }
 
     public static Collection<?> newCollectionInterface(Class<?> rawType) {
-
         return COL_INTERFACE_FACTORY.get(rawType).get();
     }
 
     public static boolean isCollectionImplType(Class<?> rawType) {
-
         return COL_IMPL_FACTORY.containsKey(rawType);
     }
 
     public static Collection<?> newCollectionImpl(Class<?> rawType) {
-
         return COL_IMPL_FACTORY.get(rawType).get();
     }
 

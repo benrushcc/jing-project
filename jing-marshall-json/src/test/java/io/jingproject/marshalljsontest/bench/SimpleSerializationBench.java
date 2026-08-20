@@ -19,8 +19,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(value = Mode.AverageTime)
-@Warmup(iterations = 3, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 3, time = 10000, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 3, time = 4000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 3, time = 4000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 //@Fork(value = 1, jvmArgsAppend = {

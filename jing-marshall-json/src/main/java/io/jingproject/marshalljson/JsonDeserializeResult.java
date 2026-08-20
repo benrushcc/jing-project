@@ -11,13 +11,15 @@ public enum JsonDeserializeResult {
 
     NewMarshallable,
 
-    NewList,
+    NewArr,
+
+    NewCol,
 
     NewMap,
 
     NewDummyObj,
 
-    NewDummyArr;
+    NewDummyCol;
 
     public boolean isNested() {
         return ordinal() > Finish.ordinal();

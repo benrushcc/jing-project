@@ -17,88 +17,88 @@ public final class JsonDeserializer {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        byte firstByte = context.nextFirstValuableByte();
+        byte firstByte = context.nextValuableByte(true);
         if (firstByte != (byte) '[') {
             throw new JsonDeserializerException("array start not found, got : " + firstByte);
         }
-        return context.deserializeByteArray(firstByte);
+        return context.deserializeByteArray();
     }
 
     public boolean[] deserializeBooleanArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        byte firstByte = context.nextFirstValuableByte();
+        byte firstByte = context.nextValuableByte(true);
         if (firstByte != (byte) '[') {
             throw new JsonDeserializerException("array start not found, got : " + firstByte);
         }
-        return context.deserializeBooleanArray(firstByte);
+        return context.deserializeBooleanArray();
     }
 
     public short[] deserializeShortArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        byte firstByte = context.nextFirstValuableByte();
+        byte firstByte = context.nextValuableByte(true);
         if (firstByte != (byte) '[') {
             throw new JsonDeserializerException("array start not found, got : " + firstByte);
         }
-        return context.deserializeShortArray(firstByte);
+        return context.deserializeShortArray();
     }
 
     public char[] deserializeCharArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        byte firstByte = context.nextFirstValuableByte();
+        byte firstByte = context.nextValuableByte(true);
         if (firstByte != (byte) '[') {
             throw new JsonDeserializerException("array start not found, got : " + firstByte);
         }
-        return context.deserializeCharArray(firstByte);
+        return context.deserializeCharArray();
     }
 
     public int[] deserializeIntArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        byte firstByte = context.nextFirstValuableByte();
+        byte firstByte = context.nextValuableByte(true);
         if (firstByte != (byte) '[') {
             throw new JsonDeserializerException("array start not found, got : " + firstByte);
         }
-        return context.deserializeIntArray(firstByte);
+        return context.deserializeIntArray();
     }
 
     public long[] deserializeLongArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        byte firstByte = context.nextFirstValuableByte();
+        byte firstByte = context.nextValuableByte(true);
         if (firstByte != (byte) '[') {
             throw new JsonDeserializerException("array start not found, got : " + firstByte);
         }
-        return context.deserializeLongArray(firstByte);
+        return context.deserializeLongArray();
     }
 
     public float[] deserializeFloatArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        byte firstByte = context.nextFirstValuableByte();
+        byte firstByte = context.nextValuableByte(true);
         if (firstByte != (byte) '[') {
             throw new JsonDeserializerException("array start not found, got : " + firstByte);
         }
-        return context.deserializeFloatArray(firstByte);
+        return context.deserializeFloatArray();
     }
 
     public double[] deserializeDoubleArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        byte firstByte = context.nextFirstValuableByte();
+        byte firstByte = context.nextValuableByte(true);
         if (firstByte != (byte) '[') {
             throw new JsonDeserializerException("array start not found, got : " + firstByte);
         }
-        return context.deserializeDoubleArray(firstByte);
+        return context.deserializeDoubleArray();
     }
 
     @SuppressWarnings("unchecked")
@@ -106,10 +106,13 @@ public final class JsonDeserializer {
         Objects.requireNonNull(type, "marshallable type must not be null");
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
-//        JsonDeserializerState state = new JsonDeserializerState(option, readBuffer);
-//        state.initMarshallableType(type);
-//        return (T) state.process();
+        JsonDeserializerState state = new JsonDeserializerState(option, readBuffer, type);
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> T[] deserializeArray(Class<T> type, ReadBuffer readBuffer) {
+        return (T[]) deserializeList(type, readBuffer).toArray();
     }
 
     public <T> List<T> deserializeList(Class<T> type, ReadBuffer readBuffer) {

@@ -96,7 +96,7 @@ public class WriteFloatTest {
 
     @Test
     public void writeTargetDoubleTest() {
-        List<String> strList = List.of("4.9E-324");
+        List<String> strList = List.of("4.9E-324", "-0.024220876009160956");
         stringToDoubleTest(strList);
     }
 

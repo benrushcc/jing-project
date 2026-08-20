@@ -11,17 +11,16 @@ import java.util.Map;
 
 public final class JsonSerializerState {
     public static final int INITIAL_SIZE = 4;
-    public static final int MAX_SIZE = 4096;
+    public static final int MAX_SIZE     = 4096;
     private final JsonSerializerContext context;
     private final JsonSerializerNode rootNode;
 
     public JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer, Object instance) {
-
         Class<?> marshallableType = instance.getClass();
         if (marshallableType.isEnum()) {
             throw new JsonSerializerException("enum cannot be directly serialized");
         }
-        MarshallFacade fc = Marshalls.getMarshallFacade(marshallableType);
+        MarshallFacade fc = Marshalls.beanMarshallFacade(marshallableType);
         if (fc == null) {
             throw new JsonSerializerException("type not marshallable : " + marshallableType.getName());
         }
@@ -33,7 +32,6 @@ public final class JsonSerializerState {
     }
 
     public JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer, Object[] arr) {
-
         Class<?> componentType = arr.getClass().getComponentType();
         if (componentType.isArray()) {
             throw new JsonSerializerException("multi dimensional array not supported : " + componentType.getName());
@@ -49,7 +47,6 @@ public final class JsonSerializerState {
     }
 
     public <T> JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer, Collection<T> collection, Class<T> elementType) {
-
         if (elementType.getTypeParameters().length > 0) {
             throw new JsonSerializerException("generic collection not supported : " + elementType.getName());
         }
@@ -66,7 +63,6 @@ public final class JsonSerializerState {
     }
 
     public <K, V> JsonSerializerState(JsonSerializerOption option, WriteBuffer writeBuffer, Map<K, V> map, Class<K> keyType, Class<V> valueType) {
-
         if (keyType != CharSequence.class && keyType != String.class) {
             throw new JsonSerializerException("key type not supported: " + keyType.getName());
         }
@@ -88,10 +84,9 @@ public final class JsonSerializerState {
         JsonSerializerNode[] nodes = new JsonSerializerNode[INITIAL_SIZE];
         JsonSerializerNode n = nodes[0] = rootNode;
         int p = 0;
-        for (; ; ) {
+        for ( ; ; ) {
             JsonSerializeResult r = n.process(c);
             switch (r) {
-                case Continue -> throw new AssertionError("continue should have been filtered");
                 case Finished -> {
                     if (--p < 0) {
                         return;
@@ -102,7 +97,7 @@ public final class JsonSerializerState {
                     int ind = n.indent();
                     Object marshallable = c.obj();
                     Class<?> marshallableType = marshallable.getClass();
-                    MarshallFacade fc = Marshalls.getMarshallFacade(marshallableType);
+                    MarshallFacade fc = Marshalls.beanMarshallFacade(marshallableType);
                     if (fc == null) {
                         throw new JsonSerializerException("type not marshallable : " + marshallableType.getName());
                     }

@@ -3,23 +3,25 @@ package io.jingproject.marshalljson;
 import io.jingproject.common.Utils;
 import io.jingproject.marshall.MarshallTransformerFacade;
 import io.jingproject.marshall.Marshalls;
+import jdk.incubator.vector.ByteVector;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class JsonDeserializerOption {
-    public static final int DEFAULT_BYTE_BUFFER_SIZE = 64;
     public static final int DEFAULT_CHAR_BUFFER_SIZE = 128;
     private static final int MIN_EMPTY_SIZE = 8;
-    private static final int MAX_EMPTY_SIZE = Integer.parseInt(System.getProperty("jing.marshalljson.maxemptysize", "4096"));
+    private static final int MAX_EMPTY_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshalljson.maxemptysize", "4096")), 65535);
     private static final int MIN_NUMBER_SIZE = 24;
-    private static final int MAX_NUMBER_SIZE = Integer.parseInt(System.getProperty("jing.marshalljson.maxnumbersize", "256"));
+    private static final int MAX_NUMBER_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshalljson.maxnumbersize", "256")), 65535);
     private static final int MIN_STRING_SIZE = 64;
     private static final int MAX_STRING_SIZE = Integer.parseInt(System.getProperty("jing.marshalljson.maxstringsize", "65535"));
     private static final int MIN_ARRAY_SIZE = 100;
-    private static final int MAX_ARRAY_SIZE = Integer.parseInt(System.getProperty("jing.marshalljson.maxarraysize", "4000"));
+    private static final int MAX_ARRAY_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshalljson.maxarraysize", "4000")), 65535);
     private static final int MIN_MAP_SIZE = 20;
-    private static final int MAX_MAP_SIZE = Integer.parseInt(System.getProperty("jing.marshalljson.maxmapsize", "800"));
+    private static final int MAX_MAP_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshalljson.maxmapsize", "800")), 65535);
     private static final JsonDeserializerOption DEFAULT_OPTION = JsonDeserializerOption.builder().build();
 
     static {
@@ -40,7 +42,8 @@ public final class JsonDeserializerOption {
         }
     }
 
-    private final Map<Class<?>, JsonDeserializeFunc> funcMap;
+    private final Map<Class<?>, JsonDeserializeFunc> customFuncMap;
+    private final Map<Class<?>, JsonDeserializeFunc> customArrFuncMap;
     private final boolean consumeAllBytes;
     private final boolean ensureAllFieldsPresent;
     private final int maxEmptyBytes;
@@ -52,12 +55,13 @@ public final class JsonDeserializerOption {
     private final int maxDummyArrayElements;
     private final int maxNestedSize;
     private final int charBufferSize;
-    private final int byteBufferSize;
 
-    private JsonDeserializerOption(Map<Class<?>, JsonDeserializeFunc> funcMap, boolean consumeAllBytes, boolean ensureAllFieldsPresent,
-                                   int maxEmptyBytes, int maxNumberBytes, int maxStringBytes, int maxArrayElements, int maxMapElements,
-                                   int maxDummyElements, int maxDummyArrayElements, int maxNestedSize, int charBufferSize, int byteBufferSize) {
-        this.funcMap = funcMap;
+    private JsonDeserializerOption(Map<Class<?>, JsonDeserializeFunc> customFuncMap, Map<Class<?>, JsonDeserializeFunc> customArrFuncMap,
+                                   boolean consumeAllBytes, boolean ensureAllFieldsPresent, int maxEmptyBytes, int maxNumberBytes,
+                                   int maxStringBytes, int maxArrayElements, int maxMapElements, int maxDummyElements,
+                                   int maxDummyArrayElements, int maxNestedSize, int charBufferSize) {
+        this.customFuncMap = customFuncMap;
+        this.customArrFuncMap = customArrFuncMap;
         this.consumeAllBytes = consumeAllBytes;
         this.ensureAllFieldsPresent = ensureAllFieldsPresent;
         this.maxEmptyBytes = maxEmptyBytes;
@@ -69,7 +73,6 @@ public final class JsonDeserializerOption {
         this.maxDummyArrayElements = maxDummyArrayElements;
         this.maxNestedSize = maxNestedSize;
         this.charBufferSize = charBufferSize;
-        this.byteBufferSize = byteBufferSize;
     }
 
     public static JsonDeserializerOption defaultOption() {
@@ -81,7 +84,11 @@ public final class JsonDeserializerOption {
     }
 
     public JsonDeserializeFunc customFunc(Class<?> clazz) {
-        return funcMap.get(clazz);
+        return customFuncMap.get(clazz);
+    }
+
+    public JsonDeserializeFunc customArrFunc(Class<?> clazz) {
+        return customArrFuncMap.get(clazz);
     }
 
     public boolean consumeAllBytes() {
@@ -128,12 +135,8 @@ public final class JsonDeserializerOption {
         return charBufferSize;
     }
 
-    public int byteBufferSize() {
-        return byteBufferSize;
-    }
-
     public static class Builder {
-        private final Map<Class<?>, MarshallTransformerFacade> transformerFacadeMap = new HashMap<>();
+        private final List<MarshallTransformerFacade> tfcs = new ArrayList<>();
         private boolean consumeAllBytes = true;
         private boolean ensureAllFieldsPresent = false;
         private int maxEmptyBytes = 256;
@@ -145,33 +148,39 @@ public final class JsonDeserializerOption {
         private int maxDummyArrayElements = 4;
         private int maxNestedSize = 64;
         private int charBufferSize = DEFAULT_CHAR_BUFFER_SIZE;
-        private int byteBufferSize = DEFAULT_BYTE_BUFFER_SIZE;
 
-        public Builder registerTransformerClasses(Class<?>... transformers) {
-            if (transformers == null || transformers.length == 0) {
+        public Builder setTransformerClasses(Class<?>... transformerClasses) {
+            if (transformerClasses == null || transformerClasses.length == 0) {
                 throw new IllegalArgumentException("transformers must not be null or empty");
             }
-            for (Class<?> transformer : transformers) {
-                if (transformer == null) {
+            for (Class<?> c : transformerClasses) {
+                if (c == null) {
                     throw new IllegalArgumentException("transformer must not be null");
                 }
-                MarshallTransformerFacade tfc = Marshalls.getMarshallTransformerFacade(transformer);
+                MarshallTransformerFacade tfc = Marshalls.marshallTransformerFacade(c);
                 if (tfc == null) {
-                    throw new IllegalArgumentException("transformer not found : " + transformer.getName());
+                    throw new IllegalArgumentException("transformer not found : " + c.getName());
                 }
                 Class<?> customType = tfc.customType();
-                if (transformerFacadeMap.containsKey(customType)) {
-                    throw new IllegalArgumentException("custom type already exists : " + customType.getName());
+                for (MarshallTransformerFacade m : tfcs) {
+                    if (m.customType().equals(customType)) {
+                        throw new IllegalArgumentException("custom type already exists : " + customType.getName());
+                    }
                 }
                 // primitive types are not supported in generics, array types are not supported in transformers, so we don't need to double-check them
-                if (JsonSerializerContext.builtinSerializeObjFunc(customType) != null) {
+                if (JsonDeserializerContext.builtinDeserializeObjFunc(customType) != null) {
                     throw new IllegalArgumentException("cannot override builtin type : " + customType.getName());
                 }
+                // custom type has value semantics, which is feasible for enums, but absolutely not for marshallable beans
+                if (Marshalls.beanMarshallFacade(customType) != null) {
+                    throw new IllegalArgumentException("custom type can not be marshallable : " + customType.getName());
+                }
+                // builtin type must be an implementation class of JsonPrimitiveType
                 Class<?> builtinType = tfc.builtinType();
                 if (!JsonPrimitiveType.class.isAssignableFrom(builtinType)) {
                     throw new IllegalArgumentException("builtinType not implementing JsonPrimitiveType interface : " + builtinType.getName());
                 }
-                transformerFacadeMap.put(customType, tfc); // no conflict
+                tfcs.add(tfc);
             }
             return this;
         }
@@ -249,28 +258,84 @@ public final class JsonDeserializerOption {
         }
 
         public void setCharBufferSize(int charBufferSize) {
-            if (charBufferSize < DEFAULT_CHAR_BUFFER_SIZE || charBufferSize > MAX_STRING_SIZE) {
+            if (charBufferSize < DEFAULT_CHAR_BUFFER_SIZE) {
                 throw new IllegalArgumentException("charBufferSize out of range : " + charBufferSize);
             }
-            this.charBufferSize = Utils.roundUp(charBufferSize, 64);
+            this.charBufferSize = Utils.roundUp(charBufferSize, ByteVector.SPECIES_MAX.length());
         }
 
-        public void setByteBufferSize(int byteBufferSize) {
-            if (byteBufferSize < DEFAULT_BYTE_BUFFER_SIZE || byteBufferSize > MAX_STRING_SIZE) {
-                throw new IllegalArgumentException("byteBufferSize out of range : " + byteBufferSize);
+        private static JsonDeserializeFunc customObjDeserializeFunc(MarshallTransformerFacade tfc) {
+            Class<?> builtinType = tfc.builtinType();
+            if (builtinType == JsonPrimitiveType.class) {
+                return (b, c) -> {
+                    c.setObj(tfc.toCustom(c.deserializeJsonPrimitiveType(b))); // self guarded
+                    return JsonDeserializeResult.Continue;
+                };
+            } else if (builtinType == JsonBoolType.class) {
+                return (b, c) -> {
+                    JsonDeserializerContext.checkBoolStart(b);
+                    c.setObj(tfc.toCustom(c.deserializeJsonBoolType(b)));
+                    return JsonDeserializeResult.Continue;
+                };
+            } else if (builtinType == JsonNumberType.class) {
+                return (b, c) -> {
+                    JsonDeserializerContext.checkNumStart(b);
+                    c.setObj(tfc.toCustom(c.deserializeJsonNumberType(b)));
+                    return JsonDeserializeResult.Continue;
+                };
+            } else if (builtinType == JsonStrType.class) {
+                return (b, c) -> {
+                    JsonDeserializerContext.checkStrStart(b);
+                    c.setObj(tfc.toCustom(c.deserializeJsonStrType()));
+                    return JsonDeserializeResult.Continue;
+                };
+            } else {
+                throw new AssertionError("unknown builtin type : " + builtinType.getName());
             }
-            this.byteBufferSize = Utils.roundUp(byteBufferSize, 64);
+        }
+
+        private static JsonDeserializeFunc customArrDeserializeFunc(MarshallTransformerFacade tfc) {
+            Class<?> builtinType = tfc.builtinType();
+            if (builtinType == JsonPrimitiveType.class) {
+                return (b, c) -> {
+                    JsonDeserializerContext.checkArrayStart(b);
+                    c.setObj(tfc.toCustomArray(c.deserializeJsonPrimitiveTypeArray()));
+                    return JsonDeserializeResult.Continue;
+                };
+            } else if (builtinType == JsonBoolType.class) {
+                return (b, c) -> {
+                    JsonDeserializerContext.checkArrayStart(b);
+                    c.setObj(tfc.toCustomArray(c.deserializeJsonBoolTypeArray()));
+                    return JsonDeserializeResult.Continue;
+                };
+            } else if (builtinType == JsonNumberType.class) {
+                return (b, c) -> {
+                    JsonDeserializerContext.checkArrayStart(b);
+                    c.setObj(tfc.toCustomArray(c.deserializeJsonNumberTypeArray()));
+                    return JsonDeserializeResult.Continue;
+                };
+            } else if (builtinType == JsonStrType.class) {
+                return (b, c) -> {
+                    JsonDeserializerContext.checkArrayStart(b);
+                    c.setObj(tfc.toCustomArray(c.deserializeJsonStrTypeArray()));
+                    return JsonDeserializeResult.Continue;
+                };
+            } else {
+                throw new AssertionError("unknown builtin type : " + builtinType.getName());
+            }
         }
 
         public JsonDeserializerOption build() {
-            Map<Class<?>, JsonDeserializeFunc> funcMap = new HashMap<>();
-            transformerFacadeMap.forEach((k, v) -> funcMap.put(k, (b, c) -> {
-                c.setObj(v.toCustom(c.deserializeJsonPrimitiveType(b)));
-                return JsonDeserializeResult.Continue;
-            }));
-            return new JsonDeserializerOption(Map.copyOf(funcMap), consumeAllBytes, ensureAllFieldsPresent,
-                    maxEmptyBytes, maxNumberBytes, maxStringBytes, maxArrayElements,
-                    maxMapElements, maxDummyElements, maxDummyArrayElements, maxNestedSize, charBufferSize, byteBufferSize);
+            Map<Class<?>, JsonDeserializeFunc> customFuncMap = new HashMap<>();
+            Map<Class<?>, JsonDeserializeFunc> customArrFuncMap = new HashMap<>();
+            for (MarshallTransformerFacade tfc : tfcs) {
+                Class<?> customType = tfc.customType();
+                customFuncMap.put(customType, customObjDeserializeFunc(tfc));
+                customArrFuncMap.put(customType, customArrDeserializeFunc(tfc));
+            }
+            return new JsonDeserializerOption(Map.copyOf(customFuncMap), Map.copyOf(customArrFuncMap),
+                    consumeAllBytes, ensureAllFieldsPresent, maxEmptyBytes, maxNumberBytes, maxStringBytes, maxArrayElements,
+                    maxMapElements, maxDummyElements, maxDummyArrayElements, maxNestedSize, charBufferSize);
         }
     }
 }

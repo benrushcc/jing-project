@@ -21,7 +21,7 @@ public final class JsonSerializerContext {
             Boolean.parseBoolean(System.getProperty("jing.marshalljson.escapeslash", "false"));
     private static final VectorSpecies<Short> SHORT_SPECIES;
     private static final VectorSpecies<Byte> BYTE_SPECIES;
-    private static final byte[] WRITER_ESCAPE_TABLE = makeWriterEscapeTable();
+    private static final byte[] ESCAPE_TABLE = makeEscapeTable();
     private static final byte[] HEX_BYTES = "0123456789abcdef".getBytes(StandardCharsets.US_ASCII);
     private static final Map<Class<?>, JsonSerializeFunc> BUILTIN_SERIALIZE_OBJ_FUNC_MAP;
     private static final Map<Class<?>, JsonSerializeFunc> BUILTIN_SERIALIZE_ARRAY_FUNC_MAP;
@@ -218,7 +218,7 @@ public final class JsonSerializerContext {
         this.writeBuffer = writeBuffer;
     }
 
-    private static byte[] makeWriterEscapeTable() {
+    private static byte[] makeEscapeTable() {
         byte[] table = new byte[Byte.MAX_VALUE - Byte.MIN_VALUE + 1];
         for (int i = 0x00; i < 0x20; i++) {
             table[i] = Byte.MIN_VALUE;
@@ -243,7 +243,7 @@ public final class JsonSerializerContext {
         int start = 0;
         for (int index = 0; index < utf8Bytes.length; index++) {
             byte b = utf8Bytes[index];
-            byte v = WRITER_ESCAPE_TABLE[b];
+            byte v = ESCAPE_TABLE[b];
             if (v == 0) {
                 continue;
             }
@@ -280,7 +280,7 @@ public final class JsonSerializerContext {
         int start = 0;
         for (int index = 0; index < utf8Bytes.length; index++) {
             byte b = utf8Bytes[index];
-            byte v = WRITER_ESCAPE_TABLE[b];
+            byte v = ESCAPE_TABLE[b];
             if (v == 0) {
                 continue;
             }
@@ -508,7 +508,7 @@ public final class JsonSerializerContext {
     }
 
     private static int serializeCharToBytes(char c, byte[] bytes, int offset) {
-        int v = WRITER_ESCAPE_TABLE[c];
+        int v = ESCAPE_TABLE[c];
         if (v == 0) {
             bytes[offset++] = (byte) c;
         } else if (v > 0) {
@@ -526,7 +526,7 @@ public final class JsonSerializerContext {
     }
 
     private static long serializeCharToSegment(char c, MemorySegment segment, long offset) {
-        int v = WRITER_ESCAPE_TABLE[c];
+        int v = ESCAPE_TABLE[c];
         if (v == 0) {
             SegmentAccess.setByte(segment, offset++, (byte) c);
         } else if (v > 0) {
@@ -588,52 +588,6 @@ public final class JsonSerializerContext {
         return offset + 4L;
     }
 
-    public static JsonSerializeFunc builtinSerializeObjFunc(Class<?> rawType) {
-
-        return BUILTIN_SERIALIZE_OBJ_FUNC_MAP.get(rawType);
-    }
-
-    public static JsonSerializeFunc builtinSerializeArrayFunc(Class<?> rawType) {
-
-        return BUILTIN_SERIALIZE_ARRAY_FUNC_MAP.get(rawType);
-    }
-
-    public static JsonSerializeFunc valueSerializeFunc(JsonSerializerOption option, Class<?> rawType) {
-
-        // builtin type has the highest priority
-        if (rawType.isArray()) {
-            JsonSerializeFunc builtinSerializeArrFunc = builtinSerializeArrayFunc(rawType);
-            if (builtinSerializeArrFunc != null) {
-                return builtinSerializeArrFunc;
-            }
-            return (o, _, c) -> {
-                c.set(o);
-                return JsonSerializeResult.NewArray;
-            };
-        }
-        JsonSerializeFunc builtinSerializeFunc = builtinSerializeObjFunc(rawType);
-        if (builtinSerializeFunc != null) {
-            return builtinSerializeFunc;
-        }
-        // check if current type could be override by option
-        JsonSerializeFunc customFunc = option.customFunc(rawType);
-        if (customFunc != null) {
-            return customFunc;
-        }
-        // enum must be specially treated
-        if (rawType.isEnum()) {
-            return (o, _, c) -> {
-                c.serializeEnum((Enum<?>) o);
-                return JsonSerializeResult.Continue;
-            };
-        }
-        // assuming marshallable
-        return (o, _, c) -> {
-            c.set(o);
-            return JsonSerializeResult.NewMarshallable;
-        };
-    }
-
     public JsonSerializerOption option() {
         return option;
     }
@@ -682,7 +636,7 @@ public final class JsonSerializerContext {
 
     private void serializeAsciiByte(byte b) {
         final WriteBuffer w = this.writeBuffer;
-        final byte v = WRITER_ESCAPE_TABLE[b];
+        final byte v = ESCAPE_TABLE[b];
         if (v == 0) {
             w.writeByte(b);
         } else if (v > 0) {
@@ -734,13 +688,12 @@ public final class JsonSerializerContext {
             }
             case TWO -> {
                 w.writeByte((byte) '\n');
-                w.writeRepeated((byte) ' ', indent * 2); // no overflow, indent is limited
+                w.writeRepeated((byte) ' ', indent * 2); // no overflow, indent is limited by nested size
             }
             case FOUR -> {
                 w.writeByte((byte) '\n');
-                w.writeRepeated((byte) ' ', indent * 4); // no overflow, indent is limited
+                w.writeRepeated((byte) ' ', indent * 4); // no overflow, indent is limited by nested size
             }
-            default -> throw new AssertionError();
         }
     }
 
@@ -984,9 +937,7 @@ public final class JsonSerializerContext {
         w.ensureCapacity(Math.addExact(Math.multiplyExact(len, 6), 2));
         switch (w) {
             case HeapWriteBuffer heapWriteBuffer -> serializeEscapedUtf8BytesToHeap(utf8Bytes, heapWriteBuffer);
-            case SegmentWriteBuffer segmentWriteBuffer ->
-                    serializeEscapedUtf8BytesToSegment(utf8Bytes, segmentWriteBuffer);
-            case null, default -> throw new AssertionError();
+            case SegmentWriteBuffer segmentWriteBuffer -> serializeEscapedUtf8BytesToSegment(utf8Bytes, segmentWriteBuffer);
         }
     }
 
@@ -1022,7 +973,6 @@ public final class JsonSerializerContext {
             case JsonBoolType jsonBoolType -> serializeJsonBoolType(jsonBoolType);
             case JsonNumberType jsonNumberType -> serializeJsonNumberType(jsonNumberType);
             case JsonStrType jsonStrType -> serializeJsonStrType(jsonStrType);
-            case null, default -> throw new AssertionError();
         }
     }
 
@@ -1055,7 +1005,7 @@ public final class JsonSerializerContext {
     }
 
     public void serializeEnum(Enum<?> enumValue) {
-        MarshallInfo inf = Marshalls.getEnumItemMarshallInfo(enumValue);
+        MarshallInfo inf = Marshalls.enumItemMarshallInfo(enumValue);
         if (inf == null) {
             serializeEscapedString(enumValue.name());
         } else if (inf.mappedNameSimple()) {
@@ -1066,6 +1016,64 @@ public final class JsonSerializerContext {
         } else {
             serializeEscapedUtf8Bytes(inf.mappedNameUtf8Bytes());
         }
+    }
+
+    public void serializeEnumArray(Enum<?>[] arr, int indent) {
+        serializeObjArray(arr, indent, JsonSerializerContext::serializeEnum);
+    }
+
+    public static JsonSerializeFunc builtinSerializeObjFunc(Class<?> rawType) {
+        return BUILTIN_SERIALIZE_OBJ_FUNC_MAP.get(rawType);
+    }
+
+    public static JsonSerializeFunc builtinSerializeArrayFunc(Class<?> rawType) {
+        return BUILTIN_SERIALIZE_ARRAY_FUNC_MAP.get(rawType);
+    }
+
+    // builtin type has the highest priority
+    // then check if current type could be override by option
+    // enum must be specially treated
+    // finally assuming marshallable
+    public static JsonSerializeFunc valueSerializeFunc(JsonSerializerOption option, Class<?> rawType) {
+        if (rawType.isArray()) {
+            JsonSerializeFunc builtinSerializeArrFunc = builtinSerializeArrayFunc(rawType);
+            if (builtinSerializeArrFunc != null) {
+                return builtinSerializeArrFunc;
+            }
+            JsonSerializeFunc customArrFunc = option.customArrFunc(rawType);
+            if (customArrFunc != null) {
+                return customArrFunc;
+            }
+            Class<?> componentType = rawType.componentType();
+            if(componentType.isEnum()) {
+                return (o, i, c) -> {
+                    c.serializeEnumArray((Enum<?>[]) o, i);
+                    return JsonSerializeResult.Continue;
+                };
+            }
+            return (o, _, c) -> {
+                c.set(o);
+                return JsonSerializeResult.NewArray;
+            };
+        }
+        JsonSerializeFunc builtinSerializeFunc = builtinSerializeObjFunc(rawType);
+        if (builtinSerializeFunc != null) {
+            return builtinSerializeFunc;
+        }
+        JsonSerializeFunc customFunc = option.customFunc(rawType);
+        if (customFunc != null) {
+            return customFunc;
+        }
+        if (rawType.isEnum()) {
+            return (o, _, c) -> {
+                c.serializeEnum((Enum<?>) o);
+                return JsonSerializeResult.Continue;
+            };
+        }
+        return (o, _, c) -> {
+            c.set(o);
+            return JsonSerializeResult.NewMarshallable;
+        };
     }
 
     @FunctionalInterface
