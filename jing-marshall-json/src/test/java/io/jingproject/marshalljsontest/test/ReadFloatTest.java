@@ -158,7 +158,7 @@ public class ReadFloatTest {
         String str = "12.3.4"; // no exception thrown, only 12.3 would be parsed
         HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
         byte firstByte = heapReadBuffer.readByte();
-        Assertions.assertNotNull(JsonNumberUtil.parseFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte));
+        Assertions.assertNotNull(JsonNumberUtil.readFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte));
     }
 
     @Test
@@ -172,7 +172,7 @@ public class ReadFloatTest {
         for (String str : strList) {
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(str.getBytes(StandardCharsets.US_ASCII));
             byte firstByte = heapReadBuffer.readByte();
-            Assertions.assertThrows(NumberFormatException.class, () -> JsonNumberUtil.parseFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte), "str : " + str);
+            Assertions.assertThrows(NumberFormatException.class, () -> JsonNumberUtil.readFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte), "str : " + str);
         }
     }
 }

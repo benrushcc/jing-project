@@ -3,8 +3,10 @@ package io.jingproject.marshalljsontest.entity;
 import io.jingproject.marshall.Marshallable;
 import io.jingproject.marshalljson.JsonPrimitiveType;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Marshallable
 public final class BeanEntity {
@@ -70,5 +72,16 @@ public final class BeanEntity {
 
     public void setBeanEntityMap(Map<String, BeanEntity> beanEntityMap) {
         this.beanEntityMap = beanEntityMap;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof BeanEntity that)) return false;
+        return intValue == that.intValue && Objects.equals(longValue, that.longValue) && Objects.equals(stringValue, that.stringValue) && enumValue == that.enumValue && Objects.deepEquals(stringArray, that.stringArray) && Objects.equals(jsonPrimitiveTypeList, that.jsonPrimitiveTypeList) && Objects.equals(beanEntityMap, that.beanEntityMap);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(intValue, longValue, stringValue, enumValue, Arrays.hashCode(stringArray), jsonPrimitiveTypeList, beanEntityMap);
     }
 }

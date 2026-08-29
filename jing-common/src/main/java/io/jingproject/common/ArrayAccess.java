@@ -5,7 +5,6 @@ import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 
 public final class ArrayAccess {
-
     private static final VarHandle SHORT_LE = MethodHandles.byteArrayViewVarHandle(short[].class, ByteOrder.LITTLE_ENDIAN);
     private static final VarHandle SHORT_BE = MethodHandles.byteArrayViewVarHandle(short[].class, ByteOrder.BIG_ENDIAN);
     private static final VarHandle CHAR_LE = MethodHandles.byteArrayViewVarHandle(char[].class, ByteOrder.LITTLE_ENDIAN);
@@ -26,6 +25,7 @@ public final class ArrayAccess {
             throw new ExceptionInInitializerError(e);
         }
     }
+
     private ArrayAccess() {
         throw new UnsupportedOperationException("utility class");
     }
@@ -35,7 +35,6 @@ public final class ArrayAccess {
     }
 
     public static short getShort(byte[] array, int offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> (short) SHORT_LE.get(array, offset);
             case BIG_ENDIAN -> (short) SHORT_BE.get(array, offset);
@@ -47,7 +46,6 @@ public final class ArrayAccess {
     }
 
     public static void setShort(byte[] array, int offset, short value, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> SHORT_LE.set(array, offset, value);
             case BIG_ENDIAN -> SHORT_BE.set(array, offset, value);
@@ -59,7 +57,6 @@ public final class ArrayAccess {
     }
 
     public static char getChar(byte[] array, int offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> (char) CHAR_LE.get(array, offset);
             case BIG_ENDIAN -> (char) CHAR_BE.get(array, offset);
@@ -71,7 +68,6 @@ public final class ArrayAccess {
     }
 
     public static void setChar(byte[] array, int offset, char value, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> CHAR_LE.set(array, offset, value);
             case BIG_ENDIAN -> CHAR_BE.set(array, offset, value);
@@ -83,7 +79,6 @@ public final class ArrayAccess {
     }
 
     public static int getInt(byte[] array, int offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> (int) INT_LE.get(array, offset);
             case BIG_ENDIAN -> (int) INT_BE.get(array, offset);
@@ -95,7 +90,6 @@ public final class ArrayAccess {
     }
 
     public static void setInt(byte[] array, int offset, int value, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> INT_LE.set(array, offset, value);
             case BIG_ENDIAN -> INT_BE.set(array, offset, value);
@@ -107,7 +101,6 @@ public final class ArrayAccess {
     }
 
     public static long getLong(byte[] array, int offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> (long) LONG_LE.get(array, offset);
             case BIG_ENDIAN -> (long) LONG_BE.get(array, offset);
@@ -119,7 +112,6 @@ public final class ArrayAccess {
     }
 
     public static void setLong(byte[] array, int offset, long value, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> LONG_LE.set(array, offset, value);
             case BIG_ENDIAN -> LONG_BE.set(array, offset, value);
@@ -131,7 +123,6 @@ public final class ArrayAccess {
     }
 
     public static float getFloat(byte[] array, int offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> (float) FLOAT_LE.get(array, offset);
             case BIG_ENDIAN -> (float) FLOAT_BE.get(array, offset);
@@ -143,7 +134,6 @@ public final class ArrayAccess {
     }
 
     public static void setFloat(byte[] array, int offset, float value, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> FLOAT_LE.set(array, offset, value);
             case BIG_ENDIAN -> FLOAT_BE.set(array, offset, value);
@@ -155,7 +145,6 @@ public final class ArrayAccess {
     }
 
     public static double getDouble(byte[] array, int offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> (double) DOUBLE_LE.get(array, offset);
             case BIG_ENDIAN -> (double) DOUBLE_BE.get(array, offset);
@@ -167,7 +156,6 @@ public final class ArrayAccess {
     }
 
     public static void setDouble(byte[] array, int offset, double value, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> DOUBLE_LE.set(array, offset, value);
             case BIG_ENDIAN -> DOUBLE_BE.set(array, offset, value);

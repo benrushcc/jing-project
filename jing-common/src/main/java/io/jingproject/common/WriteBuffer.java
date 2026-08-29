@@ -106,4 +106,6 @@ public sealed interface WriteBuffer permits HeapWriteBuffer, SegmentWriteBuffer 
         }
     }
 
+    void reset();
+
 }

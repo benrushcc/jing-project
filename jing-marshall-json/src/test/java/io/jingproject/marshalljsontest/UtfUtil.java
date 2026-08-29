@@ -3,8 +3,6 @@ package io.jingproject.marshalljsontest;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class UtfUtil {
-    private static final char[] ESCAPED = new char[]{'\t', '\r', '\n', '\f', '\"'};
-
     private UtfUtil() {
         throw new UnsupportedOperationException("utility class");
     }
@@ -18,15 +16,10 @@ public final class UtfUtil {
         }
     }
 
-    public static void appendEscape(StringBuilder sb) {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        sb.append(ESCAPED[random.nextInt(ESCAPED.length)]);
-    }
-
     public static void appendUtf(StringBuilder sb) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         char c;
-        if (random.nextBoolean()) {
+        if (random.nextInt(10) == 0) {
             c = (char) random.nextInt(0x800, 0xD800);
         } else {
             do {
@@ -56,20 +49,6 @@ public final class UtfUtil {
         };
     }
 
-    public static String randString(int size) {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        StringBuilder sb = new StringBuilder(size);
-        while (sb.length() < size) {
-            switch (random.nextInt(10)) {
-                case 0 -> appendSurrogate(sb);
-                case 1, 2, 3 -> appendUtf(sb);
-                case 4, 5, 6, 7, 8 -> appendAscii(sb);
-                case 9 -> appendEscape(sb);
-            }
-        }
-        return sb.toString();
-    }
-
     public static String randAsciiString(int size) {
         StringBuilder sb = new StringBuilder(size);
         while (sb.length() < size) {
@@ -96,12 +75,17 @@ public final class UtfUtil {
 
     public static String randMostlyAsciiString(int size) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
+        if(random.nextInt(10) > 0) {
+            return UtfUtil.randAsciiString(size);
+        }
         StringBuilder sb = new StringBuilder(size);
         while (sb.length() < size) {
-            int i = random.nextInt(10);
-            if (i == 0) {
+            int i = random.nextInt(100);
+            if (i == 3) {
+                appendSurrogate(sb);
+            } else if(i < 10) {
                 appendUtf(sb);
-            } else {
+            }else {
                 appendAscii(sb);
             }
         }

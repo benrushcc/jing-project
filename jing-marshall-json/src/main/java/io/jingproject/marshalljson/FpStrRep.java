@@ -11,7 +11,7 @@ package io.jingproject.marshalljson;
  * @param d        decimal integer part stored as unsigned 64-bit value
  * @param p        exponent part; values greater than 10000 are truncated;
  *                 leading zeros are allowed
- * @param len      length of the original floating-point string
+ * @param len      length of the original floating-point string, including the first byte
  */
 public record FpStrRep(
         boolean negative,

@@ -250,7 +250,7 @@ public final class JsonDeserializerOption {
         }
 
         public Builder setMaxNestedSize(int maxNestedSize) {
-            if (maxNestedSize < JsonDeserializerState.INITIAL_SIZE || maxNestedSize > JsonDeserializerState.MAX_SIZE) {
+            if (maxNestedSize < JsonDeserializer.INITIAL_SIZE || maxNestedSize > JsonDeserializer.MAX_SIZE) {
                 throw new IllegalArgumentException("maxNestedSize out of range : " + maxNestedSize);
             }
             this.maxNestedSize = maxNestedSize;
@@ -273,20 +273,17 @@ public final class JsonDeserializerOption {
                 };
             } else if (builtinType == JsonBoolType.class) {
                 return (b, c) -> {
-                    JsonDeserializerContext.checkBoolStart(b);
                     c.setObj(tfc.toCustom(c.deserializeJsonBoolType(b)));
                     return JsonDeserializeResult.Continue;
                 };
             } else if (builtinType == JsonNumberType.class) {
                 return (b, c) -> {
-                    JsonDeserializerContext.checkNumStart(b);
                     c.setObj(tfc.toCustom(c.deserializeJsonNumberType(b)));
                     return JsonDeserializeResult.Continue;
                 };
             } else if (builtinType == JsonStrType.class) {
                 return (b, c) -> {
-                    JsonDeserializerContext.checkStrStart(b);
-                    c.setObj(tfc.toCustom(c.deserializeJsonStrType()));
+                    c.setObj(tfc.toCustom(c.deserializeJsonStrType(b)));
                     return JsonDeserializeResult.Continue;
                 };
             } else {
@@ -298,26 +295,22 @@ public final class JsonDeserializerOption {
             Class<?> builtinType = tfc.builtinType();
             if (builtinType == JsonPrimitiveType.class) {
                 return (b, c) -> {
-                    JsonDeserializerContext.checkArrayStart(b);
-                    c.setObj(tfc.toCustomArray(c.deserializeJsonPrimitiveTypeArray()));
+                    c.setObj(tfc.toCustomArray(c.deserializeJsonPrimitiveTypeArray(b)));
                     return JsonDeserializeResult.Continue;
                 };
             } else if (builtinType == JsonBoolType.class) {
                 return (b, c) -> {
-                    JsonDeserializerContext.checkArrayStart(b);
-                    c.setObj(tfc.toCustomArray(c.deserializeJsonBoolTypeArray()));
+                    c.setObj(tfc.toCustomArray(c.deserializeJsonBoolTypeArray(b)));
                     return JsonDeserializeResult.Continue;
                 };
             } else if (builtinType == JsonNumberType.class) {
                 return (b, c) -> {
-                    JsonDeserializerContext.checkArrayStart(b);
-                    c.setObj(tfc.toCustomArray(c.deserializeJsonNumberTypeArray()));
+                    c.setObj(tfc.toCustomArray(c.deserializeJsonNumberTypeArray(b)));
                     return JsonDeserializeResult.Continue;
                 };
             } else if (builtinType == JsonStrType.class) {
                 return (b, c) -> {
-                    JsonDeserializerContext.checkArrayStart(b);
-                    c.setObj(tfc.toCustomArray(c.deserializeJsonStrTypeArray()));
+                    c.setObj(tfc.toCustomArray(c.deserializeJsonStrTypeArray(b)));
                     return JsonDeserializeResult.Continue;
                 };
             } else {

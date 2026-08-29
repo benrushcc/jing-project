@@ -241,6 +241,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
         return Arrays.copyOf(buffer, position);
     }
 
+    @Override
     public void reset() {
         position = 0;
     }

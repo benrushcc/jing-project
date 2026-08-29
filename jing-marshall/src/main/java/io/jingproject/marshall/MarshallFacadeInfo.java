@@ -37,7 +37,7 @@ public record MarshallFacadeInfo(
     }
 
     public boolean fieldNameEquals(int fieldOffset, int fieldLen, byte[] bytes, int offset, int len) {
-        return Arrays.equals(fieldNameCompactUtf8Bytes, fieldOffset, fieldLen, bytes, offset, len);
+        return Arrays.equals(fieldNameCompactUtf8Bytes, fieldOffset, fieldOffset + fieldLen, bytes, offset, offset + len);
     }
 
     public boolean fieldNameEquals(long fieldOffset, long fieldLen, MemorySegment segment, long offset, long len) {
@@ -45,10 +45,10 @@ public record MarshallFacadeInfo(
     }
 
     public boolean mappedNameEquals(int mappedOffset, int mappedLen, byte[] bytes, int offset, int len) {
-        return Arrays.equals(mappedNameCompactUtf8Bytes, mappedOffset, mappedLen, bytes, offset, len);
+        return Arrays.equals(mappedNameCompactUtf8Bytes, mappedOffset, mappedOffset + mappedLen, bytes, offset, offset + len);
     }
 
-    public boolean mappedNameEquals(long fieldOffset, long fieldLen, MemorySegment segment, long offset, long len) {
-        return MemorySegment.mismatch(mappedNameCompactUtf8Segment, fieldOffset, fieldLen, segment, offset, len) == -1L;
+    public boolean mappedNameEquals(long mappedOffset, long mappedLen, MemorySegment segment, long offset, long len) {
+        return MemorySegment.mismatch(mappedNameCompactUtf8Segment, mappedOffset, mappedLen, segment, offset, len) == -1L;
     }
 }

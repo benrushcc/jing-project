@@ -28,7 +28,7 @@ public class MapSerializationBench {
     private static final int BATCH = 1000;
     private static final int BUFFER_SIZE = 16 * BATCH;
     private final Map<String, Integer> integerMap = createIntegerMap();
-    private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
+    private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
     private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(BUFFER_SIZE);
     private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);

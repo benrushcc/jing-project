@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 //        "-XX:FlightRecorderOptions=stackdepth=128"
 //})
 @Fork(value = 3)
-public class SimpleSerializationBench {
+public class SimpleEntitySerializationBench {
     private static final int BATCH = 10000;
     private static final int BUFFER_SIZE = 1024;
     private static final int STRING_SIZE = 16;
@@ -81,7 +81,7 @@ public class SimpleSerializationBench {
     }
 
     static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(SimpleSerializationBench.class.getSimpleName())
+        Options opt = new OptionsBuilder().include(SimpleEntitySerializationBench.class.getSimpleName())
                 .addProfiler(GCProfiler.class).build();
         new Runner(opt).run();
     }

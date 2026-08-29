@@ -38,7 +38,8 @@ public class StringSerializationTest {
                 "a你😊\"\t\\bc😊你好\t",
                 "abc😊def\tghi\\jkl\"mno你好",
                 "abcd\nabcd",
-                "http:\\/\\/abs.twimg.com\\/images\\/themes\\/theme1\\/bg.png"
+                "http:\\/\\/abs.twimg.com\\/images\\/themes\\/theme1\\/bg.png",
+                "http:\\/\\/abs.twimg.com\\/images\\/themes\\/theme1\\/bg.png".repeat(5)
         );
         for (String str : strs) {
             HeapWriteBuffer writeBuffer = new HeapWriteBuffer(1000);

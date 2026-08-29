@@ -110,7 +110,7 @@ public final class JsonSerializerOption {
         }
 
         public Builder setMaxNestedSize(int maxNestedSize) {
-            if (maxNestedSize < JsonSerializerState.INITIAL_SIZE || maxNestedSize > JsonSerializerState.MAX_SIZE) {
+            if (maxNestedSize < JsonSerializer.INITIAL_SIZE || maxNestedSize > JsonSerializer.MAX_SIZE) {
                 throw new IllegalArgumentException("maxNestedSize out of range : " + maxNestedSize);
             }
             this.maxNestedSize = maxNestedSize;

@@ -4,6 +4,7 @@ import io.jingproject.marshall.Marshallable;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Marshallable
@@ -13,17 +14,22 @@ public final class RecursiveEntity {
     private RecursiveEntity right;
 
     public static RecursiveEntity createRecursiveEntity(int level) {
-        ThreadLocalRandom random = ThreadLocalRandom.current();
+        if(level < 1) {
+            throw new IllegalArgumentException("level must be greater than or equal to 1");
+        }
+        int counter = 1;
         Deque<RecursiveEntity> q = new ArrayDeque<>();
         RecursiveEntity root = new RecursiveEntity();
+        root.setValue(counter++);
         q.addLast(root);
-        int range = 1;
-        for (int i = 0; i < level; i++) {
-            for (int j = 0; j < range; j++) {
+        for (int i = 1; i < level; i++) {
+            int size = q.size();
+            for (int j = 0; j < size; j++) {
                 RecursiveEntity r = q.removeFirst();
-                r.setValue(random.nextInt(10));
                 RecursiveEntity left = new RecursiveEntity();
+                left.setValue(counter++);
                 RecursiveEntity right = new RecursiveEntity();
+                right.setValue(counter++);
                 r.setLeft(left);
                 r.setRight(right);
                 q.addLast(left);
@@ -55,5 +61,16 @@ public final class RecursiveEntity {
 
     public void setRight(RecursiveEntity right) {
         this.right = right;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof RecursiveEntity that)) return false;
+        return value == that.value && Objects.equals(left, that.left) && Objects.equals(right, that.right);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value, left, right);
     }
 }

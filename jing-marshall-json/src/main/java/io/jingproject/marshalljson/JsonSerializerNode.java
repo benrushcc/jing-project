@@ -81,7 +81,7 @@ public final class JsonSerializerNode {
                 return customFunc.serialize(o, i, c);
             }
             // assuming marshallable
-            c.set(o);
+            c.setObj(o);
             return JsonSerializeResult.NewMarshallable;
         };
         Arrays.fill(FUNC_TABLE, defaultFunc);
@@ -199,7 +199,7 @@ public final class JsonSerializerNode {
             if (directSerializableFunc != null) {
                 return directSerializableFunc.serialize(o, inf, i, c);
             }
-            c.set(o);
+            c.setObj(o);
             return JsonSerializeResult.NewArray;
         };
         // enum
@@ -215,7 +215,8 @@ public final class JsonSerializerNode {
         };
         // collection type
         FUNC_TABLE[MarshallUtil.COLLECTION_INTERFACE_TYPE] = FUNC_TABLE[MarshallUtil.COLLECTION_IMPL_TYPE] = (o, inf, _, c) -> {
-            c.set(o, inf.firstGenericType());
+            c.setObj(o);
+            c.setType(inf.firstGenericType());
             return JsonSerializeResult.NewCollection;
         };
         // map type
@@ -224,7 +225,8 @@ public final class JsonSerializerNode {
             if (keyType != CharSequence.class && keyType != String.class) {
                 throw new JsonSerializerException("key type not supported: " + keyType.getName());
             }
-            c.set(o, inf.secondGenericType());
+            c.setObj(o);
+            c.setType(inf.secondGenericType());
             return JsonSerializeResult.NewMap;
         };
     }
@@ -268,7 +270,7 @@ public final class JsonSerializerNode {
     }
 
     private static void serializeMapKey(Object key, int indent, boolean written, JsonSerializerContext c) {
-        WriteBuffer w = c.writeBuffer();
+        final WriteBuffer w = c.writeBuffer();
         if (written) {
             w.writeByte((byte) ',');
         }
@@ -278,7 +280,7 @@ public final class JsonSerializerNode {
         } else if (key instanceof CharSequence charSequence) {
             c.serializeEscapedCharSequence(charSequence);
         } else {
-            throw new JsonSerializerException("unsupported json key : " + key);
+            throw new AssertionError();
         }
         w.writeBytes((byte) ':', (byte) ' ');
     }
@@ -291,7 +293,7 @@ public final class JsonSerializerNode {
         return indent;
     }
 
-    public void initObj(MarshallFacade fc, Object marshallable, int indent) {
+    public void initObj(MarshallFacade fc, Object marshallable, int indent, JsonSerializerContext c) {
         this.type = OBJ;
         this.written = false;
         this.indent = indent;
@@ -299,18 +301,20 @@ public final class JsonSerializerNode {
         this.size = fc.totalElements();
         this.val = fc.newReader(marshallable);
         this.fc = fc;
+        c.writeBuffer().writeByte((byte) '{');
     }
 
-    public void initArr(Object[] arr, int indent, JsonSerializeFunc fn) {
+    public void initArr(Object[] arr, int indent, JsonSerializeFunc fn, JsonSerializerContext c) {
         this.type = ARR;
         this.written = false;
         this.indent = indent;
         this.index = 0;
         this.val = arr;
         this.func = fn;
+        c.writeBuffer().writeByte((byte) '[');
     }
 
-    public void initCol(int size, Iterator<?> iter, int indent, JsonSerializeFunc fn) {
+    public void initCol(int size, Iterator<?> iter, int indent, JsonSerializeFunc fn, JsonSerializerContext c) {
         this.type = COL;
         this.written = false;
         this.indent = indent;
@@ -318,18 +322,20 @@ public final class JsonSerializerNode {
         this.size = size;
         this.val = iter;
         this.func = fn;
+        c.writeBuffer().writeByte((byte) '[');
     }
 
-    public void initList(List<?> list, int indent, JsonSerializeFunc fn) {
+    public void initList(List<?> list, int indent, JsonSerializeFunc fn, JsonSerializerContext c) {
         this.type = LIST;
         this.written = false;
         this.indent = indent;
         this.index = 0;
         this.val = list;
         this.func = fn;
+        c.writeBuffer().writeByte((byte) '[');
     }
 
-    public void initMap(int size, Iterator<? extends Map.Entry<?, ?>> iter, int indent, JsonSerializeFunc fn) {
+    public void initMap(int size, Iterator<? extends Map.Entry<?, ?>> iter, int indent, JsonSerializeFunc fn, JsonSerializerContext c) {
         this.type = MAP;
         this.written = false;
         this.indent = indent;
@@ -337,6 +343,7 @@ public final class JsonSerializerNode {
         this.size = size;
         this.val = iter;
         this.func = fn;
+        c.writeBuffer().writeByte((byte) '{');
     }
 
     public JsonSerializeResult process(JsonSerializerContext c) {

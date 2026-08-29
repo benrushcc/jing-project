@@ -10,17 +10,23 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 // indent never overflows int, as its value is limited by the practical JSON nesting depth.
 public final class JsonSerializerContext {
-    // whether to escape '/', which was suggested for safely embedding JSON in HTML; it's not required by the JSON spec, so we leave it optional and default to false.
+    // whether to escape '/', which was suggested for safely embedding JSON in HTML, it's not required by the JSON spec, so we leave it optional and default to false
     private static final boolean ESCAPE_SLASH =
             Boolean.parseBoolean(System.getProperty("jing.marshalljson.escapeslash", "false"));
+    // whether to nable surrogate pair handling
+    // when the ASCII fast path does not match, the surrogate pair filtering path is taken
+    // this yields performance gains when 3‑byte UTF‑8 data dominates and 4‑byte surrogate pairs are absent
+    private static final boolean FILTER_SURR =
+            Boolean.parseBoolean(System.getProperty("jing.marshalljson.filtersurr", "true"));
     private static final VectorSpecies<Short> SHORT_SPECIES;
     private static final VectorSpecies<Byte> BYTE_SPECIES;
+    private static final int VEC_MASK;
     private static final byte[] ESCAPE_TABLE = makeEscapeTable();
     private static final byte[] HEX_BYTES = "0123456789abcdef".getBytes(StandardCharsets.US_ASCII);
     private static final Map<Class<?>, JsonSerializeFunc> BUILTIN_SERIALIZE_OBJ_FUNC_MAP;
@@ -51,6 +57,7 @@ public final class JsonSerializerContext {
             }
             default -> throw new UnsupportedOperationException("unknown vector size : " + vecSize);
         }
+        VEC_MASK = SHORT_SPECIES.length() - 1;
     }
 
     static {
@@ -218,6 +225,30 @@ public final class JsonSerializerContext {
         this.writeBuffer = writeBuffer;
     }
 
+    public JsonSerializerOption option() {
+        return option;
+    }
+
+    public WriteBuffer writeBuffer() {
+        return writeBuffer;
+    }
+
+    public Object obj() {
+        return obj;
+    }
+
+    public void setObj(Object obj) {
+        this.obj = obj;
+    }
+
+    public Class<?> type() {
+        return type;
+    }
+
+    public void setType(Class<?> type) {
+        this.type = type;
+    }
+
     private static byte[] makeEscapeTable() {
         byte[] table = new byte[Byte.MAX_VALUE - Byte.MIN_VALUE + 1];
         for (int i = 0x00; i < 0x20; i++) {
@@ -252,15 +283,17 @@ public final class JsonSerializerContext {
                 System.arraycopy(utf8Bytes, start, bytes, position, available);
                 position += available;
             }
-            bytes[position++] = (byte) '\\';
-            if (v > 0) {
-                bytes[position++] = v;
+            bytes[position] = (byte) '\\';
+            if(v > 0) {
+                bytes[position + 1] = v;
+                position += 2;
             } else {
-                bytes[position++] = (byte) 'u';
-                bytes[position++] = (byte) '0';
-                bytes[position++] = (byte) '0';
-                bytes[position++] = HEX_BYTES[(b >>> 4) & 0xF];
-                bytes[position++] = HEX_BYTES[b & 0xF];
+                bytes[position + 1] = (byte) 'u';
+                bytes[position + 2] = (byte) '0';
+                bytes[position + 3] = (byte) '0';
+                bytes[position + 4] = HEX_BYTES[(b >>> 4) & 0xF];
+                bytes[position + 5] = HEX_BYTES[b & 0xF];
+                position += 6;
             }
             start = index + 1;
         }
@@ -289,15 +322,17 @@ public final class JsonSerializerContext {
                 MemorySegment.copy(utf8Bytes, start, segment, ValueLayout.JAVA_BYTE, position, available);
                 position += available;
             }
-            SegmentAccess.setByte(segment, position++, (byte) '\\');
-            if (v > 0) {
-                SegmentAccess.setByte(segment, position++, v);
+            SegmentAccess.setByte(segment, position, (byte) '\\');
+            if(v > 0) {
+                SegmentAccess.setByte(segment, position + 1L, v);
+                position += 2L;
             } else {
-                SegmentAccess.setByte(segment, position++, (byte) 'u');
-                SegmentAccess.setByte(segment, position++, (byte) '0');
-                SegmentAccess.setByte(segment, position++, (byte) '0');
-                SegmentAccess.setByte(segment, position++, HEX_BYTES[(b >>> 4) & 0xF]);
-                SegmentAccess.setByte(segment, position++, HEX_BYTES[b & 0xF]);
+                SegmentAccess.setByte(segment, position + 1L, (byte) 'u');
+                SegmentAccess.setByte(segment, position + 2L, (byte) '0');
+                SegmentAccess.setByte(segment, position + 3L, (byte) '0');
+                SegmentAccess.setByte(segment, position + 4L, HEX_BYTES[(b >>> 4) & 0xF]);
+                SegmentAccess.setByte(segment, position + 5L, HEX_BYTES[b & 0xF]);
+                position += 6L;
             }
             start = index + 1;
         }
@@ -308,6 +343,15 @@ public final class JsonSerializerContext {
         }
         SegmentAccess.setByte(segment, position++, (byte) '"');
         segmentWriteBuffer.setPosition(position);
+    }
+
+    private char[] alignedBuf(int alignedLen) {
+        if(charBuffer == null || charBuffer.length < alignedLen) {
+            charBuffer = new char[alignedLen];
+        }
+        ShortVector.broadcast(SHORT_SPECIES, (short) '?')
+                .intoCharArray(charBuffer, alignedLen - SHORT_SPECIES.length());
+        return charBuffer;
     }
 
     private static int asciiCount(ShortVector shortVector) {
@@ -321,33 +365,86 @@ public final class JsonSerializerContext {
         return mask.firstTrue();
     }
 
+    private static boolean anySurr(ShortVector shortVector) {
+        VectorMask<Short> mask = shortVector.lanewise(VectorOperators.AND, (short) 0xF800)
+                .compare(VectorOperators.EQ, (short) 0xD800);
+        return mask.anyTrue();
+    }
+
+    private int serializeLongStrToHeap(String str, byte[] bytes, int position) {
+        final int len = str.length();
+        final int alignedLen = Math.addExact(len, VEC_MASK) & (~VEC_MASK);
+        final char[] alignedBuf = alignedBuf(alignedLen);
+        str.getChars(0, len, alignedBuf, 0);
+        int index = 0;
+        for( ; index < alignedLen; index += SHORT_SPECIES.length()) {
+            ShortVector shortVector = ShortVector.fromCharArray(SHORT_SPECIES, alignedBuf, index);
+            ByteVector byteVector = (ByteVector) shortVector.convertShape(VectorOperators.S2B, BYTE_SPECIES, 0);
+            byteVector.intoArray(bytes, position + index);
+            int matched = asciiCount(shortVector);
+            if(matched != SHORT_SPECIES.length()) {
+                index += matched;
+                break;
+            }
+        }
+        if(index == alignedLen) {
+            return position + len;
+        }
+        if(FILTER_SURR) {
+            int alignedIndex = index & (~VEC_MASK);
+            for( ; alignedIndex < alignedLen; alignedIndex += SHORT_SPECIES.length()) {
+                if (anySurr(ShortVector.fromCharArray(SHORT_SPECIES, alignedBuf, alignedIndex))) {
+                    break ;
+                }
+            }
+            if(alignedIndex == alignedLen) {
+                return serializeNonSurrCharsToHeap(alignedBuf, index, len, bytes, position + index);
+            }
+        }
+        return serializeCharsToHeap(alignedBuf, index, len, bytes, position + index);
+    }
+
+    private long serializeLongStrToSegment(String str, MemorySegment segment, long position) {
+        final int len = str.length();
+        final int alignedLen = Math.addExact(len, VEC_MASK) & (~VEC_MASK);
+        final char[] alignedBuf = alignedBuf(alignedLen);
+        str.getChars(0, len, alignedBuf, 0);
+        int index = 0;
+        for( ; index < alignedLen; index += SHORT_SPECIES.length()) {
+            ShortVector shortVector = ShortVector.fromCharArray(SHORT_SPECIES, alignedBuf, index);
+            ByteVector byteVector = (ByteVector) shortVector.convertShape(VectorOperators.S2B, BYTE_SPECIES, 0);
+            byteVector.intoMemorySegment(segment, position + index, ByteOrder.nativeOrder()); // byteOrder will be ignored
+            int matched = asciiCount(shortVector);
+            if(matched != SHORT_SPECIES.length()) {
+                index += matched;
+                break;
+            }
+        }
+        if(index == alignedLen) {
+            return position + len;
+        }
+        if(FILTER_SURR) {
+            int alignedIndex = index & (~VEC_MASK);
+            for( ; alignedIndex < alignedLen; alignedIndex += SHORT_SPECIES.length()) {
+                if (anySurr(ShortVector.fromCharArray(SHORT_SPECIES, alignedBuf, alignedIndex))) {
+                    break ;
+                }
+            }
+            if(alignedIndex == alignedLen) {
+                return serializeNonSurrCharsToSegment(alignedBuf, index, len, segment, position + index);
+            }
+        }
+        return serializeCharsToSegment(alignedBuf, index, len, segment, position + index);
+    }
+
     private void serializeEscapedStringToHeap(String str, HeapWriteBuffer heapWriteBuffer) {
         final byte[] bytes = heapWriteBuffer.rawByteArray();
         int position = heapWriteBuffer.intPosition();
         bytes[position++] = (byte) '"';
-        final int len = str.length();
-        final int vecLen = SHORT_SPECIES.length();
-        if(len < vecLen) {
-            position = serializeStrToBytes(str, bytes, position);
+        if(str.length() < SHORT_SPECIES.length()) {
+            position = serializeStrToHeap(str, bytes, position);
         } else {
-            char[] buf = charBuffer;
-            if(buf == null || buf.length < len) {
-                buf = charBuffer = new char[Integer.highestOneBit(len - 1) << 1];
-            }
-            str.getChars(0, len, buf, 0);
-            int index = 0;
-            for ( ; index <= len - vecLen; index += vecLen) {
-                ShortVector shortVector = ShortVector.fromCharArray(SHORT_SPECIES, buf, index);
-                ByteVector byteVector = (ByteVector) shortVector.convertShape(VectorOperators.S2B, BYTE_SPECIES, 0);
-                byteVector.intoArray(bytes, position);
-                int matched = asciiCount(shortVector);
-                position += matched;
-                if (matched != vecLen) {
-                    index += matched;
-                    break;
-                }
-            }
-            position = serializeCharsToBytes(buf, index, len, bytes, position);
+            position = serializeLongStrToHeap(str, bytes, position);
         }
         bytes[position++] = (byte) '"';
         heapWriteBuffer.setPosition(position);
@@ -357,47 +454,41 @@ public final class JsonSerializerContext {
         final MemorySegment segment = segmentWriteBuffer.rawSegment();
         long position = segmentWriteBuffer.longPosition();
         SegmentAccess.setByte(segment, position++, (byte) '"');
-        final int len = str.length();
-        final int vecLen = SHORT_SPECIES.length();
-        if(len < vecLen) {
+        if(str.length() < SHORT_SPECIES.length()) {
             position = serializeStrToSegment(str, segment, position);
         } else {
-            char[] buf = charBuffer;
-            if(buf.length < len) {
-                buf = charBuffer = new char[Integer.highestOneBit(len - 1) << 1];
-            }
-            str.getChars(0, len, buf, 0);
-            int index = 0;
-            for ( ; index <= len - vecLen; index += vecLen) {
-                ShortVector shortVector = ShortVector.fromCharArray(SHORT_SPECIES, buf, index);
-                ByteVector byteVector = (ByteVector) shortVector.convertShape(VectorOperators.S2B, BYTE_SPECIES, 0);
-                byteVector.intoMemorySegment(segment, position, ByteOrder.nativeOrder()); // byteOrder will be ignored
-                int matched = asciiCount(shortVector);
-                position += matched;
-                if (matched != vecLen) {
-                    index += matched;
-                    break;
-                }
-            }
-            position = serializeCharsToSegment(buf, index, len, segment, position);
+            position = serializeLongStrToSegment(str, segment, position);
         }
         SegmentAccess.setByte(segment, position++, (byte) '"');
         segmentWriteBuffer.setPosition(position);
     }
 
-    private static int serializeStrToBytes(String str, byte[] bytes, int position) {
+    private static int serializeStrToHeap(String str, byte[] bytes, int position) {
         final int len = str.length();
         int index = 0;
         while (index < len) {
             char c = str.charAt(index++);
-            if (c < 0x80) {
-                position = serializeCharToBytes(c, bytes, position);
-            } else if (c < 0x800) {
-                position = serializeCharToBytes2(c, bytes, position);
-            } else if (Character.isHighSurrogate(c)) {
-                position = serializeCharToBytes4(c, str.charAt(index++), bytes, position);
+            if(c < 0x80) {
+                position = serializeCharToHeap(c, bytes, position);
+            } else if(c < 0x800) {
+                position = serializeCharToHeap2(c, bytes, position);
             } else {
-                position = serializeCharToBytes3(c, bytes, position);
+                // jdk string allows single surrogate, we still need to check them
+                final int v = c & 0xFC00;
+                if(v == 0xD800) {
+                    if(index == len) {
+                        throw new JsonSerializerException("illegal high surrogate without low surrogate");
+                    }
+                    char c1 = str.charAt(index++);
+                    if((c1 & 0xFC00) != 0xDC00) {
+                        throw new JsonSerializerException("illegal high surrogate without low surrogate");
+                    }
+                    position = serializeCharToHeap4(c, c1, bytes, position);
+                } else if(v == 0xDC00) {
+                    throw new JsonSerializerException("illegal low surrogate without high surrogate");
+                } else {
+                    position = serializeCharToHeap3(c, bytes, position);
+                }
             }
         }
         return position;
@@ -408,12 +499,84 @@ public final class JsonSerializerContext {
         int index = 0;
         while (index < len) {
             char c = str.charAt(index++);
-            if (c < 0x80) {
+            if(c < 0x80) {
                 position = serializeCharToSegment(c, segment, position);
-            } else if (c < 0x800) {
+            } else if(c < 0x800) {
                 position = serializeCharToSegment2(c, segment, position);
-            } else if (Character.isHighSurrogate(c)) {
-                position = serializeCharToSegment4(c, str.charAt(index++), segment, position);
+            } else {
+                // jdk string allows single surrogate, we still need to check them
+                final int v = c & 0xFC00;
+                if(v == 0xD800) {
+                    if(index == len) {
+                        throw new JsonSerializerException("illegal high surrogate without low surrogate");
+                    }
+                    char c1 = str.charAt(index++);
+                    if((c1 & 0xFC00) != 0xDC00) {
+                        throw new JsonSerializerException("illegal high surrogate without low surrogate");
+                    }
+                    position = serializeCharToSegment4(c, c1, segment, position);
+                } else if(v == 0xDC00) {
+                    throw new JsonSerializerException("illegal low surrogate without high surrogate");
+                } else {
+                    position = serializeCharToSegment3(c, segment, position);
+                }
+            }
+        }
+        return position;
+    }
+
+    private static int serializeNonSurrCharsToHeap(char[] buf, int index, int len, byte[] bytes, int position) {
+        for( ; index < len; index++) {
+            char c = buf[index];
+            if(c < 0x80) {
+                position = serializeCharToHeap(c, bytes, position);
+            } else if(c < 0x800) {
+                position = serializeCharToHeap2(c, bytes, position);
+            } else {
+                position = serializeCharToHeap3(c, bytes, position);
+            }
+        }
+        return position;
+    }
+
+    private static int serializeCharsToHeap(char[] buf, int index, int len, byte[] bytes, int position) {
+        for( ; index < len; index++) {
+            char c = buf[index];
+            if(c < 0x80) {
+                position = serializeCharToHeap(c, bytes, position);
+            } else if(c < 0x800) {
+                position = serializeCharToHeap2(c, bytes, position);
+            } else {
+                // jdk string allows single surrogate, we still need to check them
+                final int v = c & 0xFC00;
+                if(v == 0xD800) {
+                    final int nextIndex = index + 1;
+                    if(nextIndex == len) {
+                        throw new JsonSerializerException("illegal high surrogate without low surrogate");
+                    }
+                    char c1 = buf[nextIndex];
+                    if((c1 & 0xFC00) != 0xDC00) {
+                        throw new JsonSerializerException("illegal high surrogate without low surrogate");
+                    }
+                    position = serializeCharToHeap4(c, c1, bytes, position);
+                    index = nextIndex;
+                } else if(v == 0xDC00) {
+                    throw new JsonSerializerException("illegal low surrogate without high surrogate");
+                } else {
+                    position = serializeCharToHeap3(c, bytes, position);
+                }
+            }
+        }
+        return position;
+    }
+
+    private static long serializeNonSurrCharsToSegment(char[] buf, int index, int len, MemorySegment segment, long position) {
+        for( ; index < len; index++) {
+            char c = buf[index];
+            if(c < 0x80) {
+                position = serializeCharToSegment(c, segment, position);
+            } else if(c < 0x800) {
+                position = serializeCharToSegment2(c, segment, position);
             } else {
                 position = serializeCharToSegment3(c, segment, position);
             }
@@ -421,130 +584,76 @@ public final class JsonSerializerContext {
         return position;
     }
 
-    private static int serializeCharsToBytes(char[] buf, int index, int len, byte[] bytes, int position) {
-        Objects.checkFromToIndex(index, len, buf.length);
-        char sur = 0;
-        for( ; index <= len - 2; index += 2) {
-            char c1 = buf[index];
-            char c2 = buf[index + 1];
-            if(c1 < 0x80) {
-                position = serializeCharToBytes(c1, bytes, position);
-            } else if(c1 < 0x800) {
-                position = serializeCharToBytes2(c1, bytes, position);
-            } else if(Character.isHighSurrogate(c1)) {
-                position = serializeCharToBytes4(c1, c2, bytes, position);
-                continue ;
-            } else if(Character.isLowSurrogate(c1)) {
-                position = serializeCharToBytes4(sur, c1, bytes, position);
-            } else {
-                position = serializeCharToBytes3(c1, bytes, position);
-            }
-            if(c2 < 0x80) {
-                position = serializeCharToBytes(c2, bytes, position);
-            } else if(c2 < 0x800) {
-                position = serializeCharToBytes2(c2, bytes, position);
-            } else if(Character.isHighSurrogate(c2)) {
-                sur = c2;
-            } else {
-                position = serializeCharToBytes3(c2, bytes, position);
-            }
-        }
-        if(index < len) {
-            char last = buf[index];
-            if(last < 0x80) {
-                position = serializeCharToBytes(last, bytes, position);
-            } else if(last < 0x800) {
-                position = serializeCharToBytes2(last, bytes, position);
-            } else if(Character.isLowSurrogate(last)) {
-                position = serializeCharToBytes4(sur, last, bytes, position);
-            } else {
-                position = serializeCharToBytes3(last, bytes, position);
-            }
-        }
-        return position;
-    }
-
     private static long serializeCharsToSegment(char[] buf, int index, int len, MemorySegment segment, long position) {
-        Objects.checkFromToIndex(index, len, buf.length);
-        char sur = 0;
-        for( ; index <= len - 2; index += 2) {
-            char c1 = buf[index];
-            char c2 = buf[index + 1];
-            if(c1 < 0x80) {
-                position = serializeCharToSegment(c1, segment, position);
-            } else if(c1 < 0x800) {
-                position = serializeCharToSegment2(c1, segment, position);
-            } else if(Character.isHighSurrogate(c1)) {
-                position = serializeCharToSegment4(c1, c2, segment, position);
-                continue ;
-            } else if(Character.isLowSurrogate(c1)) {
-                position = serializeCharToSegment4(sur, c1, segment, position);
+        for( ; index < len; index++) {
+            char c = buf[index];
+            if(c < 0x80) {
+                position = serializeCharToSegment(c, segment, position);
+            } else if(c < 0x800) {
+                position = serializeCharToSegment2(c, segment, position);
             } else {
-                position = serializeCharToSegment3(c1, segment, position);
-            }
-            if(c2 < 0x80) {
-                position = serializeCharToSegment(c2, segment, position);
-            } else if(c2 < 0x800) {
-                position = serializeCharToSegment2(c2, segment, position);
-            } else if(Character.isHighSurrogate(c2)) {
-                sur = c2;
-            } else {
-                position = serializeCharToSegment3(c2, segment, position);
-            }
-        }
-        if(index < len) {
-            char last = buf[index];
-            if(last < 0x80) {
-                position = serializeCharToSegment(last, segment, position);
-            } else if(last < 0x800) {
-                position = serializeCharToSegment2(last, segment, position);
-            } else if(Character.isLowSurrogate(last)) {
-                position = serializeCharToSegment4(sur, last, segment, position);
-            } else {
-                position = serializeCharToSegment3(last, segment, position);
+                // jdk string allows single surrogate, we still need to check them
+                final int v = c & 0xFC00;
+                if(v == 0xD800) {
+                    final int nextIndex = index + 1;
+                    if(nextIndex == len) {
+                        throw new JsonSerializerException("illegal high surrogate without low surrogate");
+                    }
+                    char c1 = buf[nextIndex];
+                    if((c1 & 0xFC00) != 0xDC00) {
+                        throw new JsonSerializerException("illegal high surrogate without low surrogate");
+                    }
+                    position = serializeCharToSegment4(c, c1, segment, position);
+                    index = nextIndex;
+                } else if(v == 0xDC00) {
+                    throw new JsonSerializerException("illegal low surrogate without high surrogate");
+                } else {
+                    position = serializeCharToSegment3(c, segment, position);
+                }
             }
         }
         return position;
     }
 
-    private static int serializeCharToBytes(char c, byte[] bytes, int offset) {
+    private static int serializeCharToHeap(char c, byte[] bytes, int offset) {
         int v = ESCAPE_TABLE[c];
         if (v == 0) {
-            bytes[offset++] = (byte) c;
-        } else if (v > 0) {
-            bytes[offset++] = (byte) '\\';
-            bytes[offset++] = (byte) v;
-        } else {
-            bytes[offset++] = (byte) '\\';
-            bytes[offset++] = (byte) 'u';
-            bytes[offset++] = (byte) '0';
-            bytes[offset++] = (byte) '0';
-            bytes[offset++] = HEX_BYTES[c >>> 4];
-            bytes[offset++] = HEX_BYTES[c & 0xF];
+            bytes[offset] = (byte) c;
+            return offset + 1;
         }
-        return offset;
+        bytes[offset] = (byte) '\\';
+        if (v > 0) {
+            bytes[offset + 1] = (byte) v;
+            return offset + 2;
+        }
+        bytes[offset + 1] = (byte) 'u';
+        bytes[offset + 2] = (byte) '0';
+        bytes[offset + 3] = (byte) '0';
+        bytes[offset + 4] = HEX_BYTES[c >>> 4];
+        bytes[offset + 5] = HEX_BYTES[c & 0xF];
+        return offset + 6;
     }
 
     private static long serializeCharToSegment(char c, MemorySegment segment, long offset) {
         int v = ESCAPE_TABLE[c];
         if (v == 0) {
-            SegmentAccess.setByte(segment, offset++, (byte) c);
-        } else if (v > 0) {
-            SegmentAccess.setByte(segment, offset++, (byte) '\\');
-            SegmentAccess.setByte(segment, offset++, (byte) v);
-        } else {
-            SegmentAccess.setByte(segment, offset++, (byte) '\\');
-            SegmentAccess.setByte(segment, offset++, (byte) 'u');
-            SegmentAccess.setByte(segment, offset++, (byte) '0');
-            SegmentAccess.setByte(segment, offset++, (byte) '0');
-            SegmentAccess.setByte(segment, offset++, HEX_BYTES[c >>> 4]);
-            SegmentAccess.setByte(segment, offset++, HEX_BYTES[c & 0xF]);
+            SegmentAccess.setByte(segment, offset, (byte) c);
+            return offset + 1L;
         }
-        return offset;
+        SegmentAccess.setByte(segment, offset, (byte) '\\');
+        if (v > 0) {
+            SegmentAccess.setByte(segment, offset + 1L, (byte) v);
+            return offset + 2L;
+        }
+        SegmentAccess.setByte(segment, offset + 1L, (byte) 'u');
+        SegmentAccess.setByte(segment, offset + 2L, (byte) '0');
+        SegmentAccess.setByte(segment, offset + 3L, (byte) '0');
+        SegmentAccess.setByte(segment, offset + 4L, HEX_BYTES[c >>> 4]);
+        SegmentAccess.setByte(segment, offset + 5L, HEX_BYTES[c & 0xF]);
+        return offset + 6L;
     }
 
-    private static int serializeCharToBytes2(char c, byte[] bytes, int offset) {
-
+    private static int serializeCharToHeap2(char c, byte[] bytes, int offset) {
         bytes[offset] = (byte) (0xC0 | (c >> 6));
         bytes[offset + 1] = (byte) (0x80 | (c & 0x3F));
         return offset + 2;
@@ -556,7 +665,7 @@ public final class JsonSerializerContext {
         return offset + 2L;
     }
 
-    private static int serializeCharToBytes3(char c, byte[] bytes, int offset) {
+    private static int serializeCharToHeap3(char c, byte[] bytes, int offset) {
         bytes[offset] = (byte) (0xE0 | (c >> 12));
         bytes[offset + 1] = (byte) (0x80 | ((c >> 6) & 0x3F));
         bytes[offset + 2] = (byte) (0x80 | (c & 0x3F));
@@ -570,7 +679,7 @@ public final class JsonSerializerContext {
         return offset + 3L;
     }
 
-    private static int serializeCharToBytes4(char highSurrogate, char lowSurrogate, byte[] bytes, int offset) {
+    private static int serializeCharToHeap4(char highSurrogate, char lowSurrogate, byte[] bytes, int offset) {
         int cp = Character.toCodePoint(highSurrogate, lowSurrogate);
         bytes[offset] = (byte) (0xF0 | (cp >> 18));
         bytes[offset + 1] = (byte) (0x80 | ((cp >> 12) & 0x3F));
@@ -588,31 +697,6 @@ public final class JsonSerializerContext {
         return offset + 4L;
     }
 
-    public JsonSerializerOption option() {
-        return option;
-    }
-
-    public WriteBuffer writeBuffer() {
-        return writeBuffer;
-    }
-
-    public Object obj() {
-        return obj;
-    }
-
-    public Class<?> type() {
-        return type;
-    }
-
-    public void set(Object obj) {
-        this.obj = obj;
-    }
-
-    public void set(Object obj, Class<?> type) {
-        this.obj = obj;
-        this.type = type;
-    }
-
     public void serializeNull() {
         writeBuffer.writeBytes((byte) 'n', (byte) 'u', (byte) 'l', (byte) 'l');
     }
@@ -621,12 +705,50 @@ public final class JsonSerializerContext {
         JsonNumberUtil.writeInt(value, writeBuffer);
     }
 
-    public void serializeBoolean(boolean value) {
-        final WriteBuffer w = this.writeBuffer;
-        if (value) {
-            w.writeBytes((byte) 't', (byte) 'r', (byte) 'u', (byte) 'e');
+    private void serializeBooleanToHeap(boolean value, HeapWriteBuffer heapWriteBuffer) {
+        final byte[] bytes = heapWriteBuffer.rawByteArray();
+        final int position = heapWriteBuffer.intPosition();
+        if(value) {
+            bytes[position]     = (byte) 't';
+            bytes[position + 1] = (byte) 'r';
+            bytes[position + 2] = (byte) 'u';
+            bytes[position + 3] = (byte) 'e';
+            heapWriteBuffer.setPosition(position + 4);
         } else {
-            w.writeBytes((byte) 'f', (byte) 'a', (byte) 'l', (byte) 's', (byte) 'e');
+            bytes[position]     = (byte) 'f';
+            bytes[position + 1] = (byte) 'a';
+            bytes[position + 2] = (byte) 'l';
+            bytes[position + 3] = (byte) 's';
+            bytes[position + 4] = (byte) 'e';
+            heapWriteBuffer.setPosition(position + 5);
+        }
+    }
+
+    private void serializeBooleanToSegment(boolean value, SegmentWriteBuffer segmentWriteBuffer) {
+        final MemorySegment segment = segmentWriteBuffer.rawSegment();
+        final int position = segmentWriteBuffer.intPosition();
+        if(value) {
+            SegmentAccess.setByte(segment, position, (byte) 't');
+            SegmentAccess.setByte(segment, position + 1L, (byte) 'r');
+            SegmentAccess.setByte(segment, position + 2L, (byte) 'u');
+            SegmentAccess.setByte(segment, position + 3L, (byte) 'e');
+            segmentWriteBuffer.setPosition(position + 4L);
+        } else {
+            SegmentAccess.setByte(segment, position, (byte) ('f'));
+            SegmentAccess.setByte(segment, position + 1L, (byte) 'a');
+            SegmentAccess.setByte(segment, position + 2L, (byte) 'l');
+            SegmentAccess.setByte(segment, position + 3L, (byte) 's');
+            SegmentAccess.setByte(segment, position + 4L, (byte) 'e');
+            segmentWriteBuffer.setPosition(position + 5L);
+        }
+    }
+
+    public void serializeBoolean(boolean value) {
+        WriteBuffer w = writeBuffer;
+        w.ensureCapacity(5);
+        switch (w) {
+            case HeapWriteBuffer heapWriteBuffer -> serializeBooleanToHeap(value, heapWriteBuffer);
+            case SegmentWriteBuffer segmentWriteBuffer -> serializeBooleanToSegment(value, segmentWriteBuffer);
         }
     }
 
@@ -634,35 +756,90 @@ public final class JsonSerializerContext {
         JsonNumberUtil.writeInt(value, writeBuffer);
     }
 
-    private void serializeAsciiByte(byte b) {
-        final WriteBuffer w = this.writeBuffer;
-        final byte v = ESCAPE_TABLE[b];
-        if (v == 0) {
-            w.writeByte(b);
-        } else if (v > 0) {
-            w.writeBytes((byte) '\\', v);
+    private void serializeSingleCharToHeap(char value, HeapWriteBuffer heapWriteBuffer) {
+        final byte[] bytes = heapWriteBuffer.rawByteArray();
+        int position = heapWriteBuffer.intPosition();
+        bytes[position] = (byte) '"';
+        if(value < 0x80) {
+            final byte v = ESCAPE_TABLE[value];
+            if(v == 0) {
+                bytes[position + 1] = (byte) value;
+                position += 2;
+            } else {
+                bytes[position + 1] = (byte) '\\';
+                if(v > 0) {
+                    bytes[position + 2] = v;
+                    position += 3;
+                } else {
+                    bytes[position + 2] = (byte) 'u';
+                    bytes[position + 3] = (byte) '0';
+                    bytes[position + 4] = (byte) '0';
+                    bytes[position + 5] = HEX_BYTES[(value >>> 4) & 0xF];
+                    bytes[position + 6] = HEX_BYTES[value & 0xf];
+                    position += 7;
+                }
+            }
+        } else if(value < 0x800) {
+            bytes[position + 1] = (byte) (0xC0 | (value >> 6));
+            bytes[position + 2] = (byte) (0x80 | (value & 0x3f));
+            position += 3;
         } else {
-            w.writeBytes((byte) '\\', (byte) 'u', (byte) '0', (byte) '0', HEX_BYTES[(b >>> 4) & 0xF], HEX_BYTES[b & 0xf]);
+            bytes[position + 1] = (byte) (0xE0 | (value >> 12));
+            bytes[position + 2] = (byte) (0x80 | ((value >> 6) & 0x3F));
+            bytes[position + 3] = (byte) (0x80 | (value & 0x3F));
+            position += 4;
         }
+        bytes[position] = (byte) '"';
+        heapWriteBuffer.setPosition(position + 1);
+    }
+
+    private void serializeSingleCharToSegment(char value, SegmentWriteBuffer segmentWriteBuffer) {
+        final MemorySegment segment = segmentWriteBuffer.rawSegment();
+        long position = segmentWriteBuffer.longPosition();
+        SegmentAccess.setByte(segment, position, (byte) '"');
+        if(value < 0x80) {
+            final byte v = ESCAPE_TABLE[value];
+            if(v == 0) {
+                SegmentAccess.setByte(segment, position + 1L, (byte) value);
+                position += 2L;
+            } else {
+                SegmentAccess.setByte(segment, position + 1L, (byte) '\\');
+                if(v > 0) {
+                    SegmentAccess.setByte(segment, position + 2L, v);
+                    position += 3L;
+                } else {
+                    SegmentAccess.setByte(segment, position + 2L, (byte) 'u');
+                    SegmentAccess.setByte(segment, position + 3L, (byte) '0');
+                    SegmentAccess.setByte(segment, position + 4L, (byte) '0');
+                    SegmentAccess.setByte(segment, position + 5L, HEX_BYTES[(value >>> 4) & 0xF]);
+                    SegmentAccess.setByte(segment, position + 6L, HEX_BYTES[value & 0xf]);
+                    position += 7L;
+                }
+            }
+        } else if(value < 0x800) {
+            SegmentAccess.setByte(segment, position + 1L, (byte) (0xC0 | (value >> 6)));
+            SegmentAccess.setByte(segment, position + 2L, (byte) (0x80 | (value & 0x3f)));
+            position += 3L;
+        } else {
+            SegmentAccess.setByte(segment, position + 1L, (byte) (0xE0 | (value >> 12)));
+            SegmentAccess.setByte(segment, position + 2L, (byte) (0x80 | ((value >> 6) & 0x3F)));
+            SegmentAccess.setByte(segment, position + 3L, (byte) (0x80 | (value & 0x3F)));
+            position += 4L;
+        }
+        SegmentAccess.setByte(segment, position, (byte) '"');
+        segmentWriteBuffer.setPosition(position + 1L);
     }
 
     public void serializeChar(char value) {
-        final WriteBuffer w = this.writeBuffer;
-        w.writeByte((byte) '"');
         if (Character.isSurrogate(value)) {
             throw new IllegalArgumentException("surrogates not supported");
         }
-        if (value < 0x80) {
-            serializeAsciiByte((byte) value);
-        } else if (value < 0x800) {
-            w.writeBytes((byte) (0xC0 | (value >> 6)),
-                    (byte) (0x80 | (value & 0x3F)));
-        } else {
-            w.writeBytes((byte) (0xE0 | (value >> 12)),
-                    (byte) (0x80 | ((value >> 6) & 0x3F)),
-                    (byte) (0x80 | (value & 0x3F)));
+        final WriteBuffer w = this.writeBuffer;
+        w.ensureCapacity(8);
+        switch (w) {
+            case HeapWriteBuffer heapWriteBuffer -> serializeSingleCharToHeap(value, heapWriteBuffer);
+            case SegmentWriteBuffer segmentWriteBuffer -> serializeSingleCharToSegment(value, segmentWriteBuffer);
         }
-        w.writeByte((byte) '"');
     }
 
     public void serializeInt(int value) {
@@ -682,17 +859,27 @@ public final class JsonSerializerContext {
     }
 
     public void serializeIndent(int indent) {
+        final JsonIndentationLevel indentationLevel = option.indentationLevel();
+        if(indentationLevel == JsonIndentationLevel.NONE) {
+            return ;
+        }
+        int spaces = (indentationLevel == JsonIndentationLevel.TWO ? 2 : 4) * indent; // no overflow, indent is limited by nested size
         final WriteBuffer w = this.writeBuffer;
-        switch (option.indentationLevel()) {
-            case NONE -> {
+        w.ensureCapacity(Math.incrementExact(spaces));
+        switch (w) {
+            case HeapWriteBuffer heapWriteBuffer -> {
+                final byte[] bytes = heapWriteBuffer.rawByteArray();
+                final int position = heapWriteBuffer.intPosition();
+                bytes[position] = (byte) '\n';
+                Arrays.fill(bytes, position + 1, position + 1 + spaces, (byte) ' ');
+                heapWriteBuffer.setPosition(position + 1 + spaces);
             }
-            case TWO -> {
-                w.writeByte((byte) '\n');
-                w.writeRepeated((byte) ' ', indent * 2); // no overflow, indent is limited by nested size
-            }
-            case FOUR -> {
-                w.writeByte((byte) '\n');
-                w.writeRepeated((byte) ' ', indent * 4); // no overflow, indent is limited by nested size
+            case SegmentWriteBuffer segmentWriteBuffer -> {
+                final MemorySegment segment = segmentWriteBuffer.rawSegment();
+                final long position = segmentWriteBuffer.longPosition();
+                SegmentAccess.setByte(segment, position, (byte) '\n');
+                segment.asSlice(position + 1L, spaces).fill((byte) ' ');
+                segmentWriteBuffer.setPosition(position + 1L + spaces);
             }
         }
     }
@@ -701,7 +888,7 @@ public final class JsonSerializerContext {
         final WriteBuffer w = this.writeBuffer;
         if (arr.length == 0) {
             w.writeBytes((byte) '[', (byte) ']');
-            return;
+            return ;
         }
         w.writeByte((byte) '[');
         for (int i = 0; i < arr.length; i++) {
@@ -947,13 +1134,12 @@ public final class JsonSerializerContext {
 
     public void serializeEscapedString(String str) {
         final WriteBuffer w = writeBuffer;
-        final int len = str.length();
-        if (len == 0) {
+        if (str.isEmpty()) {
             w.writeBytes((byte) '"', (byte) '"');
-            return;
+            return ;
         }
         // expansion factor 6 covers worst-case escape (backslash + u + 4 hex digits), plus two quote
-        w.ensureCapacity(Math.addExact(Math.multiplyExact(len, 6), 2));
+        w.ensureCapacity(Math.addExact(Math.multiplyExact(str.length(), 6), 2));
         switch (w) {
             case HeapWriteBuffer heapWriteBuffer -> serializeEscapedStringToHeap(str, heapWriteBuffer);
             case SegmentWriteBuffer segmentWriteBuffer -> serializeEscapedStringToSegment(str, segmentWriteBuffer);
@@ -1004,15 +1190,35 @@ public final class JsonSerializerContext {
         serializeObjArray(arr, indent, JsonSerializerContext::serializeJsonStrType);
     }
 
+    private void serializeRawUtf8BytesStr(byte[] utf8Bytes) {
+        final WriteBuffer w = this.writeBuffer;
+        w.ensureCapacity(Math.addExact(utf8Bytes.length, 2));
+        switch (w) {
+            case HeapWriteBuffer heapWriteBuffer -> {
+                final byte[] bytes = heapWriteBuffer.rawByteArray();
+                final int position = heapWriteBuffer.intPosition();
+                bytes[position] = (byte) '"';
+                System.arraycopy(utf8Bytes, 0, bytes, position + 1, utf8Bytes.length);
+                bytes[position + utf8Bytes.length + 1] = (byte) '"';
+                heapWriteBuffer.setPosition(position + utf8Bytes.length + 2);
+            }
+            case SegmentWriteBuffer segmentWriteBuffer -> {
+                final MemorySegment segment = segmentWriteBuffer.rawSegment();
+                final long position = segmentWriteBuffer.longPosition();
+                SegmentAccess.setByte(segment, position, (byte) '"');
+                MemorySegment.copy(utf8Bytes, 0, segment, ValueLayout.JAVA_BYTE, position + 1L, utf8Bytes.length);
+                SegmentAccess.setByte(segment, position + utf8Bytes.length + 1L, (byte) '"');
+                segmentWriteBuffer.setPosition(position + utf8Bytes.length + 2L);
+            }
+        }
+    }
+
     public void serializeEnum(Enum<?> enumValue) {
         MarshallInfo inf = Marshalls.enumItemMarshallInfo(enumValue);
         if (inf == null) {
             serializeEscapedString(enumValue.name());
         } else if (inf.mappedNameSimple()) {
-            final WriteBuffer w = this.writeBuffer;
-            w.writeByte((byte) '"');
-            w.writeBytes(inf.mappedNameUtf8Bytes());
-            w.writeByte((byte) '"');
+            serializeRawUtf8BytesStr(inf.mappedNameUtf8Bytes());
         } else {
             serializeEscapedUtf8Bytes(inf.mappedNameUtf8Bytes());
         }
@@ -1034,7 +1240,7 @@ public final class JsonSerializerContext {
     // then check if current type could be override by option
     // enum must be specially treated
     // finally assuming marshallable
-    public static JsonSerializeFunc valueSerializeFunc(JsonSerializerOption option, Class<?> rawType) {
+    public JsonSerializeFunc valueSerializeFunc(Class<?> rawType) {
         if (rawType.isArray()) {
             JsonSerializeFunc builtinSerializeArrFunc = builtinSerializeArrayFunc(rawType);
             if (builtinSerializeArrFunc != null) {
@@ -1052,7 +1258,7 @@ public final class JsonSerializerContext {
                 };
             }
             return (o, _, c) -> {
-                c.set(o);
+                c.setObj(o);
                 return JsonSerializeResult.NewArray;
             };
         }
@@ -1071,7 +1277,7 @@ public final class JsonSerializerContext {
             };
         }
         return (o, _, c) -> {
-            c.set(o);
+            c.setObj(o);
             return JsonSerializeResult.NewMarshallable;
         };
     }

@@ -248,6 +248,7 @@ public final class SegmentWriteBuffer implements WriteBuffer {
         return seg.asSlice(0L, position).toArray(ValueLayout.JAVA_BYTE);
     }
 
+    @Override
     public void reset() {
         position = 0L;
     }

@@ -1,6 +1,9 @@
 package io.jingproject.marshalljsontest;
 
+import io.jingproject.common.HeapReadBuffer;
 import io.jingproject.common.WriteBuffer;
+import io.jingproject.marshalljson.JsonDeserializer;
+import io.jingproject.marshalljson.JsonDeserializerOption;
 import io.jingproject.marshalljson.JsonSerializer;
 import io.jingproject.marshalljson.JsonSerializerOption;
 import io.jingproject.marshalljsontest.twi.Twi;
@@ -46,6 +49,11 @@ public final class TwiUtil {
     public static Twi deserializeTwiUsingJackson(String json) {
         JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
         return jsonMapper.readValue(json, Twi.class);
+    }
+
+    public static Twi deserializeTwi(String json) {
+        JsonDeserializer jsonDeserializer = new JsonDeserializer(JsonDeserializerOption.defaultOption());
+        return jsonDeserializer.deserializeMarshallableObject(Twi.class, new HeapReadBuffer(json.getBytes(StandardCharsets.UTF_8)));
     }
 
     public static void serializeTwiUsingJackson(Twi twi, OutputStream outputStream) {

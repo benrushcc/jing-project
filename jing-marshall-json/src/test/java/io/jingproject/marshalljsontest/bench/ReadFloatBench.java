@@ -229,7 +229,7 @@ public class ReadFloatBench {
             byte[] bytes = floatBytes.get(index);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte firstByte = heapReadBuffer.readByte();
-            FpStrRep rep = JsonNumberUtil.parseFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte);
+            FpStrRep rep = JsonNumberUtil.readFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte);
             blackhole.consume(rep);
         }
     }
@@ -241,7 +241,7 @@ public class ReadFloatBench {
             MemorySegment segment = floatSegments.get(index);
             SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
             byte firstByte = segmentReadBuffer.readByte();
-            FpStrRep rep = JsonNumberUtil.parseFpStrRep(segmentReadBuffer, MAX_FP_SIZE, firstByte);
+            FpStrRep rep = JsonNumberUtil.readFpStrRep(segmentReadBuffer, MAX_FP_SIZE, firstByte);
             blackhole.consume(rep);
         }
     }
@@ -253,7 +253,7 @@ public class ReadFloatBench {
             byte[] bytes = doubleBytes.get(index);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte firstByte = heapReadBuffer.readByte();
-            FpStrRep rep = JsonNumberUtil.parseFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte);
+            FpStrRep rep = JsonNumberUtil.readFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte);
             blackhole.consume(rep);
         }
     }
@@ -265,7 +265,7 @@ public class ReadFloatBench {
             MemorySegment segment = doubleSegments.get(index);
             SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
             byte firstByte = segmentReadBuffer.readByte();
-            FpStrRep rep = JsonNumberUtil.parseFpStrRep(segmentReadBuffer, MAX_FP_SIZE, firstByte);
+            FpStrRep rep = JsonNumberUtil.readFpStrRep(segmentReadBuffer, MAX_FP_SIZE, firstByte);
             blackhole.consume(rep);
         }
     }

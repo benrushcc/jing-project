@@ -14,21 +14,25 @@ import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(value = Mode.AverageTime)
 @Warmup(iterations = 3, time = 3000, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 5, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 3, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(3)
+@Fork(1)
 public class BoolSerializationBench {
+    private static final int BATCH = 1000;
     private static final int SIZE = 16000;
+    private final List<Boolean> boolList = createBoolList();
     private final Map<String, Boolean> boolMap = createBoolMap();
-    private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
+    private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
     private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);
     private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
@@ -39,26 +43,49 @@ public class BoolSerializationBench {
         new Runner(opt).run();
     }
 
+    private List<Boolean> createBoolList() {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        List<Boolean> list = new ArrayList<>(BATCH);
+        for (int i = 0; i < BATCH; i++) {
+            list.add(random.nextBoolean());
+        }
+        return list;
+    }
+
     private Map<String, Boolean> createBoolMap() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         Map<String, Boolean> map = new HashMap<>();
-        for (int i = 0; i < 1000; i++) {
-            map.put(i + "", random.nextInt(2) == 0);
+        for (int i = 0; i < BATCH; i++) {
+            map.put(i + "", random.nextBoolean());
         }
-        return Map.copyOf(map);
+        return map;
     }
 
     @Benchmark
-    public void jacksonSerialization(Blackhole blackhole) {
+    public void jacksonBoolMapSerialization(Blackhole blackhole) {
         jsonMapper.writeValue(outputStream, boolMap);
         blackhole.consume(outputStream.size());
         outputStream.reset();
     }
 
     @Benchmark
-    public void jingSerialization(Blackhole blackhole) {
+    public void jacksonBoolListSerialization(Blackhole blackhole) {
+        jsonMapper.writeValue(outputStream, boolList);
+        blackhole.consume(outputStream.size());
+        outputStream.reset();
+    }
+
+    @Benchmark
+    public void jingBoolListSerialization(Blackhole blackhole) {
+        jsonDefaultSerializer.serializeCollection(boolList, Boolean.class, writeBuffer);
+        blackhole.consume(writeBuffer.intPosition());
+        writeBuffer.reset();
+    }
+
+    @Benchmark
+    public void jingBoolMapSerialization(Blackhole blackhole) {
         jsonDefaultSerializer.serializeMap(boolMap, String.class, Boolean.class, writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
-        writeBuffer.setPosition(0);
+        writeBuffer.reset();
     }
 }

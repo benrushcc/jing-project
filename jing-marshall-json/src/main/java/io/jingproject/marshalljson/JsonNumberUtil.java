@@ -170,10 +170,6 @@ public final class JsonNumberUtil {
         return r;
     }
 
-    public static boolean validateNumberStart(byte firstByte) {
-        return firstByte == (byte) '-' || (firstByte >= (byte) '0' && firstByte <= (byte) '9');
-    }
-
     private static int digitCount(int n) {
         int leadingZeros = Integer.numberOfLeadingZeros(n);
         int count = LEN_TABLE[leadingZeros + Long.SIZE - Integer.SIZE];
@@ -824,21 +820,20 @@ public final class JsonNumberUtil {
         return positive ? -r : r;
     }
 
-    // Parses a string-format floating-point number into a specific format.
-    // Enforces strict format validation; patterns like ".123E0123" are rejected,
+    // read a string-format floating-point number into a specific format.
+    // enforces strict format validation; patterns like ".123E0123" are rejected,
     // although they are acceptable by the JDK parser.
-    public static FpStrRep parseFpStrRep(ReadBuffer readBuffer, int maxNumberBytes, byte firstByte) {
+    public static FpStrRep readFpStrRep(ReadBuffer readBuffer, int maxNumberBytes, byte firstByte) {
         return switch (readBuffer) {
-            case HeapReadBuffer heapReadBuffer -> parseFpStrRepFromHeap(heapReadBuffer, maxNumberBytes, firstByte);
-            case SegmentReadBuffer segmentReadBuffer ->
-                    parseFpStrRepFromSegment(segmentReadBuffer, maxNumberBytes, firstByte);
+            case HeapReadBuffer heapReadBuffer -> readFpStrRepFromHeap(heapReadBuffer, maxNumberBytes, firstByte);
+            case SegmentReadBuffer segmentReadBuffer -> readFpStrRepFromSegment(segmentReadBuffer, maxNumberBytes, firstByte);
         };
     }
 
-    public static FpStrRep parseFpStrRepFromHeap(HeapReadBuffer heapReadBuffer, int maxNumberBytes, byte firstByte) {
+    public static FpStrRep readFpStrRepFromHeap(HeapReadBuffer heapReadBuffer, int maxNumberBytes, byte firstByte) {
         final byte[] bytes = heapReadBuffer.rawByteArray();
         final int position = heapReadBuffer.intPosition();
-        final int end = position + Math.min(bytes.length - position, maxNumberBytes - 1); // no overflow
+        final int end = position + Math.min(bytes.length - position, maxNumberBytes - 1); // excluding first byte, no overflow
         int index = position;
         boolean neg = false;
         boolean negExp = false;
@@ -945,13 +940,14 @@ public final class JsonNumberUtil {
             }
         }
         p = (negExp ? -p : p) - frac;
-        return new FpStrRep(neg, trunc, d, p, index - position);
+        heapReadBuffer.setPosition(index);
+        return new FpStrRep(neg, trunc, d, p, index - position + 1);
     }
 
-    public static FpStrRep parseFpStrRepFromSegment(SegmentReadBuffer segmentReadBuffer, int maxNumberBytes, byte firstByte) {
+    public static FpStrRep readFpStrRepFromSegment(SegmentReadBuffer segmentReadBuffer, int maxNumberBytes, byte firstByte) {
         final MemorySegment segment = segmentReadBuffer.rawSegment();
         final long position = segmentReadBuffer.longPosition();
-        final long end = Math.addExact(position, Math.min(segment.byteSize() - position, maxNumberBytes - 1)); // no overflow
+        final long end = Math.addExact(position, Math.min(segment.byteSize() - position, maxNumberBytes - 1)); // excluding first byte, no overflow
         long index = position;
         boolean neg = false;
         boolean negExp = false;
@@ -1058,15 +1054,13 @@ public final class JsonNumberUtil {
             }
         }
         p = (negExp ? -p : p) - frac;
-        return new FpStrRep(neg, trunc, d, p, Math.toIntExact(index - position));
+        segmentReadBuffer.setPosition(index);
+        return new FpStrRep(neg, trunc, d, p, Math.toIntExact(index - position + 1L));
     }
 
     public static float readFloat(ReadBuffer readBuffer, int maxNumberBytes, byte firstByte) {
-        FpStrRep rep = parseFpStrRep(readBuffer, maxNumberBytes, firstByte);
-        float r = parseFloat(readBuffer, rep);
-        int position = readBuffer.intPosition();
-        readBuffer.setPosition(position + rep.len());
-        return r;
+        FpStrRep rep = readFpStrRep(readBuffer, maxNumberBytes, firstByte);
+        return parseFloat(readBuffer, rep);
     }
 
     public static float parseFloat(ReadBuffer readBuffer, FpStrRep rep) {
@@ -1131,25 +1125,21 @@ public final class JsonNumberUtil {
             case HeapReadBuffer heapReadBuffer -> {
                 byte[] bytes = heapReadBuffer.rawByteArray();
                 int position = heapReadBuffer.intPosition();
-                String s = new String(bytes, position - 1, len + 1, StandardCharsets.US_ASCII);
-                return Float.parseFloat(s);
+                return Float.parseFloat(new String(bytes, position - len, len, StandardCharsets.US_ASCII));
             }
             case SegmentReadBuffer segmentReadBuffer -> {
                 MemorySegment segment = segmentReadBuffer.rawSegment();
                 long position = segmentReadBuffer.longPosition();
-                byte[] bytes = segment.asSlice(position - 1L, len + 1L).toArray(ValueLayout.JAVA_BYTE);
-                String s = new String(bytes, StandardCharsets.US_ASCII);
-                return Float.parseFloat(s);
+                byte[] bytes = new byte[len];
+                MemorySegment.copy(segment, ValueLayout.JAVA_BYTE, position - len, bytes, 0, len);
+                return Float.parseFloat(new String(bytes, StandardCharsets.US_ASCII));
             }
         }
     }
 
     public static double readDouble(ReadBuffer readBuffer, int numberMaxBytes, byte firstByte) {
-        FpStrRep rep = parseFpStrRep(readBuffer, numberMaxBytes, firstByte);
-        double r = parseDouble(readBuffer, rep);
-        int position = readBuffer.intPosition();
-        readBuffer.setPosition(position + rep.len());
-        return r;
+        FpStrRep rep = readFpStrRep(readBuffer, numberMaxBytes, firstByte);
+        return parseDouble(readBuffer, rep);
     }
 
     public static double parseDouble(ReadBuffer readBuffer, FpStrRep rep) {
@@ -1214,15 +1204,14 @@ public final class JsonNumberUtil {
             case HeapReadBuffer heapReadBuffer -> {
                 byte[] bytes = heapReadBuffer.rawByteArray();
                 int position = heapReadBuffer.intPosition();
-                String s = new String(bytes, position - 1, len + 1, StandardCharsets.US_ASCII);
-                return Double.parseDouble(s);
+                return Double.parseDouble(new String(bytes, position - len, len, StandardCharsets.US_ASCII));
             }
             case SegmentReadBuffer segmentReadBuffer -> {
                 MemorySegment segment = segmentReadBuffer.rawSegment();
-                long postion = segmentReadBuffer.longPosition();
-                byte[] bytes = segment.asSlice(postion - 1L, len + 1L).toArray(ValueLayout.JAVA_BYTE);
-                String s = new String(bytes, StandardCharsets.US_ASCII);
-                return Double.parseDouble(s);
+                long position = segmentReadBuffer.longPosition();
+                byte[] bytes = new byte[len];
+                MemorySegment.copy(segment, ValueLayout.JAVA_BYTE, position - len, bytes, 0, len);
+                return Double.parseDouble(new String(bytes, StandardCharsets.US_ASCII));
             }
         }
     }

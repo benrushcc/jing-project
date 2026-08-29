@@ -235,7 +235,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                 }
             }
         }
-        // guard against jvm's current 65535 field limits
+        // guard against jvm's current 65535 fields limitation
         if (fieldInfos.size() > 65535) {
             throw new AnnotationProcessorException("too many fields : " + fieldInfos.size());
         }

@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 @Fork(3)
 public class RecursiveSerializationBench {
     private static final int BUFFER_SIZE = 65535;
-    private static final RecursiveEntity r = RecursiveEntity.createRecursiveEntity(10);
+    private static final RecursiveEntity r = RecursiveEntity.createRecursiveEntity(8);
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
     private final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream(BUFFER_SIZE);

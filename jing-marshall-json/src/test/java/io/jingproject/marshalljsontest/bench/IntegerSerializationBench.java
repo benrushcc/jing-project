@@ -34,12 +34,12 @@ import java.util.concurrent.TimeUnit;
 public class IntegerSerializationBench {
     private static final int BATCH = 64;
     private static final int BUFFER_SIZE = BATCH * 32;
-    private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
+    private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
     private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(BUFFER_SIZE);
     private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(BUFFER_SIZE);
-    private Random random;
-    private List<IntEntity> entities;
+    private final Random random = ThreadLocalRandom.current();
+    private final List<IntEntity> entities = new ArrayList<>(BATCH);
 
     static void main() throws RunnerException {
         Options opt = new OptionsBuilder().include(IntegerSerializationBench.class.getSimpleName())
@@ -49,8 +49,7 @@ public class IntegerSerializationBench {
 
     @Setup(Level.Iteration)
     public void setup() {
-        random = ThreadLocalRandom.current();
-        entities = new ArrayList<>(BATCH);
+        entities.clear();
         for (int i = 0; i < BATCH; i++) {
             IntEntity entity = new IntEntity();
             entity.setByteValue((byte) random.nextInt(Byte.MIN_VALUE, Byte.MAX_VALUE + 1));
@@ -59,12 +58,6 @@ public class IntegerSerializationBench {
             entity.setLongValue(random.nextLong());
             entities.add(entity);
         }
-    }
-
-    @TearDown(Level.Iteration)
-    public void tearDown() {
-        random = null;
-        entities = null;
     }
 
     @Benchmark

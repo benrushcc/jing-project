@@ -1,10 +1,6 @@
 package io.jingproject.marshalljson;
 
 public enum JsonDeserializeResult {
-    Start,
-
-    Trivial,
-
     Continue,
 
     Finish,
@@ -19,9 +15,5 @@ public enum JsonDeserializeResult {
 
     NewDummyObj,
 
-    NewDummyCol;
-
-    public boolean isNested() {
-        return ordinal() > Finish.ordinal();
-    }
+    NewDummyCol
 }

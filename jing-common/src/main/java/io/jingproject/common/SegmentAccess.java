@@ -78,12 +78,10 @@ public final class SegmentAccess {
     }
 
     public static byte getByte(MemorySegment segment, long offset) {
-
         return segment.get(ValueLayout.JAVA_BYTE, offset);
     }
 
     public static void setByte(MemorySegment segment, long offset, byte b) {
-
         segment.set(ValueLayout.JAVA_BYTE, offset, b);
     }
 
@@ -92,7 +90,6 @@ public final class SegmentAccess {
     }
 
     public static short getShort(MemorySegment segment, long offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(SHORT_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(SHORT_UNALIGNED_BE, offset);
@@ -104,7 +101,6 @@ public final class SegmentAccess {
     }
 
     public static void setShort(MemorySegment segment, long offset, short s, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(SHORT_UNALIGNED_LE, offset, s);
             case BIG_ENDIAN -> segment.set(SHORT_UNALIGNED_BE, offset, s);
@@ -116,7 +112,6 @@ public final class SegmentAccess {
     }
 
     public static char getChar(MemorySegment segment, long offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(CHAR_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(CHAR_UNALIGNED_BE, offset);
@@ -128,7 +123,6 @@ public final class SegmentAccess {
     }
 
     public static void setChar(MemorySegment segment, long offset, char value, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(CHAR_UNALIGNED_LE, offset, value);
             case BIG_ENDIAN -> segment.set(CHAR_UNALIGNED_BE, offset, value);
@@ -140,7 +134,6 @@ public final class SegmentAccess {
     }
 
     public static int getInt(MemorySegment segment, long offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(INT_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(INT_UNALIGNED_BE, offset);
@@ -152,7 +145,6 @@ public final class SegmentAccess {
     }
 
     public static void setInt(MemorySegment segment, long offset, int value, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(INT_UNALIGNED_LE, offset, value);
             case BIG_ENDIAN -> segment.set(INT_UNALIGNED_BE, offset, value);
@@ -164,7 +156,6 @@ public final class SegmentAccess {
     }
 
     public static long getLong(MemorySegment segment, long offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(LONG_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(LONG_UNALIGNED_BE, offset);
@@ -176,7 +167,6 @@ public final class SegmentAccess {
     }
 
     public static void setLong(MemorySegment segment, long offset, long value, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(LONG_UNALIGNED_LE, offset, value);
             case BIG_ENDIAN -> segment.set(LONG_UNALIGNED_BE, offset, value);
@@ -188,7 +178,6 @@ public final class SegmentAccess {
     }
 
     public static float getFloat(MemorySegment segment, long offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(FLOAT_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(FLOAT_UNALIGNED_BE, offset);
@@ -200,7 +189,6 @@ public final class SegmentAccess {
     }
 
     public static void setFloat(MemorySegment segment, long offset, float value, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(FLOAT_UNALIGNED_LE, offset, value);
             case BIG_ENDIAN -> segment.set(FLOAT_UNALIGNED_BE, offset, value);
@@ -212,7 +200,6 @@ public final class SegmentAccess {
     }
 
     public static double getDouble(MemorySegment segment, long offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(DOUBLE_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(DOUBLE_UNALIGNED_BE, offset);
@@ -224,7 +211,6 @@ public final class SegmentAccess {
     }
 
     public static void setDouble(MemorySegment segment, long offset, double value, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(DOUBLE_UNALIGNED_LE, offset, value);
             case BIG_ENDIAN -> segment.set(DOUBLE_UNALIGNED_BE, offset, value);
@@ -236,7 +222,6 @@ public final class SegmentAccess {
     }
 
     public static MemorySegment getAddress(MemorySegment segment, long offset, ByteOrder byteOrder) {
-
         return switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.get(ADDRESS_UNALIGNED_LE, offset);
             case BIG_ENDIAN -> segment.get(ADDRESS_UNALIGNED_BE, offset);
@@ -248,7 +233,6 @@ public final class SegmentAccess {
     }
 
     public static void setAddress(MemorySegment segment, long offset, MemorySegment address, ByteOrder byteOrder) {
-
         switch (byteOrder) {
             case LITTLE_ENDIAN -> segment.set(ADDRESS_UNALIGNED_LE, offset, address);
             case BIG_ENDIAN -> segment.set(ADDRESS_UNALIGNED_BE, offset, address);
