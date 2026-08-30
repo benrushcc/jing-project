@@ -1,5 +1,6 @@
 package io.jingproject.marshalljson;
 
+import io.jingproject.common.ReadBuffer;
 import io.jingproject.marshall.MarshallFacade;
 import io.jingproject.marshall.MarshallInfo;
 import io.jingproject.marshall.MarshallUtil;
@@ -323,7 +324,7 @@ public final class JsonDeserializerNode {
                 wr.setObject(c.marshallIndex(contextIndex), lastValue);
             }
         }
-        byte b = c.nextValuableByte(hasValue);
+        byte b = c.nextValuableByte();
         if(b == (byte) '}') {
             if(matchedIndex != total) {
                 throw new JsonDeserializerException("missing field : " + c.filter(contextIndex, fc));
@@ -332,11 +333,9 @@ public final class JsonDeserializerNode {
             c.setObj(fc.construct(wr));
             return JsonDeserializeResult.Finish;
         }
-        if(hasValue && b != (byte) ',') {
-            throw new JsonDeserializerException("illegal separator, got : " + b);
-        }
+        alignSep(hasValue, b, c);
         for( ; ; ) {
-            b = c.nextValuableByte(true);
+            b = c.nextValuableByte();
             MarshallInfo inf = c.deserializeMarshallInfo(fc, b);
             if(inf == null) {
                 if(++dummyIndex > maxDummyElements) {
@@ -344,7 +343,7 @@ public final class JsonDeserializerNode {
                 }
                 b = c.skipColon();
                 if(c.skipAnyValue(b)) {
-                    b = c.nextValuableByte(true);
+                    b = c.nextValuableByte();
                     if(b == (byte) '}') {
                         if(matchedIndex != total) {
                             throw new JsonDeserializerException("missing field : " + c.filter(contextIndex, fc));
@@ -393,7 +392,7 @@ public final class JsonDeserializerNode {
                     return r;
                 }
             }
-            b = c.nextValuableByte(true);
+            b = c.nextValuableByte();
             if(b == (byte) '}') {
                 if(matchedIndex != total) {
                     throw new JsonDeserializerException("missing field : " + c.filter(contextIndex, fc));
@@ -427,7 +426,7 @@ public final class JsonDeserializerNode {
                 buf[i++] = lastValue;
             }
         }
-        byte b = c.nextValuableByte(hasValue);
+        byte b = c.nextValuableByte();
         if(b == (byte) ']') {
             Object arr = Array.newInstance(componentType, i);
             //noinspection SuspiciousSystemArraycopy
@@ -435,11 +434,9 @@ public final class JsonDeserializerNode {
             c.setObj(arr);
             return JsonDeserializeResult.Finish;
         }
-        if(hasValue && b != (byte) ',') {
-            throw new JsonDeserializerException("illegal separator, got : " + b);
-        }
+        alignSep(hasValue, b, c);
         for( ; ; ) {
-            b = c.nextValuableByte(true);
+            b = c.nextValuableByte();
             JsonDeserializeResult r = func.deserialize(b, c);
             if (r == JsonDeserializeResult.Continue) {
                 if(i == maxArrayElements) {
@@ -449,7 +446,7 @@ public final class JsonDeserializerNode {
                     buf = Arrays.copyOf(buf, Math.addExact(buf.length, buf.length));
                 }
                 buf[i++] = c.obj();
-                b = c.nextValuableByte(true);
+                b = c.nextValuableByte();
                 if(b == (byte) ']') {
                     Object arr = Array.newInstance(componentType, i);
                     //noinspection SuspiciousSystemArraycopy
@@ -481,23 +478,21 @@ public final class JsonDeserializerNode {
                 col.add(lastValue);
             }
         }
-        byte b = c.nextValuableByte(hasValue);
+        byte b = c.nextValuableByte();
         if(b == (byte) ']') {
             c.setObj(col);
             return JsonDeserializeResult.Finish;
         }
-        if(hasValue && b != (byte) ',') {
-            throw new JsonDeserializerException("illegal separator, got : " + b);
-        }
+        alignSep(hasValue, b, c);
         for( ; ; ) {
-            b = c.nextValuableByte(true);
+            b = c.nextValuableByte();
             JsonDeserializeResult r = func.deserialize(b, c);
             if (r == JsonDeserializeResult.Continue) {
                 if(col.size() == maxArrayElements) {
                     throw new JsonDeserializerException("too many array elements : " + maxArrayElements);
                 }
                 col.add(c.obj());
-                b = c.nextValuableByte(true);
+                b = c.nextValuableByte();
                 if(b == (byte) ']') {
                     c.setObj(col);
                     return JsonDeserializeResult.Finish;
@@ -524,16 +519,14 @@ public final class JsonDeserializerNode {
                 map.put(secondVal, lastValue);
             }
         }
-        byte b = c.nextValuableByte(hasValue);
+        byte b = c.nextValuableByte();
         if(b == (byte) '}') {
             c.setObj(map);
             return JsonDeserializeResult.Finish;
         }
-        if(hasValue && b != (byte) ',') {
-            throw new JsonDeserializerException("illegal separator, got : " + b);
-        }
+        alignSep(hasValue, b, c);
         for( ; ; ) {
-            String k = c.deserializeString(c.nextValuableByte(true));
+            String k = c.deserializeString(c.nextValuableByte());
             b = c.skipColon();
             if(b == (byte) 'n') {
                 throw new JsonDeserializerException("map value can't be null");
@@ -544,7 +537,7 @@ public final class JsonDeserializerNode {
                     throw new JsonDeserializerException("too many map elements : " + maxMapElements);
                 }
                 map.put(k, c.obj());
-                b = c.nextValuableByte(true);
+                b = c.nextValuableByte();
                 if(b == (byte) '}') {
                     c.setObj(map);
                     return JsonDeserializeResult.Finish;
@@ -567,16 +560,14 @@ public final class JsonDeserializerNode {
                 throw new JsonDeserializerException("too many dummy elements : " + maxDummyElements);
             }
         }
-        byte b = c.nextValuableByte(hasValue);
+        byte b = c.nextValuableByte();
         if(b == (byte) '}') {
             c.setObj(null);
             return JsonDeserializeResult.Finish;
         }
-        if(hasValue && b != (byte) ',') {
-            throw new JsonDeserializerException("illegal separator, got : " + b);
-        }
+        alignSep(hasValue, b, c);
         while (i < maxDummyElements) {
-            b = c.nextValuableByte(true);
+            b = c.nextValuableByte();
             if (b != (byte) '"') {
                 throw new JsonDeserializerException("illegal key start, got : " + b);
             }
@@ -605,16 +596,14 @@ public final class JsonDeserializerNode {
                 throw new JsonDeserializerException("too many dummy elements : " + maxDummyArrayElements);
             }
         }
-        byte b = c.nextValuableByte(hasValue);
+        byte b = c.nextValuableByte();
         if(b == (byte) ']') {
             c.setObj(null);
             return JsonDeserializeResult.Finish;
         }
-        if(hasValue && b != (byte) ',') {
-            throw new JsonDeserializerException("illegal separator, got : " + b);
-        }
+        alignSep(hasValue, b, c);
         while (i < maxDummyArrayElements) {
-            b = c.nextValuableByte(true);
+            b = c.nextValuableByte();
             if (c.skipAnyValue(b)) {
                 i++;
             } else if (b == (byte) '{') {
@@ -628,6 +617,17 @@ public final class JsonDeserializerNode {
             }
         }
         throw new JsonDeserializerException("too many elements in dummy array");
+    }
+
+    private static void alignSep(boolean hasValue, byte b, JsonDeserializerContext c) {
+        if(hasValue) {
+            if(b != (byte) ',') {
+                throw new JsonDeserializerException("illegal separator, got : " + b);
+            }
+        } else {
+            ReadBuffer readBuffer = c.readBuffer();
+            readBuffer.setPosition(readBuffer.intPosition() - 1);
+        }
     }
 
     private static void deserializePritimiveValue(byte b, MarshallWriter wr, int marshallIndex,

@@ -5,7 +5,6 @@ import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
-import java.util.Objects;
 
 public final class SegmentWriteBuffer implements WriteBuffer {
     static {

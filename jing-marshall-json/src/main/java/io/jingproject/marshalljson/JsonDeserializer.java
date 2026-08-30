@@ -20,56 +20,56 @@ public final class JsonDeserializer {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        return context.deserializeByteArray(context.nextValuableByte(true));
+        return context.deserializeByteArray(context.nextValuableByte());
     }
 
     public boolean[] deserializeBooleanArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        return context.deserializeBooleanArray(context.nextValuableByte(true));
+        return context.deserializeBooleanArray(context.nextValuableByte());
     }
 
     public short[] deserializeShortArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        return context.deserializeShortArray(context.nextValuableByte(true));
+        return context.deserializeShortArray(context.nextValuableByte());
     }
 
     public char[] deserializeCharArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        return context.deserializeCharArray(context.nextValuableByte(true));
+        return context.deserializeCharArray(context.nextValuableByte());
     }
 
     public int[] deserializeIntArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        return context.deserializeIntArray(context.nextValuableByte(true));
+        return context.deserializeIntArray(context.nextValuableByte());
     }
 
     public long[] deserializeLongArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        return context.deserializeLongArray(context.nextValuableByte(true));
+        return context.deserializeLongArray(context.nextValuableByte());
     }
 
     public float[] deserializeFloatArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        return context.deserializeFloatArray(context.nextValuableByte(true));
+        return context.deserializeFloatArray(context.nextValuableByte());
     }
 
     public double[] deserializeDoubleArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Utf8Validator.validate(readBuffer);
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        return context.deserializeDoubleArray(context.nextValuableByte(true));
+        return context.deserializeDoubleArray(context.nextValuableByte());
     }
 
     @SuppressWarnings("unchecked")
@@ -85,7 +85,7 @@ public final class JsonDeserializer {
             throw new JsonDeserializerException("type not marshallable : " + marshallableType.getName());
         }
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        JsonDeserializerContext.checkObjStart(context.nextValuableByte(true));
+        JsonDeserializerContext.checkObjStart(context.nextValuableByte());
         JsonDeserializerNode root = new JsonDeserializerNode();
         root.initObj(fc, context);
         return (T) process(root, context);
@@ -106,7 +106,7 @@ public final class JsonDeserializer {
             throw new JsonDeserializerException("generic component type not supported : " + componentType.getName());
         }
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        byte firstByte = context.nextValuableByte(true);
+        byte firstByte = context.nextValuableByte();
         JsonDeserializeFunc builtinDeserializeArrayFunc = JsonDeserializerContext.builtinDeserializeArrayFunc(componentType.arrayType());
         if(builtinDeserializeArrayFunc != null) {
             JsonDeserializeResult _ = builtinDeserializeArrayFunc.deserialize(firstByte, context);
@@ -136,7 +136,7 @@ public final class JsonDeserializer {
         }
         Collection<T> col = Objects.requireNonNull(supplier.get(), "supplied collection must not be null");
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        JsonDeserializerContext.checkArrayStart(context.nextValuableByte(true));
+        JsonDeserializerContext.checkArrayStart(context.nextValuableByte());
         JsonDeserializeFunc func = context.valueDeserializeFunc(elementType);
         JsonDeserializerNode root = new JsonDeserializerNode();
         root.initCol(col, func);
@@ -160,19 +160,19 @@ public final class JsonDeserializer {
         }
         Map<K, V> map = Objects.requireNonNull(supplier.get(), "supplied map must not be null");
         JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
-        JsonDeserializerContext.checkObjStart(context.nextValuableByte(true));
+        JsonDeserializerContext.checkObjStart(context.nextValuableByte());
         JsonDeserializeFunc func = context.valueDeserializeFunc(valueType);
         JsonDeserializerNode root = new JsonDeserializerNode();
         root.initMap(map, func);
         return (Map<K, V>) process(root, context);
     }
 
-    private static Object process(JsonDeserializerNode root, JsonDeserializerContext context) {
+    private Object process(JsonDeserializerNode root, JsonDeserializerContext context) {
         JsonDeserializerNode probed = nextNode(root, null, false, context);
         if(probed == null) {
             return context.obj();
         }
-        final int maxNestedSize = context.option().maxNestedSize();
+        final int maxNestedSize = option.maxNestedSize();
         boolean hasValue = false;
         JsonDeserializerNode[] nodes = new JsonDeserializerNode[INITIAL_SIZE];
         nodes[0] = root;

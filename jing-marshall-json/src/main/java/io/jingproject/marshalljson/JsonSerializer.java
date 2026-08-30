@@ -157,12 +157,12 @@ public final class JsonSerializer {
         process(root, context);
     }
 
-    private static void process(JsonSerializerNode root, JsonSerializerContext context) {
+    private void process(JsonSerializerNode root, JsonSerializerContext context) {
         JsonSerializerNode probed = nextNode(root, null, context);
         if(probed == null) {
             return ;
         }
-        final int maxNestedSize = context.option().maxNestedSize();
+        final int maxNestedSize = option.maxNestedSize();
         JsonSerializerNode[] nodes = new JsonSerializerNode[INITIAL_SIZE];
         nodes[0] = root;
         nodes[1] = probed;

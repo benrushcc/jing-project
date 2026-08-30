@@ -16,7 +16,6 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.IntFunction;
 
 public final class JsonDeserializerContext {
@@ -305,6 +304,10 @@ public final class JsonDeserializerContext {
         return option;
     }
 
+    public ReadBuffer readBuffer() {
+        return readBuffer;
+    }
+
     public Object obj() {
         return obj;
     }
@@ -405,26 +408,26 @@ public final class JsonDeserializerContext {
         throw new JsonDeserializerException("valuable byte not found");
     }
 
-    private byte nextValuableByteFromHeap(HeapReadBuffer heapReadBuffer, boolean consume) {
+    private byte nextValuableByteFromHeap(HeapReadBuffer heapReadBuffer) {
         final byte[] bytes = heapReadBuffer.rawByteArray();
         final int position = heapReadBuffer.intPosition();
         final int nextPosition = nextValuableByte(bytes, position, option.maxEmptyBytes());
-        heapReadBuffer.setPosition(consume ? nextPosition + 1: nextPosition);
+        heapReadBuffer.setPosition(nextPosition + 1);
         return bytes[nextPosition];
     }
 
-    private byte nextValuableByteFromSegment(SegmentReadBuffer segmentReadBuffer, boolean consume) {
+    private byte nextValuableByteFromSegment(SegmentReadBuffer segmentReadBuffer) {
         final MemorySegment segment = segmentReadBuffer.rawSegment();
         final long position = segmentReadBuffer.longPosition();
         final long nextPosition = nextValuableByte(segment, position, option.maxEmptyBytes());
-        segmentReadBuffer.setPosition(consume ? nextPosition + 1L : nextPosition);
+        segmentReadBuffer.setPosition(nextPosition + 1L);
         return SegmentAccess.getByte(segment, nextPosition);
     }
 
-    public byte nextValuableByte(boolean consume) {
+    public byte nextValuableByte() {
         return switch (readBuffer) {
-            case HeapReadBuffer heapReadBuffer -> nextValuableByteFromHeap(heapReadBuffer, consume);
-            case SegmentReadBuffer segmentReadBuffer -> nextValuableByteFromSegment(segmentReadBuffer, consume);
+            case HeapReadBuffer heapReadBuffer -> nextValuableByteFromHeap(heapReadBuffer);
+            case SegmentReadBuffer segmentReadBuffer -> nextValuableByteFromSegment(segmentReadBuffer);
         };
     }
 
@@ -668,7 +671,7 @@ public final class JsonDeserializerContext {
     }
 
     public byte[] deserializeByteArrayFromHeap(HeapReadBuffer heapReadBuffer) {
-        byte b = nextValuableByteFromHeap(heapReadBuffer, true);
+        byte b = nextValuableByteFromHeap(heapReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyByteArray();
         }
@@ -683,12 +686,12 @@ public final class JsonDeserializerContext {
             }
             buf[idx] = v;
             idx = newIdx;
-            b = nextValuableByteFromHeap(heapReadBuffer, true);
+            b = nextValuableByteFromHeap(heapReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 return Arrays.copyOfRange(buf, index, idx);
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromHeap(heapReadBuffer, true);
+                b = nextValuableByteFromHeap(heapReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -697,7 +700,7 @@ public final class JsonDeserializerContext {
     }
 
     public byte[] deserializeByteArrayFromSegment(SegmentReadBuffer segmentReadBuffer) {
-        byte b = nextValuableByteFromSegment(segmentReadBuffer, true);
+        byte b = nextValuableByteFromSegment(segmentReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyByteArray();
         }
@@ -712,12 +715,12 @@ public final class JsonDeserializerContext {
             }
             buf[idx] = v;
             idx = newIdx;
-            b = nextValuableByteFromSegment(segmentReadBuffer, true);
+            b = nextValuableByteFromSegment(segmentReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 return Arrays.copyOfRange(buf, index, idx);
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromSegment(segmentReadBuffer, true);
+                b = nextValuableByteFromSegment(segmentReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -734,7 +737,7 @@ public final class JsonDeserializerContext {
     }
 
     private boolean[] deserializeBooleanArrayFromHeap(HeapReadBuffer heapReadBuffer) {
-        byte b = nextValuableByteFromHeap(heapReadBuffer, true);
+        byte b = nextValuableByteFromHeap(heapReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyBooleanArray();
         }
@@ -750,7 +753,7 @@ public final class JsonDeserializerContext {
             }
             buf[idx] = v ? Byte.MAX_VALUE : Byte.MIN_VALUE;
             idx = newIdx;
-            b = nextValuableByteFromHeap(heapReadBuffer, true);
+            b = nextValuableByteFromHeap(heapReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = idx - index;
@@ -760,7 +763,7 @@ public final class JsonDeserializerContext {
                 }
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromHeap(heapReadBuffer, true);
+                b = nextValuableByteFromHeap(heapReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -769,7 +772,7 @@ public final class JsonDeserializerContext {
     }
 
     private boolean[] deserializeBooleanArrayFromSegment(SegmentReadBuffer segmentReadBuffer) {
-        byte b = nextValuableByteFromSegment(segmentReadBuffer, true);
+        byte b = nextValuableByteFromSegment(segmentReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyBooleanArray();
         }
@@ -785,7 +788,7 @@ public final class JsonDeserializerContext {
             }
             buf[idx] = v ? Byte.MAX_VALUE : Byte.MIN_VALUE;
             idx = newIdx;
-            b = nextValuableByteFromSegment(segmentReadBuffer, true);
+            b = nextValuableByteFromSegment(segmentReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = idx - index;
@@ -795,7 +798,7 @@ public final class JsonDeserializerContext {
                 }
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromSegment(segmentReadBuffer, true);
+                b = nextValuableByteFromSegment(segmentReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -812,7 +815,7 @@ public final class JsonDeserializerContext {
     }
 
     private short[] deserializeShortArrayFromHeap(HeapReadBuffer heapReadBuffer) {
-        byte b = nextValuableByteFromHeap(heapReadBuffer, true);
+        byte b = nextValuableByteFromHeap(heapReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyShortArray();
         }
@@ -827,7 +830,7 @@ public final class JsonDeserializerContext {
             }
             ArrayAccess.setShort(buf, idx, v);
             idx = newIdx;
-            b = nextValuableByteFromHeap(heapReadBuffer, true);
+            b = nextValuableByteFromHeap(heapReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = (idx - index) >> 1;
@@ -835,7 +838,7 @@ public final class JsonDeserializerContext {
                 MemorySegment.copy(MemorySegment.ofArray(buf), ValueLayout.JAVA_SHORT_UNALIGNED, index, r, 0, len);
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromHeap(heapReadBuffer, true);
+                b = nextValuableByteFromHeap(heapReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -844,7 +847,7 @@ public final class JsonDeserializerContext {
     }
 
     private short[] deserializeShortArrayFromSegment(SegmentReadBuffer segmentReadBuffer) {
-        byte b = nextValuableByteFromSegment(segmentReadBuffer, true);
+        byte b = nextValuableByteFromSegment(segmentReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyShortArray();
         }
@@ -859,7 +862,7 @@ public final class JsonDeserializerContext {
             }
             ArrayAccess.setShort(buf, idx, v);
             idx = newIdx;
-            b = nextValuableByteFromSegment(segmentReadBuffer, true);
+            b = nextValuableByteFromSegment(segmentReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = (idx - index) >> 1;
@@ -867,7 +870,7 @@ public final class JsonDeserializerContext {
                 MemorySegment.copy(MemorySegment.ofArray(buf), ValueLayout.JAVA_SHORT_UNALIGNED, index, r, 0, len);
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromSegment(segmentReadBuffer, true);
+                b = nextValuableByteFromSegment(segmentReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -884,7 +887,7 @@ public final class JsonDeserializerContext {
     }
 
     private char[] deserializeCharArrayFromHeap(HeapReadBuffer heapReadBuffer) {
-        byte b = nextValuableByteFromHeap(heapReadBuffer, true);
+        byte b = nextValuableByteFromHeap(heapReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyCharArray();
         }
@@ -900,12 +903,12 @@ public final class JsonDeserializerContext {
             }
             buf[idx] = v;
             idx = newIdx;
-            b = nextValuableByteFromHeap(heapReadBuffer, true);
+            b = nextValuableByteFromHeap(heapReadBuffer);
             if(b == (byte) ']') {
                 charBuffer = buf;
                 return Arrays.copyOf(buf, idx);
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromHeap(heapReadBuffer, true);
+                b = nextValuableByteFromHeap(heapReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -914,7 +917,7 @@ public final class JsonDeserializerContext {
     }
 
     private char[] deserializeCharArrayFromSegment(SegmentReadBuffer segmentReadBuffer) {
-        byte b = nextValuableByteFromSegment(segmentReadBuffer, true);
+        byte b = nextValuableByteFromSegment(segmentReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyCharArray();
         }
@@ -930,12 +933,12 @@ public final class JsonDeserializerContext {
             }
             buf[idx] = v;
             idx = newIdx;
-            b = nextValuableByteFromSegment(segmentReadBuffer, true);
+            b = nextValuableByteFromSegment(segmentReadBuffer);
             if(b == (byte) ']') {
                 charBuffer = buf;
                 return Arrays.copyOf(buf, idx);
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromSegment(segmentReadBuffer, true);
+                b = nextValuableByteFromSegment(segmentReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -952,7 +955,7 @@ public final class JsonDeserializerContext {
     }
 
     private int[] deserializeIntArrayFromHeap(HeapReadBuffer heapReadBuffer) {
-        byte b = nextValuableByteFromHeap(heapReadBuffer, true);
+        byte b = nextValuableByteFromHeap(heapReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyIntArray();
         }
@@ -967,7 +970,7 @@ public final class JsonDeserializerContext {
             }
             ArrayAccess.setInt(buf, idx, v);
             idx = newIdx;
-            b = nextValuableByteFromHeap(heapReadBuffer, true);
+            b = nextValuableByteFromHeap(heapReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = (idx - index) >> 2;
@@ -975,7 +978,7 @@ public final class JsonDeserializerContext {
                 MemorySegment.copy(MemorySegment.ofArray(buf), ValueLayout.JAVA_INT_UNALIGNED, index, r, 0, len);
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromHeap(heapReadBuffer, true);
+                b = nextValuableByteFromHeap(heapReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -984,7 +987,7 @@ public final class JsonDeserializerContext {
     }
 
     private int[] deserializeIntArrayFromSegment(SegmentReadBuffer segmentReadBuffer) {
-        byte b = nextValuableByteFromSegment(segmentReadBuffer, true);
+        byte b = nextValuableByteFromSegment(segmentReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyIntArray();
         }
@@ -999,7 +1002,7 @@ public final class JsonDeserializerContext {
             }
             ArrayAccess.setInt(buf, idx, v);
             idx = newIdx;
-            b = nextValuableByteFromSegment(segmentReadBuffer, true);
+            b = nextValuableByteFromSegment(segmentReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = (idx - index) >> 2;
@@ -1007,7 +1010,7 @@ public final class JsonDeserializerContext {
                 MemorySegment.copy(MemorySegment.ofArray(buf), ValueLayout.JAVA_INT_UNALIGNED, index, r, 0, len);
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromSegment(segmentReadBuffer, true);
+                b = nextValuableByteFromSegment(segmentReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -1024,7 +1027,7 @@ public final class JsonDeserializerContext {
     }
 
     private long[] deserializeLongArrayFromHeap(HeapReadBuffer heapReadBuffer) {
-        byte b = nextValuableByteFromHeap(heapReadBuffer, true);
+        byte b = nextValuableByteFromHeap(heapReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyLongArray();
         }
@@ -1039,7 +1042,7 @@ public final class JsonDeserializerContext {
             }
             ArrayAccess.setLong(buf, idx, v);
             idx = newIdx;
-            b = nextValuableByteFromHeap(heapReadBuffer, true);
+            b = nextValuableByteFromHeap(heapReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = (idx - index) >> 3;
@@ -1047,7 +1050,7 @@ public final class JsonDeserializerContext {
                 MemorySegment.copy(MemorySegment.ofArray(buf), ValueLayout.JAVA_LONG_UNALIGNED, index, r, 0, len);
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromHeap(heapReadBuffer, true);
+                b = nextValuableByteFromHeap(heapReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -1056,7 +1059,7 @@ public final class JsonDeserializerContext {
     }
 
     private long[] deserializeLongArrayFromSegment(SegmentReadBuffer segmentReadBuffer) {
-        byte b = nextValuableByteFromSegment(segmentReadBuffer, true);
+        byte b = nextValuableByteFromSegment(segmentReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyLongArray();
         }
@@ -1071,7 +1074,7 @@ public final class JsonDeserializerContext {
             }
             ArrayAccess.setLong(buf, idx, v);
             idx = newIdx;
-            b = nextValuableByteFromSegment(segmentReadBuffer, true);
+            b = nextValuableByteFromSegment(segmentReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = (idx - index) >> 3;
@@ -1079,7 +1082,7 @@ public final class JsonDeserializerContext {
                 MemorySegment.copy(MemorySegment.ofArray(buf), ValueLayout.JAVA_LONG_UNALIGNED, index, r, 0, len);
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromSegment(segmentReadBuffer, true);
+                b = nextValuableByteFromSegment(segmentReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -1096,7 +1099,7 @@ public final class JsonDeserializerContext {
     }
 
     private float[] deserializeFloatArrayFromHeap(HeapReadBuffer heapReadBuffer) {
-        byte b = nextValuableByteFromHeap(heapReadBuffer, true);
+        byte b = nextValuableByteFromHeap(heapReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyFloatArray();
         }
@@ -1111,7 +1114,7 @@ public final class JsonDeserializerContext {
             }
             ArrayAccess.setFloat(buf, idx, v);
             idx = newIdx;
-            b = nextValuableByteFromHeap(heapReadBuffer, true);
+            b = nextValuableByteFromHeap(heapReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = (idx - index) >> 2;
@@ -1119,7 +1122,7 @@ public final class JsonDeserializerContext {
                 MemorySegment.copy(MemorySegment.ofArray(buf), ValueLayout.JAVA_FLOAT_UNALIGNED, index, r, 0, len);
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromHeap(heapReadBuffer, true);
+                b = nextValuableByteFromHeap(heapReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -1128,7 +1131,7 @@ public final class JsonDeserializerContext {
     }
 
     private float[] deserializeFloatArrayFromSegment(SegmentReadBuffer segmentReadBuffer) {
-        byte b = nextValuableByteFromSegment(segmentReadBuffer, true);
+        byte b = nextValuableByteFromSegment(segmentReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyFloatArray();
         }
@@ -1143,7 +1146,7 @@ public final class JsonDeserializerContext {
             }
             ArrayAccess.setFloat(buf, idx, v);
             idx = newIdx;
-            b = nextValuableByteFromSegment(segmentReadBuffer, true);
+            b = nextValuableByteFromSegment(segmentReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = (idx - index) >> 2;
@@ -1151,7 +1154,7 @@ public final class JsonDeserializerContext {
                 MemorySegment.copy(MemorySegment.ofArray(buf), ValueLayout.JAVA_FLOAT_UNALIGNED, index, r, 0, len);
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromSegment(segmentReadBuffer, true);
+                b = nextValuableByteFromSegment(segmentReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -1168,7 +1171,7 @@ public final class JsonDeserializerContext {
     }
 
     private double[] deserializeDoubleArrayFromHeap(HeapReadBuffer heapReadBuffer) {
-        byte b = nextValuableByteFromHeap(heapReadBuffer, true);
+        byte b = nextValuableByteFromHeap(heapReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyDoubleArray();
         }
@@ -1183,7 +1186,7 @@ public final class JsonDeserializerContext {
             }
             ArrayAccess.setDouble(buf, idx, v);
             idx = newIdx;
-            b = nextValuableByteFromHeap(heapReadBuffer, true);
+            b = nextValuableByteFromHeap(heapReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = (idx - index) >> 3;
@@ -1191,7 +1194,7 @@ public final class JsonDeserializerContext {
                 MemorySegment.copy(MemorySegment.ofArray(buf), ValueLayout.JAVA_DOUBLE_UNALIGNED, index, r, 0, len);
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromHeap(heapReadBuffer, true);
+                b = nextValuableByteFromHeap(heapReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -1200,7 +1203,7 @@ public final class JsonDeserializerContext {
     }
 
     private double[] deserializeDoubleArrayFromSegment(SegmentReadBuffer segmentReadBuffer) {
-        byte b = nextValuableByteFromSegment(segmentReadBuffer, true);
+        byte b = nextValuableByteFromSegment(segmentReadBuffer);
         if (b == (byte) ']') {
             return Utils.emptyDoubleArray();
         }
@@ -1215,7 +1218,7 @@ public final class JsonDeserializerContext {
             }
             ArrayAccess.setDouble(buf, idx, v);
             idx = newIdx;
-            b = nextValuableByteFromSegment(segmentReadBuffer, true);
+            b = nextValuableByteFromSegment(segmentReadBuffer);
             if(b == (byte) ']') {
                 byteBuffer = buf;
                 int len = (idx - index) >> 3;
@@ -1223,7 +1226,7 @@ public final class JsonDeserializerContext {
                 MemorySegment.copy(MemorySegment.ofArray(buf), ValueLayout.JAVA_DOUBLE_UNALIGNED, index, r, 0, len);
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromSegment(segmentReadBuffer, true);
+                b = nextValuableByteFromSegment(segmentReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -1245,7 +1248,7 @@ public final class JsonDeserializerContext {
     }
 
     private <T> T[] deserializeObjArrayFromHeap(ElementDeserializer<T> deserializer, HeapReadBuffer heapReadBuffer, IntFunction<T[]> arrayFactory) {
-        byte b = nextValuableByteFromHeap(heapReadBuffer, true);
+        byte b = nextValuableByteFromHeap(heapReadBuffer);
         if(b == (byte) ']') {
             return arrayFactory.apply(0);
         }
@@ -1265,7 +1268,7 @@ public final class JsonDeserializerContext {
             } else {
                 buf[i++] = deserializer.deserialize(this, b);
             }
-            b = nextValuableByteFromHeap(heapReadBuffer, true);
+            b = nextValuableByteFromHeap(heapReadBuffer);
             if(b == (byte) ']') {
                 arr = buf;
                 T[] r = arrayFactory.apply(i);
@@ -1273,7 +1276,7 @@ public final class JsonDeserializerContext {
                 System.arraycopy(buf, 0, r, 0, i);
                 return r;
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromHeap(heapReadBuffer, true);
+                b = nextValuableByteFromHeap(heapReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -1282,7 +1285,7 @@ public final class JsonDeserializerContext {
     }
 
     private <T> T[] deserializeObjArrayFromSegment(ElementDeserializer<T> deserializer, SegmentReadBuffer segmentReadBuffer, IntFunction<T[]> arrayFactory) {
-        byte b = nextValuableByteFromSegment(segmentReadBuffer, true);
+        byte b = nextValuableByteFromSegment(segmentReadBuffer);
         if(b == (byte) ']') {
             return arrayFactory.apply(0);
         }
@@ -1302,14 +1305,14 @@ public final class JsonDeserializerContext {
             } else {
                 buf[i++] = deserializer.deserialize(this, b);
             }
-            b = nextValuableByteFromSegment(segmentReadBuffer, true);
+            b = nextValuableByteFromSegment(segmentReadBuffer);
             if(b == (byte) ']') {
                 arr = buf;
                 T[] r = arrayFactory.apply(i);
                 //noinspection SuspiciousSystemArraycopy
                 System.arraycopy(buf, 0, r, 0, i);
             } else if(b == (byte) ',') {
-                b = nextValuableByteFromSegment(segmentReadBuffer, true);
+                b = nextValuableByteFromSegment(segmentReadBuffer);
             } else {
                 throw new JsonDeserializerException("array sep not found, got : " + b);
             }
@@ -1518,11 +1521,13 @@ public final class JsonDeserializerContext {
                 buf[bufIndex++] = (char) (((i & 0x0F) << 12) | (i1 << 6) | i2);
                 position += 3;
             } else {
-                int i1 = bytes[position + 1];
-                int i2 = bytes[position + 2];
-                int i3 = bytes[position + 3];
-                buf[bufIndex] = (char) (0xD800 | ((i & 0x07) << 8) | ((i1 & 0x3F) << 2) | ((i2 & 0x30) >>> 4));
-                buf[bufIndex + 1] = (char) (0xDC00 | ((i2 & 0x0F) << 6) | (i3 & 0x3F));
+                int i1 = bytes[position + 1] & 0x3F;
+                int i2 = bytes[position + 2] & 0x3F;
+                int i3 = bytes[position + 3] & 0x3F;
+                int cp = ((i & 0x07) << 18) | (i1 << 12) | (i2 << 6) | i3;
+                cp -= 0x10000;
+                buf[bufIndex] = (char) (0xD800 | (cp >> 10));
+                buf[bufIndex + 1] = (char) (0xDC00 | (cp & 0x3FF));
                 bufIndex += 2;
                 position += 4;
             }
@@ -1580,11 +1585,13 @@ public final class JsonDeserializerContext {
                 buf[bufIndex++] = (char) (((i & 0x0F) << 12) | (i1 << 6) | i2);
                 position += 3L;
             } else {
-                int i1 = SegmentAccess.getByte(segment, position + 1);
-                int i2 = SegmentAccess.getByte(segment, position + 2);
-                int i3 = SegmentAccess.getByte(segment, position + 3);
-                buf[bufIndex] = (char) (0xD800 | ((i & 0x07) << 8) | ((i1 & 0x3F) << 2) | ((i2 & 0x30) >>> 4));
-                buf[bufIndex + 1] = (char) (0xDC00 | ((i2 & 0x0F) << 6) | (i3 & 0x3F));
+                int i1 = SegmentAccess.getByte(segment, position + 1) & 0x3F;
+                int i2 = SegmentAccess.getByte(segment, position + 2) & 0x3F;
+                int i3 = SegmentAccess.getByte(segment, position + 3) & 0x3F;
+                int cp = ((i & 0x07) << 18) | (i1 << 12) | (i2 << 6) | i3;
+                cp -= 0x10000;
+                buf[bufIndex] = (char) (0xD800 | (cp >> 10));
+                buf[bufIndex + 1] = (char) (0xDC00 | (cp & 0x3FF));
                 bufIndex += 2;
                 position += 4L;
             }

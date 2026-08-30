@@ -27,7 +27,6 @@ public final class Utf8Validator {
 
     private static final VectorSpecies<Integer> INT_SPECIES;
     private static final VectorSpecies<Byte> BYTE_SPECIES;
-    private static final int VECTOR_SIZE;
     private static final ByteVector BYTE1_HIGH_TABLE;
     private static final ByteVector BYTE1_LOW_TABLE;
     private static final ByteVector BYTE2_HIGH_TABLE;
@@ -63,9 +62,8 @@ public final class Utf8Validator {
             }
             default -> throw new ExceptionInInitializerError("unknown vector size : " + vecSize);
         }
-        VECTOR_SIZE = BYTE_SPECIES.vectorByteSize();
 
-        byte[] b1h = new byte[VECTOR_SIZE];
+        byte[] b1h = new byte[BYTE_SPECIES.length()];
         for (int i = 0; i < 8; i++) b1h[i] = TOO_LONG;
         for (int i = 8; i < 12; i++) b1h[i] = TWO_CONTS;
         b1h[12] = (byte) (TOO_SHORT | OVERLONG_2);
@@ -74,7 +72,7 @@ public final class Utf8Validator {
         b1h[15] = (byte) (TOO_SHORT | TOO_LARGE | TOO_LARGE_1000 | OVERLONG_4);
         BYTE1_HIGH_TABLE = ByteVector.fromArray(BYTE_SPECIES, b1h, 0);
 
-        byte[] b1l = new byte[VECTOR_SIZE];
+        byte[] b1l = new byte[BYTE_SPECIES.length()];
         b1l[0] = (byte) (CARRY | OVERLONG_3 | OVERLONG_2 | OVERLONG_4);
         b1l[1] = (byte) (CARRY | OVERLONG_2);
         b1l[2] = CARRY;
@@ -88,7 +86,7 @@ public final class Utf8Validator {
         b1l[15] = (byte) (CARRY | TOO_LARGE | TOO_LARGE_1000);
         BYTE1_LOW_TABLE = ByteVector.fromArray(BYTE_SPECIES, b1l, 0);
 
-        byte[] b2h = new byte[VECTOR_SIZE];
+        byte[] b2h = new byte[BYTE_SPECIES.length()];
         for (int i = 0; i < 8; i++) {
             b2h[i] = TOO_SHORT;
         }
@@ -101,7 +99,7 @@ public final class Utf8Validator {
         }
         BYTE2_HIGH_TABLE = ByteVector.fromArray(BYTE_SPECIES, b2h, 0);
 
-        byte[] inc = new byte[VECTOR_SIZE];
+        byte[] inc = new byte[BYTE_SPECIES.length()];
         Arrays.fill(inc, (byte) 255);
         inc[inc.length - 3] = (byte) 0xF0;
         inc[inc.length - 2] = (byte) 0xE0;
@@ -121,19 +119,18 @@ public final class Utf8Validator {
     }
 
     public static void validate(ReadBuffer readBuffer) {
-
         switch (readBuffer) {
             case HeapReadBuffer heapReadBuffer -> {
                 byte[] bytes = heapReadBuffer.rawByteArray();
                 int position = heapReadBuffer.intPosition();
-                if (!Utf8Validator.validate(bytes, position, bytes.length)) {
+                if (!Utf8Validator.validate(bytes, position, bytes.length - position)) {
                     throw new JsonDeserializerException("illegal utf-8 encoded heap readBuffer");
                 }
             }
             case SegmentReadBuffer segmentReadBuffer -> {
                 MemorySegment segment = segmentReadBuffer.rawSegment();
                 long position = segmentReadBuffer.longPosition();
-                if (!Utf8Validator.validate(segment, position, segment.byteSize())) {
+                if (!Utf8Validator.validate(segment, position, segment.byteSize() - position)) {
                     throw new JsonDeserializerException("illegal utf-8 encoded segment readBuffer");
                 }
             }
@@ -142,13 +139,12 @@ public final class Utf8Validator {
     }
 
     public static boolean validate(byte[] bytes, int offset, int len) {
-
         long errors = 0;
         long previousIncomplete = 0;
         int previousFourBytes = 0;
         final int end = offset + len;
-        final int loopBound = offset + BYTE_SPECIES.loopBound(len);
-        while (offset < loopBound) {
+
+        for( ; offset <= end - BYTE_SPECIES.length(); offset += BYTE_SPECIES.length()) {
             ByteVector chunk = ByteVector.fromArray(BYTE_SPECIES, bytes, offset);
             IntVector chunkAsInts = chunk.reinterpretAsInts();
             if (chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
@@ -167,7 +163,6 @@ public final class Utf8Validator {
                 errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, 0).toLong();
             }
             previousFourBytes = chunkAsInts.lane(INT_SPECIES.length() - 1);
-            offset += VECTOR_SIZE;
         }
         if (offset < end) {
             ByteVector chunk = ByteVector.fromArray(BYTE_SPECIES, bytes, offset, BYTE_SPECIES.indexInRange(offset, end));
@@ -191,13 +186,11 @@ public final class Utf8Validator {
     }
 
     public static boolean validate(MemorySegment segment, long offset, long len) {
-
         long errors = 0;
         long previousIncomplete = 0;
         int previousFourBytes = 0;
         final long end = offset + len;
-        final long loopBound = offset + BYTE_SPECIES.loopBound(len);
-        while (offset < loopBound) {
+        for( ; offset <= end - BYTE_SPECIES.length(); offset += BYTE_SPECIES.length()) {
             ByteVector chunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, offset, ByteOrder.nativeOrder()); // byteOrder will be ignored
             IntVector chunkAsInts = chunk.reinterpretAsInts();
             if (chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
@@ -216,7 +209,6 @@ public final class Utf8Validator {
                 errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, 0).toLong();
             }
             previousFourBytes = chunkAsInts.lane(INT_SPECIES.length() - 1);
-            offset += VECTOR_SIZE;
         }
         if (offset < end) {
             ByteVector chunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, offset, ByteOrder.nativeOrder(), BYTE_SPECIES.indexInRange(offset, end));  // byteOrder will be ignored
@@ -240,7 +232,6 @@ public final class Utf8Validator {
     }
 
     public static boolean scalarValidate(byte[] bytes, int offset, int len) {
-
         final int end = offset + len;
         int b1, b2;
         for (; ; ) {
@@ -283,7 +274,6 @@ public final class Utf8Validator {
     }
 
     public static boolean scalarValidate(MemorySegment segment, long offset, long len) {
-
         final long end = offset + len;
         int b1, b2;
         for (; ; ) {

@@ -1,5 +1,9 @@
 package io.jingproject.marshalljsontest.bench;
 
+import io.jingproject.common.HeapReadBuffer;
+import io.jingproject.common.ReadBuffer;
+import io.jingproject.marshalljson.JsonDeserializer;
+import io.jingproject.marshalljson.JsonDeserializerOption;
 import io.jingproject.marshalljsontest.TwiUtil;
 import io.jingproject.marshalljsontest.twi.Twi;
 import org.openjdk.jmh.annotations.*;
@@ -26,17 +30,28 @@ import java.util.concurrent.TimeUnit;
 @Fork(3)
 public class TwiDeserializationBench {
     private byte[] bytes;
+    private ReadBuffer readBuffer;
     private JsonMapper jsonMapper;
+    private JsonDeserializer jsonDefaultDeserializer;
 
     @Setup(Level.Trial)
     public void setup() {
-        jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
         bytes = TwiUtil.loadAsBytes();
+        readBuffer = new HeapReadBuffer(bytes);
+        jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
+        jsonDefaultDeserializer = new JsonDeserializer(JsonDeserializerOption.defaultOption());
     }
 
     @Benchmark
     public void jacksonDeserialization(Blackhole blackhole) {
         Twi twi = jsonMapper.readValue(bytes, Twi.class);
+        blackhole.consume(twi);
+    }
+
+    @Benchmark
+    public void jingDefaultDeserialization(Blackhole blackhole) {
+        Twi twi = jsonDefaultDeserializer.deserializeMarshallableObject(Twi.class, readBuffer);
+        readBuffer.reset();
         blackhole.consume(twi);
     }
 
