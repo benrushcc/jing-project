@@ -4,7 +4,9 @@ import io.jingproject.common.ReadBuffer;
 import io.jingproject.marshall.MarshallFacade;
 import io.jingproject.marshall.Marshalls;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public final class JsonDeserializer {
@@ -18,57 +20,73 @@ public final class JsonDeserializer {
 
     public byte[] deserializeByteArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
-        Utf8Validator.validate(readBuffer);
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         return context.deserializeByteArray(context.nextValuableByte());
     }
 
     public boolean[] deserializeBooleanArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
-        Utf8Validator.validate(readBuffer);
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         return context.deserializeBooleanArray(context.nextValuableByte());
     }
 
     public short[] deserializeShortArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
-        Utf8Validator.validate(readBuffer);
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         return context.deserializeShortArray(context.nextValuableByte());
     }
 
     public char[] deserializeCharArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
-        Utf8Validator.validate(readBuffer);
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         return context.deserializeCharArray(context.nextValuableByte());
     }
 
     public int[] deserializeIntArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
-        Utf8Validator.validate(readBuffer);
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         return context.deserializeIntArray(context.nextValuableByte());
     }
 
     public long[] deserializeLongArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
-        Utf8Validator.validate(readBuffer);
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         return context.deserializeLongArray(context.nextValuableByte());
     }
 
     public float[] deserializeFloatArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
-        Utf8Validator.validate(readBuffer);
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         return context.deserializeFloatArray(context.nextValuableByte());
     }
 
     public double[] deserializeDoubleArray(ReadBuffer readBuffer) {
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
-        Utf8Validator.validate(readBuffer);
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         return context.deserializeDoubleArray(context.nextValuableByte());
     }
 
@@ -76,7 +94,6 @@ public final class JsonDeserializer {
     public <T> T deserializeMarshallableObject(Class<T> marshallableType, ReadBuffer readBuffer) {
         Objects.requireNonNull(marshallableType, "marshallable type must not be null");
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
-        Utf8Validator.validate(readBuffer);
         if(marshallableType.isEnum()) {
             throw new JsonDeserializerException("enum cannot be directly deserialized");
         }
@@ -84,10 +101,13 @@ public final class JsonDeserializer {
         if (fc == null) {
             throw new JsonDeserializerException("type not marshallable : " + marshallableType.getName());
         }
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         JsonDeserializerContext.checkObjStart(context.nextValuableByte());
         JsonDeserializerNode root = new JsonDeserializerNode();
-        root.initObj(fc, context);
+        root.initObj(fc);
         return (T) process(root, context);
     }
 
@@ -95,7 +115,6 @@ public final class JsonDeserializer {
     public <T> T[] deserializeArray(Class<T> componentType, ReadBuffer readBuffer) {
         Objects.requireNonNull(componentType, "component type must not be null");
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
-        Utf8Validator.validate(readBuffer);
         if(componentType.isPrimitive()) {
             throw new JsonDeserializerException("primitive array shouldn't be used as parameters : " + componentType.getName());
         }
@@ -105,7 +124,10 @@ public final class JsonDeserializer {
         if(componentType.getTypeParameters().length > 0) {
             throw new JsonDeserializerException("generic component type not supported : " + componentType.getName());
         }
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         byte firstByte = context.nextValuableByte();
         JsonDeserializeFunc builtinDeserializeArrayFunc = JsonDeserializerContext.builtinDeserializeArrayFunc(componentType.arrayType());
         if(builtinDeserializeArrayFunc != null) {
@@ -124,7 +146,6 @@ public final class JsonDeserializer {
         Objects.requireNonNull(elementType, "element type must not be null");
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
         Objects.requireNonNull(supplier, "supplier must not be null");
-        Utf8Validator.validate(readBuffer);
         if(elementType.isPrimitive()) {
             throw new JsonDeserializerException("primitive type shouldn't be used as parameters : " + elementType.getName());
         }
@@ -135,7 +156,10 @@ public final class JsonDeserializer {
             throw new JsonDeserializerException("generic element type not supported : " + elementType.getName());
         }
         Collection<T> col = Objects.requireNonNull(supplier.get(), "supplied collection must not be null");
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         JsonDeserializerContext.checkArrayStart(context.nextValuableByte());
         JsonDeserializeFunc func = context.valueDeserializeFunc(elementType);
         JsonDeserializerNode root = new JsonDeserializerNode();
@@ -159,7 +183,10 @@ public final class JsonDeserializer {
             throw new JsonDeserializerException("generic value type are not supported : " + valueType.getName());
         }
         Map<K, V> map = Objects.requireNonNull(supplier.get(), "supplied map must not be null");
-        JsonDeserializerContext context = new JsonDeserializerContext(option, readBuffer);
+        JsonDeserializerContext context = JsonDeserializerContext.newContext(option, readBuffer);
+        if (!context.validate()) {
+            throw new JsonDeserializerException("not valid utf-8 content");
+        }
         JsonDeserializerContext.checkObjStart(context.nextValuableByte());
         JsonDeserializeFunc func = context.valueDeserializeFunc(valueType);
         JsonDeserializerNode root = new JsonDeserializerNode();
@@ -170,6 +197,7 @@ public final class JsonDeserializer {
     private Object process(JsonDeserializerNode root, JsonDeserializerContext context) {
         JsonDeserializerNode probed = nextNode(root, null, false, context);
         if(probed == null) {
+            context.commit();
             return context.obj();
         }
         final int maxNestedSize = option.maxNestedSize();
@@ -187,6 +215,7 @@ public final class JsonDeserializer {
             hasValue = (next == null);
             if(hasValue) {
                 if(p-- == 0) {
+                    context.commit();
                     return context.obj();
                 }
             } else {
@@ -199,7 +228,7 @@ public final class JsonDeserializer {
     }
 
     private static JsonDeserializerNode nextNode(JsonDeserializerNode current, JsonDeserializerNode given, boolean hasValue, JsonDeserializerContext context) {
-        return switch(current.process(context, hasValue)) {
+        return switch(current.process(hasValue, context)) {
             case Finish -> null;
             case NewMarshallable -> {
                 Class<?> marshallableType = context.type();
@@ -208,7 +237,7 @@ public final class JsonDeserializer {
                     throw new JsonSerializerException("type not marshallable : " + marshallableType.getName());
                 }
                 JsonDeserializerNode r = given == null ? new JsonDeserializerNode() : given;
-                r.initObj(fc, context);
+                r.initObj(fc);
                 yield r;
             }
             case NewArr -> {

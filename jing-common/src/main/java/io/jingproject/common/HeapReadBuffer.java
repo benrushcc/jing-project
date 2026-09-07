@@ -35,7 +35,6 @@ public final class HeapReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(int newPosition) {
-
         position = newPosition;
     }
 
@@ -51,7 +50,6 @@ public final class HeapReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(long newPosition) {
-
         position = Math.toIntExact(newPosition);
     }
 
@@ -68,7 +66,6 @@ public final class HeapReadBuffer implements ReadBuffer {
 
     @Override
     public void readBytes(byte[] bytes, int offset, int length) {
-
         int newPosition = Math.addExact(position, length);
         if (newPosition > buffer.length) {
             throw new ArrayIndexOutOfBoundsException();

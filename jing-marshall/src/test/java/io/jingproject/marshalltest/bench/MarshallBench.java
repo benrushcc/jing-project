@@ -1,7 +1,7 @@
 package io.jingproject.marshalltest.bench;
 
+import io.jingproject.marshall.MarshallBuilder;
 import io.jingproject.marshall.MarshallFacade;
-import io.jingproject.marshall.MarshallWriter;
 import io.jingproject.marshalltest.entity.*;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
@@ -111,16 +111,16 @@ public class MarshallBench {
     public void testBeanMarshall(Blackhole blackhole) {
         MarshallFacade marshallFacade = new BeanEntityMarshallFacade();
         for (int i = 0; i < BATCH_SIZE; i++) {
-            MarshallWriter writer = marshallFacade.newWriter();
+            MarshallBuilder builder = marshallFacade.newBuilder();
             int intValue = intArray[i];
             long longValue = longArray[i];
             String strValue = strArray[i];
             LocalDateTime localDateTimeValue = localDateTimeArray[i];
-            writer.setInt(0, intValue);
-            writer.setLong(1, longValue);
-            writer.setObject(2, strValue);
-            writer.setObject(3, localDateTimeValue);
-            BeanEntity instance = (BeanEntity) marshallFacade.construct(writer);
+            builder.writeInt(0, intValue);
+            builder.writeLong(1, longValue);
+            builder.writeObject(2, strValue);
+            builder.writeObject(3, localDateTimeValue);
+            BeanEntity instance = (BeanEntity) marshallFacade.construct(builder);
             blackhole.consume(instance);
         }
     }
@@ -178,17 +178,17 @@ public class MarshallBench {
     public void testExtendEntityMarshall(Blackhole blackhole) {
         MarshallFacade marshallFacade = new ExtendEntityMarshallFacade();
         for (int i = 0; i < BATCH_SIZE; i++) {
-            MarshallWriter writer = marshallFacade.newWriter();
+            MarshallBuilder writer = marshallFacade.newBuilder();
             int intValue = intArray[i];
             long longValue = longArray[i];
             String strValue = strArray[i];
             LocalDateTime localDateTimeValue = localDateTimeArray[i];
             Duration durationValue = durationArray[i];
-            writer.setInt(0, intValue);
-            writer.setLong(1, longValue);
-            writer.setObject(2, strValue);
-            writer.setObject(3, localDateTimeValue);
-            writer.setObject(4, durationValue);
+            writer.writeInt(0, intValue);
+            writer.writeLong(1, longValue);
+            writer.writeObject(2, strValue);
+            writer.writeObject(3, localDateTimeValue);
+            writer.writeObject(4, durationValue);
             ExtendEntity instance = (ExtendEntity) marshallFacade.construct(writer);
             blackhole.consume(instance);
         }
@@ -230,15 +230,15 @@ public class MarshallBench {
     public void testRecordMarshall(Blackhole blackhole) {
         MarshallFacade marshallFacade = new RecordEntityMarshallFacade();
         for (int i = 0; i < BATCH_SIZE; i++) {
-            MarshallWriter writer = marshallFacade.newWriter();
+            MarshallBuilder writer = marshallFacade.newBuilder();
             int intValue = intArray[i];
             long longValue = longArray[i];
             String strValue = strArray[i];
             LocalDateTime localDateTimeValue = localDateTimeArray[i];
-            writer.setInt(0, intValue);
-            writer.setLong(1, longValue);
-            writer.setObject(2, strValue);
-            writer.setObject(3, localDateTimeValue);
+            writer.writeInt(0, intValue);
+            writer.writeLong(1, longValue);
+            writer.writeObject(2, strValue);
+            writer.writeObject(3, localDateTimeValue);
             RecordEntity instance = (RecordEntity) marshallFacade.construct(writer);
             blackhole.consume(instance);
         }

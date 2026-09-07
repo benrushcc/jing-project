@@ -2,7 +2,7 @@ package io.jingproject.marshalltest.test;
 
 import io.jingproject.marshall.MarshallFacade;
 import io.jingproject.marshall.MarshallInfo;
-import io.jingproject.marshall.MarshallWriter;
+import io.jingproject.marshall.MarshallBuilder;
 import io.jingproject.marshalltest.entity.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -16,12 +16,12 @@ public class MarshallTest {
     @Test
     public void testMarshallBean() {
         MarshallFacade marshallFacade = new BeanEntityMarshallFacade();
-        MarshallWriter writer = marshallFacade.newWriter();
+        MarshallBuilder writer = marshallFacade.newBuilder();
         LocalDateTime now = LocalDateTime.now();
-        writer.setInt(0, 123);
-        writer.setLong(1, 456L);
-        writer.setObject(2, "hello world");
-        writer.setObject(3, now);
+        writer.writeInt(0, 123);
+        writer.writeLong(1, 456L);
+        writer.writeObject(2, "hello world");
+        writer.writeObject(3, now);
         BeanEntity beanEntity = (BeanEntity) marshallFacade.construct(writer);
         Assertions.assertEquals(123, beanEntity.intValue());
         Assertions.assertEquals(456L, beanEntity.longValue());
@@ -32,16 +32,16 @@ public class MarshallTest {
     @Test
     public void testMarshallExtendedBean() {
         MarshallFacade marshallFacade = new ExtendEntityMarshallFacade();
-        MarshallWriter writer = marshallFacade.newWriter();
+        MarshallBuilder writer = marshallFacade.newBuilder();
         LocalDateTime now = LocalDateTime.now();
         Duration duration = Duration.ofDays(7355608);
         Map<Integer, String> m = Map.of();
-        writer.setInt(0, 123);
-        writer.setLong(1, 456L);
-        writer.setObject(2, "hello world");
-        writer.setObject(3, now);
-        writer.setObject(4, duration);
-        writer.setObject(5, m);
+        writer.writeInt(0, 123);
+        writer.writeLong(1, 456L);
+        writer.writeObject(2, "hello world");
+        writer.writeObject(3, now);
+        writer.writeObject(4, duration);
+        writer.writeObject(5, m);
         ExtendEntity extendEntity = (ExtendEntity) marshallFacade.construct(writer);
         Assertions.assertEquals(123, extendEntity.intValue());
         Assertions.assertEquals(456L, extendEntity.longValue());
@@ -54,12 +54,12 @@ public class MarshallTest {
     @Test
     public void testMarshallRecord() {
         MarshallFacade marshallFacade = new RecordEntityMarshallFacade();
-        MarshallWriter writer = marshallFacade.newWriter();
+        MarshallBuilder writer = marshallFacade.newBuilder();
         LocalDateTime now = LocalDateTime.now();
-        writer.setInt(0, 123);
-        writer.setLong(1, 456L);
-        writer.setObject(2, "hello world");
-        writer.setObject(3, now);
+        writer.writeInt(0, 123);
+        writer.writeLong(1, 456L);
+        writer.writeObject(2, "hello world");
+        writer.writeObject(3, now);
         Object constructed = marshallFacade.construct(writer);
         if (constructed instanceof RecordEntity(
                 int intValue, long longValue, String strValue, LocalDateTime timeValue

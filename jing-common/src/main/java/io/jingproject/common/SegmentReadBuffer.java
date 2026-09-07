@@ -19,7 +19,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
     private long position;
 
     public SegmentReadBuffer(MemorySegment segment) {
-        this.buffer = segment.isReadOnly() ? segment : segment.asReadOnly();
+        this.buffer = segment;
         this.position = 0L;
     }
 

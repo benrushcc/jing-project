@@ -7,6 +7,17 @@ public final class GeneratorBlock {
     private List<GeneratorLine> lines;
     private int indent = 0;
 
+    public GeneratorBlock prependLine(String content) {
+        if (content == null) {
+            throw new AnnotationProcessorException("content is null");
+        }
+        if (lines == null || lines.isEmpty()) {
+            throw new AnnotationProcessorException("can not prepend empty block");
+        }
+        lines.addFirst(new GeneratorLine(content, lines.getFirst().indent()));
+        return this;
+    }
+
     public GeneratorBlock addLine(String content) {
         if (content == null) {
             throw new AnnotationProcessorException("content is null");

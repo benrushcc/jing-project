@@ -21,49 +21,65 @@ public final class JsonSerializer {
     public void serializeByteArray(byte[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        new JsonSerializerContext(option, writeBuffer).serializeByteArray(arr, 1);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
+        context.serializeByteArray(arr, 1);
+        context.commit();
     }
 
     public void serializeBooleanArray(boolean[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        new JsonSerializerContext(option, writeBuffer).serializeBooleanArray(arr, 1);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
+        context.serializeBooleanArray(arr, 1);
+        context.commit();
     }
 
     public void serializeShortArray(short[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        new JsonSerializerContext(option, writeBuffer).serializeShortArray(arr, 1);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
+        context.serializeShortArray(arr, 1);
+        context.commit();
     }
 
     public void serializeCharArray(char[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        new JsonSerializerContext(option, writeBuffer).serializeCharArray(arr, 1);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
+        context.serializeCharArray(arr, 1);
+        context.commit();
     }
 
     public void serializeIntArray(int[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        new JsonSerializerContext(option, writeBuffer).serializeIntArray(arr, 1);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
+        context.serializeIntArray(arr, 1);
+        context.commit();
     }
 
     public void serializeLongArray(long[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        new JsonSerializerContext(option, writeBuffer).serializeLongArray(arr, 1);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
+        context.serializeLongArray(arr, 1);
+        context.commit();
     }
 
     public void serializeFloatArray(float[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        new JsonSerializerContext(option, writeBuffer).serializeFloatArray(arr, 1);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
+        context.serializeFloatArray(arr, 1);
+        context.commit();
     }
 
     public void serializeDoubleArray(double[] arr, WriteBuffer writeBuffer) {
         Objects.requireNonNull(arr, "arr must not be null");
         Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        new JsonSerializerContext(option, writeBuffer).serializeDoubleArray(arr, 1);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
+        context.serializeDoubleArray(arr, 1);
+        context.commit();
     }
 
     public void serializeMarshallableObject(Object instance, WriteBuffer writeBuffer) {
@@ -77,9 +93,9 @@ public final class JsonSerializer {
         if (fc == null) {
             throw new JsonSerializerException("type not marshallable : " + marshallableType.getName());
         }
-        JsonSerializerContext context = new JsonSerializerContext(option, writeBuffer);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         JsonSerializerNode root = new JsonSerializerNode();
-        root.initObj(fc, instance, 1, context);
+        root.initObj(fc, instance, 1);
         process(root, context);
     }
 
@@ -97,15 +113,16 @@ public final class JsonSerializer {
         if (componentType.getTypeParameters().length > 0) {
             throw new JsonSerializerException("generic component type not supported : " + componentType.getName());
         }
-        JsonSerializerContext context = new JsonSerializerContext(option, writeBuffer);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         JsonSerializeFunc builtinSerializeArrFunc = JsonSerializerContext.builtinSerializeArrayFunc(arrType);
         if(builtinSerializeArrFunc != null) {
             builtinSerializeArrFunc.serialize(arr, 1, context);
+            context.commit();
             return ;
         }
         JsonSerializerNode root = new JsonSerializerNode();
         JsonSerializeFunc fn = context.valueSerializeFunc(componentType);
-        root.initArr(arr, 1, fn, context);
+        root.initArr(arr, 1, fn);
         process(root, context);
     }
 
@@ -122,13 +139,13 @@ public final class JsonSerializer {
         if (elementType.getTypeParameters().length > 0) {
             throw new JsonSerializerException("generic element type not supported : " + elementType.getName());
         }
-        JsonSerializerContext context = new JsonSerializerContext(option, writeBuffer);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         JsonSerializerNode root = new JsonSerializerNode();
         JsonSerializeFunc fn = context.valueSerializeFunc(elementType);
         if (collection instanceof List<T> list) {
-            root.initList(list, 1, fn, context);
+            root.initList(list, 1, fn);
         } else {
-            root.initCol(collection.size(), collection.iterator(), 1, fn, context);
+            root.initCol(collection.iterator(), 1, fn);
         }
         process(root, context);
     }
@@ -150,16 +167,17 @@ public final class JsonSerializer {
         if (valueType.getTypeParameters().length > 0) {
             throw new JsonSerializerException("generic value type not supported : " + valueType.getName());
         }
-        JsonSerializerContext context = new JsonSerializerContext(option, writeBuffer);
+        JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         JsonSerializerNode root = new JsonSerializerNode();
         JsonSerializeFunc fn = context.valueSerializeFunc(valueType);
-        root.initMap(map.size(), map.entrySet().iterator(), 1, fn, context);
+        root.initMap(map.entrySet().iterator(), 1, fn);
         process(root, context);
     }
 
     private void process(JsonSerializerNode root, JsonSerializerContext context) {
         JsonSerializerNode probed = nextNode(root, null, context);
         if(probed == null) {
+            context.commit();
             return ;
         }
         final int maxNestedSize = option.maxNestedSize();
@@ -175,6 +193,7 @@ public final class JsonSerializer {
             JsonSerializerNode next = nextNode(nodes[p], nodes[p + 1], context);
             if(next == null) {
                 if(p-- == 0) {
+                    context.commit();
                     return ;
                 }
             } else {
@@ -198,14 +217,14 @@ public final class JsonSerializer {
                     throw new JsonSerializerException("type not marshallable : " + marshallableType.getName());
                 }
                 JsonSerializerNode r = given == null ? new JsonSerializerNode() : given;
-                r.initObj(fc, marshallable, nextIndent, context);
+                r.initObj(fc, marshallable, nextIndent);
                 yield r;
             }
             case NewArray -> {
                 Object[] arr = (Object[]) context.obj();
                 JsonSerializeFunc fn = context.valueSerializeFunc(arr.getClass().getComponentType());
                 JsonSerializerNode r = given == null ? new JsonSerializerNode() : given;
-                r.initArr(arr, nextIndent, fn, context);
+                r.initArr(arr, nextIndent, fn);
                 yield r;
             }
             case NewCollection -> {
@@ -214,9 +233,9 @@ public final class JsonSerializer {
                 JsonSerializeFunc fn = context.valueSerializeFunc(elementType);
                 JsonSerializerNode r = given == null ? new JsonSerializerNode() : given;
                 if (col instanceof List<?> list) {
-                    r.initList(list, nextIndent, fn, context);
+                    r.initList(list, nextIndent, fn);
                 } else {
-                    r.initCol(col.size(), col.iterator(), nextIndent, fn, context);
+                    r.initCol(col.iterator(), nextIndent, fn);
                 }
                 yield r;
             }
@@ -225,7 +244,7 @@ public final class JsonSerializer {
                 Class<?> valueType = context.type();
                 JsonSerializeFunc fn = context.valueSerializeFunc(valueType);
                 JsonSerializerNode r = given == null ? new JsonSerializerNode() : given;
-                r.initMap(map.size(), map.entrySet().iterator(), nextIndent, fn, context);
+                r.initMap(map.entrySet().iterator(), nextIndent, fn);
                 yield r;
             }
             case null, default -> throw new AssertionError();

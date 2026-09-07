@@ -5,6 +5,6 @@ package io.jingproject.marshalljson;
  *
  * @param data the boolean value
  */
-public record JsonBoolType(boolean data) implements JsonPrimitiveType {
+public value record JsonBoolType(boolean data) implements JsonPrimitiveType {
 
 }

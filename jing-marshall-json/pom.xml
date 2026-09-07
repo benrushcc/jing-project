@@ -113,7 +113,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
-                    <argLine>--enable-preview</argLine>
+                    <argLine>--enable-preview --add-modules jdk.incubator.vector</argLine> <!-- enable preview by default, using vector api -->
                     <excludedGroups>view-output, exhaustive</excludedGroups>
                 </configuration>
             </plugin>

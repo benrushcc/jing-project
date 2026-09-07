@@ -5,6 +5,7 @@ import io.jingproject.common.SegmentReadBuffer;
 import io.jingproject.marshalljson.JsonNumberUtil;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.profile.GCProfiler;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -21,11 +22,15 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 @BenchmarkMode(value = Mode.AverageTime)
-@Warmup(iterations = 1, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 3, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 3, time = 2000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 3, time = 2000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(3)
+@Fork(1)
+//@Fork(value = 1, jvmArgsAppend = {
+//        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=read-int-%p-%t.jfr,settings=profile",
+//        "-XX:FlightRecorderOptions=stackdepth=128"
+//})
 public class ReadIntegerBench {
     private static final int SMALL_SIZE = 8000;
     private static final int MEDIUM_SIZE = 1000;
@@ -94,50 +99,50 @@ public class ReadIntegerBench {
         longBytes = null;
         longSegments = null;
     }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkReadHeapInt(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            byte[] bytes = intBytes.get(index);
-            String s = new String(bytes, StandardCharsets.UTF_8);
-            int value = Integer.parseInt(s);
-            blackhole.consume(value);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkReadSegmentInt(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            byte[] bytes = intSegments.get(index).toArray(ValueLayout.JAVA_BYTE);
-            String s = new String(bytes, StandardCharsets.UTF_8);
-            int value = Integer.parseInt(s);
-            blackhole.consume(value);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkReadHeapLong(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            byte[] bytes = longBytes.get(index);
-            String s = new String(bytes, StandardCharsets.UTF_8);
-            long value = Long.parseLong(s);
-            blackhole.consume(value);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkReadSegmentLong(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            byte[] bytes = longSegments.get(index).toArray(ValueLayout.JAVA_BYTE);
-            String s = new String(bytes, StandardCharsets.UTF_8);
-            long value = Long.parseLong(s);
-            blackhole.consume(value);
-        }
-    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void jdkReadHeapInt(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            byte[] bytes = intBytes.get(index);
+//            String s = new String(bytes, StandardCharsets.UTF_8);
+//            int value = Integer.parseInt(s);
+//            blackhole.consume(value);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void jdkReadSegmentInt(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            byte[] bytes = intSegments.get(index).toArray(ValueLayout.JAVA_BYTE);
+//            String s = new String(bytes, StandardCharsets.UTF_8);
+//            int value = Integer.parseInt(s);
+//            blackhole.consume(value);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void jdkReadHeapLong(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            byte[] bytes = longBytes.get(index);
+//            String s = new String(bytes, StandardCharsets.UTF_8);
+//            long value = Long.parseLong(s);
+//            blackhole.consume(value);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void jdkReadSegmentLong(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            byte[] bytes = longSegments.get(index).toArray(ValueLayout.JAVA_BYTE);
+//            String s = new String(bytes, StandardCharsets.UTF_8);
+//            long value = Long.parseLong(s);
+//            blackhole.consume(value);
+//        }
+//    }
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
@@ -151,39 +156,39 @@ public class ReadIntegerBench {
         }
     }
 
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void readSegmentInt(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            MemorySegment segment = intSegments.get(index);
-            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
-            byte firstByte = segmentReadBuffer.readByte();
-            int value = JsonNumberUtil.readInt(segmentReadBuffer, firstByte);
-            blackhole.consume(value);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void readHeapLong(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            byte[] bytes = longBytes.get(index);
-            HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            byte firstByte = heapReadBuffer.readByte();
-            long value = JsonNumberUtil.readLong(heapReadBuffer, firstByte);
-            blackhole.consume(value);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void readSegmentLong(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            MemorySegment segment = longSegments.get(index);
-            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
-            byte firstByte = segmentReadBuffer.readByte();
-            long value = JsonNumberUtil.readLong(segmentReadBuffer, firstByte);
-            blackhole.consume(value);
-        }
-    }
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void readSegmentInt(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            MemorySegment segment = intSegments.get(index);
+//            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
+//            byte firstByte = segmentReadBuffer.readByte();
+//            int value = JsonNumberUtil.readInt(segmentReadBuffer, firstByte);
+//            blackhole.consume(value);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void readHeapLong(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            byte[] bytes = longBytes.get(index);
+//            HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
+//            byte firstByte = heapReadBuffer.readByte();
+//            long value = JsonNumberUtil.readLong(heapReadBuffer, firstByte);
+//            blackhole.consume(value);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void readSegmentLong(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            MemorySegment segment = longSegments.get(index);
+//            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
+//            byte firstByte = segmentReadBuffer.readByte();
+//            long value = JsonNumberUtil.readLong(segmentReadBuffer, firstByte);
+//            blackhole.consume(value);
+//        }
+//    }
 }

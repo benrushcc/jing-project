@@ -13,21 +13,22 @@ public final class Marshalls {
         Map<Class<?>, MarshallFacade> m1 = new HashMap<>();
         Map<Class<?>, MarshallFacade> m2 = new HashMap<>();
         Map<Enum<?>, MarshallInfo> m3 = new HashMap<>();
-        for (MarshallFacade facade : facades) {
-            Class<?> type = facade.marshallableType();
+        for (MarshallFacade fc : facades) {
+            Class<?> type = fc.marshallableType();
             if(type.isEnum()) {
-                if (m2.put(type, facade) != null) {
+                List<MarshallInfo> marshallInfos = fc.marshallInfos();
+                if (m2.put(type, fc) != null) {
                     throw new ExceptionInInitializerError("duplicate enum marshallable : " + type);
                 }
                 Enum<?>[] enumConstants = (Enum<?>[]) type.getEnumConstants();
                 for(int i = 0; i < enumConstants.length; i++) {
-                    if (m3.put(enumConstants[i], Objects.requireNonNull(facade.marshallInfoByIndex(i), "marshallInfo not found : " + type)) != null) {
+                    if (m3.put(enumConstants[i], Objects.requireNonNull(marshallInfos.get(i), "marshallInfo not found : " + type)) != null) {
                         throw new ExceptionInInitializerError("duplicate enum items : " + type);
                     }
                 }
                 continue ;
             }
-            if (m1.put(type, facade) != null) {
+            if (m1.put(type, fc) != null) {
                 throw new ExceptionInInitializerError("duplicate bean marshallable : " + type);
             }
         }

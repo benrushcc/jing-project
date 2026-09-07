@@ -3,44 +3,40 @@ package io.jingproject.marshall;
 import io.jingproject.common.anno.ProcessorApi;
 
 @ProcessorApi
-public interface MarshallWriter {
-    default void setBoolean(int offset, boolean value) {
+public interface MarshallBuilder {
+    default void writeBoolean(int index, boolean value) {
         throw new UnsupportedOperationException();
     }
 
-    default void setByte(int offset, byte value) {
+    default void writeByte(int index, byte value) {
         throw new UnsupportedOperationException();
     }
 
-    default void setShort(int offset, short value) {
+    default void writeShort(int index, short value) {
         throw new UnsupportedOperationException();
     }
 
-    default void setChar(int offset, char value) {
+    default void writeChar(int index, char value) {
         throw new UnsupportedOperationException();
     }
 
-    default void setInt(int offset, int value) {
+    default void writeInt(int index, int value) {
         throw new UnsupportedOperationException();
     }
 
-    default void setLong(int offset, long value) {
+    default void writeLong(int index, long value) {
         throw new UnsupportedOperationException();
     }
 
-    default void setFloat(int offset, float value) {
+    default void writeFloat(int index, float value) {
         throw new UnsupportedOperationException();
     }
 
-    default void setDouble(int offset, double value) {
+    default void writeDouble(int index, double value) {
         throw new UnsupportedOperationException();
     }
 
-    default void setObject(int offset, Object value) {
-        throw new UnsupportedOperationException();
-    }
-
-    default void setEnum(String enumValue) {
+    default void writeObject(int index, Object value) {
         throw new UnsupportedOperationException();
     }
 }

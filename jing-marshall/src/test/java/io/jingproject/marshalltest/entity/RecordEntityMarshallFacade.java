@@ -7,14 +7,16 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public final class RecordEntityMarshallFacade implements MarshallFacade {
-    private static final MarshallFacadeInfo FACADE_INFO;
+    private static final List<MarshallInfo> MARSHALL_INFOS;
+    private static final MarshallHashInfo FACADE_INFO;
 
     static {
         MarshallInfo mi0 = new MarshallInfo(int.class, null, null, 0, "intValue", "intValue", false, false);
         MarshallInfo mi1 = new MarshallInfo(long.class, null, null, 1, "longValue", "longValue", false, false);
         MarshallInfo mi2 = new MarshallInfo(String.class, null, null, 2, "strValue", "strValue", false, false);
         MarshallInfo mi3 = new MarshallInfo(LocalDateTime.class, null, null, 3, "timeValue", "timeValue", false, false);
-        FACADE_INFO = new MarshallFacadeInfo(List.of(mi0, mi1, mi2, mi3));
+        MARSHALL_INFOS = List.of(mi0, mi1, mi2, mi3);
+        FACADE_INFO = new MarshallHashInfo(MARSHALL_INFOS);
     }
 
     @Override
@@ -33,8 +35,8 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo marshallInfoByIndex(int index) {
-        return FACADE_INFO.infos().get(index);
+    public List<MarshallInfo> marshallInfos() {
+        return MARSHALL_INFOS;
     }
 
     @Override
@@ -46,7 +48,7 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
             case "timeValue" -> 3;
             default -> throw new IllegalArgumentException("fieldName not found: " + fieldName);
         };
-        return FACADE_INFO.infos().get(index);
+        return MARSHALL_INFOS.get(index);
     }
 
     @Override
@@ -55,22 +57,22 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
         switch (hash) {
             case 105 -> {
                 if (FACADE_INFO.fieldNameEquals(0, 8, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
                 if (FACADE_INFO.fieldNameEquals(8, 9, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
                 if (FACADE_INFO.fieldNameEquals(17, 8, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
                 if (FACADE_INFO.fieldNameEquals(25, 9, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }
@@ -83,22 +85,22 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
         switch (hash) {
             case 105 -> {
                 if (FACADE_INFO.fieldNameEquals(0, 8, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
                 if (FACADE_INFO.fieldNameEquals(8, 9, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
                 if (FACADE_INFO.fieldNameEquals(17, 8, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
                 if (FACADE_INFO.fieldNameEquals(25, 9, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }
@@ -114,7 +116,7 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
             case "timeValue" -> 3;
             default -> throw new IllegalArgumentException("mappedName not found: " + mappedName);
         };
-        return FACADE_INFO.infos().get(index);
+        return MARSHALL_INFOS.get(index);
     }
 
     @Override
@@ -123,22 +125,22 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
         switch (hash) {
             case 105 -> {
                 if (FACADE_INFO.mappedNameEquals(0, 8, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
                 if (FACADE_INFO.mappedNameEquals(8, 9, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
                 if (FACADE_INFO.mappedNameEquals(17, 8, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
                 if (FACADE_INFO.mappedNameEquals(25, 9, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }
@@ -151,22 +153,22 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
         switch (hash) {
             case 105 -> {
                 if (FACADE_INFO.mappedNameEquals(0, 8, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
                 if (FACADE_INFO.mappedNameEquals(8, 9, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
                 if (FACADE_INFO.mappedNameEquals(25, 8, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
                 if (FACADE_INFO.mappedNameEquals(33, 9, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }
@@ -174,23 +176,79 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallReader newReader(Object target) {
-        if (target instanceof RecordEntity instance) {
-            return new RecordEntityMarshallReader(instance);
-        }
-        throw new IllegalArgumentException("wrong target : " + target.getClass().getName());
+    public int readInt(Object instance, int offset) {
+        RecordEntity entity = (RecordEntity) instance;
+        return switch (offset) {
+            case 0 -> entity.intValue();
+            default -> throw new UnsupportedOperationException();
+        };
     }
 
     @Override
-    public MarshallWriter newWriter() {
-        return new RecordEntityMarshallWriter();
+    public long readLong(Object instance, int offset) {
+        RecordEntity entity = (RecordEntity) instance;
+        return switch (offset) {
+            case 0 -> entity.longValue();
+            default -> throw new UnsupportedOperationException();
+        };
     }
 
     @Override
-    public Object construct(MarshallWriter writer) {
-        if (writer instanceof RecordEntityMarshallWriter instance) {
-            return instance.build();
+    public Object readObject(Object instance, int offset) {
+        RecordEntity entity = (RecordEntity) instance;
+        return switch (offset) {
+            case 2 -> entity.strValue();
+            case 3 -> entity.timeValue();
+            default -> throw new UnsupportedOperationException();
+        };
+    }
+
+    @Override
+    public MarshallBuilder newBuilder() {
+        return new Builder();
+    }
+
+    @Override
+    public Object construct(MarshallBuilder writer) {
+        if (writer instanceof Builder builder) {
+            return builder.build();
         }
         throw new IllegalArgumentException("wrong writer : " + writer.getClass().getName());
+    }
+
+    private static final class Builder implements MarshallBuilder {
+        private int intValue;
+        private long longValue;
+        private String strValue;
+        private LocalDateTime timeValue;
+
+        @Override
+        public void writeInt(int index, int value) {
+            switch (index) {
+                case 0 -> this.intValue = value;
+                default -> throw new UnsupportedOperationException();
+            }
+        }
+
+        @Override
+        public void writeLong(int index, long value) {
+            switch (index) {
+                case 1 -> this.longValue = value;
+                default -> throw new UnsupportedOperationException();
+            }
+        }
+
+        @Override
+        public void writeObject(int index, Object value) {
+            switch (index) {
+                case 2 -> this.strValue = (String) value;
+                case 3 -> this.timeValue = (LocalDateTime) value;
+                default -> throw new UnsupportedOperationException();
+            }
+        }
+
+        RecordEntity build() {
+            return new RecordEntity(intValue, longValue, strValue, timeValue);
+        }
     }
 }

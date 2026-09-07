@@ -9,7 +9,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public final class BeanEntityMarshallFacade implements MarshallFacade {
-    private static final MarshallFacadeInfo FACADE_INFO;
+    private static final List<MarshallInfo> MARSHALL_INFOS;
+    private static final MarshallHashInfo HASH_INFO;
     private static final List<VarHandle> VHS;
 
     static {
@@ -17,7 +18,8 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
         MarshallInfo mi1 = new MarshallInfo(long.class, null, null, 1, "longValue", "longValue", false, false);
         MarshallInfo mi2 = new MarshallInfo(String.class, null, null, 2, "strValue", "strValue", false, false);
         MarshallInfo mi3 = new MarshallInfo(LocalDateTime.class, null, null, 3, "timeValue", "timeValue", false, false);
-        FACADE_INFO = new MarshallFacadeInfo(List.of(mi0, mi1, mi2, mi3));
+        MARSHALL_INFOS = List.of(mi0, mi1, mi2, mi3);
+        HASH_INFO = new MarshallHashInfo(MARSHALL_INFOS);
         try {
             MethodHandles.Lookup lookup = MethodHandles.lookup();
             MethodHandles.Lookup lookup0 = MethodHandles.privateLookupIn(BeanEntity.class, lookup);
@@ -31,7 +33,7 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
         }
     }
 
-    static VarHandle vh(int index) {
+    private static VarHandle vh(int index) {
         return VHS.get(index);
     }
 
@@ -51,17 +53,17 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo marshallInfoByIndex(int index) {
-        return FACADE_INFO.infos().get(index);
+    public List<MarshallInfo> marshallInfos() {
+        return MARSHALL_INFOS;
     }
 
     @Override
     public MarshallInfo marshallInfoByFieldName(String fieldName) {
         return switch (fieldName) {
-            case "intValue" -> FACADE_INFO.infos().get(0);
-            case "longValue" -> FACADE_INFO.infos().get(1);
-            case "strValue" -> FACADE_INFO.infos().get(2);
-            case "timeValue" -> FACADE_INFO.infos().get(3);
+            case "intValue" -> MARSHALL_INFOS.get(0);
+            case "longValue" -> MARSHALL_INFOS.get(1);
+            case "strValue" -> MARSHALL_INFOS.get(2);
+            case "timeValue" -> MARSHALL_INFOS.get(3);
             case null -> throw new IllegalArgumentException("fieldName is null");
             default -> null;
         };
@@ -69,26 +71,26 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByFieldName(byte[] bytes, int offset, int len) {
-        int hash = FACADE_INFO.fieldNameUtf8Hasher().hash(bytes, offset, len);
+        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(bytes, offset, len);
         switch (hash) {
             case 105 -> {
-                if (FACADE_INFO.fieldNameEquals(0, 8, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                if (HASH_INFO.fieldNameEquals(0, 8, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
-                if (FACADE_INFO.fieldNameEquals(8, 9, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                if (HASH_INFO.fieldNameEquals(8, 9, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
-                if (FACADE_INFO.fieldNameEquals(17, 8, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                if (HASH_INFO.fieldNameEquals(17, 8, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
-                if (FACADE_INFO.fieldNameEquals(25, 9, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                if (HASH_INFO.fieldNameEquals(25, 9, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }
@@ -97,26 +99,26 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByFieldName(MemorySegment segment, long offset, long len) {
-        int hash = FACADE_INFO.fieldNameUtf8Hasher().hash(segment, offset, len);
+        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(segment, offset, len);
         switch (hash) {
             case 105 -> {
-                if (FACADE_INFO.fieldNameEquals(0, 8, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                if (HASH_INFO.fieldNameEquals(0, 8, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
-                if (FACADE_INFO.fieldNameEquals(8, 9, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                if (HASH_INFO.fieldNameEquals(8, 9, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
-                if (FACADE_INFO.fieldNameEquals(17, 8, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                if (HASH_INFO.fieldNameEquals(17, 8, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
-                if (FACADE_INFO.fieldNameEquals(25, 9, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                if (HASH_INFO.fieldNameEquals(25, 9, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }
@@ -126,10 +128,10 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
     @Override
     public MarshallInfo marshallInfoByMappedName(String mappedName) {
         return switch (mappedName) {
-            case "intValue" -> FACADE_INFO.infos().get(0);
-            case "longValue" -> FACADE_INFO.infos().get(1);
-            case "strValue" -> FACADE_INFO.infos().get(2);
-            case "timeValue" -> FACADE_INFO.infos().get(3);
+            case "intValue" -> MARSHALL_INFOS.get(0);
+            case "longValue" -> MARSHALL_INFOS.get(1);
+            case "strValue" -> MARSHALL_INFOS.get(2);
+            case "timeValue" -> MARSHALL_INFOS.get(3);
             case null -> throw new IllegalArgumentException("mappedName is null");
             default -> null;
         };
@@ -137,26 +139,26 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByMappedName(byte[] bytes, int offset, int len) {
-        int hash = FACADE_INFO.mappedNameUtf8Hasher().hash(bytes, offset, len);
+        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(bytes, offset, len);
         switch (hash) {
             case 105 -> {
-                if (FACADE_INFO.mappedNameEquals(0, 8, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                if (HASH_INFO.mappedNameEquals(0, 8, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
-                if (FACADE_INFO.mappedNameEquals(8, 9, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                if (HASH_INFO.mappedNameEquals(8, 9, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
-                if (FACADE_INFO.mappedNameEquals(17, 8, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                if (HASH_INFO.mappedNameEquals(17, 8, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
-                if (FACADE_INFO.mappedNameEquals(25, 9, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                if (HASH_INFO.mappedNameEquals(25, 9, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }
@@ -165,26 +167,26 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByMappedName(MemorySegment segment, long offset, long len) {
-        int hash = FACADE_INFO.mappedNameUtf8Hasher().hash(segment, offset, len);
+        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(segment, offset, len);
         switch (hash) {
             case 105 -> {
-                if (FACADE_INFO.mappedNameEquals(0, 8, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                if (HASH_INFO.mappedNameEquals(0, 8, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
-                if (FACADE_INFO.mappedNameEquals(8, 9, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                if (HASH_INFO.mappedNameEquals(8, 9, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
-                if (FACADE_INFO.mappedNameEquals(17, 8, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                if (HASH_INFO.mappedNameEquals(17, 8, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
-                if (FACADE_INFO.mappedNameEquals(25, 9, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                if (HASH_INFO.mappedNameEquals(25, 9, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }
@@ -192,24 +194,71 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallReader newReader(Object target) {
-        if(target instanceof BeanEntity instance) {
-            return new BeanEntityMarshallReader(instance);
-        }
-        throw new IllegalArgumentException("wrong target : " + target.getClass().getName());
+    public int readInt(Object instance, int index) {
+        BeanEntity entity = (BeanEntity) instance;
+        return switch (index) {
+            case 0 -> (int) VHS.get(0).get(entity);
+            default -> throw new UnsupportedOperationException();
+        };
     }
 
     @Override
-    public MarshallWriter newWriter() {
-        BeanEntity instance = new BeanEntity();
-        return new BeanEntityMarshallWriter(instance);
+    public long readLong(Object instance, int index) {
+        BeanEntity entity = (BeanEntity) instance;
+        return switch (index) {
+            case 1 -> (long) VHS.get(1).get(entity);
+            default -> throw new UnsupportedOperationException();
+        };
     }
 
     @Override
-    public Object construct(MarshallWriter writer) {
-        if (writer instanceof BeanEntityMarshallWriter(BeanEntity instance)) {
+    public Object readObject(Object instance, int index) {
+        BeanEntity entity = (BeanEntity) instance;
+        return switch (index) {
+            case 2 -> (String) VHS.get(2).get(entity);
+            case 3 -> (LocalDateTime) VHS.get(3).get(entity);
+            default -> throw new UnsupportedOperationException();
+        };
+    }
+
+    @Override
+    public MarshallBuilder newBuilder() {
+        return new Builder(new BeanEntity());
+    }
+
+    @Override
+    public Object construct(MarshallBuilder writer) {
+        if (writer instanceof Builder(BeanEntity instance)) {
             return instance;
         }
         throw new IllegalArgumentException("wrong writer : " + writer.getClass().getName());
+    }
+
+    private record Builder(BeanEntity instance) implements MarshallBuilder {
+
+        @Override
+        public void writeInt(int index, int value) {
+            switch (index) {
+                case 0 -> VHS.get(0).set(instance, value);
+                default -> throw new UnsupportedOperationException();
+            }
+        }
+
+        @Override
+        public void writeLong(int index, long value) {
+            switch (index) {
+                case 1 -> VHS.get(1).set(instance, value);
+                default -> throw new UnsupportedOperationException();
+            }
+        }
+
+        @Override
+        public void writeObject(int index, Object value) {
+            switch (index) {
+                case 2 -> VHS.get(2).set(instance, (String) value);
+                case 3 -> VHS.get(3).set(instance, (LocalDateTime) value);
+                default -> throw new UnsupportedOperationException();
+            }
+        }
     }
 }

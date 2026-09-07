@@ -52,14 +52,12 @@ public final class JsonDeserializerOption {
     private final int maxArrayElements;
     private final int maxMapElements;
     private final int maxDummyElements;
-    private final int maxDummyArrayElements;
     private final int maxNestedSize;
     private final int charBufferSize;
 
     private JsonDeserializerOption(Map<Class<?>, JsonDeserializeFunc> customFuncMap, Map<Class<?>, JsonDeserializeFunc> customArrFuncMap,
-                                   boolean consumeAllBytes, boolean ensureAllFieldsPresent, int maxEmptyBytes, int maxNumberBytes,
-                                   int maxStringBytes, int maxArrayElements, int maxMapElements, int maxDummyElements,
-                                   int maxDummyArrayElements, int maxNestedSize, int charBufferSize) {
+                                   boolean consumeAllBytes, boolean ensureAllFieldsPresent, int maxEmptyBytes, int maxNumberBytes, int maxStringBytes,
+                                   int maxArrayElements, int maxMapElements, int maxDummyElements, int maxNestedSize, int charBufferSize) {
         this.customFuncMap = customFuncMap;
         this.customArrFuncMap = customArrFuncMap;
         this.consumeAllBytes = consumeAllBytes;
@@ -70,7 +68,6 @@ public final class JsonDeserializerOption {
         this.maxArrayElements = maxArrayElements;
         this.maxMapElements = maxMapElements;
         this.maxDummyElements = maxDummyElements;
-        this.maxDummyArrayElements = maxDummyArrayElements;
         this.maxNestedSize = maxNestedSize;
         this.charBufferSize = charBufferSize;
     }
@@ -123,10 +120,6 @@ public final class JsonDeserializerOption {
         return maxDummyElements;
     }
 
-    public int maxDummyArrayElements() {
-        return maxDummyArrayElements;
-    }
-
     public int maxNestedSize() {
         return maxNestedSize;
     }
@@ -145,9 +138,8 @@ public final class JsonDeserializerOption {
         private int maxArrayElements = 1000;
         private int maxMapElements = 200;
         private int maxDummyElements = 4;
-        private int maxDummyArrayElements = 4;
         private int maxNestedSize = 64;
-        private int charBufferSize = DEFAULT_CHAR_BUFFER_SIZE;
+        private int charBufferSize = JsonDeserializerContext.CHAR_BUFFER_INITIAL_SIZE;
 
         public Builder setTransformerClasses(Class<?>... transformerClasses) {
             if (transformerClasses == null || transformerClasses.length == 0) {
@@ -234,19 +226,7 @@ public final class JsonDeserializerOption {
         }
 
         public void setMaxDummyElements(int maxDummyElements) {
-            // reuse map size limits for dummy elements, as they are structurally analogous.
-            if (maxMapElements < 0 || maxMapElements > MAX_MAP_SIZE) {
-                throw new IllegalArgumentException("maxDummyElements out of range : " + maxDummyElements);
-            }
             this.maxDummyElements = maxDummyElements;
-        }
-
-        public void setMaxDummyArrayElements(int maxDummyArrayElements) {
-            // reuse array size limits for dummy array elements, as they are structurally analogous.
-            if (maxDummyArrayElements < 0 || maxDummyArrayElements > MAX_ARRAY_SIZE) {
-                throw new IllegalArgumentException("maxDummyArrayElements out of range : " + maxDummyArrayElements);
-            }
-            this.maxDummyArrayElements = maxDummyArrayElements;
         }
 
         public Builder setMaxNestedSize(int maxNestedSize) {
@@ -258,7 +238,7 @@ public final class JsonDeserializerOption {
         }
 
         public void setCharBufferSize(int charBufferSize) {
-            if (charBufferSize < DEFAULT_CHAR_BUFFER_SIZE) {
+            if (charBufferSize < JsonDeserializerContext.CHAR_BUFFER_INITIAL_SIZE) {
                 throw new IllegalArgumentException("charBufferSize out of range : " + charBufferSize);
             }
             this.charBufferSize = Utils.roundUp(charBufferSize, ByteVector.SPECIES_MAX.length());
@@ -327,8 +307,8 @@ public final class JsonDeserializerOption {
                 customArrFuncMap.put(customType, customArrDeserializeFunc(tfc));
             }
             return new JsonDeserializerOption(Map.copyOf(customFuncMap), Map.copyOf(customArrFuncMap),
-                    consumeAllBytes, ensureAllFieldsPresent, maxEmptyBytes, maxNumberBytes, maxStringBytes, maxArrayElements,
-                    maxMapElements, maxDummyElements, maxDummyArrayElements, maxNestedSize, charBufferSize);
+                    consumeAllBytes, ensureAllFieldsPresent, maxEmptyBytes, maxNumberBytes, maxStringBytes,
+                    maxArrayElements, maxMapElements, maxDummyElements, maxNestedSize, charBufferSize);
         }
     }
 }

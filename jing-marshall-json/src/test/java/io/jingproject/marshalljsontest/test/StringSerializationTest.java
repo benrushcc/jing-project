@@ -43,8 +43,9 @@ public class StringSerializationTest {
         );
         for (String str : strs) {
             HeapWriteBuffer writeBuffer = new HeapWriteBuffer(1000);
-            JsonSerializerContext context = new JsonSerializerContext(JsonSerializerOption.defaultOption(), writeBuffer);
+            JsonSerializerContext context = JsonSerializerContext.newCtx(JsonSerializerOption.defaultOption(), writeBuffer);
             context.serializeEscapedString(str);
+            context.commit();
             String jsonStr = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
             System.out.println(jsonStr);
         }

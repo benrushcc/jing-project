@@ -10,8 +10,7 @@ import java.util.Arrays;
 import java.util.List;
 
 @ProcessorApi
-public record MarshallFacadeInfo(
-        List<MarshallInfo> infos,
+public record MarshallHashInfo (
         Hasher fieldNameUtf8Hasher,
         byte[] fieldNameCompactUtf8Bytes,
         MemorySegment fieldNameCompactUtf8Segment,
@@ -20,22 +19,24 @@ public record MarshallFacadeInfo(
         MemorySegment mappedNameCompactUtf8Segment
 ) {
 
-    public MarshallFacadeInfo(List<MarshallInfo> infos, int fieldHasherIndex, int mappedHasherIndex) {
+    public MarshallHashInfo(List<MarshallInfo> infos, int fieldHasherIndex, int mappedHasherIndex) {
         Hasher fh = HashUtil.hasher(fieldHasherIndex);
         byte[] fb = HashUtil.compactUtf8Bytes(infos, marshallInfo -> marshallInfo.fieldName().getBytes(StandardCharsets.UTF_8));
         MemorySegment fs = MemorySegment.ofArray(fb).asReadOnly();
         Hasher mh = HashUtil.hasher(mappedHasherIndex);
         byte[] mb = HashUtil.compactUtf8Bytes(infos, marshallInfo -> marshallInfo.mappedName().getBytes(StandardCharsets.UTF_8));
         MemorySegment ms = MemorySegment.ofArray(mb).asReadOnly();
-        this(infos, fh, fb, fs, mh, mb, ms);
+        this(fh, fb, fs, mh, mb, ms);
     }
 
-    public MarshallFacadeInfo(List<MarshallInfo> infos) {
+    // for test purpose only
+    public MarshallHashInfo(List<MarshallInfo> infos) {
         int fieldHasherIndex = HashUtil.selectUtf8Hasher(infos, marshallInfo -> marshallInfo.fieldName().getBytes(StandardCharsets.UTF_8));
         int mappedHasherIndex = HashUtil.selectUtf8Hasher(infos, marshallInfo -> marshallInfo.mappedName().getBytes(StandardCharsets.UTF_8));
         this(infos, fieldHasherIndex, mappedHasherIndex);
     }
 
+    // offsets and lengths are guaranteed to be in bounds by the hasher; no additional validation needed.
     public boolean fieldNameEquals(int fieldOffset, int fieldLen, byte[] bytes, int offset, int len) {
         return Arrays.equals(fieldNameCompactUtf8Bytes, fieldOffset, fieldOffset + fieldLen, bytes, offset, offset + len);
     }

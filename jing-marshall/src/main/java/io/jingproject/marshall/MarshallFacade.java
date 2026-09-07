@@ -5,24 +5,26 @@ import io.jingproject.common.anno.ProcessorApi;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.charset.Charset;
-import java.util.Objects;
+import java.util.List;
 
 @ProcessorApi
 public interface MarshallFacade {
 
     Class<?> marshallableType();
 
-    int totalElements();
+    /**
+     * returns all marshall infos.
+     * The size of the returned list is equal to {@link #totalElements()}.
+     */
+    List<MarshallInfo> marshallInfos();
+
+    default int totalElements() {
+        return marshallInfos().size();
+    }
 
     default int primitiveElements() {
         throw new UnsupportedOperationException();
     }
-
-    /**
-     * get marshall info by index, index must be in [0, totalElements),
-     * throws IndexOutOfBoundsException if out of range
-     */
-    MarshallInfo marshallInfoByIndex(int index);
 
     /**
      * look up info by the original java field name, null if not found
@@ -122,19 +124,47 @@ public interface MarshallFacade {
         return marshallInfoByMappedName(mappedName);
     }
 
-    /**
-     * create a reader for extracting values from the given target,
-     * not supported for enum types, throw IllegalArgumentException if target type mismatch
-     */
-    default MarshallReader newReader(Object target) {
+    default boolean readBoolean(Object instance, int index) {
+        throw new UnsupportedOperationException();
+    }
+
+    default byte readByte(Object instance, int index) {
+        throw new UnsupportedOperationException();
+    }
+
+    default short readShort(Object instance, int index) {
+        throw new UnsupportedOperationException();
+    }
+
+    default char readChar(Object instance, int index) {
+        throw new UnsupportedOperationException();
+    }
+
+    default int readInt(Object instance, int index) {
+        throw new UnsupportedOperationException();
+    }
+
+    default long readLong(Object instance, int index) {
+        throw new UnsupportedOperationException();
+    }
+
+    default float readFloat(Object instance, int index) {
+        throw new UnsupportedOperationException();
+    }
+
+    default double readDouble(Object instance, int index) {
+        throw new UnsupportedOperationException();
+    }
+
+    default Object readObject(Object instance, int index) {
         throw new UnsupportedOperationException();
     }
 
     /**
-     * create a new empty writer for building an object,
+     * create a new empty builder for building an object,
      * not supported for enum types
      */
-    default MarshallWriter newWriter() {
+    default MarshallBuilder newBuilder() {
         throw new UnsupportedOperationException();
     }
 
@@ -142,7 +172,7 @@ public interface MarshallFacade {
      * construct a new instance from the writer's data,
      * not supported for enum types, throw IllegalArgumentException if writer type mismatch
      */
-    default Object construct(MarshallWriter writer) {
+    default Object construct(MarshallBuilder writer) {
         throw new UnsupportedOperationException();
     }
 

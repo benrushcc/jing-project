@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
 //        "-XX:+UnlockDiagnosticVMOptions",
 //        "-XX:PrintAssemblyOptions=intel",
 //})
-@Fork(1)
+@Fork(3)
 public class TwiSerializationBench {
     private static final int SIZE = 819200;
     private static final Twi twi = TwiUtil.deserializeTwiUsingJackson(TwiUtil.loadAsString());
@@ -61,7 +61,7 @@ public class TwiSerializationBench {
     public void jingDefaultSerialization(Blackhole blackhole) {
         jsonDefaultSerializer.serializeMarshallableObject(twi, writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
-        writeBuffer.setPosition(0);
+        writeBuffer.reset();
     }
 
     @Benchmark
@@ -71,7 +71,7 @@ public class TwiSerializationBench {
     public void jingNoFilterSurrSerialization(Blackhole blackhole) {
         jsonDefaultSerializer.serializeMarshallableObject(twi, writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
-        writeBuffer.setPosition(0);
+        writeBuffer.reset();
     }
 
     static void main() throws RunnerException {

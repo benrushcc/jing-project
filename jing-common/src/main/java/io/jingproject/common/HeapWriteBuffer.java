@@ -20,7 +20,6 @@ public final class HeapWriteBuffer implements WriteBuffer {
     private byte[] buffer;
     private int position;
 
-
     public HeapWriteBuffer(byte[] buffer) {
         this(buffer, Integer.MAX_VALUE);
     }
@@ -229,8 +228,16 @@ public final class HeapWriteBuffer implements WriteBuffer {
         position = newPosition;
     }
 
+    public int rawLimit() {
+        return limit;
+    }
+
     public byte[] rawByteArray() {
         return buffer;
+    }
+
+    public void setRawByteArray(byte[] bytes) {
+        buffer = bytes;
     }
 
     @Override

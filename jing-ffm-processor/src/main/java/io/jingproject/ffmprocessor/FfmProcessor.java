@@ -283,7 +283,6 @@ public final class FfmProcessor extends AbstractProcessor {
                 .indent().addLine("return " + listClassName + ".of(")
                 .addLine(ffmProcessorInfo.ffmDowncallInfos().stream().map(d -> AnnoUtil.escapeJavaStringLiteral(d.methodName(), builder)).collect(Collectors.joining(", ")))
                 .addLine(");").unindent().addLine("}").newLine());
-
         bs.add(new GeneratorBlock().addLine("@" + overrideClassName)
                 .addLine("public " + supplier + "<?> supplier() {").indent()
                 .addLine("return " + implSourceClassName + "::new;")

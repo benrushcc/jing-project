@@ -2,15 +2,14 @@ package io.jingproject.marshallprocessor;
 
 import javax.lang.model.element.TypeElement;
 import java.util.List;
-import java.util.Map;
 
 public record MarshallProcessorInfo(
         List<TypeElement> typeElements,
         List<MarshallFieldInfo> fieldInfos,
-        Map<Class<?>, List<MarshallFieldInfo>> fieldTypeInfo,
+        List<MarshallTypeInfo> typeInfos,
         int fieldHashIndex,
-        List<MarshallHashInfo> fieldHashInfos,
+        List<MarshallSwitchInfo> fieldHashInfos,
         int mappedHashIndex,
-        List<MarshallHashInfo> mappedHashInfos
+        List<MarshallSwitchInfo> mappedHashInfos
 ) {
 }

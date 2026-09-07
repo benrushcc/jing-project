@@ -32,7 +32,7 @@
     </modules>
 
     <properties>
-        <java.version>26</java.version>
+        <java.version>28</java.version>
         <revision>0.0.1</revision>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -70,7 +70,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
-                    <argLine>--enable-preview</argLine> <!-- enable preview by default -->
+                    <argLine>--enable-preview --add-modules jdk.incubator.vector</argLine> <!-- enable preview by default, using vector api -->
                 </configuration>
             </plugin>
 

@@ -85,7 +85,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
-                    <argLine>--enable-preview</argLine>
+                    <argLine>--enable-preview</argLine> <!-- enable preview by default -->
                     <excludedGroups>view-output, exhaustive</excludedGroups>
                 </configuration>
             </plugin>

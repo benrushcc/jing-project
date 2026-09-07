@@ -10,6 +10,6 @@ package io.jingproject.marshalljson;
  *
  * @param data the byte array representing the number
  */
-public record JsonNumberType(byte[] data) implements JsonPrimitiveType {
+public value record JsonNumberType(byte[] data) implements JsonPrimitiveType {
 
 }

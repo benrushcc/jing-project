@@ -1,9 +1,7 @@
 package io.jingproject.marshalljson;
 
-import io.jingproject.common.WriteBuffer;
 import io.jingproject.marshall.MarshallFacade;
 import io.jingproject.marshall.MarshallInfo;
-import io.jingproject.marshall.MarshallReader;
 import io.jingproject.marshall.MarshallUtil;
 
 import java.util.*;
@@ -235,46 +233,43 @@ public final class JsonSerializerNode {
     private boolean written;
     private int indent;
     private int index;
-    private int size;
-    private Object val;
     private MarshallFacade fc;
+    private Object marshallable;
+    private Object[] arr;
+    private List<?> list;
+    private Iterator<?> colIter;
+    private Iterator<? extends Map.Entry<?, ?>> mapIter;
     private JsonSerializeFunc func;
 
-    private static void serializeMarshallKey(MarshallInfo marshallInfo, int indent, boolean written, JsonSerializerContext c) {
-        WriteBuffer w = c.writeBuffer();
-        if (written) {
-            w.writeByte((byte) ',');
-        }
-        c.serializeIndent(indent);
+    private void serializeMarshallKey(MarshallInfo marshallInfo, JsonSerializerContext c) {
+        c.serializePrefix(written ? (byte) ',' : (byte) '{', indent + 1);
+        written = true;
         byte[] mappedNameUtf8Bytes = marshallInfo.mappedNameUtf8Bytes();
         if (marshallInfo.mappedNameSimple()) {
-            c.serializeNonEscapedUtf8Bytes(mappedNameUtf8Bytes);
+            c.serializeNonEscapedUtf8BytesAsStr(mappedNameUtf8Bytes);
         } else {
-            c.serializeEscapedUtf8Bytes(mappedNameUtf8Bytes);
+            c.serializeEscapedUtf8BytesAsStr(mappedNameUtf8Bytes);
         }
-        w.writeBytes((byte) ':', (byte) ' ');
+        c.append((byte) ':', (byte) ' ');
     }
 
-    private static void serializeMarshallPrimitiveValue(MarshallReader reader, int index, int type, JsonSerializerContext c) {
+    private void serializeMarshallPrimitiveValue(int type, JsonSerializerContext c) {
         switch (type) {
-            case MarshallUtil.BYTE_TYPE -> c.serializeByte(reader.getByte(index));
-            case MarshallUtil.BOOLEAN_TYPE -> c.serializeBoolean(reader.getBoolean(index));
-            case MarshallUtil.SHORT_TYPE -> c.serializeShort(reader.getShort(index));
-            case MarshallUtil.CHAR_TYPE -> c.serializeChar(reader.getChar(index));
-            case MarshallUtil.INT_TYPE -> c.serializeInt(reader.getInt(index));
-            case MarshallUtil.LONG_TYPE -> c.serializeLong(reader.getLong(index));
-            case MarshallUtil.FLOAT_TYPE -> c.serializeFloat(reader.getFloat(index));
-            case MarshallUtil.DOUBLE_TYPE -> c.serializeDouble(reader.getDouble(index));
+            case MarshallUtil.BYTE_TYPE -> c.serializeByte(fc.readByte(marshallable, index));
+            case MarshallUtil.BOOLEAN_TYPE -> c.serializeBoolean(fc.readBoolean(marshallable, index));
+            case MarshallUtil.SHORT_TYPE -> c.serializeShort(fc.readShort(marshallable, index));
+            case MarshallUtil.CHAR_TYPE -> c.serializeChar(fc.readChar(marshallable, index));
+            case MarshallUtil.INT_TYPE -> c.serializeInt(fc.readInt(marshallable, index));
+            case MarshallUtil.LONG_TYPE -> c.serializeLong(fc.readLong(marshallable, index));
+            case MarshallUtil.FLOAT_TYPE -> c.serializeFloat(fc.readFloat(marshallable, index));
+            case MarshallUtil.DOUBLE_TYPE -> c.serializeDouble(fc.readDouble(marshallable, index));
             default -> throw new AssertionError();
         }
     }
 
-    private static void serializeMapKey(Object key, int indent, boolean written, JsonSerializerContext c) {
-        final WriteBuffer w = c.writeBuffer();
-        if (written) {
-            w.writeByte((byte) ',');
-        }
-        c.serializeIndent(indent);
+    private void serializeMapKey(Object key, JsonSerializerContext c) {
+        c.serializePrefix(written ? (byte) ',' : (byte) '{', indent + 1);
+        written = true;
         if (key instanceof String str) {
             c.serializeEscapedString(str);
         } else if (key instanceof CharSequence charSequence) {
@@ -282,7 +277,7 @@ public final class JsonSerializerNode {
         } else {
             throw new AssertionError();
         }
-        w.writeBytes((byte) ':', (byte) ' ');
+        c.append((byte) ':', (byte) ' ');
     }
 
     private static JsonSerializerObjFunc directSerializableFunc(Class<?> rawType) {
@@ -293,57 +288,47 @@ public final class JsonSerializerNode {
         return indent;
     }
 
-    public void initObj(MarshallFacade fc, Object marshallable, int indent, JsonSerializerContext c) {
+    public void initObj(MarshallFacade marshallFacade, Object marshallable, int indent) {
         this.type = OBJ;
         this.written = false;
         this.indent = indent;
         this.index = 0;
-        this.size = fc.totalElements();
-        this.val = fc.newReader(marshallable);
-        this.fc = fc;
-        c.writeBuffer().writeByte((byte) '{');
+        this.fc = marshallFacade;
+        this.marshallable = marshallable;
     }
 
-    public void initArr(Object[] arr, int indent, JsonSerializeFunc fn, JsonSerializerContext c) {
+    public void initArr(Object[] arr, int indent, JsonSerializeFunc fn) {
         this.type = ARR;
         this.written = false;
         this.indent = indent;
         this.index = 0;
-        this.val = arr;
+        this.arr = arr;
         this.func = fn;
-        c.writeBuffer().writeByte((byte) '[');
     }
 
-    public void initCol(int size, Iterator<?> iter, int indent, JsonSerializeFunc fn, JsonSerializerContext c) {
+    public void initCol(Iterator<?> iter, int indent, JsonSerializeFunc fn) {
         this.type = COL;
         this.written = false;
         this.indent = indent;
-        this.index = 0;
-        this.size = size;
-        this.val = iter;
+        this.colIter = iter;
         this.func = fn;
-        c.writeBuffer().writeByte((byte) '[');
     }
 
-    public void initList(List<?> list, int indent, JsonSerializeFunc fn, JsonSerializerContext c) {
+    public void initList(List<?> list, int indent, JsonSerializeFunc fn) {
         this.type = LIST;
         this.written = false;
         this.indent = indent;
         this.index = 0;
-        this.val = list;
+        this.list = list;
         this.func = fn;
-        c.writeBuffer().writeByte((byte) '[');
     }
 
-    public void initMap(int size, Iterator<? extends Map.Entry<?, ?>> iter, int indent, JsonSerializeFunc fn, JsonSerializerContext c) {
+    public void initMap(Iterator<? extends Map.Entry<?, ?>> iter, int indent, JsonSerializeFunc fn) {
         this.type = MAP;
         this.written = false;
         this.indent = indent;
-        this.index = 0;
-        this.size = size;
-        this.val = iter;
+        this.mapIter = iter;
         this.func = fn;
-        c.writeBuffer().writeByte((byte) '{');
     }
 
     public JsonSerializeResult process(JsonSerializerContext c) {
@@ -358,144 +343,109 @@ public final class JsonSerializerNode {
     }
 
     private JsonSerializeResult processObj(JsonSerializerContext c) {
-        final MarshallFacade m = this.fc;
-        final MarshallReader reader = (MarshallReader) this.val;
-        final int range = this.size;
-        final int ind = this.indent;
-        boolean wtn = this.written;
-        for (int i = index; i < range; i++) {
-            MarshallInfo inf = m.marshallInfoByIndex(i);
+        List<MarshallInfo> marshallInfos = fc.marshallInfos();
+        while (index < marshallInfos.size()) {
+            MarshallInfo inf = marshallInfos.get(index);
             if (inf.skipSerializing()) {
+                index++;
                 continue;
             }
             int type = inf.type() & MarshallUtil.TYPE_MASK;
             if (type <= MarshallUtil.DOUBLE_TYPE) {
-                serializeMarshallKey(inf, ind, wtn, c);
-                wtn = true;
-                serializeMarshallPrimitiveValue(reader, i, type, c);
+                serializeMarshallKey(inf, c);
+                serializeMarshallPrimitiveValue(type, c);
+                index++;
                 continue;
             }
-            Object fieldValue = reader.getObject(i);
+            Object fieldValue = fc.readObject(marshallable, index);
             if (fieldValue == null) {
                 if (c.option().serializeNullInObjOrMap()) {
-                    serializeMarshallKey(inf, ind, wtn, c);
-                    wtn = true;
+                    serializeMarshallKey(inf, c);
                     c.serializeNull();
                 }
+                index++;
                 continue;
             }
-            serializeMarshallKey(inf, ind, wtn, c);
-            wtn = true;
+            serializeMarshallKey(inf, c);
             JsonSerializeResult r = FUNC_TABLE[type].serialize(fieldValue, inf, indent, c);
-            if (r == JsonSerializeResult.Continue) {
-                continue;
+            index++;
+            if (r != JsonSerializeResult.Continue) {
+                return r;
             }
-            written = true;
-            index = i + 1;
-            return r;
         }
-        c.writeBuffer().writeByte((byte) '}');
+        if(!written) {
+            c.serializePrefix((byte) '{', 0);
+        }
+        c.serializeSuffix((byte) '}', indent);
         return JsonSerializeResult.Finished;
     }
 
     private JsonSerializeResult processArr(JsonSerializerContext c) {
-        final WriteBuffer w = c.writeBuffer();
-        final Object[] arr = (Object[]) this.val;
-        final int ind = this.indent;
-        final JsonSerializeFunc fn = this.func;
-        boolean wtn = this.written;
-        for (int i = index; i < arr.length; i++) {
-            if (wtn) {
-                w.writeByte((byte) ',');
-            }
-            wtn = true;
-            c.serializeIndent(ind);
-            Object instance = arr[i];
+        while (index < arr.length) {
+            c.serializePrefix(written ? (byte) ',' : (byte) '[', indent + 1);
+            written = true;
+            Object instance = arr[index++];
             if (instance == null) {
                 c.serializeNull();
                 continue;
             }
-            JsonSerializeResult r = fn.serialize(instance, ind, c);
-            if (r == JsonSerializeResult.Continue) {
-                continue;
+            JsonSerializeResult r = func.serialize(instance, indent, c);
+            if (r != JsonSerializeResult.Continue) {
+                return r;
             }
-            written = true;
-            index = i + 1;
-            return r;
         }
-        w.writeByte((byte) ']');
+        if(!written) {
+            c.serializePrefix((byte) '[', 0);
+        }
+        c.serializeSuffix((byte) ']', indent);
         return JsonSerializeResult.Finished;
     }
 
     private JsonSerializeResult processCol(JsonSerializerContext c) {
-        final WriteBuffer w = c.writeBuffer();
-        final Iterator<?> iter = (Iterator<?>) this.val;
-        final int ind = this.indent;
-        final JsonSerializeFunc fn = this.func;
-        final int range = this.size;
-        boolean wtn = this.written;
-        for (int i = index; i < range; i++) {
-            if (wtn) {
-                w.writeByte((byte) ',');
-            }
-            wtn = true;
-            c.serializeIndent(ind);
-            Object instance = iter.next();
+        while (colIter.hasNext()) {
+            c.serializePrefix(written ? (byte) ',' : (byte) '[', indent + 1);
+            written = true;
+            Object instance = colIter.next();
             if (instance == null) {
                 c.serializeNull();
                 continue;
             }
-            JsonSerializeResult r = fn.serialize(instance, ind, c);
-            if (r == JsonSerializeResult.Continue) {
-                continue;
+            JsonSerializeResult r = func.serialize(instance, indent, c);
+            if (r != JsonSerializeResult.Continue) {
+                return r;
             }
-            written = true;
-            index = i + 1;
-            return r;
         }
-        w.writeByte((byte) ']');
+        if(!written) {
+            c.serializePrefix((byte) '[', 0);
+        }
+        c.serializeSuffix((byte) ']', indent);
         return JsonSerializeResult.Finished;
     }
 
     private JsonSerializeResult processList(JsonSerializerContext c) {
-        final WriteBuffer w = c.writeBuffer();
-        final List<?> list = (List<?>) this.val;
-        final int ind = this.indent;
-        final JsonSerializeFunc fn = this.func;
-        final int range = list.size();
-        boolean wtn = this.written;
-        for (int i = index; i < range; i++) {
-            if (wtn) {
-                w.writeByte((byte) ',');
-            }
-            wtn = true;
-            c.serializeIndent(ind);
-            Object instance = list.get(i);
+        while (index < list.size()) {
+            c.serializePrefix(written ? (byte) ',' : (byte) '[', indent + 1);
+            written = true;
+            Object instance = list.get(index++);
             if (instance == null) {
                 c.serializeNull();
                 continue;
             }
-            JsonSerializeResult r = fn.serialize(instance, ind, c);
-            if (r == JsonSerializeResult.Continue) {
-                continue;
+            JsonSerializeResult r = func.serialize(instance, indent, c);
+            if (r != JsonSerializeResult.Continue) {
+                return r;
             }
-            written = true;
-            index = i + 1;
-            return r;
         }
-        w.writeByte((byte) ']');
+        if(!written) {
+            c.serializePrefix((byte) '[', 0);
+        }
+        c.serializeSuffix((byte) ']', indent);
         return JsonSerializeResult.Finished;
     }
 
-    @SuppressWarnings("unchecked")
     private JsonSerializeResult processMap(JsonSerializerContext c) {
-        final Iterator<? extends Map.Entry<?, ?>> iter = (Iterator<? extends Map.Entry<?, ?>>) this.val;
-        final int ind = this.indent;
-        final JsonSerializeFunc fn = this.func;
-        final int range = this.size;
-        boolean wtn = this.written;
-        for (int i = index; i < range; i++) {
-            Map.Entry<?, ?> entry = iter.next();
+        while (mapIter.hasNext()) {
+            Map.Entry<?, ?> entry = mapIter.next();
             Object key = entry.getKey();
             if (key == null) {
                 continue;
@@ -503,23 +453,21 @@ public final class JsonSerializerNode {
             Object value = entry.getValue();
             if (value == null) {
                 if (c.option().serializeNullInObjOrMap()) {
-                    serializeMapKey(key, ind, wtn, c);
-                    wtn = true;
+                    serializeMapKey(key, c);
                     c.serializeNull();
                 }
                 continue;
             }
-            serializeMapKey(key, ind, wtn, c);
-            wtn = true;
-            JsonSerializeResult r = fn.serialize(value, ind, c);
-            if (r == JsonSerializeResult.Continue) {
-                continue;
+            serializeMapKey(key, c);
+            JsonSerializeResult r = func.serialize(value, indent, c);
+            if (r != JsonSerializeResult.Continue) {
+                return r;
             }
-            written = true;
-            index = i + 1;
-            return r;
         }
-        c.writeBuffer().writeByte((byte) '}');
+        if(!written) {
+            c.serializePrefix((byte) '{', 0);
+        }
+        c.serializeSuffix((byte) '}', indent);
         return JsonSerializeResult.Finished;
     }
 

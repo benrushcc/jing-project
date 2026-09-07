@@ -1,21 +1,23 @@
 package io.jingproject.marshalltest.entity;
 
 import io.jingproject.marshall.MarshallFacade;
-import io.jingproject.marshall.MarshallFacadeInfo;
+import io.jingproject.marshall.MarshallHashInfo;
 import io.jingproject.marshall.MarshallInfo;
 
 import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 public final class EnumEntityMarshallFacade implements MarshallFacade {
-    private static final MarshallFacadeInfo FACADE_INFO;
+    private static final List<MarshallInfo> MARSHALL_INFOS;
+    private static final MarshallHashInfo HASH_INFO;
 
     static {
         MarshallInfo mi0 = new MarshallInfo(EnumEntity.class, null, null, 0, "INT", "INT", false, false);
         MarshallInfo mi1 = new MarshallInfo(EnumEntity.class, null, null, 1, "LONG", "LONG", false, false);
         MarshallInfo mi2 = new MarshallInfo(EnumEntity.class, null, null, 2, "STR", "STR", false, false);
         MarshallInfo mi3 = new MarshallInfo(EnumEntity.class, null, null, 3, "TIME", "TIME", false, false);
-        FACADE_INFO = new MarshallFacadeInfo(List.of(mi0, mi1, mi2, mi3));
+        MARSHALL_INFOS = List.of(mi0, mi1, mi2, mi3);
+        HASH_INFO = new MarshallHashInfo(MARSHALL_INFOS);
     }
 
     @Override
@@ -29,8 +31,8 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo marshallInfoByIndex(int index) {
-        return FACADE_INFO.infos().get(index);
+    public List<MarshallInfo> marshallInfos() {
+        return MARSHALL_INFOS;
     }
 
     @Override
@@ -42,31 +44,31 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
             case "TIME" -> 3;
             default -> throw new IllegalArgumentException("fieldName not found: " + fieldName);
         };
-        return FACADE_INFO.infos().get(index);
+        return MARSHALL_INFOS.get(index);
     }
 
     @Override
     public MarshallInfo marshallInfoByFieldName(byte[] bytes, int offset, int len) {
-        int hash = FACADE_INFO.fieldNameUtf8Hasher().hash(bytes, offset, len);
+        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(bytes, offset, len);
         switch (hash) {
             case 73 -> {
-                if (FACADE_INFO.fieldNameEquals(0, 3, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                if (HASH_INFO.fieldNameEquals(0, 3, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 76 -> {
-                if (FACADE_INFO.fieldNameEquals(3, 4, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                if (HASH_INFO.fieldNameEquals(3, 4, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 83 -> {
-                if (FACADE_INFO.fieldNameEquals(7, 3, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                if (HASH_INFO.fieldNameEquals(7, 3, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 84 -> {
-                if (FACADE_INFO.fieldNameEquals(10, 4, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                if (HASH_INFO.fieldNameEquals(10, 4, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }
@@ -75,26 +77,26 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByFieldName(MemorySegment segment, long offset, long len) {
-        int hash = FACADE_INFO.fieldNameUtf8Hasher().hash(segment, offset, len);
+        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(segment, offset, len);
         switch (hash) {
             case 73 -> {
-                if (FACADE_INFO.fieldNameEquals(0, 3, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                if (HASH_INFO.fieldNameEquals(0, 3, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 76 -> {
-                if (FACADE_INFO.fieldNameEquals(3, 4, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                if (HASH_INFO.fieldNameEquals(3, 4, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 83 -> {
-                if (FACADE_INFO.fieldNameEquals(7, 3, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                if (HASH_INFO.fieldNameEquals(7, 3, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 84 -> {
-                if (FACADE_INFO.fieldNameEquals(10, 4, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                if (HASH_INFO.fieldNameEquals(10, 4, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }
@@ -110,31 +112,31 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
             case "TIME" -> 3;
             default -> throw new IllegalArgumentException("mappedName not found: " + mappedName);
         };
-        return FACADE_INFO.infos().get(index);
+        return MARSHALL_INFOS.get(index);
     }
 
     @Override
     public MarshallInfo marshallInfoByMappedName(byte[] bytes, int offset, int len) {
-        int hash = FACADE_INFO.mappedNameUtf8Hasher().hash(bytes, offset, len);
+        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(bytes, offset, len);
         switch (hash) {
             case 73 -> {
-                if (FACADE_INFO.mappedNameEquals(0, 3, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                if (HASH_INFO.mappedNameEquals(0, 3, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 76 -> {
-                if (FACADE_INFO.mappedNameEquals(3, 4, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                if (HASH_INFO.mappedNameEquals(3, 4, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 83 -> {
-                if (FACADE_INFO.mappedNameEquals(7, 3, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                if (HASH_INFO.mappedNameEquals(7, 3, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 84 -> {
-                if (FACADE_INFO.mappedNameEquals(10, 4, bytes, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                if (HASH_INFO.mappedNameEquals(10, 4, bytes, offset, len)) {
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }
@@ -143,26 +145,26 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByMappedName(MemorySegment segment, long offset, long len) {
-        int hash = FACADE_INFO.mappedNameUtf8Hasher().hash(segment, offset, len);
+        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(segment, offset, len);
         switch (hash) {
             case 73 -> {
-                if (FACADE_INFO.mappedNameEquals(0, 3, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(0);
+                if (HASH_INFO.mappedNameEquals(0, 3, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(0);
                 }
             }
             case 76 -> {
-                if (FACADE_INFO.mappedNameEquals(3, 4, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(1);
+                if (HASH_INFO.mappedNameEquals(3, 4, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(1);
                 }
             }
             case 83 -> {
-                if (FACADE_INFO.mappedNameEquals(7, 3, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(2);
+                if (HASH_INFO.mappedNameEquals(7, 3, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(2);
                 }
             }
             case 84 -> {
-                if (FACADE_INFO.mappedNameEquals(10, 4, segment, offset, len)) {
-                    return FACADE_INFO.infos().get(3);
+                if (HASH_INFO.mappedNameEquals(10, 4, segment, offset, len)) {
+                    return MARSHALL_INFOS.get(3);
                 }
             }
         }

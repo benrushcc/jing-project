@@ -7,6 +7,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import java.util.Objects;
 
 public final class Utf8Validator {
     private static final byte TOO_SHORT = (byte) 1;
@@ -32,6 +33,15 @@ public final class Utf8Validator {
     private static final ByteVector BYTE2_HIGH_TABLE;
     private static final ByteVector INCOMPLETE;
     private static final VectorShuffle<Integer> FOUR_BYTES_FORWARD_SHIFT;
+    // current UTF-8 validation implementation provides a vectorised version
+    // using SIMD APIs and a scalar version that processes bytes one by one.
+    // on x86, the vector path usually outperforms the scalar path by a large margin.
+    // on ARM with NEON only, the lack of dedicated mask registers forces the
+    // vector implementation to simulate masking via extra boolean arrays,
+    // which introduces a notable performance regression. Therefore, when the
+    // platform is not amd64, we avoid using mask and employ rearrange operations
+    // as an alternative to work around this limitation.
+    private static final boolean NON_MASK;
 
     static {
         try {
@@ -112,6 +122,9 @@ public final class Utf8Validator {
             idx[i] = i - 1;
         }
         FOUR_BYTES_FORWARD_SHIFT = VectorShuffle.fromValues(INT_SPECIES, idx);
+
+        String arch = System.getProperty("os.arch");
+        NON_MASK = arch == null || arch.contains("aarch") || arch.contains("arm");
     }
 
     private Utf8Validator() {
@@ -123,14 +136,14 @@ public final class Utf8Validator {
             case HeapReadBuffer heapReadBuffer -> {
                 byte[] bytes = heapReadBuffer.rawByteArray();
                 int position = heapReadBuffer.intPosition();
-                if (!Utf8Validator.validate(bytes, position, bytes.length - position)) {
+                if (!validateHeap(bytes, position, bytes.length)) {
                     throw new JsonDeserializerException("illegal utf-8 encoded heap readBuffer");
                 }
             }
             case SegmentReadBuffer segmentReadBuffer -> {
                 MemorySegment segment = segmentReadBuffer.rawSegment();
                 long position = segmentReadBuffer.longPosition();
-                if (!Utf8Validator.validate(segment, position, segment.byteSize() - position)) {
+                if (!validateSegment(segment, position, segment.byteSize())) {
                     throw new JsonDeserializerException("illegal utf-8 encoded segment readBuffer");
                 }
             }
@@ -138,12 +151,85 @@ public final class Utf8Validator {
         }
     }
 
+    private value record Status(long errors, long previousIncomplete, int previousFourBytes) {
+
+    }
+
+    private static Status processChunk(ByteVector chunk, Status currentStatus) {
+        IntVector chunkAsInts = chunk.reinterpretAsInts();
+        long nextErrors;
+        long nextIncomplete;
+        int nextFourBytes;
+        if (chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
+            nextErrors = nextIncomplete = currentStatus.previousIncomplete();
+        } else {
+            nextIncomplete = chunk.compare(VectorOperators.UGE, INCOMPLETE).toLong();
+            IntVector shifted = chunkAsInts.rearrange(FOUR_BYTES_FORWARD_SHIFT).withLane(0, currentStatus.previousFourBytes());
+            ByteVector prev1 = chunkAsInts.lanewise(VectorOperators.LSHL, 8).or(shifted.lanewise(VectorOperators.LSHR, 24)).reinterpretAsBytes();
+            ByteVector highNibbles2 = chunkAsInts.lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
+            ByteVector highNibbles1 = prev1.reinterpretAsInts().lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
+            ByteVector lowNibbles1 = prev1.and(LOW_NIBBLE_MASK);
+            ByteVector sc = highNibbles1.selectFrom(BYTE1_HIGH_TABLE).and(lowNibbles1.selectFrom(BYTE1_LOW_TABLE)).and(highNibbles2.selectFrom(BYTE2_HIGH_TABLE));
+            ByteVector prev2 = chunkAsInts.lanewise(VectorOperators.LSHL, 16).or(shifted.lanewise(VectorOperators.LSHR, 16)).reinterpretAsBytes();
+            ByteVector prev3 = chunkAsInts.lanewise(VectorOperators.LSHL, 24).or(shifted.lanewise(VectorOperators.LSHR, 8)).reinterpretAsBytes();
+            VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD).or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
+            nextErrors = sc.add((byte) 0x80, must23).compare(VectorOperators.NE, (byte) 0).toLong();
+        }
+        nextFourBytes = chunkAsInts.lane(INT_SPECIES.length() - 1);
+        return new Status(nextErrors | currentStatus.errors(), nextIncomplete, nextFourBytes);
+    }
+
+    public static boolean validateHeap(byte[] bytes, int offset, int end) {
+        if(NON_MASK && end < BYTE_SPECIES.length()) {
+            return scalarValidate(bytes, offset, end);
+        }
+        Objects.checkFromToIndex(offset, end, bytes.length);
+        Status status = new Status(0L, 0L, 0);
+        for( ; offset <= end - BYTE_SPECIES.length(); offset += BYTE_SPECIES.length()) {
+            ByteVector chunk = ByteVector.fromArray(BYTE_SPECIES, bytes, offset);
+            status = processChunk(chunk, status);
+        }
+        if(offset < end) {
+            ByteVector lastChunk;
+            if(NON_MASK) {
+                lastChunk = ByteVector.fromArray(BYTE_SPECIES, bytes, end - BYTE_SPECIES.length())
+                        .slice(BYTE_SPECIES.length() - (end - offset));
+            } else {
+                lastChunk = ByteVector.fromArray(BYTE_SPECIES, bytes, offset, BYTE_SPECIES.indexInRange(offset, end));
+            }
+            status = processChunk(lastChunk, status);
+        }
+        return (status.errors() | status.previousIncomplete()) == 0L;
+    }
+
+    public static boolean validateSegment(MemorySegment segment, long offset, long end) {
+        if(NON_MASK && end < BYTE_SPECIES.length()) {
+            return scalarValidate(segment, offset, end);
+        }
+        Objects.checkFromToIndex(offset, end, segment.byteSize());
+        Status status = new Status(0L, 0L, 0);
+        for( ; offset <= end - BYTE_SPECIES.length(); offset += BYTE_SPECIES.length()) {
+            ByteVector chunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, offset, ByteOrder.nativeOrder());  // byteOrder will be ignored
+            status = processChunk(chunk, status);
+        }
+        if(offset < end) {
+            ByteVector lastChunk;
+            if(NON_MASK) {
+                lastChunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, end - BYTE_SPECIES.length(), ByteOrder.nativeOrder())
+                        .slice(BYTE_SPECIES.length() - Math.toIntExact(end - offset));
+            } else {
+                lastChunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, offset, ByteOrder.nativeOrder(), BYTE_SPECIES.indexInRange(offset, end));
+            }
+            status = processChunk(lastChunk, status);
+        }
+        return (status.errors() | status.previousIncomplete()) == 0L;
+    }
+
     public static boolean validate(byte[] bytes, int offset, int len) {
         long errors = 0;
         long previousIncomplete = 0;
         int previousFourBytes = 0;
         final int end = offset + len;
-
         for( ; offset <= end - BYTE_SPECIES.length(); offset += BYTE_SPECIES.length()) {
             ByteVector chunk = ByteVector.fromArray(BYTE_SPECIES, bytes, offset);
             IntVector chunkAsInts = chunk.reinterpretAsInts();
@@ -160,7 +246,7 @@ public final class Utf8Validator {
                 ByteVector prev2 = chunkAsInts.lanewise(VectorOperators.LSHL, 16).or(shifted.lanewise(VectorOperators.LSHR, 16)).reinterpretAsBytes();
                 ByteVector prev3 = chunkAsInts.lanewise(VectorOperators.LSHL, 24).or(shifted.lanewise(VectorOperators.LSHR, 8)).reinterpretAsBytes();
                 VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD).or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
-                errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, 0).toLong();
+                errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, (byte) 0).toLong();
             }
             previousFourBytes = chunkAsInts.lane(INT_SPECIES.length() - 1);
         }
@@ -170,15 +256,14 @@ public final class Utf8Validator {
             if (!chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
                 previousIncomplete = chunk.compare(VectorOperators.UGE, INCOMPLETE).toLong();
                 IntVector shifted = chunkAsInts.rearrange(FOUR_BYTES_FORWARD_SHIFT).withLane(0, previousFourBytes);
-                ByteVector prev1 = chunkAsInts.lanewise(VectorOperators.LSHL, Byte.SIZE).or(shifted.lanewise(VectorOperators.LSHR, 24)).reinterpretAsBytes();
+                ByteVector prev1 = chunkAsInts.lanewise(VectorOperators.LSHL, 8).or(shifted.lanewise(VectorOperators.LSHR, 24)).reinterpretAsBytes();
                 ByteVector highNibbles2 = chunkAsInts.lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
                 ByteVector highNibbles1 = prev1.reinterpretAsInts().lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
                 ByteVector lowNibbles1 = prev1.and(LOW_NIBBLE_MASK);
                 ByteVector sc = highNibbles1.selectFrom(BYTE1_HIGH_TABLE).and(lowNibbles1.selectFrom(BYTE1_LOW_TABLE)).and(highNibbles2.selectFrom(BYTE2_HIGH_TABLE));
                 ByteVector prev2 = chunkAsInts.lanewise(VectorOperators.LSHL, 16).or(shifted.lanewise(VectorOperators.LSHR, 16)).reinterpretAsBytes();
                 ByteVector prev3 = chunkAsInts.lanewise(VectorOperators.LSHL, 24).or(shifted.lanewise(VectorOperators.LSHR, 8)).reinterpretAsBytes();
-                VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD)
-                        .or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
+                VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD).or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
                 errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, (byte) 0).toLong();
             }
         }
@@ -206,7 +291,7 @@ public final class Utf8Validator {
                 ByteVector prev2 = chunkAsInts.lanewise(VectorOperators.LSHL, 16).or(shifted.lanewise(VectorOperators.LSHR, 16)).reinterpretAsBytes();
                 ByteVector prev3 = chunkAsInts.lanewise(VectorOperators.LSHL, 24).or(shifted.lanewise(VectorOperators.LSHR, 8)).reinterpretAsBytes();
                 VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD).or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
-                errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, 0).toLong();
+                errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, (byte) 0).toLong();
             }
             previousFourBytes = chunkAsInts.lane(INT_SPECIES.length() - 1);
         }
@@ -216,23 +301,22 @@ public final class Utf8Validator {
             if (!chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
                 previousIncomplete = chunk.compare(VectorOperators.UGE, INCOMPLETE).toLong();
                 IntVector shifted = chunkAsInts.rearrange(FOUR_BYTES_FORWARD_SHIFT).withLane(0, previousFourBytes);
-                ByteVector prev1 = chunkAsInts.lanewise(VectorOperators.LSHL, Byte.SIZE).or(shifted.lanewise(VectorOperators.LSHR, 24)).reinterpretAsBytes();
+                ByteVector prev1 = chunkAsInts.lanewise(VectorOperators.LSHL, 8).or(shifted.lanewise(VectorOperators.LSHR, 24)).reinterpretAsBytes();
                 ByteVector highNibbles2 = chunkAsInts.lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
                 ByteVector highNibbles1 = prev1.reinterpretAsInts().lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
                 ByteVector lowNibbles1 = prev1.and(LOW_NIBBLE_MASK);
                 ByteVector sc = highNibbles1.selectFrom(BYTE1_HIGH_TABLE).and(lowNibbles1.selectFrom(BYTE1_LOW_TABLE)).and(highNibbles2.selectFrom(BYTE2_HIGH_TABLE));
                 ByteVector prev2 = chunkAsInts.lanewise(VectorOperators.LSHL, 16).or(shifted.lanewise(VectorOperators.LSHR, 16)).reinterpretAsBytes();
                 ByteVector prev3 = chunkAsInts.lanewise(VectorOperators.LSHL, 24).or(shifted.lanewise(VectorOperators.LSHR, 8)).reinterpretAsBytes();
-                VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD)
-                        .or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
+                VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD).or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
                 errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, (byte) 0).toLong();
             }
         }
         return (errors | previousIncomplete) == 0L;
     }
 
-    public static boolean scalarValidate(byte[] bytes, int offset, int len) {
-        final int end = offset + len;
+    public static boolean scalarValidate(byte[] bytes, int offset, int end) {
+        Objects.checkFromToIndex(offset, end, bytes.length);
         int b1, b2;
         for (; ; ) {
             do {
@@ -273,8 +357,8 @@ public final class Utf8Validator {
         }
     }
 
-    public static boolean scalarValidate(MemorySegment segment, long offset, long len) {
-        final long end = offset + len;
+    public static boolean scalarValidate(MemorySegment segment, long offset, long end) {
+        Objects.checkFromToIndex(offset, end, segment.byteSize());
         int b1, b2;
         for (; ; ) {
             do {

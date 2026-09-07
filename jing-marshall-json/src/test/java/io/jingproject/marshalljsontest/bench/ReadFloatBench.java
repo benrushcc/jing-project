@@ -1,8 +1,6 @@
 package io.jingproject.marshalljsontest.bench;
 
 import io.jingproject.common.HeapReadBuffer;
-import io.jingproject.common.SegmentReadBuffer;
-import io.jingproject.marshalljson.FpStrRep;
 import io.jingproject.marshalljson.JsonNumberUtil;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
@@ -26,6 +24,24 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 3, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
+//@Fork(value = 1, jvmArgsAppend = {
+//        "-Xbatch",
+//        "-XX:-TieredCompilation",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonNumberUtil::readFpFromHeap",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonNumberUtil::readFpFromHeap,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonNumberUtil::readNdFromHeap",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonNumberUtil::readNdFromHeap,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonNumberUtil::readNfFromHeap",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonNumberUtil::readNfFromHeap,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonNumberUtil::readNpFromHeap",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonNumberUtil::readNpFromHeap,PrintInlining",
+//        "-XX:+UnlockDiagnosticVMOptions",
+//        "-XX:PrintAssemblyOptions=intel",
+//})
+//@Fork(value = 1, jvmArgsAppend = {
+//        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=read-float-%p-%t.jfr,settings=profile",
+//        "-XX:FlightRecorderOptions=stackdepth=128"
+//})
 @Fork(3)
 public class ReadFloatBench {
     private static final int INTEGER_SIZE = 2000;
@@ -34,7 +50,7 @@ public class ReadFloatBench {
     private static final int FRACTION8_SIZE = 2000;
     private static final int RANDOM_SIZE = 2000;
     private static final int BATCH_SIZE = INTEGER_SIZE + FRACTION2_SIZE + FRACTION4_SIZE + FRACTION8_SIZE + RANDOM_SIZE;
-    private static final int MAX_FP_SIZE = 256;
+    private static final int MAX_FP_SIZE = 24;
     private Arena arena;
     private List<byte[]> floatBytes;
     private List<byte[]> doubleBytes;
@@ -134,94 +150,94 @@ public class ReadFloatBench {
         doubleSegments = null;
     }
 
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkReadHeapFloat(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            byte[] bytes = floatBytes.get(index);
-            float f = Float.parseFloat(new String(bytes, StandardCharsets.US_ASCII));
-            blackhole.consume(f);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkReadHeapDouble(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            byte[] bytes = doubleBytes.get(index);
-            double f = Double.parseDouble(new String(bytes, StandardCharsets.US_ASCII));
-            blackhole.consume(f);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkReadSegmentFloat(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            MemorySegment segment = floatSegments.get(index);
-            float f = Float.parseFloat(new String(segment.toArray(ValueLayout.JAVA_BYTE), StandardCharsets.US_ASCII));
-            blackhole.consume(f);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void jdkReadSegmentDouble(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            MemorySegment segment = doubleSegments.get(index);
-            double f = Double.parseDouble(new String(segment.toArray(ValueLayout.JAVA_BYTE), StandardCharsets.US_ASCII));
-            blackhole.consume(f);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleReadHeapFloat(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            byte[] bytes = floatBytes.get(index);
-            HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            byte firstByte = heapReadBuffer.readByte();
-            float f = JsonNumberUtil.readFloat(heapReadBuffer, MAX_FP_SIZE, firstByte);
-            blackhole.consume(f);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleReadHeapDouble(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            byte[] bytes = doubleBytes.get(index);
-            HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
-            byte firstByte = heapReadBuffer.readByte();
-            double d = JsonNumberUtil.readDouble(heapReadBuffer, MAX_FP_SIZE, firstByte);
-            blackhole.consume(d);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleReadSegmentFloat(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            MemorySegment segment = floatSegments.get(index);
-            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
-            byte firstByte = segmentReadBuffer.readByte();
-            float f = JsonNumberUtil.readFloat(segmentReadBuffer, MAX_FP_SIZE, firstByte);
-            blackhole.consume(f);
-        }
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleReadSegmentDouble(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            MemorySegment segment = doubleSegments.get(index);
-            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
-            byte firstByte = segmentReadBuffer.readByte();
-            double d = JsonNumberUtil.readDouble(segmentReadBuffer, MAX_FP_SIZE, firstByte);
-            blackhole.consume(d);
-        }
-    }
-
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void jdkReadHeapFloat(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            byte[] bytes = floatBytes.get(index);
+//            float f = Float.parseFloat(new String(bytes, StandardCharsets.US_ASCII));
+//            blackhole.consume(f);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void jdkReadHeapDouble(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            byte[] bytes = doubleBytes.get(index);
+//            double f = Double.parseDouble(new String(bytes, StandardCharsets.US_ASCII));
+//            blackhole.consume(f);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void jdkReadSegmentFloat(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            MemorySegment segment = floatSegments.get(index);
+//            float f = Float.parseFloat(new String(segment.toArray(ValueLayout.JAVA_BYTE), StandardCharsets.US_ASCII));
+//            blackhole.consume(f);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void jdkReadSegmentDouble(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            MemorySegment segment = doubleSegments.get(index);
+//            double f = Double.parseDouble(new String(segment.toArray(ValueLayout.JAVA_BYTE), StandardCharsets.US_ASCII));
+//            blackhole.consume(f);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void uscaleReadHeapFloat(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            byte[] bytes = floatBytes.get(index);
+//            HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
+//            byte firstByte = heapReadBuffer.readByte();
+//            float f = JsonNumberUtil.readFloat(heapReadBuffer, MAX_FP_SIZE, firstByte);
+//            blackhole.consume(f);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void uscaleReadHeapDouble(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            byte[] bytes = doubleBytes.get(index);
+//            HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
+//            byte firstByte = heapReadBuffer.readByte();
+//            double d = JsonNumberUtil.readDouble(heapReadBuffer, MAX_FP_SIZE, firstByte);
+//            blackhole.consume(d);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void uscaleReadSegmentFloat(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            MemorySegment segment = floatSegments.get(index);
+//            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
+//            byte firstByte = segmentReadBuffer.readByte();
+//            float f = JsonNumberUtil.readFloat(segmentReadBuffer, MAX_FP_SIZE, firstByte);
+//            blackhole.consume(f);
+//        }
+//    }
+//
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void uscaleReadSegmentDouble(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            MemorySegment segment = doubleSegments.get(index);
+//            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
+//            byte firstByte = segmentReadBuffer.readByte();
+//            double d = JsonNumberUtil.readDouble(segmentReadBuffer, MAX_FP_SIZE, firstByte);
+//            blackhole.consume(d);
+//        }
+//    }
+//
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
     public void uscaleParseHeapFloat(Blackhole blackhole) {
@@ -229,22 +245,22 @@ public class ReadFloatBench {
             byte[] bytes = floatBytes.get(index);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte firstByte = heapReadBuffer.readByte();
-            FpStrRep rep = JsonNumberUtil.readFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte);
+            JsonNumberUtil.FpRep rep = JsonNumberUtil.readFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte);
             blackhole.consume(rep);
         }
     }
 
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleParseSegmentFloat(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            MemorySegment segment = floatSegments.get(index);
-            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
-            byte firstByte = segmentReadBuffer.readByte();
-            FpStrRep rep = JsonNumberUtil.readFpStrRep(segmentReadBuffer, MAX_FP_SIZE, firstByte);
-            blackhole.consume(rep);
-        }
-    }
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void uscaleParseSegmentFloat(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            MemorySegment segment = floatSegments.get(index);
+//            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
+//            byte firstByte = segmentReadBuffer.readByte();
+//            FpRep rep = JsonNumberUtil.readFpStrRep(segmentReadBuffer, MAX_FP_SIZE, firstByte);
+//            blackhole.consume(rep);
+//        }
+//    }
 
     @Benchmark
     @OperationsPerInvocation(BATCH_SIZE)
@@ -253,25 +269,27 @@ public class ReadFloatBench {
             byte[] bytes = doubleBytes.get(index);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte firstByte = heapReadBuffer.readByte();
-            FpStrRep rep = JsonNumberUtil.readFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte);
+            JsonNumberUtil.FpRep rep = JsonNumberUtil.readFpStrRep(heapReadBuffer, MAX_FP_SIZE, firstByte);
             blackhole.consume(rep);
         }
     }
 
-    @Benchmark
-    @OperationsPerInvocation(BATCH_SIZE)
-    public void uscaleParseSegmentDouble(Blackhole blackhole) {
-        for (int index = 0; index < BATCH_SIZE; index++) {
-            MemorySegment segment = doubleSegments.get(index);
-            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
-            byte firstByte = segmentReadBuffer.readByte();
-            FpStrRep rep = JsonNumberUtil.readFpStrRep(segmentReadBuffer, MAX_FP_SIZE, firstByte);
-            blackhole.consume(rep);
-        }
-    }
+//    @Benchmark
+//    @OperationsPerInvocation(BATCH_SIZE)
+//    public void uscaleParseSegmentDouble(Blackhole blackhole) {
+//        for (int index = 0; index < BATCH_SIZE; index++) {
+//            MemorySegment segment = doubleSegments.get(index);
+//            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segment);
+//            byte firstByte = segmentReadBuffer.readByte();
+//            FpRep rep = JsonNumberUtil.readFpStrRep(segmentReadBuffer, MAX_FP_SIZE, firstByte);
+//            blackhole.consume(rep);
+//        }
+//    }
 
     static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(ReadFloatBench.class.getSimpleName()).build();
+        Options opt = new OptionsBuilder().include(ReadFloatBench.class.getSimpleName())
+//                .addProfiler(GCProfiler.class)
+                .build();
         new Runner(opt).run();
     }
 }

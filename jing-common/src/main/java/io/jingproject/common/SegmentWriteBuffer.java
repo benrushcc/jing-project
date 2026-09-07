@@ -45,7 +45,6 @@ public final class SegmentWriteBuffer implements WriteBuffer {
     }
 
     private void growBufferIfNeeded(long requiredCapacity) {
-        
         long currentCapacity = seg.byteSize();
         if (currentCapacity < requiredCapacity) {
             long growedCapacity = Math.addExact(seg.byteSize(), seg.byteSize());
@@ -66,7 +65,6 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public void setPosition(int newPosition) {
-        
         position = newPosition;
     }
 
@@ -77,7 +75,6 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public void setPosition(long newPosition) {
-        
         position = newPosition;
     }
 
@@ -162,7 +159,6 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeBytes(byte[] bytes, int offset, int length) {
-        
         long newPosition = Math.addExact(position, length);
         growBufferIfNeeded(newPosition);
         MemorySegment.copy(bytes, offset, seg, ValueLayout.JAVA_BYTE, position, length);
@@ -171,7 +167,6 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeRepeated(byte b, int count) {
-        
         long newPosition = Math.addExact(position, count);
         growBufferIfNeeded(newPosition);
         seg.asSlice(position, count).fill(b);
@@ -180,7 +175,6 @@ public final class SegmentWriteBuffer implements WriteBuffer {
 
     @Override
     public void writeSegment(MemorySegment segment, long offset, long length) {
-        
         long newPosition = Math.addExact(position, length);
         growBufferIfNeeded(newPosition);
         MemorySegment.copy(segment, offset, seg, position, length);
@@ -235,8 +229,26 @@ public final class SegmentWriteBuffer implements WriteBuffer {
         position = newPosition;
     }
 
+    public SegmentAllocator rawAlloc() {
+        return alloc;
+    }
+
+    public long rawLimit() {
+        return limit;
+    }
+
     public MemorySegment rawSegment() {
         return seg;
+    }
+
+    public MemorySegment toSegment() {
+        MemorySegment r = alloc.allocate(position);
+        MemorySegment.copy(seg, 0L, r, 0L, position);
+        return r;
+    }
+
+    public void setRawSegment(MemorySegment segment) {
+        seg = segment;
     }
 
     @Override

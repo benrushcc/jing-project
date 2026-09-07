@@ -5,6 +5,6 @@ package io.jingproject.marshalljson;
  *
  * @param data the string content
  */
-public record JsonStrType(String data) implements JsonPrimitiveType {
+public value record JsonStrType(String data) implements JsonPrimitiveType {
 
 }

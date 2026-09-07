@@ -2,6 +2,8 @@ package io.jingproject.marshalljsontest.test;
 
 import io.jingproject.common.HeapReadBuffer;
 import io.jingproject.common.HeapWriteBuffer;
+import io.jingproject.common.SegmentReadBuffer;
+import io.jingproject.common.SegmentWriteBuffer;
 import io.jingproject.marshalljson.JsonDeserializer;
 import io.jingproject.marshalljson.JsonDeserializerOption;
 import io.jingproject.marshalljson.JsonSerializer;
@@ -13,8 +15,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.lang.foreign.Arena;
 import java.nio.charset.StandardCharsets;
 
 public class TwiTest {
@@ -58,13 +59,22 @@ public class TwiTest {
     public void roundTripTest() {
         String json = TwiUtil.loadAsString();
         Twi twi = TwiUtil.deserializeTwiUsingJackson(json);
-        HeapWriteBuffer writeBuffer = new HeapWriteBuffer(819200);
         JsonSerializer jsonSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
-        jsonSerializer.serializeMarshallableObject(twi, writeBuffer);
-        HeapReadBuffer readBuffer = new HeapReadBuffer(writeBuffer.toByteArray());
         JsonDeserializer jsonDeserializer = new JsonDeserializer(JsonDeserializerOption.defaultOption());
-        Twi r = jsonDeserializer.deserializeMarshallableObject(Twi.class, readBuffer);
+
+        HeapWriteBuffer heapWriteBuffer = new HeapWriteBuffer(819200);
+        jsonSerializer.serializeMarshallableObject(twi, heapWriteBuffer);
+        HeapReadBuffer heapReadBuffer = new HeapReadBuffer(heapWriteBuffer.toByteArray());
+        Twi r = jsonDeserializer.deserializeMarshallableObject(Twi.class, heapReadBuffer);
         Assertions.assertEquals(twi, r);
+
+        try(Arena arena = Arena.ofConfined()) {
+            SegmentWriteBuffer segmentWriteBuffer = new SegmentWriteBuffer(arena, 819200);
+            jsonSerializer.serializeMarshallableObject(twi, segmentWriteBuffer);
+            SegmentReadBuffer segmentReadBuffer = new SegmentReadBuffer(segmentWriteBuffer.toSegment());
+            Twi r2 = jsonDeserializer.deserializeMarshallableObject(Twi.class, segmentReadBuffer);
+            Assertions.assertEquals(twi, r2);
+        }
     }
 
 
