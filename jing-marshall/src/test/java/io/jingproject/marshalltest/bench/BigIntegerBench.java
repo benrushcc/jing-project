@@ -28,7 +28,7 @@ public class BigIntegerBench {
     private long[] long2;
 
     static void main() throws RunnerException {
-        Options opt = new OptionsBuilder().include(BigInteger.class.getSimpleName()).build();
+        Options opt = new OptionsBuilder().include(BigIntegerBench.class.getSimpleName()).build();
         new Runner(opt).run();
     }
 

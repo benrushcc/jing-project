@@ -198,22 +198,25 @@ public final class JsonDeserializerOption {
             return this;
         }
 
-        public void setMaxArrayElements(int maxArrayElements) {
+        public Builder setMaxArrayElements(int maxArrayElements) {
             if (maxArrayElements < MIN_ARRAY_SIZE || maxArrayElements > MAX_ARRAY_SIZE) {
                 throw new IllegalArgumentException("maxArrayElements out of range : " + maxArrayElements);
             }
             this.maxArrayElements = maxArrayElements;
+            return this;
         }
 
-        public void setMaxMapElements(int maxMapElements) {
+        public Builder setMaxMapElements(int maxMapElements) {
             if (maxMapElements < MIN_MAP_SIZE || maxMapElements > MAX_MAP_SIZE) {
                 throw new IllegalArgumentException("maxMapElements out of range : " + maxMapElements);
             }
             this.maxMapElements = maxMapElements;
+            return this;
         }
 
-        public void setMaxDummyElements(int maxDummyElements) {
+        public Builder setMaxDummyElements(int maxDummyElements) {
             this.maxDummyElements = maxDummyElements;
+            return this;
         }
 
         public Builder setMaxNestedSize(int maxNestedSize) {
@@ -224,11 +227,12 @@ public final class JsonDeserializerOption {
             return this;
         }
 
-        public void setCharBufferSize(int charBufferSize) {
+        public Builder setCharBufferSize(int charBufferSize) {
             if (charBufferSize < JsonDeserializerContext.CHAR_BUFFER_INITIAL_SIZE) {
                 throw new IllegalArgumentException("charBufferSize out of range : " + charBufferSize);
             }
             this.charBufferSize = Utils.roundUp(charBufferSize, ByteVector.SPECIES_MAX.length());
+            return this;
         }
 
         private static JsonDeserializeFunc customObjDeserializeFunc(MarshallTransformerFacade tfc) {

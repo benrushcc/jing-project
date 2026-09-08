@@ -54,22 +54,22 @@ public final class MarshallTransformerProcessor extends AbstractProcessor {
     }
 
     private void checkMarshallTransformerElement(TypeElement t) {
-        // must be class or records
+        // must be class or record
         ElementKind elementKind = t.getKind();
         if(elementKind != ElementKind.CLASS && elementKind != ElementKind.RECORD) {
             throw new AnnotationProcessorException("only class and record are supported for @Transformable elements");
         }
         // must be top-level
         if(t.getNestingKind() != NestingKind.TOP_LEVEL) {
-            throw new AnnotationProcessorException("only top level fieldElement can be annotated with @Transformable");
+            throw new AnnotationProcessorException("only top level class or record can be annotated with @Transformable");
         }
         // must be public
         if (!t.getModifiers().contains(Modifier.PUBLIC)) {
-            throw new AnnotationProcessorException("only public fieldElement can be annotated with @Transformable");
+            throw new AnnotationProcessorException("only public class or record can be annotated with @Transformable");
         }
         // must be non-abstract class
         if (t.getModifiers().contains(Modifier.ABSTRACT)) {
-            throw new AnnotationProcessorException("abstract class can not be annotated with @Transformable");
+            throw new AnnotationProcessorException("abstract class or record can not be annotated with @Transformable");
         }
         // class or record must have no-arg constructor
         boolean foundNoArgConstructor = false;

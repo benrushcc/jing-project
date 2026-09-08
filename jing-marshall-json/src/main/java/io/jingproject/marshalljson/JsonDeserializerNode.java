@@ -484,7 +484,7 @@ public final class JsonDeserializerNode {
         Object r = Array.newInstance(componentType, index);
         //noinspection SuspiciousSystemArraycopy
         System.arraycopy(arr, 0, r, 0, index);
-        c.setObj(arr);
+        c.setObj(r);
     }
 
     private JsonDeserializeResult arrRoundResult(boolean hasValue, JsonDeserializerContext c) {

@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 /**
  * marks a class as marshallable, triggers annotation processing to generate metadata and access methods.
- * from and to specify default field naming conversion; both ORIGINAL means no conversion.
+ * from and to specify default field naming conversion; if both are ORIGINAL, do not perform any conversion.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)

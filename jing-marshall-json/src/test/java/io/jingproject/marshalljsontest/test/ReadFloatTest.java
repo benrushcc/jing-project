@@ -160,17 +160,18 @@ public class ReadFloatTest {
             throw new AssertionError();
         }
         byte firstByte = bytes[0];
-        JsonNumberUtil.FpRep fpRep = JsonNumberUtil.readFpFromHeap(firstByte, bytes, 1, MAX_FP_SIZE);
-        JsonNumberUtil.readFpFromSegment(firstByte, MemorySegment.ofArray(bytes), 1L, MAX_FP_SIZE);
-        Assertions.assertEquals(fpRep.trunc(), trunc);
+        JsonNumberUtil.FpRep fpRepHeap = JsonNumberUtil.readFpFromHeap(firstByte, bytes, 1, MAX_FP_SIZE);
+        JsonNumberUtil.FpRep fpRepSeg = JsonNumberUtil.readFpFromSegment(firstByte, MemorySegment.ofArray(bytes), 1L, MAX_FP_SIZE);
+        Assertions.assertEquals(fpRepHeap, fpRepSeg);
+        Assertions.assertEquals(fpRepHeap.trunc(), trunc);
         if(!trunc) {
-            Assertions.assertEquals(fpRep.negative(), negative);
-            Assertions.assertEquals(fpRep.d(), d);
+            Assertions.assertEquals(fpRepHeap.negative(), negative);
+            Assertions.assertEquals(fpRepHeap.d(), d);
             if(p < JsonNumberUtil.MAX_DECIMAL_P) {
-                Assertions.assertEquals(fpRep.p(), p);
+                Assertions.assertEquals(fpRepHeap.p(), p);
             }
         }
-        Assertions.assertEquals(fpRep.len(), len);
+        Assertions.assertEquals(fpRepHeap.len(), len);
     }
 
     @Test

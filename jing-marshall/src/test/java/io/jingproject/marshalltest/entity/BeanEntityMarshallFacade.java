@@ -33,10 +33,6 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
         }
     }
 
-    private static VarHandle vh(int index) {
-        return VHS.get(index);
-    }
-
     @Override
     public Class<?> marshallableType() {
         return BeanEntity.class;
@@ -64,7 +60,6 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
             case "longValue" -> MARSHALL_INFOS.get(1);
             case "strValue" -> MARSHALL_INFOS.get(2);
             case "timeValue" -> MARSHALL_INFOS.get(3);
-            case null -> throw new IllegalArgumentException("fieldName is null");
             default -> null;
         };
     }
@@ -132,7 +127,6 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
             case "longValue" -> MARSHALL_INFOS.get(1);
             case "strValue" -> MARSHALL_INFOS.get(2);
             case "timeValue" -> MARSHALL_INFOS.get(3);
-            case null -> throw new IllegalArgumentException("mappedName is null");
             default -> null;
         };
     }

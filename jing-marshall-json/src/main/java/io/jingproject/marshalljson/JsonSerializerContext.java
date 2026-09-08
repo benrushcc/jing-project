@@ -19,7 +19,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
     // whether to escape '/', which was suggested for safely embedding JSON in HTML, it's not required by the JSON spec, so we leave it optional and default to false
     protected static final boolean ESCAPE_SLASH =
             Boolean.parseBoolean(System.getProperty("jing.marshalljson.escapeslash", "false"));
-    // whether to nable surrogate pair handling
+    // whether to enable surrogate pair handling
     // when the ASCII fast path does not match, the surrogate pair filtering path is taken
     // this yields performance gains when 3‑byte UTF‑8 data dominates and 4‑byte surrogate pairs are absent
     protected static final boolean FILTER_SURR =
@@ -954,8 +954,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
 
         @Override
         public void commit() {
-            heapWriteBuffer.setRawByteArray(bytes);
-            heapWriteBuffer.setPosition(position);
+            heapWriteBuffer.setBufferAndPosition(bytes, position);
         }
     }
 
@@ -1328,8 +1327,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
 
         @Override
         public void commit() {
-            segmentWriteBuffer.setRawSegment(segment);
-            segmentWriteBuffer.setPosition(position);
+            segmentWriteBuffer.setSegmentAndPosition(segment, position);
         }
     }
 }

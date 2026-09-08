@@ -5,6 +5,7 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import java.util.Objects;
 
 public final class HeapWriteBuffer implements WriteBuffer {
 
@@ -25,10 +26,19 @@ public final class HeapWriteBuffer implements WriteBuffer {
     }
 
     public HeapWriteBuffer(int size) {
+        if(size < MIN_INITIAL_SIZE) {
+            throw new IllegalArgumentException("initial size must be at least " + MIN_INITIAL_SIZE);
+        }
         this(new byte[size], Integer.MAX_VALUE);
     }
 
     public HeapWriteBuffer(int size, int limit) {
+        if(size < MIN_INITIAL_SIZE) {
+            throw new IllegalArgumentException("initial size must be at least " + MIN_INITIAL_SIZE);
+        }
+        if(limit < MIN_LIMIT) {
+            throw new IllegalArgumentException("limit must be at least " + MIN_LIMIT);
+        }
         this(new byte[size], limit);
     }
 
@@ -36,7 +46,7 @@ public final class HeapWriteBuffer implements WriteBuffer {
         if (buffer == null || buffer.length == 0) {
             throw new IllegalArgumentException("empty buffer");
         }
-        if (limit < 0) {
+        if (limit <= 0) {
             throw new IllegalArgumentException("limit must be positive");
         }
         this.buffer = buffer;
@@ -47,8 +57,8 @@ public final class HeapWriteBuffer implements WriteBuffer {
     private void growBufferIfNeeded(int requiredCapacity) {
         int currentCapacity = buffer.length;
         if (currentCapacity < requiredCapacity) {
-            int growedCapacity = Math.addExact(currentCapacity, currentCapacity);
-            int newLength = Math.max(growedCapacity, requiredCapacity);
+            int grownCapacity = Math.addExact(currentCapacity, currentCapacity);
+            int newLength = Math.max(grownCapacity, requiredCapacity);
             if (newLength > limit) {
                 throw new SizeLimitExceededException(newLength, limit);
             }
@@ -236,8 +246,10 @@ public final class HeapWriteBuffer implements WriteBuffer {
         return buffer;
     }
 
-    public void setRawByteArray(byte[] bytes) {
+    public void setBufferAndPosition(byte[] bytes, int pos) {
+        Objects.checkFromToIndex(pos, bytes.length, limit);
         buffer = bytes;
+        position = pos;
     }
 
     @Override

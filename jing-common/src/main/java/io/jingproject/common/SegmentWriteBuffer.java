@@ -5,6 +5,7 @@ import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
+import java.util.Objects;
 
 public final class SegmentWriteBuffer implements WriteBuffer {
     static {
@@ -14,9 +15,6 @@ public final class SegmentWriteBuffer implements WriteBuffer {
             throw new ExceptionInInitializerError(e);
         }
     }
-
-    private static final long MIN_INITIAL_SIZE = 4L;
-    private static final long MIN_LIMIT = 256L;
 
     private final SegmentAllocator alloc;
     private final long limit;
@@ -47,8 +45,8 @@ public final class SegmentWriteBuffer implements WriteBuffer {
     private void growBufferIfNeeded(long requiredCapacity) {
         long currentCapacity = seg.byteSize();
         if (currentCapacity < requiredCapacity) {
-            long growedCapacity = Math.addExact(seg.byteSize(), seg.byteSize());
-            long newLength = Math.max(growedCapacity, requiredCapacity);
+            long grownCapacity = Math.addExact(seg.byteSize(), seg.byteSize());
+            long newLength = Math.max(grownCapacity, requiredCapacity);
             if(newLength > limit) {
                 throw new SizeLimitExceededException(newLength, limit);
             }
@@ -247,8 +245,10 @@ public final class SegmentWriteBuffer implements WriteBuffer {
         return r;
     }
 
-    public void setRawSegment(MemorySegment segment) {
+    public void setSegmentAndPosition(MemorySegment segment, long pos) {
+        Objects.checkFromToIndex(pos, segment.byteSize(), limit);
         seg = segment;
+        position = pos;
     }
 
     @Override

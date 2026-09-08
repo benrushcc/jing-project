@@ -37,14 +37,13 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByFieldName(String fieldName) {
-        int index = switch (fieldName) {
-            case "INT" -> 0;
-            case "LONG" -> 1;
-            case "STR" -> 2;
-            case "TIME" -> 3;
-            default -> throw new IllegalArgumentException("fieldName not found: " + fieldName);
+        return switch (fieldName) {
+            case "INT" -> MARSHALL_INFOS.get(0);
+            case "LONG" -> MARSHALL_INFOS.get(1);
+            case "STR" -> MARSHALL_INFOS.get(2);
+            case "TIME" -> MARSHALL_INFOS.get(3);
+            default -> null;
         };
-        return MARSHALL_INFOS.get(index);
     }
 
     @Override
@@ -72,7 +71,7 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by fieldName");
+        return null;
     }
 
     @Override
@@ -100,19 +99,18 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by fieldName");
+        return null;
     }
 
     @Override
     public MarshallInfo marshallInfoByMappedName(String mappedName) {
-        int index = switch (mappedName) {
-            case "INT" -> 0;
-            case "LONG" -> 1;
-            case "STR" -> 2;
-            case "TIME" -> 3;
-            default -> throw new IllegalArgumentException("mappedName not found: " + mappedName);
+        return switch (mappedName) {
+            case "INT" -> MARSHALL_INFOS.get(0);
+            case "LONG" -> MARSHALL_INFOS.get(1);
+            case "STR" -> MARSHALL_INFOS.get(2);
+            case "TIME" -> MARSHALL_INFOS.get(3);
+            default -> null;
         };
-        return MARSHALL_INFOS.get(index);
     }
 
     @Override
@@ -140,7 +138,7 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by mappedName");
+        return null;
     }
 
     @Override
@@ -168,6 +166,6 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by mappedName");
+        return null;
     }
 }

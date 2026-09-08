@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
+import java.util.Objects;
 
 public final class HeapReadBuffer implements ReadBuffer {
 
@@ -35,7 +36,7 @@ public final class HeapReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(int newPosition) {
-        position = newPosition;
+        position = Objects.checkIndex(newPosition, buffer.length);
     }
 
     @Override
@@ -50,7 +51,7 @@ public final class HeapReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(long newPosition) {
-        position = Math.toIntExact(newPosition);
+        position = Objects.checkIndex(Math.toIntExact(newPosition), buffer.length);
     }
 
     @Override

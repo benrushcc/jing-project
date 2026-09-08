@@ -62,16 +62,15 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByFieldName(String fieldName) {
-        int index = switch (fieldName) {
-            case "intValue" -> 0;
-            case "longValue" -> 1;
-            case "strValue" -> 2;
-            case "timeValue" -> 3;
-            case "durationValue" -> 4;
-            case "mapValue" -> 5;
-            default -> throw new IllegalArgumentException("fieldName not found: " + fieldName);
+        return switch (fieldName) {
+            case "intValue" -> MARSHALL_INFOS.get(0);
+            case "longValue" -> MARSHALL_INFOS.get(1);
+            case "strValue" -> MARSHALL_INFOS.get(2);
+            case "timeValue" -> MARSHALL_INFOS.get(3);
+            case "durationValue" -> MARSHALL_INFOS.get(4);
+            case "mapValue" -> MARSHALL_INFOS.get(5);
+            default -> null;
         };
-        return MARSHALL_INFOS.get(index);
     }
 
     @Override
@@ -109,7 +108,7 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by fieldName");
+        return null;
     }
 
     @Override
@@ -147,21 +146,20 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by fieldName");
+        return null;
     }
 
     @Override
     public MarshallInfo marshallInfoByMappedName(String mappedName) {
-        int index = switch (mappedName) {
-            case "intValue" -> 0;
-            case "longValue" -> 1;
-            case "strValue" -> 2;
-            case "timeValue" -> 3;
-            case "durationValue" -> 4;
-            case "mapValue" -> 5;
-            default -> throw new IllegalArgumentException("mappedName not found: " + mappedName);
+        return switch (mappedName) {
+            case "intValue" -> MARSHALL_INFOS.get(0);
+            case "longValue" -> MARSHALL_INFOS.get(1);
+            case "strValue" -> MARSHALL_INFOS.get(2);
+            case "timeValue" -> MARSHALL_INFOS.get(3);
+            case "durationValue" -> MARSHALL_INFOS.get(4);
+            case "mapValue" -> MARSHALL_INFOS.get(5);
+            default -> null;
         };
-        return MARSHALL_INFOS.get(index);
     }
 
     @Override
@@ -199,7 +197,7 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by mappedName");
+        return null;
     }
 
     @Override
@@ -237,7 +235,7 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by mappedName");
+        return null;
     }
 
     @Override

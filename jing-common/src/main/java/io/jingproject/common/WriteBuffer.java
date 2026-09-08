@@ -6,6 +6,10 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 public sealed interface WriteBuffer permits HeapWriteBuffer, SegmentWriteBuffer {
+    int MIN_INITIAL_SIZE = 4;
+
+    int MIN_LIMIT = 256;
+
     int intPosition();
 
     void setPosition(int newPosition);

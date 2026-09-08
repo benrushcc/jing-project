@@ -41,14 +41,13 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
 
     @Override
     public MarshallInfo marshallInfoByFieldName(String fieldName) {
-        int index = switch (fieldName) {
-            case "intValue" -> 0;
-            case "longValue" -> 1;
-            case "strValue" -> 2;
-            case "timeValue" -> 3;
-            default -> throw new IllegalArgumentException("fieldName not found: " + fieldName);
+        return switch (fieldName) {
+            case "intValue" -> MARSHALL_INFOS.get(0);
+            case "longValue" -> MARSHALL_INFOS.get(1);
+            case "strValue" -> MARSHALL_INFOS.get(2);
+            case "timeValue" -> MARSHALL_INFOS.get(3);
+            default -> null;
         };
-        return MARSHALL_INFOS.get(index);
     }
 
     @Override
@@ -76,7 +75,7 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by fieldName");
+        return null;
     }
 
     @Override
@@ -104,7 +103,7 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by fieldName");
+        return null;
     }
 
     @Override
@@ -144,7 +143,7 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by mappedName");
+        return null;
     }
 
     @Override
@@ -172,7 +171,7 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
                 }
             }
         }
-        throw new IllegalArgumentException("marshallInfo not found by mappedName");
+        return null;
     }
 
     @Override
@@ -188,7 +187,7 @@ public final class RecordEntityMarshallFacade implements MarshallFacade {
     public long readLong(Object instance, int offset) {
         RecordEntity entity = (RecordEntity) instance;
         return switch (offset) {
-            case 0 -> entity.longValue();
+            case 1 -> entity.longValue();
             default -> throw new UnsupportedOperationException();
         };
     }

@@ -25,7 +25,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
     protected static final VectorSpecies<Short> SHORT_SPECIES;
     protected static final VectorSpecies<Byte> BYTE_SPECIES;
     protected static final int COMPACT_TRUE = Utils.compact(Utils.compact((byte) 't', (byte) 'r'), Utils.compact((byte) 'u', (byte) 'e'));
-    protected static final int COMPACT_ALSE = Utils.compact(Utils.compact((byte) 'a', (byte) 'l'), Utils.compact((byte) 's', (byte) 'e'));
+    protected static final int COMPACT_ALSE = Utils.compact(Utils.compact((byte) 'a', (byte) 'l'), Utils.compact((byte) 's', (byte) 'e')); // 'f' should be handled by firstByte
     protected static final int COMPACT_NULL = Utils.compact(Utils.compact((byte) 'n', (byte) 'u'), Utils.compact((byte) 'l', (byte) 'l'));
     protected static final int OBJ_ARR_INITIAL_SIZE = 8;
     protected static final byte[] ESCAPE_TABLE = makeEscapeTable();
@@ -1254,7 +1254,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
 
         private char deserializeEscapedChar() {
             if(position >= segment.byteSize()) {
-                throw new JsonDeserializerException("eof reached while deserializing escaped char from heap");
+                throw new JsonDeserializerException("eof reached while deserializing escaped char from segment");
             }
             byte escaped = SegmentAccess.getByte(segment, position++);
             if(escaped == (byte) 'u') {
@@ -1269,7 +1269,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             }
             byte b = ESCAPE_TABLE[escaped & 0xFF];
             if(b == 0) {
-                throw new JsonDeserializerException("illegal escaped char from heap");
+                throw new JsonDeserializerException("illegal escaped char from segment");
             }
             return (char) b;
         }
@@ -1285,7 +1285,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             return (char) (((i & 0x0F) << 12) | (i1 << 6) | i2);
         }
 
-        private Surr deserializeCharFromHeap4(int i) {
+        private Surr deserializeCharFromSegment4(int i) {
             int i1 = SegmentAccess.getByte(segment, position++) & 0x3F;
             int i2 = SegmentAccess.getByte(segment, position++) & 0x3F;
             int i3 = SegmentAccess.getByte(segment, position++) & 0x3F;
@@ -1297,7 +1297,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
         public char deserializeChar(byte firstByte) {
             checkStrStart(firstByte);
             if(position >= segment.byteSize()) {
-                throw new JsonDeserializerException("eof reached while deserializing char from heap");
+                throw new JsonDeserializerException("eof reached while deserializing char from segment");
             }
             int i = SegmentAccess.getByte(segment, position++) & 0xFF;
             char r;
@@ -1425,7 +1425,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
                 } else if(i < 0xF0) {
                     charBuffer[index++] = deserializeCharFromSegment3(i);
                 } else {
-                    Surr surr = deserializeCharFromHeap4(i);
+                    Surr surr = deserializeCharFromSegment4(i);
                     charBuffer[index++] = surr.high();
                     charBuffer[index++] = surr.low();
                 }

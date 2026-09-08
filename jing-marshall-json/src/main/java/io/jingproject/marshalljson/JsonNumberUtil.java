@@ -335,7 +335,7 @@ public final class JsonNumberUtil {
             case HeapWriteBuffer heapWriteBuffer ->
                     heapWriteBuffer.setPosition(writeFloatToHeap(value, heapWriteBuffer.rawByteArray(), heapWriteBuffer.intPosition()));
             case SegmentWriteBuffer segmentWriteBuffer ->
-                    segmentWriteBuffer.setPosition(writeFloatToSegment(value, segmentWriteBuffer.rawSegment(), segmentWriteBuffer.intPosition()));
+                    segmentWriteBuffer.setPosition(writeFloatToSegment(value, segmentWriteBuffer.rawSegment(), segmentWriteBuffer.longPosition()));
         }
     }
 
@@ -861,8 +861,15 @@ public final class JsonNumberUtil {
     }
 
     private static Nfi readNfFromHeap(long d, byte[] bytes, int position, int end) {
-        final int origin = position;
-        while(position < end) {
+        if(position >= end) {
+            throw new JsonDeserializerException("leading period with no digits");
+        }
+        int first = bytes[position++] - '0';
+        if(first < 0 || first > 9) {
+            throw new JsonDeserializerException("leading period with illegal digits");
+        }
+        d = d * 10L + first;
+        while (position < end) {
             int v = bytes[position] - '0';
             if(v < 0 || v > 9) {
                 break ;
@@ -870,10 +877,20 @@ public final class JsonNumberUtil {
             d = d * 10L + v;
             position++;
         }
-        if(origin == position) {
-            throw new JsonDeserializerException("leading period with no digits");
-        }
         return new Nfi(d, position);
+//        final int origin = position;
+//        while(position < end) {
+//            int v = bytes[position] - '0';
+//            if(v < 0 || v > 9) {
+//                break ;
+//            }
+//            d = d * 10L + v;
+//            position++;
+//        }
+//        if(origin == position) {
+//            throw new JsonDeserializerException("leading period with no digits");
+//        }
+//        return new Nfi(d, position);
     }
 
     private static Npi readNpFromHeap(byte[] bytes, int position, int end) {
@@ -976,7 +993,12 @@ public final class JsonNumberUtil {
         if(position >= end) {
             throw new JsonDeserializerException("leading period with no digits");
         }
-        while(position < end) {
+        int first = SegmentAccess.getByte(segment, position++) - '0';
+        if(first < 0 || first > 9) {
+            throw new JsonDeserializerException("leading period with illegal digits");
+        }
+        d = d * 10L + first;
+        while (position < end) {
             int v = SegmentAccess.getByte(segment, position) - '0';
             if(v < 0 || v > 9) {
                 break ;
@@ -985,6 +1007,18 @@ public final class JsonNumberUtil {
             position++;
         }
         return new Nfl(d, position);
+//        if(position >= end) {
+//            throw new JsonDeserializerException("leading period with no digits");
+//        }
+//        while(position < end) {
+//            int v = SegmentAccess.getByte(segment, position) - '0';
+//            if(v < 0 || v > 9) {
+//                break ;
+//            }
+//            d = d * 10L + v;
+//            position++;
+//        }
+//        return new Nfl(d, position);
     }
 
     private static Npl readNpFromSegment(MemorySegment segment, long position, long end) {

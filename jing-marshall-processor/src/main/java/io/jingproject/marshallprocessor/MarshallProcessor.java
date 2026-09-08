@@ -101,7 +101,7 @@ public final class MarshallProcessor extends AbstractProcessor {
         if (t.getModifiers().contains(Modifier.ABSTRACT)) {
             throw new AnnotationProcessorException("abstract class can not be annotated with @Marshallable");
         }
-        // if using inheritance, must be annotationed with @Marshallable in the same module
+        // if using inheritance, must be annotated with @Marshallable in the same module
         Elements elements = processingEnv.getElementUtils();
         Types typeUtils = processingEnv.getTypeUtils();
         TypeMirror rootModuleType = elements.getModuleOf(t).asType();
@@ -164,7 +164,7 @@ public final class MarshallProcessor extends AbstractProcessor {
     private void checkMarshallableEnumElement(TypeElement t) {
         // must be public enum
         if (!t.getModifiers().contains(Modifier.PUBLIC)) {
-            throw new AnnotationProcessorException("only public fieldElement can be annotated with @Marshallable");
+            throw new AnnotationProcessorException("only public enum can be annotated with @Marshallable");
         }
         // must have enum constants
         if (t.getEnclosedElements().stream().noneMatch(e -> e.getKind() == ElementKind.ENUM_CONSTANT)) {
@@ -427,7 +427,7 @@ public final class MarshallProcessor extends AbstractProcessor {
         String listClassName = facadeSource.register(List.class);
         String marshallInfoClassName = facadeSource.register(MarshallInfo.class);
         return new GeneratorBlock().addLine("@" + overrideClassName)
-                .addLine("public " + listClassName + "<" + marshallInfoClassName + ">" + "marshallInfos() {")
+                .addLine("public " + listClassName + "<" + marshallInfoClassName + "> marshallInfos() {")
                 .indent()
                 .addLine("return MARSHALL_INFOS;")
                 .unindent()
