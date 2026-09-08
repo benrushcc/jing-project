@@ -10,9 +10,9 @@ import java.nio.charset.StandardCharsets;
  */
 public sealed interface Hasher
         permits LengthHasher, OneByteHasher, TwoByteHasher, ThreeByteHasher, FourByteHasher, SumHasher, FnvHasher {
-    int hash(byte[] bytes, int offset, int len);
+    int hash(byte[] bytes, int from, int to);
 
-    int hash(MemorySegment segment, long offset, long len);
+    int hash(MemorySegment segment, long from, long to);
 
     default int hash(MemorySegment segment) {
         return hash(segment, 0L, segment.byteSize());

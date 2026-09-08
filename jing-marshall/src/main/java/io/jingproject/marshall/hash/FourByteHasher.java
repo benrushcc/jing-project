@@ -21,22 +21,24 @@ public final class FourByteHasher implements Hasher {
     }
 
     @Override
-    public int hash(byte[] bytes, int offset, int len) {
-        Objects.checkFromIndexSize(offset, len, bytes.length);
-        int i1 = Byte.toUnsignedInt(bytes[offset]);
-        int i2 = len > 1 ? Byte.toUnsignedInt(bytes[offset + 1]) : 0;
-        int i3 = len > 2 ? Byte.toUnsignedInt(bytes[offset + len - 1]) : 0;
-        int i4 = len > 3 ? Byte.toUnsignedInt(bytes[offset + len - 2]) : 0;
+    public int hash(byte[] bytes, int from, int to) {
+        Objects.checkFromToIndex(from, to, bytes.length);
+        int len = to - from;
+        int i1 = bytes[from] & 0xFF;
+        int i2 = len > 1 ? (bytes[from + 1] & 0xFF) : 0;
+        int i3 = len > 2 ? (bytes[to - 1] & 0xFF) : 0;
+        int i4 = len > 3 ? (bytes[to - 2] & 0xFF) : 0;
         return (i4 << 24) | (i3 << 16) | (i2 << 8) | i1;
     }
 
     @Override
-    public int hash(MemorySegment segment, long offset, long len) {
-        Objects.checkFromIndexSize(offset, len, segment.byteSize());
-        int i1 = Byte.toUnsignedInt(segment.get(ValueLayout.JAVA_BYTE, offset));
-        int i2 = len > 1L ? Byte.toUnsignedInt(segment.get(ValueLayout.JAVA_BYTE, offset + 1L)) : 0;
-        int i3 = len > 2L ? Byte.toUnsignedInt(segment.get(ValueLayout.JAVA_BYTE, offset + len - 1L)) : 0;
-        int i4 = len > 3L ? Byte.toUnsignedInt(segment.get(ValueLayout.JAVA_BYTE, offset + len - 2L)) : 0;
+    public int hash(MemorySegment segment, long from, long to) {
+        Objects.checkFromToIndex(from, to, segment.byteSize());
+        long len = to - from;
+        int i1 = segment.get(ValueLayout.JAVA_BYTE, from) & 0xFF;
+        int i2 = len > 1L ? (segment.get(ValueLayout.JAVA_BYTE, from + 1L) & 0xFF) : 0;
+        int i3 = len > 2L ? (segment.get(ValueLayout.JAVA_BYTE, to - 1L) & 0xFF) : 0;
+        int i4 = len > 3L ? (segment.get(ValueLayout.JAVA_BYTE, to - 2L) & 0xFF) : 0;
         return (i4 << 24) | (i3 << 16) | (i2 << 8) | i1;
     }
 

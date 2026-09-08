@@ -495,9 +495,9 @@ public final class MarshallProcessor extends AbstractProcessor {
         GeneratorBlock b = new GeneratorBlock()
                 .addLine("@" + overrideClassName)
                 .addLine("public " + marshallInfoClassName + " " + functionName + "(" + paramType + " " +
-                        paramName + ", " + paramUnit + " offset, " + paramUnit + " len) {")
+                        paramName + ", " + paramUnit + " from, " + paramUnit + " to) {")
                 .indent()
-                .addLine("final int hash = HASH_INFO." + hasherName + "().hash(" + paramName + ", offset, len);")
+                .addLine("final int hash = HASH_INFO." + hasherName + "().hash(" + paramName + ", from, to);")
                 .addLine("switch (hash) {")
                 .indent();
         List<MarshallSwitchInfo> hashInfo = f ? info.fieldHashInfos() : info.mappedHashInfos();
@@ -506,9 +506,9 @@ public final class MarshallProcessor extends AbstractProcessor {
             List<MarshallFieldInfo> fis = h.fieldInfos();
             b.addLine("case " + hash + " -> {").indent();
             for (MarshallFieldInfo fi : fis) {
-                String offset = String.valueOf(f ? fi.fieldNameOffset() : fi.mappedNameOffset());
-                String len = String.valueOf(f ? fi.fieldNameUtf8Bytes().length : fi.mappedNameUtf8Bytes().length);
-                b.addLine("if(HASH_INFO." + eqName + "(" + String.join(", ", List.of(offset, len, paramName, "offset", "len")) + ")) {")
+                String from = String.valueOf(f ? fi.fieldNameOffset() : fi.mappedNameOffset());
+                String to = String.valueOf(f ? fi.fieldNameOffset() + fi.fieldNameUtf8Bytes().length : fi.mappedNameOffset() + fi.mappedNameUtf8Bytes().length);
+                b.addLine("if(HASH_INFO." + eqName + "(" + String.join(", ", List.of(from, to, paramName, "from", "to")) + ")) {")
                         .indent()
                         .addLine("return MARSHALL_INFOS.get(" + fi.marshallIndex() + ");")
                         .unindent()

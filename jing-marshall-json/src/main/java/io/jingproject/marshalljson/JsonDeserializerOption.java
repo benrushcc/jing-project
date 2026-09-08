@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 
 public final class JsonDeserializerOption {
-    public static final int DEFAULT_CHAR_BUFFER_SIZE = 128;
     private static final int MIN_EMPTY_SIZE = 8;
     private static final int MAX_EMPTY_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshalljson.maxemptysize", "4096")), 65535);
     private static final int MIN_NUMBER_SIZE = 24;
@@ -44,7 +43,6 @@ public final class JsonDeserializerOption {
 
     private final Map<Class<?>, JsonDeserializeFunc> customFuncMap;
     private final Map<Class<?>, JsonDeserializeFunc> customArrFuncMap;
-    private final boolean consumeAllBytes;
     private final boolean ensureAllFieldsPresent;
     private final int maxEmptyBytes;
     private final int maxNumberBytes;
@@ -56,11 +54,10 @@ public final class JsonDeserializerOption {
     private final int charBufferSize;
 
     private JsonDeserializerOption(Map<Class<?>, JsonDeserializeFunc> customFuncMap, Map<Class<?>, JsonDeserializeFunc> customArrFuncMap,
-                                   boolean consumeAllBytes, boolean ensureAllFieldsPresent, int maxEmptyBytes, int maxNumberBytes, int maxStringBytes,
+                                   boolean ensureAllFieldsPresent, int maxEmptyBytes, int maxNumberBytes, int maxStringBytes,
                                    int maxArrayElements, int maxMapElements, int maxDummyElements, int maxNestedSize, int charBufferSize) {
         this.customFuncMap = customFuncMap;
         this.customArrFuncMap = customArrFuncMap;
-        this.consumeAllBytes = consumeAllBytes;
         this.ensureAllFieldsPresent = ensureAllFieldsPresent;
         this.maxEmptyBytes = maxEmptyBytes;
         this.maxNumberBytes = maxNumberBytes;
@@ -86,10 +83,6 @@ public final class JsonDeserializerOption {
 
     public JsonDeserializeFunc customArrFunc(Class<?> clazz) {
         return customArrFuncMap.get(clazz);
-    }
-
-    public boolean consumeAllBytes() {
-        return consumeAllBytes;
     }
 
     public boolean ensureAllFieldsPresent() {
@@ -130,7 +123,6 @@ public final class JsonDeserializerOption {
 
     public static class Builder {
         private final List<MarshallTransformerFacade> tfcs = new ArrayList<>();
-        private boolean consumeAllBytes = true;
         private boolean ensureAllFieldsPresent = false;
         private int maxEmptyBytes = 256;
         private int maxNumberBytes = 24;
@@ -174,11 +166,6 @@ public final class JsonDeserializerOption {
                 }
                 tfcs.add(tfc);
             }
-            return this;
-        }
-
-        public Builder setConsumeAllBytes(boolean consumeAllBytes) {
-            this.consumeAllBytes = consumeAllBytes;
             return this;
         }
 
@@ -307,7 +294,7 @@ public final class JsonDeserializerOption {
                 customArrFuncMap.put(customType, customArrDeserializeFunc(tfc));
             }
             return new JsonDeserializerOption(Map.copyOf(customFuncMap), Map.copyOf(customArrFuncMap),
-                    consumeAllBytes, ensureAllFieldsPresent, maxEmptyBytes, maxNumberBytes, maxStringBytes,
+                    ensureAllFieldsPresent, maxEmptyBytes, maxNumberBytes, maxStringBytes,
                     maxArrayElements, maxMapElements, maxDummyElements, maxNestedSize, charBufferSize);
         }
     }

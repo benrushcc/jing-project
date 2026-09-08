@@ -48,26 +48,26 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo marshallInfoByFieldName(byte[] bytes, int offset, int len) {
-        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(bytes, offset, len);
+    public MarshallInfo marshallInfoByFieldName(byte[] bytes, int from, int to) {
+        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(bytes, from, to);
         switch (hash) {
             case 73 -> {
-                if (HASH_INFO.fieldNameEquals(0, 3, bytes, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(0, 3, bytes, from, to)) {
                     return MARSHALL_INFOS.get(0);
                 }
             }
             case 76 -> {
-                if (HASH_INFO.fieldNameEquals(3, 4, bytes, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(3, 7, bytes, from, to)) {
                     return MARSHALL_INFOS.get(1);
                 }
             }
             case 83 -> {
-                if (HASH_INFO.fieldNameEquals(7, 3, bytes, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(7, 10, bytes, from, to)) {
                     return MARSHALL_INFOS.get(2);
                 }
             }
             case 84 -> {
-                if (HASH_INFO.fieldNameEquals(10, 4, bytes, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(10, 14, bytes, from, to)) {
                     return MARSHALL_INFOS.get(3);
                 }
             }
@@ -76,26 +76,26 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo marshallInfoByFieldName(MemorySegment segment, long offset, long len) {
-        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(segment, offset, len);
+    public MarshallInfo marshallInfoByFieldName(MemorySegment segment, long from, long to) {
+        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(segment, from, to);
         switch (hash) {
             case 73 -> {
-                if (HASH_INFO.fieldNameEquals(0, 3, segment, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(0, 3, segment, from, to)) {
                     return MARSHALL_INFOS.get(0);
                 }
             }
             case 76 -> {
-                if (HASH_INFO.fieldNameEquals(3, 4, segment, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(3, 7, segment, from, to)) {
                     return MARSHALL_INFOS.get(1);
                 }
             }
             case 83 -> {
-                if (HASH_INFO.fieldNameEquals(7, 3, segment, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(7, 10, segment, from, to)) {
                     return MARSHALL_INFOS.get(2);
                 }
             }
             case 84 -> {
-                if (HASH_INFO.fieldNameEquals(10, 4, segment, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(10, 14, segment, from, to)) {
                     return MARSHALL_INFOS.get(3);
                 }
             }
@@ -116,26 +116,26 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo marshallInfoByMappedName(byte[] bytes, int offset, int len) {
-        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(bytes, offset, len);
+    public MarshallInfo marshallInfoByMappedName(byte[] bytes, int from, int to) {
+        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(bytes, from, to);
         switch (hash) {
             case 73 -> {
-                if (HASH_INFO.mappedNameEquals(0, 3, bytes, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(0, 3, bytes, from, to)) {
                     return MARSHALL_INFOS.get(0);
                 }
             }
             case 76 -> {
-                if (HASH_INFO.mappedNameEquals(3, 4, bytes, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(3, 7, bytes, from, to)) {
                     return MARSHALL_INFOS.get(1);
                 }
             }
             case 83 -> {
-                if (HASH_INFO.mappedNameEquals(7, 3, bytes, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(7, 10, bytes, from, to)) {
                     return MARSHALL_INFOS.get(2);
                 }
             }
             case 84 -> {
-                if (HASH_INFO.mappedNameEquals(10, 4, bytes, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(10, 14, bytes, from, to)) {
                     return MARSHALL_INFOS.get(3);
                 }
             }
@@ -144,26 +144,26 @@ public final class EnumEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo marshallInfoByMappedName(MemorySegment segment, long offset, long len) {
-        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(segment, offset, len);
+    public MarshallInfo marshallInfoByMappedName(MemorySegment segment, long from, long to) {
+        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(segment, from, to);
         switch (hash) {
             case 73 -> {
-                if (HASH_INFO.mappedNameEquals(0, 3, segment, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(0, 3, segment, from, to)) {
                     return MARSHALL_INFOS.get(0);
                 }
             }
             case 76 -> {
-                if (HASH_INFO.mappedNameEquals(3, 4, segment, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(3, 7, segment, from, to)) {
                     return MARSHALL_INFOS.get(1);
                 }
             }
             case 83 -> {
-                if (HASH_INFO.mappedNameEquals(7, 3, segment, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(7, 10, segment, from, to)) {
                     return MARSHALL_INFOS.get(2);
                 }
             }
             case 84 -> {
-                if (HASH_INFO.mappedNameEquals(10, 4, segment, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(10, 14, segment, from, to)) {
                     return MARSHALL_INFOS.get(3);
                 }
             }

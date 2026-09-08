@@ -22,29 +22,27 @@ public final class SumHasher implements Hasher {
     }
 
     @Override
-    public int hash(byte[] bytes, int offset, int len) {
-        Objects.checkFromIndexSize(offset, len, bytes.length);
+    public int hash(byte[] bytes, int from, int to) {
+        Objects.checkFromToIndex(from, to, bytes.length);
         int hash = 0;
-        int index = 0;
-        for (; index <= len - 4; index += 4) {
-            hash += ArrayAccess.getInt(bytes, offset + index);
+        for (; from <= to - 4; from += 4) {
+            hash += ArrayAccess.getInt(bytes, from);
         }
-        for (; index < len; index++) {
-            hash += bytes[offset + index];
+        for (; from < to; from++) {
+            hash += bytes[from];
         }
         return hash;
     }
 
     @Override
-    public int hash(MemorySegment segment, long offset, long len) {
-        Objects.checkFromIndexSize(offset, len, segment.byteSize());
+    public int hash(MemorySegment segment, long from, long to) {
+        Objects.checkFromToIndex(from, to, segment.byteSize());
         int hash = 0;
-        long index = 0;
-        for (; index <= len - 4L; index += 4L) {
-            hash += SegmentAccess.getInt(segment, offset + index);
+        for (; from <= to - 4L; from += 4L) {
+            hash += SegmentAccess.getInt(segment, from);
         }
-        for (; index < len; index++) {
-            hash += SegmentAccess.getByte(segment, offset + index);
+        for (; from < to; from++) {
+            hash += SegmentAccess.getByte(segment, from);
         }
         return hash;
     }

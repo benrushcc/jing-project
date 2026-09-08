@@ -279,23 +279,6 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
         return table;
     }
 
-    protected static int asciiCount(ShortVector shortVector) {
-        VectorMask<Short> mask = shortVector.compare(VectorOperators.LT, (short) 0x20)
-                .or(shortVector.compare(VectorOperators.GT, (short) 0x7E))
-                .or(shortVector.compare(VectorOperators.EQ, (short) 0x22))
-                .or(shortVector.compare(VectorOperators.EQ, (short) 0x5C));
-        if (ESCAPE_SLASH) {
-            mask = mask.or(shortVector.compare(VectorOperators.EQ, (short) 0x2F));
-        }
-        return mask.firstTrue();
-    }
-
-    protected static int nonSurrCount(ShortVector shortVector) {
-        VectorMask<Short> mask = shortVector.lanewise(VectorOperators.AND, (short) 0xF800)
-                .compare(VectorOperators.EQ, (short) 0xD800);
-        return mask.firstTrue();
-    }
-
     public abstract void append(byte b);
 
     public abstract void append(byte b1, byte b2);
@@ -849,7 +832,14 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
                 ShortVector shortVector = ShortVector.fromCharArray(SHORT_SPECIES, buf, index);
                 ByteVector byteVector = (ByteVector) shortVector.convertShape(VectorOperators.S2B, BYTE_SPECIES, 0);
                 byteVector.intoArray(bytes, position + index);
-                int asciiCount = asciiCount(shortVector);
+                VectorMask<Short> mask = shortVector.compare(VectorOperators.LT, (short) 0x20)
+                        .or(shortVector.compare(VectorOperators.GT, (short) 0x7E))
+                        .or(shortVector.compare(VectorOperators.EQ, (short) 0x22))
+                        .or(shortVector.compare(VectorOperators.EQ, (short) 0x5C));
+                if (ESCAPE_SLASH) {
+                    mask = mask.or(shortVector.compare(VectorOperators.EQ, (short) 0x2F));
+                }
+                int asciiCount = mask.firstTrue();
                 if(asciiCount != SHORT_SPECIES.length()) {
                     index += asciiCount;
                     break;
@@ -861,7 +851,9 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
             if(FILTER_SURR) {
                 int sIndex = index & (~VEC_MASK);
                 for( ; sIndex < alignedLen; sIndex += SHORT_SPECIES.length()) {
-                    int nonSurrCount = nonSurrCount(ShortVector.fromCharArray(SHORT_SPECIES, buf, sIndex));
+                    VectorMask<Short> mask = ShortVector.fromCharArray(SHORT_SPECIES, buf, sIndex).lanewise(VectorOperators.AND, (short) 0xF800)
+                            .compare(VectorOperators.EQ, (short) 0xD800);
+                    int nonSurrCount = mask.firstTrue();
                     if(nonSurrCount != SHORT_SPECIES.length()) {
                         sIndex += nonSurrCount;
                         break;
@@ -1214,7 +1206,14 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
                 ShortVector shortVector = ShortVector.fromCharArray(SHORT_SPECIES, buf, index);
                 ByteVector byteVector = (ByteVector) shortVector.convertShape(VectorOperators.S2B, BYTE_SPECIES, 0);
                 byteVector.intoMemorySegment(segment, position + index, ByteOrder.nativeOrder()); // byteOrder will be ignored
-                int asciiCount = asciiCount(shortVector);
+                VectorMask<Short> mask = shortVector.compare(VectorOperators.LT, (short) 0x20)
+                        .or(shortVector.compare(VectorOperators.GT, (short) 0x7E))
+                        .or(shortVector.compare(VectorOperators.EQ, (short) 0x22))
+                        .or(shortVector.compare(VectorOperators.EQ, (short) 0x5C));
+                if (ESCAPE_SLASH) {
+                    mask = mask.or(shortVector.compare(VectorOperators.EQ, (short) 0x2F));
+                }
+                int asciiCount = mask.firstTrue();
                 if(asciiCount != SHORT_SPECIES.length()) {
                     index += asciiCount;
                     break ;
@@ -1226,7 +1225,9 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
             if(FILTER_SURR) {
                 int sIndex = index & (~VEC_MASK);
                 for( ; sIndex < alignedLen; sIndex += SHORT_SPECIES.length()) {
-                    int nonSurrCount = nonSurrCount(ShortVector.fromCharArray(SHORT_SPECIES, buf, sIndex));
+                    VectorMask<Short> mask = ShortVector.fromCharArray(SHORT_SPECIES, buf, sIndex).lanewise(VectorOperators.AND, (short) 0xF800)
+                            .compare(VectorOperators.EQ, (short) 0xD800);
+                    int nonSurrCount = mask.firstTrue();
                     if(nonSurrCount != SHORT_SPECIES.length()) {
                         sIndex += nonSurrCount;
                         break ;

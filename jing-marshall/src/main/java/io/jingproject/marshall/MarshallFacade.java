@@ -6,6 +6,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.charset.Charset;
 import java.util.List;
+import java.util.Objects;
 
 @ProcessorApi
 public interface MarshallFacade {
@@ -38,7 +39,7 @@ public interface MarshallFacade {
     /**
      * look up info by a utf8 byte array slice as field name, null if not found
      */
-    MarshallInfo marshallInfoByFieldName(byte[] bytes, int offset, int len);
+    MarshallInfo marshallInfoByFieldName(byte[] bytes, int from, int to);
 
     default MarshallInfo marshallInfoByFieldName(MemorySegment segment) {
         return marshallInfoByFieldName(segment, 0L, segment.byteSize());
@@ -47,30 +48,28 @@ public interface MarshallFacade {
     /**
      * look up info by a utf8 memory segment slice as field name, null if not found
      */
-    MarshallInfo marshallInfoByFieldName(MemorySegment segment, long offset, long len);
+    MarshallInfo marshallInfoByFieldName(MemorySegment segment, long from, long to);
 
     default MarshallInfo marshallInfoByFieldName(byte[] bytes, Charset charset) {
-        
         String name = new String(bytes, charset);
         return marshallInfoByFieldName(name);
     }
 
-    default MarshallInfo marshallInfoByFieldName(byte[] bytes, int offset, int len, Charset charset) {
-        
-        String name = new String(bytes, offset, len, charset);
+    default MarshallInfo marshallInfoByFieldName(byte[] bytes, int from, int to, Charset charset) {
+        Objects.checkFromToIndex(from, to, bytes.length);
+        String name = new String(bytes, from, to - from, charset);
         return marshallInfoByFieldName(name);
     }
 
     default MarshallInfo marshallInfoByFieldName(MemorySegment segment, Charset charset) {
-        
         byte[] bytes = segment.toArray(ValueLayout.JAVA_BYTE);
         String name = new String(bytes, charset);
         return marshallInfoByFieldName(name);
     }
 
-    default MarshallInfo marshallInfoByFieldName(MemorySegment segment, long offset, long len, Charset charset) {
-        
-        byte[] bytes = segment.asSlice(offset, len).toArray(ValueLayout.JAVA_BYTE);
+    default MarshallInfo marshallInfoByFieldName(MemorySegment segment, long from, long to, Charset charset) {
+        Objects.checkFromToIndex(from, to, segment.byteSize());
+        byte[] bytes = segment.asSlice(from, to - from).toArray(ValueLayout.JAVA_BYTE);
         String name = new String(bytes, charset);
         return marshallInfoByFieldName(name);
     }
@@ -87,7 +86,7 @@ public interface MarshallFacade {
     /**
      * look up info by a utf8 byte array slice as mapped name, null if not found
      */
-    MarshallInfo marshallInfoByMappedName(byte[] bytes, int offset, int len);
+    MarshallInfo marshallInfoByMappedName(byte[] bytes, int from, int to);
 
     default MarshallInfo marshallInfoByMappedName(MemorySegment segment) {
         return marshallInfoByMappedName(segment, 0L, segment.byteSize());
@@ -96,30 +95,28 @@ public interface MarshallFacade {
     /**
      * look up info by a utf8 memory segment slice as mapped name, null if not found
      */
-    MarshallInfo marshallInfoByMappedName(MemorySegment segment, long offset, long len);
+    MarshallInfo marshallInfoByMappedName(MemorySegment segment, long from, long to);
 
     default MarshallInfo marshallInfoByMappedName(byte[] bytes, Charset charset) {
-        
         String mappedName = new String(bytes, charset);
         return marshallInfoByMappedName(mappedName);
     }
 
-    default MarshallInfo marshallInfoByMappedName(byte[] bytes, int offset, int len, Charset charset) {
-        
-        String mappedName = new String(bytes, offset, len, charset);
+    default MarshallInfo marshallInfoByMappedName(byte[] bytes, int from, int to, Charset charset) {
+        Objects.checkFromToIndex(from, to, bytes.length);
+        String mappedName = new String(bytes, from, to - from, charset);
         return marshallInfoByMappedName(mappedName);
     }
 
     default MarshallInfo marshallInfoByMappedName(MemorySegment segment, Charset charset) {
-        
         byte[] bytes = segment.toArray(ValueLayout.JAVA_BYTE);
         String mappedName = new String(bytes, charset);
         return marshallInfoByMappedName(mappedName);
     }
 
-    default MarshallInfo marshallInfoByMappedName(MemorySegment segment, long offset, long len, Charset charset) {
-        
-        byte[] bytes = segment.asSlice(offset, len).toArray(ValueLayout.JAVA_BYTE);
+    default MarshallInfo marshallInfoByMappedName(MemorySegment segment, long from, long to, Charset charset) {
+        Objects.checkFromToIndex(from, to, segment.byteSize());
+        byte[] bytes = segment.asSlice(from, to - from).toArray(ValueLayout.JAVA_BYTE);
         String mappedName = new String(bytes, charset);
         return marshallInfoByMappedName(mappedName);
     }

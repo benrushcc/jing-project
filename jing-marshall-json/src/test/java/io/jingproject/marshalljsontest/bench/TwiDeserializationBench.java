@@ -23,11 +23,11 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 3, time = 10000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-//@Fork(value = 1, jvmArgsAppend = {
-//        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=ser-twi-%p-%t.jfr,settings=profile",
-//        "-XX:FlightRecorderOptions:stackdepth=128"
-//})
-@Fork(3)
+@Fork(value = 1, jvmArgsAppend = {
+        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=de-twi-%p-%t.jfr,settings=profile",
+        "-XX:FlightRecorderOptions:stackdepth=128"
+})
+//@Fork(3)
 public class TwiDeserializationBench {
     private byte[] bytes;
     private ReadBuffer readBuffer;
@@ -42,11 +42,11 @@ public class TwiDeserializationBench {
         jsonDefaultDeserializer = new JsonDeserializer(JsonDeserializerOption.defaultOption());
     }
 
-    @Benchmark
-    public void jacksonDeserialization(Blackhole blackhole) {
-        Twi twi = jsonMapper.readValue(bytes, Twi.class);
-        blackhole.consume(twi);
-    }
+//    @Benchmark
+//    public void jacksonDeserialization(Blackhole blackhole) {
+//        Twi twi = jsonMapper.readValue(bytes, Twi.class);
+//        blackhole.consume(twi);
+//    }
 
     @Benchmark
     public void jingDefaultDeserialization(Blackhole blackhole) {

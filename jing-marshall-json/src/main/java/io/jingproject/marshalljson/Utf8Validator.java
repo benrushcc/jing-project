@@ -151,87 +151,68 @@ public final class Utf8Validator {
         }
     }
 
-    private value record Status(long errors, long previousIncomplete, int previousFourBytes) {
-
-    }
-
-    private static Status processChunk(ByteVector chunk, Status currentStatus) {
-        IntVector chunkAsInts = chunk.reinterpretAsInts();
-        long nextErrors;
-        long nextIncomplete;
-        int nextFourBytes;
-        if (chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
-            nextErrors = nextIncomplete = currentStatus.previousIncomplete();
-        } else {
-            nextIncomplete = chunk.compare(VectorOperators.UGE, INCOMPLETE).toLong();
-            IntVector shifted = chunkAsInts.rearrange(FOUR_BYTES_FORWARD_SHIFT).withLane(0, currentStatus.previousFourBytes());
-            ByteVector prev1 = chunkAsInts.lanewise(VectorOperators.LSHL, 8).or(shifted.lanewise(VectorOperators.LSHR, 24)).reinterpretAsBytes();
-            ByteVector highNibbles2 = chunkAsInts.lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
-            ByteVector highNibbles1 = prev1.reinterpretAsInts().lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
-            ByteVector lowNibbles1 = prev1.and(LOW_NIBBLE_MASK);
-            ByteVector sc = highNibbles1.selectFrom(BYTE1_HIGH_TABLE).and(lowNibbles1.selectFrom(BYTE1_LOW_TABLE)).and(highNibbles2.selectFrom(BYTE2_HIGH_TABLE));
-            ByteVector prev2 = chunkAsInts.lanewise(VectorOperators.LSHL, 16).or(shifted.lanewise(VectorOperators.LSHR, 16)).reinterpretAsBytes();
-            ByteVector prev3 = chunkAsInts.lanewise(VectorOperators.LSHL, 24).or(shifted.lanewise(VectorOperators.LSHR, 8)).reinterpretAsBytes();
-            VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD).or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
-            nextErrors = sc.add((byte) 0x80, must23).compare(VectorOperators.NE, (byte) 0).toLong();
+    public static boolean validateHeap(byte[] bytes, int from, int to) {
+        if(NON_MASK && to - from < BYTE_SPECIES.length()) {
+            return scalarValidateHeap(bytes, from, to);
         }
-        nextFourBytes = chunkAsInts.lane(INT_SPECIES.length() - 1);
-        return new Status(nextErrors | currentStatus.errors(), nextIncomplete, nextFourBytes);
-    }
-
-    public static boolean validateHeap(byte[] bytes, int offset, int end) {
-        if(NON_MASK && end < BYTE_SPECIES.length()) {
-            return scalarValidate(bytes, offset, end);
-        }
-        Objects.checkFromToIndex(offset, end, bytes.length);
-        Status status = new Status(0L, 0L, 0);
-        for( ; offset <= end - BYTE_SPECIES.length(); offset += BYTE_SPECIES.length()) {
-            ByteVector chunk = ByteVector.fromArray(BYTE_SPECIES, bytes, offset);
-            status = processChunk(chunk, status);
-        }
-        if(offset < end) {
-            ByteVector lastChunk;
-            if(NON_MASK) {
-                lastChunk = ByteVector.fromArray(BYTE_SPECIES, bytes, end - BYTE_SPECIES.length())
-                        .slice(BYTE_SPECIES.length() - (end - offset));
-            } else {
-                lastChunk = ByteVector.fromArray(BYTE_SPECIES, bytes, offset, BYTE_SPECIES.indexInRange(offset, end));
-            }
-            status = processChunk(lastChunk, status);
-        }
-        return (status.errors() | status.previousIncomplete()) == 0L;
-    }
-
-    public static boolean validateSegment(MemorySegment segment, long offset, long end) {
-        if(NON_MASK && end < BYTE_SPECIES.length()) {
-            return scalarValidate(segment, offset, end);
-        }
-        Objects.checkFromToIndex(offset, end, segment.byteSize());
-        Status status = new Status(0L, 0L, 0);
-        for( ; offset <= end - BYTE_SPECIES.length(); offset += BYTE_SPECIES.length()) {
-            ByteVector chunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, offset, ByteOrder.nativeOrder());  // byteOrder will be ignored
-            status = processChunk(chunk, status);
-        }
-        if(offset < end) {
-            ByteVector lastChunk;
-            if(NON_MASK) {
-                lastChunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, end - BYTE_SPECIES.length(), ByteOrder.nativeOrder())
-                        .slice(BYTE_SPECIES.length() - Math.toIntExact(end - offset));
-            } else {
-                lastChunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, offset, ByteOrder.nativeOrder(), BYTE_SPECIES.indexInRange(offset, end));
-            }
-            status = processChunk(lastChunk, status);
-        }
-        return (status.errors() | status.previousIncomplete()) == 0L;
-    }
-
-    public static boolean validate(byte[] bytes, int offset, int len) {
         long errors = 0;
         long previousIncomplete = 0;
         int previousFourBytes = 0;
-        final int end = offset + len;
-        for( ; offset <= end - BYTE_SPECIES.length(); offset += BYTE_SPECIES.length()) {
-            ByteVector chunk = ByteVector.fromArray(BYTE_SPECIES, bytes, offset);
+        for (; from <= to - BYTE_SPECIES.length(); from += BYTE_SPECIES.length()) {
+            ByteVector chunk = ByteVector.fromArray(BYTE_SPECIES, bytes, from);
+            IntVector chunkAsInts = (IntVector) chunk.reinterpretShape(INT_SPECIES, 0);
+            if (chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
+                errors |= previousIncomplete;
+            } else {
+                previousIncomplete = chunk.compare(VectorOperators.UGE, INCOMPLETE).toLong();
+                IntVector shifted = chunkAsInts.rearrange(FOUR_BYTES_FORWARD_SHIFT).withLane(0, previousFourBytes);
+                ByteVector prev1 = ((ByteVector) chunkAsInts.lanewise(VectorOperators.LSHL, 8).or(shifted.lanewise(VectorOperators.LSHR, 24)).reinterpretShape(BYTE_SPECIES, 0));
+                ByteVector highNibbles2 = ((ByteVector) chunkAsInts.lanewise(VectorOperators.LSHR, 4).reinterpretShape(BYTE_SPECIES, 0)).and(LOW_NIBBLE_MASK);
+                ByteVector highNibbles1 = ((ByteVector) ((IntVector) prev1.reinterpretShape(INT_SPECIES, 0)).lanewise(VectorOperators.LSHR, 4).reinterpretShape(BYTE_SPECIES, 0)).and(LOW_NIBBLE_MASK);
+                ByteVector lowNibbles1 = prev1.and(LOW_NIBBLE_MASK);
+                ByteVector sc = highNibbles1.selectFrom(BYTE1_HIGH_TABLE).and(lowNibbles1.selectFrom(BYTE1_LOW_TABLE)).and(highNibbles2.selectFrom(BYTE2_HIGH_TABLE));
+                ByteVector prev2 = ((ByteVector) chunkAsInts.lanewise(VectorOperators.LSHL, 16).or(shifted.lanewise(VectorOperators.LSHR, 16)).reinterpretShape(BYTE_SPECIES, 0));
+                ByteVector prev3 = ((ByteVector) chunkAsInts.lanewise(VectorOperators.LSHL, 24).or(shifted.lanewise(VectorOperators.LSHR, 8)).reinterpretShape(BYTE_SPECIES, 0));
+                VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD).or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
+                errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, (byte) 0).toLong();
+            }
+            previousFourBytes = chunkAsInts.lane(INT_SPECIES.length() - 1);
+        }
+        if (from < to) {
+            ByteVector chunk;
+            if(NON_MASK) {
+                chunk = ByteVector.fromArray(BYTE_SPECIES, bytes, to - BYTE_SPECIES.length())
+                        .slice(BYTE_SPECIES.length() - (to - from));
+            } else {
+                chunk = ByteVector.fromArray(BYTE_SPECIES, bytes, from, BYTE_SPECIES.indexInRange(from, to));
+            }
+            IntVector chunkAsInts = (IntVector) chunk.reinterpretShape(INT_SPECIES, 0);
+            if (!chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
+                previousIncomplete = chunk.compare(VectorOperators.UGE, INCOMPLETE).toLong();
+                IntVector shifted = chunkAsInts.rearrange(FOUR_BYTES_FORWARD_SHIFT).withLane(0, previousFourBytes);
+                ByteVector prev1 = ((ByteVector) chunkAsInts.lanewise(VectorOperators.LSHL, 8).or(shifted.lanewise(VectorOperators.LSHR, 24)).reinterpretShape(BYTE_SPECIES, 0));
+                ByteVector highNibbles2 = ((ByteVector) chunkAsInts.lanewise(VectorOperators.LSHR, 4).reinterpretShape(BYTE_SPECIES, 0)).and(LOW_NIBBLE_MASK);
+                ByteVector highNibbles1 = ((ByteVector) ((IntVector) prev1.reinterpretShape(INT_SPECIES, 0)).lanewise(VectorOperators.LSHR, 4).reinterpretShape(BYTE_SPECIES, 0)).and(LOW_NIBBLE_MASK);
+                ByteVector lowNibbles1 = prev1.and(LOW_NIBBLE_MASK);
+                ByteVector sc = highNibbles1.selectFrom(BYTE1_HIGH_TABLE).and(lowNibbles1.selectFrom(BYTE1_LOW_TABLE)).and(highNibbles2.selectFrom(BYTE2_HIGH_TABLE));
+                ByteVector prev2 = ((ByteVector) chunkAsInts.lanewise(VectorOperators.LSHL, 16).or(shifted.lanewise(VectorOperators.LSHR, 16)).reinterpretShape(BYTE_SPECIES, 0));
+                ByteVector prev3 = ((ByteVector) chunkAsInts.lanewise(VectorOperators.LSHL, 24).or(shifted.lanewise(VectorOperators.LSHR, 8)).reinterpretShape(BYTE_SPECIES, 0));
+                VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD).or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
+                errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, (byte) 0).toLong();
+            }
+        }
+        return (errors | previousIncomplete) == 0L;
+    }
+
+    public static boolean validateSegment(MemorySegment segment, long from, long to) {
+        if(NON_MASK && to - from < BYTE_SPECIES.length()) {
+            return scalarValidateSegment(segment, from, to);
+        }
+        long errors = 0;
+        long previousIncomplete = 0;
+        int previousFourBytes = 0;
+        for( ; from <= to - BYTE_SPECIES.length(); from += BYTE_SPECIES.length()) {
+            ByteVector chunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, from, ByteOrder.nativeOrder()); // byteOrder will be ignored
             IntVector chunkAsInts = chunk.reinterpretAsInts();
             if (chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
                 errors |= previousIncomplete;
@@ -250,8 +231,14 @@ public final class Utf8Validator {
             }
             previousFourBytes = chunkAsInts.lane(INT_SPECIES.length() - 1);
         }
-        if (offset < end) {
-            ByteVector chunk = ByteVector.fromArray(BYTE_SPECIES, bytes, offset, BYTE_SPECIES.indexInRange(offset, end));
+        if (from < to) {
+            ByteVector chunk;
+            if(NON_MASK) {
+                chunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, to - BYTE_SPECIES.length(), ByteOrder.nativeOrder())
+                        .slice(BYTE_SPECIES.length() - Math.toIntExact(to - from));
+            } else {
+                chunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, from, ByteOrder.nativeOrder(), BYTE_SPECIES.indexInRange(from, to));  // byteOrder will be ignored
+            }
             IntVector chunkAsInts = chunk.reinterpretAsInts();
             if (!chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
                 previousIncomplete = chunk.compare(VectorOperators.UGE, INCOMPLETE).toLong();
@@ -270,129 +257,84 @@ public final class Utf8Validator {
         return (errors | previousIncomplete) == 0L;
     }
 
-    public static boolean validate(MemorySegment segment, long offset, long len) {
-        long errors = 0;
-        long previousIncomplete = 0;
-        int previousFourBytes = 0;
-        final long end = offset + len;
-        for( ; offset <= end - BYTE_SPECIES.length(); offset += BYTE_SPECIES.length()) {
-            ByteVector chunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, offset, ByteOrder.nativeOrder()); // byteOrder will be ignored
-            IntVector chunkAsInts = chunk.reinterpretAsInts();
-            if (chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
-                errors |= previousIncomplete;
-            } else {
-                previousIncomplete = chunk.compare(VectorOperators.UGE, INCOMPLETE).toLong();
-                IntVector shifted = chunkAsInts.rearrange(FOUR_BYTES_FORWARD_SHIFT).withLane(0, previousFourBytes);
-                ByteVector prev1 = chunkAsInts.lanewise(VectorOperators.LSHL, 8).or(shifted.lanewise(VectorOperators.LSHR, 24)).reinterpretAsBytes();
-                ByteVector highNibbles2 = chunkAsInts.lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
-                ByteVector highNibbles1 = prev1.reinterpretAsInts().lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
-                ByteVector lowNibbles1 = prev1.and(LOW_NIBBLE_MASK);
-                ByteVector sc = highNibbles1.selectFrom(BYTE1_HIGH_TABLE).and(lowNibbles1.selectFrom(BYTE1_LOW_TABLE)).and(highNibbles2.selectFrom(BYTE2_HIGH_TABLE));
-                ByteVector prev2 = chunkAsInts.lanewise(VectorOperators.LSHL, 16).or(shifted.lanewise(VectorOperators.LSHR, 16)).reinterpretAsBytes();
-                ByteVector prev3 = chunkAsInts.lanewise(VectorOperators.LSHL, 24).or(shifted.lanewise(VectorOperators.LSHR, 8)).reinterpretAsBytes();
-                VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD).or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
-                errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, (byte) 0).toLong();
-            }
-            previousFourBytes = chunkAsInts.lane(INT_SPECIES.length() - 1);
-        }
-        if (offset < end) {
-            ByteVector chunk = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, offset, ByteOrder.nativeOrder(), BYTE_SPECIES.indexInRange(offset, end));  // byteOrder will be ignored
-            IntVector chunkAsInts = chunk.reinterpretAsInts();
-            if (!chunk.and(ALL_ASCII_MASK).eq((byte) 0).allTrue()) {
-                previousIncomplete = chunk.compare(VectorOperators.UGE, INCOMPLETE).toLong();
-                IntVector shifted = chunkAsInts.rearrange(FOUR_BYTES_FORWARD_SHIFT).withLane(0, previousFourBytes);
-                ByteVector prev1 = chunkAsInts.lanewise(VectorOperators.LSHL, 8).or(shifted.lanewise(VectorOperators.LSHR, 24)).reinterpretAsBytes();
-                ByteVector highNibbles2 = chunkAsInts.lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
-                ByteVector highNibbles1 = prev1.reinterpretAsInts().lanewise(VectorOperators.LSHR, 4).reinterpretAsBytes().and(LOW_NIBBLE_MASK);
-                ByteVector lowNibbles1 = prev1.and(LOW_NIBBLE_MASK);
-                ByteVector sc = highNibbles1.selectFrom(BYTE1_HIGH_TABLE).and(lowNibbles1.selectFrom(BYTE1_LOW_TABLE)).and(highNibbles2.selectFrom(BYTE2_HIGH_TABLE));
-                ByteVector prev2 = chunkAsInts.lanewise(VectorOperators.LSHL, 16).or(shifted.lanewise(VectorOperators.LSHR, 16)).reinterpretAsBytes();
-                ByteVector prev3 = chunkAsInts.lanewise(VectorOperators.LSHL, 24).or(shifted.lanewise(VectorOperators.LSHR, 8)).reinterpretAsBytes();
-                VectorMask<Byte> must23 = prev2.compare(VectorOperators.UGT, MAX_2_BYTE_LEAD).or(prev3.compare(VectorOperators.UGT, MAX_3_BYTE_LEAD));
-                errors |= sc.add((byte) 0x80, must23).compare(VectorOperators.NE, (byte) 0).toLong();
-            }
-        }
-        return (errors | previousIncomplete) == 0L;
-    }
-
-    public static boolean scalarValidate(byte[] bytes, int offset, int end) {
-        Objects.checkFromToIndex(offset, end, bytes.length);
+    public static boolean scalarValidateHeap(byte[] bytes, int from, int to) {
+        Objects.checkFromToIndex(from, to, bytes.length);
         int b1, b2;
         for (; ; ) {
             do {
-                if (offset >= end) {
+                if (from >= to) {
                     return true;
                 }
-            } while ((b1 = bytes[offset++]) >= 0);
+            } while ((b1 = bytes[from++]) >= 0);
             if (b1 < (byte) 0xE0) {
-                if (offset == end) {
+                if (from == to) {
                     return false;
                 }
-                if (b1 < (byte) 0xC2 || bytes[offset++] > (byte) 0xBF) {
+                if (b1 < (byte) 0xC2 || bytes[from++] > (byte) 0xBF) {
                     return false;
                 }
             } else if (b1 < (byte) 0xF0) {
-                if (end - offset <= 1) {
+                if (to - from <= 1) {
                     return false;
                 }
-                b2 = bytes[offset++];
+                b2 = bytes[from++];
                 if (b2 > (byte) 0xBF
                         || (b1 == (byte) 0xE0 && b2 < (byte) 0xA0)
                         || (b1 == (byte) 0xED && b2 >= (byte) 0xA0)
-                        || bytes[offset++] > (byte) 0xBF) {
+                        || bytes[from++] > (byte) 0xBF) {
                     return false;
                 }
             } else {
-                if (end - offset <= 2) {
+                if (to - from <= 2) {
                     return false;
                 }
-                b2 = bytes[offset++];
+                b2 = bytes[from++];
                 if (b2 > (byte) 0xBF
                         || (((b1 << 28) + (b2 - (byte) 0x90)) >> 30) != 0
-                        || bytes[offset++] > (byte) 0xBF
-                        || bytes[offset++] > (byte) 0xBF) {
+                        || bytes[from++] > (byte) 0xBF
+                        || bytes[from++] > (byte) 0xBF) {
                     return false;
                 }
             }
         }
     }
 
-    public static boolean scalarValidate(MemorySegment segment, long offset, long end) {
-        Objects.checkFromToIndex(offset, end, segment.byteSize());
+    public static boolean scalarValidateSegment(MemorySegment segment, long from, long to) {
+        Objects.checkFromToIndex(from, to, segment.byteSize());
         int b1, b2;
         for (; ; ) {
             do {
-                if (offset >= end) {
+                if (from >= to) {
                     return true;
                 }
-            } while ((b1 = SegmentAccess.getByte(segment, offset++)) >= 0);
+            } while ((b1 = SegmentAccess.getByte(segment, from++)) >= 0);
             if (b1 < (byte) 0xE0) {
-                if (offset == end) {
+                if (from == to) {
                     return false;
                 }
-                if (b1 < (byte) 0xC2 || SegmentAccess.getByte(segment, offset++) > (byte) 0xBF) {
+                if (b1 < (byte) 0xC2 || SegmentAccess.getByte(segment, from++) > (byte) 0xBF) {
                     return false;
                 }
             } else if (b1 < (byte) 0xF0) {
-                if (end - offset <= 1L) {
+                if (to - from <= 1L) {
                     return false;
                 }
-                b2 = SegmentAccess.getByte(segment, offset++);
+                b2 = SegmentAccess.getByte(segment, from++);
                 if (b2 > (byte) 0xBF
                         || (b1 == (byte) 0xE0 && b2 < (byte) 0xA0)
                         || (b1 == (byte) 0xED && b2 >= (byte) 0xA0)
-                        || SegmentAccess.getByte(segment, offset++) > (byte) 0xBF) {
+                        || SegmentAccess.getByte(segment, from++) > (byte) 0xBF) {
                     return false;
                 }
             } else {
-                if (end - offset <= 2L) {
+                if (to - from <= 2L) {
                     return false;
                 }
-                b2 = SegmentAccess.getByte(segment, offset++);
+                b2 = SegmentAccess.getByte(segment, from++);
                 if (b2 > (byte) 0xBF
                         || (((b1 << 28) + (b2 - (byte) 0x90)) >> 30) != 0
-                        || SegmentAccess.getByte(segment, offset++) > (byte) 0xBF
-                        || SegmentAccess.getByte(segment, offset++) > (byte) 0xBF) {
+                        || SegmentAccess.getByte(segment, from++) > (byte) 0xBF
+                        || SegmentAccess.getByte(segment, from++) > (byte) 0xBF) {
                     return false;
                 }
             }

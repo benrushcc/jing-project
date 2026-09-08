@@ -556,7 +556,7 @@ public final class JsonDeserializerNode {
                 appendColValue(lastValue, c);
             }
         }
-        if(firstByte == (byte) '}') {
+        if(firstByte == (byte) ']') {
             c.setObj(col);
             return JsonDeserializeResult.Finish;
         }

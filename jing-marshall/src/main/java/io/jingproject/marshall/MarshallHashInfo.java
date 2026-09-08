@@ -36,20 +36,20 @@ public record MarshallHashInfo (
         this(infos, fieldHasherIndex, mappedHasherIndex);
     }
 
-    // offsets and lengths are guaranteed to be in bounds by the hasher; no additional validation needed.
-    public boolean fieldNameEquals(int fieldOffset, int fieldLen, byte[] bytes, int offset, int len) {
-        return Arrays.equals(fieldNameCompactUtf8Bytes, fieldOffset, fieldOffset + fieldLen, bytes, offset, offset + len);
+    // from and to are guaranteed to be in bounds by the hasher; no additional validation needed.
+    public boolean fieldNameEquals(int srcFrom, int srcTo, byte[] dstBytes, int dstFrom, int dstTo) {
+        return Arrays.equals(fieldNameCompactUtf8Bytes, srcFrom, srcTo, dstBytes, dstFrom, dstTo);
     }
 
-    public boolean fieldNameEquals(long fieldOffset, long fieldLen, MemorySegment segment, long offset, long len) {
-        return MemorySegment.mismatch(fieldNameCompactUtf8Segment, fieldOffset, fieldLen, segment, offset, len) == -1L;
+    public boolean fieldNameEquals(long srcFrom, long srcTo, MemorySegment dstSegment, long dstFrom, long dstTo) {
+        return MemorySegment.mismatch(fieldNameCompactUtf8Segment, srcFrom, srcTo, dstSegment, dstFrom, dstTo) == -1L;
     }
 
-    public boolean mappedNameEquals(int mappedOffset, int mappedLen, byte[] bytes, int offset, int len) {
-        return Arrays.equals(mappedNameCompactUtf8Bytes, mappedOffset, mappedOffset + mappedLen, bytes, offset, offset + len);
+    public boolean mappedNameEquals(int srcFrom, int srcTo, byte[] dstBytes, int dstFrom, int dstTo) {
+        return Arrays.equals(mappedNameCompactUtf8Bytes, srcFrom, srcTo, dstBytes, dstFrom, dstTo);
     }
 
-    public boolean mappedNameEquals(long mappedOffset, long mappedLen, MemorySegment segment, long offset, long len) {
-        return MemorySegment.mismatch(mappedNameCompactUtf8Segment, mappedOffset, mappedLen, segment, offset, len) == -1L;
+    public boolean mappedNameEquals(long srcFrom, long srcTo, MemorySegment dstSegment, long dstFrom, long dstTo) {
+        return MemorySegment.mismatch(mappedNameCompactUtf8Segment, srcFrom, srcTo, dstSegment, dstFrom, dstTo) == -1L;
     }
 }

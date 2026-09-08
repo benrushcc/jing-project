@@ -23,21 +23,21 @@ public final class TwoByteHasher implements Hasher {
     }
 
     @Override
-    public int hash(byte[] bytes, int offset, int len) {
-        Objects.checkFromIndexSize(offset, len, bytes.length);
-        if(len > 1) {
-            return ArrayAccess.getShort(bytes, offset, ByteOrder.BIG_ENDIAN);
+    public int hash(byte[] bytes, int from, int to) {
+        Objects.checkFromToIndex(from, to, bytes.length);
+        if(to - from > 1) {
+            return ArrayAccess.getShort(bytes, from, ByteOrder.BIG_ENDIAN);
         }
-        return bytes[offset];
+        return bytes[from];
     }
 
     @Override
-    public int hash(MemorySegment segment, long offset, long len) {
-        Objects.checkFromIndexSize(offset, len, segment.byteSize());
-        if(len > 1L) {
-            return SegmentAccess.getShort(segment, offset, ByteOrder.BIG_ENDIAN);
+    public int hash(MemorySegment segment, long from, long to) {
+        Objects.checkFromToIndex(from, to, segment.byteSize());
+        if(to - from > 1L) {
+            return SegmentAccess.getShort(segment, from, ByteOrder.BIG_ENDIAN);
         }
-        return SegmentAccess.getByte(segment, offset);
+        return SegmentAccess.getByte(segment, from);
     }
 
 }

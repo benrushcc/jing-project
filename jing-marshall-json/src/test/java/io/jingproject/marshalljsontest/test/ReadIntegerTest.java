@@ -1,6 +1,7 @@
 package io.jingproject.marshalljsontest.test;
 
 import io.jingproject.common.HeapReadBuffer;
+import io.jingproject.marshalljson.JsonDeserializerException;
 import io.jingproject.marshalljson.JsonNumberUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -50,7 +51,7 @@ public class ReadIntegerTest {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte firstByte = heapReadBuffer.readByte();
-            Assertions.assertThrows(ArithmeticException.class, () -> JsonNumberUtil.readInt(heapReadBuffer, firstByte));
+            Assertions.assertThrows(JsonDeserializerException.class, () -> JsonNumberUtil.readInt(heapReadBuffer, firstByte));
         }
     }
 
@@ -66,13 +67,13 @@ public class ReadIntegerTest {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte firstByte = heapReadBuffer.readByte();
-            Assertions.assertThrows(NumberFormatException.class, () -> JsonNumberUtil.readInt(heapReadBuffer, firstByte), "failed, str : " + str);
+            Assertions.assertThrows(JsonDeserializerException.class, () -> JsonNumberUtil.readInt(heapReadBuffer, firstByte), "failed, str : " + str);
         }
         for (String str : wrongFormatValues) {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte firstByte = heapReadBuffer.readByte();
-            Assertions.assertThrows(NumberFormatException.class, () -> JsonNumberUtil.readLong(heapReadBuffer, firstByte), "failed, str : " + str);
+            Assertions.assertThrows(JsonDeserializerException.class, () -> JsonNumberUtil.readLong(heapReadBuffer, firstByte), "failed, str : " + str);
         }
     }
 
@@ -113,7 +114,7 @@ public class ReadIntegerTest {
             byte[] bytes = str.getBytes(StandardCharsets.US_ASCII);
             HeapReadBuffer heapReadBuffer = new HeapReadBuffer(bytes);
             byte firstByte = heapReadBuffer.readByte();
-            Assertions.assertThrows(ArithmeticException.class, () -> JsonNumberUtil.readLong(heapReadBuffer, firstByte));
+            Assertions.assertThrows(JsonDeserializerException.class, () -> JsonNumberUtil.readLong(heapReadBuffer, firstByte));
         }
     }
 }

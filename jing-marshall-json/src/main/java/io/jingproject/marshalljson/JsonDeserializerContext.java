@@ -472,7 +472,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             return Utils.emptyIntArray();
         }
         final int end = Math.multiplyExact(option.maxArrayElements(), 4);
-        for(int i = 0; i < end; i++) {
+        for(int i = 0; i < end; ) {
             int v = deserializeInt(b);
             int i1 = Math.addExact(i, 4);
             ensureByteBufferCapacity(i1);
@@ -500,7 +500,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             return Utils.emptyLongArray();
         }
         final int end = Math.multiplyExact(option.maxArrayElements(), 8);
-        for(int i = 0; i < end; i++) {
+        for(int i = 0; i < end; ) {
             long v = deserializeLong(b);
             int i1 = Math.addExact(i, 8);
             ensureByteBufferCapacity(i1);
@@ -528,7 +528,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             return Utils.emptyFloatArray();
         }
         final int end = Math.multiplyExact(option.maxArrayElements(), 4);
-        for(int i = 0; i < end; i++) {
+        for(int i = 0; i < end; ) {
             float v = deserializeFloat(b);
             int i1 = Math.addExact(i, 4);
             ensureByteBufferCapacity(i1);
@@ -556,7 +556,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             return Utils.emptyDoubleArray();
         }
         final int maxArrayElements = Math.multiplyExact(option.maxArrayElements(), 8);
-        for(int i = 0; i < maxArrayElements; i++) {
+        for(int i = 0; i < maxArrayElements; ) {
             double v = deserializeDouble(b);
             int i1 = Math.addExact(i, 8);
             ensureByteBufferCapacity(i1);
@@ -1160,7 +1160,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
                 throw new JsonDeserializerException("illegal json string, closing quote not found");
             }
             if(bytes[position] == (byte) '"') {
-                return fc.marshallInfoByMappedName(bytes, start, position++ - start);
+                return fc.marshallInfoByMappedName(bytes, start, position++);
             }
             return fc.marshallInfoByMappedName(deserializeString(firstByte));
         }
@@ -1524,7 +1524,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
                 throw new JsonDeserializerException("illegal json string, closing quote not found");
             }
             if(SegmentAccess.getByte(segment, position) == (byte) '"') {
-                return fc.marshallInfoByMappedName(segment, start, position++ - start);
+                return fc.marshallInfoByMappedName(segment, start, position++);
             }
             return fc.marshallInfoByMappedName(deserializeString(firstByte));
         }

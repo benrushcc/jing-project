@@ -70,26 +70,26 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo marshallInfoByFieldName(byte[] bytes, int offset, int len) {
-        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(bytes, offset, len);
+    public MarshallInfo marshallInfoByFieldName(byte[] bytes, int from, int to) {
+        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(bytes, from, to);
         switch (hash) {
             case 105 -> {
-                if (HASH_INFO.fieldNameEquals(0, 8, bytes, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(0, 8, bytes, from, to)) {
                     return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
-                if (HASH_INFO.fieldNameEquals(8, 9, bytes, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(8, 17, bytes, from, to)) {
                     return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
-                if (HASH_INFO.fieldNameEquals(17, 8, bytes, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(17, 25, bytes, from, to)) {
                     return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
-                if (HASH_INFO.fieldNameEquals(25, 9, bytes, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(25, 34, bytes, from, to)) {
                     return MARSHALL_INFOS.get(3);
                 }
             }
@@ -98,26 +98,26 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo marshallInfoByFieldName(MemorySegment segment, long offset, long len) {
-        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(segment, offset, len);
+    public MarshallInfo marshallInfoByFieldName(MemorySegment segment, long from, long to) {
+        int hash = HASH_INFO.fieldNameUtf8Hasher().hash(segment, from, to);
         switch (hash) {
             case 105 -> {
-                if (HASH_INFO.fieldNameEquals(0, 8, segment, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(0, 8, segment, from, to)) {
                     return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
-                if (HASH_INFO.fieldNameEquals(8, 9, segment, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(8, 17, segment, from, to)) {
                     return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
-                if (HASH_INFO.fieldNameEquals(17, 8, segment, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(17, 25, segment, from, to)) {
                     return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
-                if (HASH_INFO.fieldNameEquals(25, 9, segment, offset, len)) {
+                if (HASH_INFO.fieldNameEquals(25, 34, segment, from, to)) {
                     return MARSHALL_INFOS.get(3);
                 }
             }
@@ -138,26 +138,26 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo marshallInfoByMappedName(byte[] bytes, int offset, int len) {
-        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(bytes, offset, len);
+    public MarshallInfo marshallInfoByMappedName(byte[] bytes, int from, int to) {
+        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(bytes, from, to);
         switch (hash) {
             case 105 -> {
-                if (HASH_INFO.mappedNameEquals(0, 8, bytes, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(0, 8, bytes, from, to)) {
                     return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
-                if (HASH_INFO.mappedNameEquals(8, 9, bytes, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(8, 17, bytes, from, to)) {
                     return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
-                if (HASH_INFO.mappedNameEquals(17, 8, bytes, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(17, 25, bytes, from, to)) {
                     return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
-                if (HASH_INFO.mappedNameEquals(25, 9, bytes, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(25, 34, bytes, from, to)) {
                     return MARSHALL_INFOS.get(3);
                 }
             }
@@ -166,26 +166,26 @@ public final class BeanEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public MarshallInfo marshallInfoByMappedName(MemorySegment segment, long offset, long len) {
-        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(segment, offset, len);
+    public MarshallInfo marshallInfoByMappedName(MemorySegment segment, long from, long to) {
+        int hash = HASH_INFO.mappedNameUtf8Hasher().hash(segment, from, to);
         switch (hash) {
             case 105 -> {
-                if (HASH_INFO.mappedNameEquals(0, 8, segment, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(0, 8, segment, from, to)) {
                     return MARSHALL_INFOS.get(0);
                 }
             }
             case 108 -> {
-                if (HASH_INFO.mappedNameEquals(8, 9, segment, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(8, 17, segment, from, to)) {
                     return MARSHALL_INFOS.get(1);
                 }
             }
             case 115 -> {
-                if (HASH_INFO.mappedNameEquals(17, 8, segment, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(17, 25, segment, from, to)) {
                     return MARSHALL_INFOS.get(2);
                 }
             }
             case 116 -> {
-                if (HASH_INFO.mappedNameEquals(25, 9, segment, offset, len)) {
+                if (HASH_INFO.mappedNameEquals(25, 34, segment, from, to)) {
                     return MARSHALL_INFOS.get(3);
                 }
             }
