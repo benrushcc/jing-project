@@ -5,8 +5,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Sealed hash function interface. Implementations provide 32-bit hash values for bytes,
- * {@link MemorySegment}, arrays, and strings. All {@code hash} methods assume input
- * bounds (offset/length) are already validated by the caller; no range checks are performed.
+ * {@link MemorySegment}, arrays, and strings.
  */
 public sealed interface Hasher
         permits LengthHasher, OneByteHasher, TwoByteHasher, ThreeByteHasher, FourByteHasher, SumHasher, FnvHasher {

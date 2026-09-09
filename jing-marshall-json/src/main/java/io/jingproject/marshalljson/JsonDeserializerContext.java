@@ -235,7 +235,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
 
     public static void checkObjStart(byte b) {
         if(b != (byte) '{') {
-            throw new JsonDeserializerException("not a object start : " + b);
+            throw new JsonDeserializerException("not an object start : " + b);
         }
     }
 
