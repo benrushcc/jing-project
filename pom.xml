@@ -29,6 +29,7 @@
         <module>jing-marshall</module>
         <module>jing-marshall-processor</module>
         <module>jing-marshall-json</module>
+        <module>jing-bench</module>
     </modules>
 
     <properties>
@@ -38,17 +39,15 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!--  dependencies  -->
-        <jmh.version>1.37</jmh.version>
         <junit.version>6.1.1</junit.version>
 
         <!--  plugins  -->
-        <maven-compiler-plugin.version>3.14.1</maven-compiler-plugin.version>
+        <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
-        <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
+        <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
         <maven-install-plugin.version>3.1.4</maven-install-plugin.version>
         <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
-        <flatten-maven-plugin.version>1.7.0</flatten-maven-plugin.version> <!--  TODO remove in maven4  -->
-
+        <flatten-maven-plugin.version>1.8.0</flatten-maven-plugin.version> <!--  TODO remove in maven4  -->
     </properties>
 
     <build>
@@ -60,7 +59,8 @@
                 <configuration>
                     <release>${java.version}</release>
                     <encoding>UTF-8</encoding>
-                    <enablePreview>true</enablePreview> <!-- enable preview by default -->
+                    <!-- enable preview by default -->
+                    <enablePreview>true</enablePreview>
                     <proc>none</proc>
                 </configuration>
             </plugin>
@@ -70,7 +70,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
-                    <argLine>--enable-preview --add-modules jdk.incubator.vector</argLine> <!-- enable preview by default, using vector api -->
+                    <!-- enable preview by default, using vector api -->
+                    <argLine>--enable-preview --add-modules jdk.incubator.vector</argLine>
                 </configuration>
             </plugin>
 

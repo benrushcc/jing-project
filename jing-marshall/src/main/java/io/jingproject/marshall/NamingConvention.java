@@ -7,8 +7,8 @@ import java.util.Arrays;
 
 /**
  * this class provides strict conversion between naming conventions (camel, snake, kebab, pascal, upper_snake, upper_kebab, original).
- * unlike spring's flexible strategy, it enforces exact format compliance: each word must have at least 2 letters, only ascii letters allowed
- * casting any ambiguous input (e.g., "HTTPTest") would throw an IllegalArgumentException.
+ * unlike spring's flexible strategy, it enforces exact format compliance: each word must have at least 2 letters (for format with separators requires at least 3 letters),
+ * only ascii letters allowed casting any ambiguous input (e.g., "HTTPTest") would throw an IllegalArgumentException.
  */
 @ProcessorApi
 public enum NamingConvention {

@@ -1,0 +1,82 @@
+package io.jingproject.bench.marshalljson;
+
+import io.jingproject.bench.AbstractBench;
+import io.jingproject.bench.twi.Twi;
+import io.jingproject.common.HeapWriteBuffer;
+import io.jingproject.marshalljson.JsonSerializer;
+import io.jingproject.marshalljson.JsonSerializerOption;
+import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.profile.GCProfiler;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
+import tools.jackson.databind.PropertyNamingStrategies;
+import tools.jackson.databind.json.JsonMapper;
+
+import java.io.ByteArrayOutputStream;
+import java.util.concurrent.TimeUnit;
+
+@Warmup(iterations = 3, time = 5000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 3, time = 10000, timeUnit = TimeUnit.MILLISECONDS)
+//@Fork(value = 1, jvmArgsAppend = {
+//        "-XX:StartFlightRecording=disk=true,dumponexit=true,filename=ser-twi-%p-%t.jfr,settings=profile",
+//        "-XX:FlightRecorderOptions:stackdepth=128"
+//})
+//@Fork(value = 1, jvmArgsAppend = {
+//        "-Xbatch",
+//        "-XX:-TieredCompilation",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonSerializerContext::serializeEscapedString",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonSerializerContext::serializeEscapedString,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonSerializerContext::serializeStrToBytes",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonSerializerContext::serializeStrToBytes,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonSerializerContext::serializeEscapedStringToHeap",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonSerializerContext::serializeEscapedStringToHeap,PrintInlining",
+//        "-XX:CompileCommand=print,io.jingproject.marshalljson.JsonSerializerContext::serializeCharsToBytes",
+//        "-XX:CompileCommand=option,io.jingproject.marshalljson.JsonSerializerContext::serializeCharsToBytes,PrintInlining",
+//        "-XX:+UnlockDiagnosticVMOptions",
+//        "-XX:PrintAssemblyOptions=intel",
+//})
+public class TwiSerializationBench extends AbstractBench {
+    private static final int SIZE = 819200;
+    private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
+    private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
+    private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);
+    private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
+    private Twi twi;
+
+    @Setup(Level.Trial)
+    public void setup() {
+        twi = jsonMapper.readValue(Twi.asString(), Twi.class);
+    }
+
+    @TearDown(Level.Trial)
+    public void tearDown() {
+        twi = null;
+    }
+
+    @Benchmark
+    public void jacksonSerialization(Blackhole blackhole) {
+        jsonMapper.writeValue(outputStream, twi);
+        blackhole.consume(outputStream.size());
+        outputStream.reset();
+    }
+
+    @Benchmark
+    public void jingDefaultSerialization(Blackhole blackhole) {
+        jsonDefaultSerializer.serializeMarshallableObject(twi, writeBuffer);
+        blackhole.consume(writeBuffer.intPosition());
+        writeBuffer.reset();
+    }
+
+    @Benchmark
+    @Fork(value = 1, jvmArgsAppend = {
+            "-Djing.marshalljson.filtersurr=false"
+    })
+    public void jingNoFilterSurrSerialization(Blackhole blackhole) {
+        jsonDefaultSerializer.serializeMarshallableObject(twi, writeBuffer);
+        blackhole.consume(writeBuffer.intPosition());
+        writeBuffer.reset();
+    }
+}

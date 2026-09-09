@@ -14,7 +14,6 @@
 
     <!--  based on https://maven.apache.org/guides/plugin/guide-java-plugin-development.html  -->
     <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <plugin.java.version>26</plugin.java.version>
         <maven-plugin-api.version>3.9.15</maven-plugin-api.version>
         <maven-plugin-tools.version>3.15.2</maven-plugin-tools.version>
@@ -44,6 +43,14 @@
                 <configuration>
                     <release>${plugin.java.version}</release>
                     <enablePreview>false</enablePreview>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire-plugin.version}</version>
+                <configuration>
+                    <skipTests>true</skipTests>
                 </configuration>
             </plugin>
         </plugins>

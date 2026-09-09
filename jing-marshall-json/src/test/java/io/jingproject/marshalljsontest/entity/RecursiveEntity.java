@@ -5,7 +5,6 @@ import io.jingproject.marshall.Marshallable;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Objects;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Marshallable
 public final class RecursiveEntity {
@@ -65,8 +64,10 @@ public final class RecursiveEntity {
 
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof RecursiveEntity that)) return false;
-        return value == that.value && Objects.equals(left, that.left) && Objects.equals(right, that.right);
+        return o instanceof RecursiveEntity that &&
+                value == that.value &&
+                Objects.equals(left, that.left) &&
+                Objects.equals(right, that.right);
     }
 
     @Override

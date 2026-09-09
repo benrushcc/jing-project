@@ -76,8 +76,14 @@ public final class BeanEntity {
 
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof BeanEntity that)) return false;
-        return intValue == that.intValue && Objects.equals(longValue, that.longValue) && Objects.equals(stringValue, that.stringValue) && enumValue == that.enumValue && Objects.deepEquals(stringArray, that.stringArray) && Objects.equals(jsonPrimitiveTypeList, that.jsonPrimitiveTypeList) && Objects.equals(beanEntityMap, that.beanEntityMap);
+        return o instanceof BeanEntity that &&
+                intValue == that.intValue &&
+                Objects.equals(longValue, that.longValue) &&
+                Objects.equals(stringValue, that.stringValue) &&
+                enumValue == that.enumValue &&
+                Arrays.equals(stringArray, that.stringArray) &&
+                Objects.equals(jsonPrimitiveTypeList, that.jsonPrimitiveTypeList) &&
+                Objects.equals(beanEntityMap, that.beanEntityMap);
     }
 
     @Override

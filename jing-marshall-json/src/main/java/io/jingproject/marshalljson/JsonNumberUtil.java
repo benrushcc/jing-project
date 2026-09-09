@@ -560,7 +560,8 @@ public final class JsonNumberUtil {
         return new Scalers(pmHi, pmLo, s);
     }
 
-    // no overflow, current VM implementation still emits three multiplication instructions; with the advent of int128, this can be shortened to two multiplication instructions
+    // no overflow, current VM implementation still emits three multiplication instructions
+    // TODO with the advent of int128, this can be shortened to two multiplication instructions
     private static long uscale(long x, Scalers c) {
         final long pmHi = c.pmHi();
         final long mid1 = x * pmHi;
@@ -579,7 +580,7 @@ public final class JsonNumberUtil {
     private static DecimalFp trimZeros(DecimalFp decimalFp) {
         long d = decimalFp.d();
         int p = decimalFp.p();
-        long div = Math.unsignedMultiplyHigh(d, 0xCCCCCCCCCCCCCCCDL) >>> 3;
+        long div = Math.unsignedMultiplyHigh(d, 0xCCCCCCCCCCCCCCCDL) >>> 3; // TODO wait for https://github.com/openjdk/jdk/pull/31033
         if(d - div * 10L != 0L) {
             return decimalFp;
         }
@@ -613,7 +614,7 @@ public final class JsonNumberUtil {
         Scalers pre = prescale(e, p, log2Pow10(p));
         final long dmin = uceil(unudge(uscale(min, pre), odd));
         final long dmax = ufloor(unudge(uscale(max, pre), -odd));
-        final long d = Math.unsignedMultiplyHigh(dmax, 0xCCCCCCCCCCCCCCCDL) >>> 3;
+        final long d = Math.unsignedMultiplyHigh(dmax, 0xCCCCCCCCCCCCCCCDL) >>> 3; // TODO wait for https://github.com/openjdk/jdk/pull/31033
         if (Long.compareUnsigned(d * 10L, dmin) >= 0) {
             return trimZeros(new DecimalFp(d, -(p - 1)));
         }
@@ -1314,7 +1315,7 @@ public final class JsonNumberUtil {
     /**
      * Defines the specification parameters for a floating-point format (e.g., mantissa bits, exponent bits, bias, etc.).
      * Predefined constants are available for 32-bit and 64-bit floats.
-     * Note: This implementation is strictly limited to processing 64-bit float values.
+     * Note: This implementation is strictly limited to processing 32-bit and 64-bit float values.
      * Do not apply this to larger formats like FP128, as the current algorithms cannot handle the extended range.
      */
     public value record FpSpec(

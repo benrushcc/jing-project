@@ -3,9 +3,5 @@ open module jing.marshalljsontest {
     requires transitive jing.marshall;
     requires transitive jing.marshalljson;
     requires org.junit.jupiter.api;
-    requires jmh.core;
-    requires jdk.unsupported;
-    requires com.fasterxml.jackson.annotation;
-    requires tools.jackson.databind;
     requires jdk.incubator.vector;
 }
