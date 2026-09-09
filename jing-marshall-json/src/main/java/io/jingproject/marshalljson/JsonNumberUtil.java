@@ -60,6 +60,8 @@ public final class JsonNumberUtil {
     // will never exceed MAX_DECIMAL_P, so we avoid overflow in exponent math.
     private static final int MAX_DECIMAL_P_GUARD = 404;
 
+    // if d can be exactly represented within the mantissa range, the exponent
+    // calculation for the EXACT case is accurate; try computing the final result directly.
     private static final float[] FLOAT_POW_10 = {
             1e0f, 1e1f, 1e2f, 1e3f, 1e4f, 1e5f, 1e6f, 1e7f, 1e8f, 1e9f, 1e10f
     };
@@ -1183,7 +1185,7 @@ public final class JsonNumberUtil {
             }
         }
         // processing optional exponent part
-        // note that leading zeros are allowed in the exponent partaccording to the JSON specification
+        // note that leading zeros are allowed in the exponent part according to the JSON specification
         if (b == BYTE_E || b == BYTE_e) {
             if (++index == end) {
                 throw new JsonDeserializerException("leading exponent with no digits");
@@ -1436,7 +1438,7 @@ public final class JsonNumberUtil {
         if (p > DOUBLE_SPEC.maxDecExp() + 2) {
             return new Fp64(Double.longBitsToDouble(sign | (0x7ffL << DOUBLE_SPEC.mantBits())), false);
         }
-        if (d >>> DOUBLE_SPEC.mantBits() == 0L) {
+        if (d >> DOUBLE_SPEC.mantBits() == 0L) {
             double f = (double) (rep.negative() ? -d : d);
             if (p == 0) {
                 return new Fp64(f, false);

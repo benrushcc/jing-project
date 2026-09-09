@@ -172,7 +172,6 @@ public final class JsonDeserializer {
         Objects.requireNonNull(keyType, "key type must not be null");
         Objects.requireNonNull(valueType, "value type must not be null");
         Objects.requireNonNull(readBuffer, "readBuffer must not be null");
-        Utf8Validator.validate(readBuffer);
         if(keyType != CharSequence.class && keyType != String.class) {
             throw new JsonDeserializerException("key type not supported : " + keyType.getName());
         }
@@ -234,7 +233,7 @@ public final class JsonDeserializer {
                 Class<?> marshallableType = context.type();
                 MarshallFacade fc = Marshalls.beanMarshallFacade(marshallableType);
                 if(fc == null) {
-                    throw new JsonSerializerException("type not marshallable : " + marshallableType.getName());
+                    throw new JsonDeserializerException("type not marshallable : " + marshallableType.getName());
                 }
                 JsonDeserializerNode r = given == null ? new JsonDeserializerNode() : given;
                 r.initObj(fc);

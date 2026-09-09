@@ -239,8 +239,8 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
             charBuffer = new char[alignedLen];
         } else if(charBuffer.length < alignedLen) {
             // doubling the current capacity preserves alignment since the initial length is aligned
-            int growedLength = Math.addExact(charBuffer.length, charBuffer.length);
-            charBuffer = new char[Math.max(alignedLen, growedLength)];
+            int grownLength = Math.addExact(charBuffer.length, charBuffer.length);
+            charBuffer = new char[Math.max(alignedLen, grownLength)];
         }
         return charBuffer;
     }

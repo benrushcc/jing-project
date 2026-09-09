@@ -16,7 +16,7 @@ public final class JsonDeserializerOption {
     private static final int MIN_NUMBER_SIZE = 24;
     private static final int MAX_NUMBER_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshalljson.maxnumbersize", "256")), 65535);
     private static final int MIN_STRING_SIZE = 64;
-    private static final int MAX_STRING_SIZE = Integer.parseInt(System.getProperty("jing.marshalljson.maxstringsize", "65535"));
+    private static final int MAX_STRING_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshalljson.maxstringsize", "65535")), 1024 * 1024 * 64);
     private static final int MIN_ARRAY_SIZE = 100;
     private static final int MAX_ARRAY_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshalljson.maxarraysize", "4000")), 65535);
     private static final int MIN_MAP_SIZE = 20;

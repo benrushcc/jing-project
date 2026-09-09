@@ -29,7 +29,6 @@ public enum NamingConvention {
     private static final byte BYTE_DIFF = (byte) 'a' - (byte) 'A';
 
     private static byte[] normalize(String str, byte[] asciiBytes, NamingConvention from) {
-
         return switch (from) {
             case ORIGINAL -> throw new UnsupportedOperationException();
             case CAMEL_CASE -> {
@@ -267,7 +266,6 @@ public enum NamingConvention {
     }
 
     public static String cast(NamingConvention from, NamingConvention to, String name) {
-
         if (name.isBlank()) {
             throw new IllegalArgumentException("empty name: " + name);
         }

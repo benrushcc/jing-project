@@ -72,7 +72,7 @@ public class Utf8ValidationTest {
     }
 
     @Test
-    public void testSurrValidation() {
+    public void testSurrogateValidation() {
         byte[] buffer = new byte[BUFFER_SIZE];
         for(int offset : OFFSETS) {
             Arrays.fill(buffer, (byte) 0);

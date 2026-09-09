@@ -427,7 +427,7 @@ public final class JsonDeserializerNode {
         }
         int type = inf.type() & MarshallUtil.TYPE_MASK;
         if(type <= MarshallUtil.DOUBLE_TYPE) {
-            deserializePritimiveValue(firstByte, type, c);
+            deserializePrimitiveValue(firstByte, type, c);
             index++;
             return JsonDeserializeResult.Continue;
         }
@@ -734,7 +734,7 @@ public final class JsonDeserializerNode {
         }
     }
 
-    private void deserializePritimiveValue(byte firstByte, int type, JsonDeserializerContext c) {
+    private void deserializePrimitiveValue(byte firstByte, int type, JsonDeserializerContext c) {
         switch (type) {
             case MarshallUtil.BYTE_TYPE -> builder.writeByte(marshallIndex, c.deserializeByte(firstByte));
             case MarshallUtil.BOOLEAN_TYPE -> builder.writeBoolean(marshallIndex, c.deserializeBoolean(firstByte));

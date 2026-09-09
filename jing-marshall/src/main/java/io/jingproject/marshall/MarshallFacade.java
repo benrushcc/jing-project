@@ -166,10 +166,10 @@ public interface MarshallFacade {
     }
 
     /**
-     * construct a new instance from the writer's data,
-     * not supported for enum types, throws IllegalArgumentException if writer type mismatch
+     * construct a new instance from the builder's data,
+     * not supported for enum types, throws IllegalArgumentException if builder type mismatch
      */
-    default Object construct(MarshallBuilder writer) {
+    default Object construct(MarshallBuilder builder) {
         throw new UnsupportedOperationException();
     }
 

@@ -16,7 +16,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Tag("view-output")
 public class JsonDeserializationTest {
     private static final JsonDeserializer JSON_DESERIALIZER = new JsonDeserializer(JsonDeserializerOption.defaultOption());
 

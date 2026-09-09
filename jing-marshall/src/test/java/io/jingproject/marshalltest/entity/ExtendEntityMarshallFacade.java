@@ -276,11 +276,11 @@ public class ExtendEntityMarshallFacade implements MarshallFacade {
     }
 
     @Override
-    public Object construct(MarshallBuilder writer) {
-        if (writer instanceof ExtendEntityMarshallWriter(ExtendEntity instance)) {
+    public Object construct(MarshallBuilder builder) {
+        if (builder instanceof ExtendEntityMarshallWriter(ExtendEntity instance)) {
             return instance;
         }
-        throw new IllegalArgumentException("wrong writer : " + writer.getClass().getName());
+        throw new IllegalArgumentException("wrong writer : " + builder.getClass().getName());
     }
 
     private record ExtendEntityMarshallWriter(
