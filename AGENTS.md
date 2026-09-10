@@ -41,7 +41,7 @@ For detailed module descriptions, refer to the README file in each submodule.
 After modifying code, append a Chinese description of the change reason to `diff.md` in the project root. Create the file if it does not exist. Use the following format with a timestamp:
 
 ```markdown
-## YYYY-MM-DD
+## YYYY-MM-DDTHH:mm:ss±HH:MM
 - Modified <module>/<class>: <reason in Chinese>
 ```
 
