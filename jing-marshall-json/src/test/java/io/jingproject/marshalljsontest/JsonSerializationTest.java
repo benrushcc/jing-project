@@ -6,9 +6,11 @@ import io.jingproject.marshalljsontest.entity.BeanEntity;
 import io.jingproject.marshalljsontest.entity.EnumEntity;
 import io.jingproject.marshalljsontest.entity.RecordEntity;
 import io.jingproject.marshalljsontest.entity.RecursiveEntity;
+import io.jingproject.marshalljsontest.transformers.BigDecimalTransformer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -172,6 +174,11 @@ public class JsonSerializationTest {
     @SuppressWarnings("ExtractMethodRecommender")
     @Test
     public void testSerializeBeanEntity() {
+        JsonSerializerOption option = JsonSerializerOption
+                .builder()
+                .setTransformerClasses(BigDecimalTransformer.class)
+                .build();
+        JsonSerializer serializer = new JsonSerializer(option);
         BeanEntity entity = new BeanEntity();
         entity.setIntValue(42);
         entity.setLongValue(100L);
@@ -191,10 +198,11 @@ public class JsonSerializationTest {
         innerMap.put("key1", k1);
         innerMap.put("key2", k2);
         entity.setBeanEntityMap(innerMap);
+        entity.setDecimalValue(new BigDecimal("12345678901234567890.12345678901234567890123456789"));
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        JSON_SERIALIZER.serializeMarshallableObject(entity, writeBuffer);
+        serializer.serializeMarshallableObject(entity, writeBuffer);
         String json = new String(writeBuffer.toByteArray(), StandardCharsets.UTF_8);
-        String expected = "{\"intValue\": 42,\"longValue\": 100,\"stringValue\": \"\",\"enumValue\": \"\\\"ENUM_ESCAPE\\\"\",\"stringArray\": [\"hello\",\"world\",\"test\"],\"jsonPrimitiveTypeList\": [true,false,\"jing\"],\"beanEntityMap\": {\"key1\": {\"intValue\": 1},\"key2\": {\"intValue\": 2}}}";
+        String expected = "{\"intValue\": 42,\"longValue\": 100,\"stringValue\": \"\",\"enumValue\": \"\\\"ENUM_ESCAPE\\\"\",\"stringArray\": [\"hello\",\"world\",\"test\"],\"jsonPrimitiveTypeList\": [true,false,\"jing\"],\"beanEntityMap\": {\"key1\": {\"intValue\": 1},\"key2\": {\"intValue\": 2}},\"decimalValue\": 12345678901234567890.12345678901234567890123456789}";
         Assertions.assertEquals(expected, json);
     }
 

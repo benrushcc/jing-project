@@ -36,7 +36,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(int newPosition) {
-        position = Objects.checkIndex(newPosition, buffer.byteSize());
+        position = Objects.checkFromToIndex(0L, newPosition, buffer.byteSize());
     }
 
     @Override
@@ -51,7 +51,7 @@ public final class SegmentReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(long newPosition) {
-        position = Objects.checkIndex(newPosition, buffer.byteSize());
+        position = Objects.checkFromToIndex(0L, newPosition, buffer.byteSize());
     }
 
     @Override

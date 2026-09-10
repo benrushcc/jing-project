@@ -11,6 +11,11 @@ public final class TimeTransformerFacade implements MarshallTransformerFacade {
     private static final MarshallTransformer<LocalDateTime, String> INSTANCE = new TimeTransformer();
 
     @Override
+    public Class<?> transformerType() {
+        return TimeTransformer.class;
+    }
+
+    @Override
     public Class<?> customType() {
         return LocalDateTime.class;
     }

@@ -16,17 +16,20 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.*;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Set;
 
 public final class MarshallTransformerProcessor extends AbstractProcessor {
 
-    private TypeElement marshallTransformerElement;
+    private TypeMirror marshallTransformerErasedMirror;
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnv) {
         super.init(processingEnv);
-        marshallTransformerElement = processingEnv.getElementUtils().getTypeElement(MarshallTransformer.class.getCanonicalName());
+        TypeElement marshallTransformerElement = processingEnv.getElementUtils().getTypeElement(MarshallTransformer.class.getCanonicalName());
+        marshallTransformerErasedMirror = processingEnv.getTypeUtils().erasure(marshallTransformerElement.asType());
     }
 
     @Override
@@ -51,6 +54,25 @@ public final class MarshallTransformerProcessor extends AbstractProcessor {
             }
         }
         return true;
+    }
+
+    private TypeMirror asMarshallTransformerTm(TypeElement t) {
+        Types typeUtils = processingEnv.getTypeUtils();
+        Deque<TypeMirror> deque = new ArrayDeque<>();
+        deque.addLast(t.asType());
+        for( ; ; ) {
+            TypeMirror tm = deque.pollFirst();
+            if(tm == null) {
+                return null;
+            }
+            for (TypeMirror superTm : typeUtils.directSupertypes(tm)) {
+                TypeMirror erasure = typeUtils.erasure(superTm);
+                if(typeUtils.isSameType(erasure, marshallTransformerErasedMirror)) {
+                    return superTm;
+                }
+                deque.addLast(superTm);
+            }
+        }
     }
 
     private void checkMarshallTransformerElement(TypeElement t) {
@@ -86,25 +108,24 @@ public final class MarshallTransformerProcessor extends AbstractProcessor {
             throw new AnnotationProcessorException("no-arg constructor not found");
         }
         // must implement MarshallTransformer interface
-        TypeMirror targetTm = t.asType();
-        Types typeUtils = processingEnv.getTypeUtils();
-        if(!typeUtils.isAssignable(targetTm, marshallTransformerElement.asType())) {
+        TypeMirror marshallTransformerTm = asMarshallTransformerTm(t);
+        if(marshallTransformerTm == null) {
             throw new AnnotationProcessorException("target element must implement MarshallTransformer interface");
         }
-        TypeMirror marshallTransformerTm = typeUtils.asMemberOf(AnnoUtil.castDeclaredType(targetTm), marshallTransformerElement);
+        // validate MarshallTransformer typeArgs
         List<? extends TypeMirror> typeArgs = AnnoUtil.castDeclaredType(marshallTransformerTm).getTypeArguments();
         if(typeArgs.size() != 2) {
             throw new AssertionError();
         }
         AnnoUtil.validateTypeArgs(typeArgs);
         // already filtered, could not have generics or be array types, safe to compare
-        if(typeUtils.isSameType(typeArgs.getFirst(), typeArgs.getLast())) {
+        if(processingEnv.getTypeUtils().isSameType(typeArgs.getFirst(), typeArgs.getLast())) {
             throw new AnnotationProcessorException("transformer must be supplied with different types");
         }
     }
 
     private MarshallTransformerInfo createTransformerInfo(TypeElement t) {
-        TypeMirror marshallTransformerTm = processingEnv.getTypeUtils().asMemberOf(AnnoUtil.castDeclaredType(t.asType()), marshallTransformerElement);
+        TypeMirror marshallTransformerTm = asMarshallTransformerTm(t);
         List<? extends TypeMirror> typeArgs = AnnoUtil.castDeclaredType(marshallTransformerTm).getTypeArguments();
         TypeElement fromElement = AnnoUtil.castTypeElement(AnnoUtil.castDeclaredType(typeArgs.getFirst()).asElement());
         TypeElement toElement = AnnoUtil.castTypeElement(AnnoUtil.castDeclaredType(typeArgs.getLast()).asElement());
@@ -129,6 +150,13 @@ public final class MarshallTransformerProcessor extends AbstractProcessor {
                 .indent()
                 .addLine("private static final " + marshallTransformerClassName + "<" + customTypeClassName + ", " + builtinTypeClassName +
                         "> INSTANCE = new " + targetClassName + "();")
+                .newLine();
+        b.addLine("@" + overrideClassName)
+                .addLine("public " + clsClassName + "<?> transformerType() {")
+                .indent()
+                .addLine("return " + targetClassName + ".class;")
+                .unindent()
+                .addLine("}")
                 .newLine();
         b.addLine("@" + overrideClassName)
                 .addLine("public " + clsClassName + "<?> customType() {")

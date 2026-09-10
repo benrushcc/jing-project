@@ -36,7 +36,7 @@ public final class HeapReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(int newPosition) {
-        position = Objects.checkIndex(newPosition, buffer.length);
+        position = Objects.checkFromToIndex(0, newPosition, buffer.length);
     }
 
     @Override
@@ -51,7 +51,7 @@ public final class HeapReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(long newPosition) {
-        position = Objects.checkIndex(Math.toIntExact(newPosition), buffer.length);
+        position = Objects.checkFromToIndex(0, Math.toIntExact(newPosition), buffer.length);
     }
 
     @Override

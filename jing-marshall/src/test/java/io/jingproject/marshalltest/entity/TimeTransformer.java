@@ -1,11 +1,13 @@
 package io.jingproject.marshalltest.entity;
 
 import io.jingproject.marshall.MarshallTransformer;
+import io.jingproject.marshall.Transformable;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 // example implementation
+@Transformable
 public final class TimeTransformer implements MarshallTransformer<LocalDateTime, String> {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 

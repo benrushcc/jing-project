@@ -10,35 +10,32 @@ public final class Marshalls {
 
     static {
         List<MarshallFacade> facades = ServiceLoader.load(MarshallFacade.class).stream().map(ServiceLoader.Provider::get).toList();
-        Map<Class<?>, MarshallFacade> m1 = new HashMap<>();
-        Map<Class<?>, MarshallFacade> m2 = new HashMap<>();
-        Map<Enum<?>, MarshallInfo> m3 = new HashMap<>();
+        Map<Class<?>, MarshallFacade> beanMarshallFacadeMap = new HashMap<>();
+        Map<Class<?>, MarshallFacade> enumMarshallFacadeMap = new HashMap<>();
+        Map<Enum<?>, MarshallInfo> enumMarshallInfoMap = new HashMap<>();
         for (MarshallFacade fc : facades) {
             Class<?> type = fc.marshallableType();
             if(type.isEnum()) {
                 List<MarshallInfo> marshallInfos = fc.marshallInfos();
-                if (m2.put(type, fc) != null) {
-                    throw new ExceptionInInitializerError("duplicate enum marshallable : " + type);
+                if (enumMarshallFacadeMap.put(type, fc) != null) {
+                    throw new ExceptionInInitializerError("duplicate enum marshallable type : " + type);
                 }
                 Enum<?>[] enumConstants = (Enum<?>[]) type.getEnumConstants();
                 for(int i = 0; i < enumConstants.length; i++) {
-                    if (m3.put(enumConstants[i], Objects.requireNonNull(marshallInfos.get(i), "marshallInfo not found : " + type)) != null) {
-                        throw new ExceptionInInitializerError("duplicate enum items : " + type);
-                    }
+                    enumMarshallInfoMap.put(enumConstants[i], marshallInfos.get(i));
                 }
-                continue ;
-            }
-            if (m1.put(type, fc) != null) {
-                throw new ExceptionInInitializerError("duplicate bean marshallable : " + type);
+            } else if(beanMarshallFacadeMap.put(type, fc) != null) {
+                throw new ExceptionInInitializerError("duplicate bean marshallable type : " + type);
             }
         }
-        BEAN_MARSHALL_FACADE_MAP = Map.copyOf(m1);
-        ENUM_MARSHALL_FACADE_MAP = Map.copyOf(m2);
-        ENUM_MARSHALL_INFO_MAP = Map.copyOf(m3);
+        BEAN_MARSHALL_FACADE_MAP = Map.copyOf(beanMarshallFacadeMap);
+        ENUM_MARSHALL_FACADE_MAP = Map.copyOf(enumMarshallFacadeMap);
+        ENUM_MARSHALL_INFO_MAP = Map.copyOf(enumMarshallInfoMap);
+
         Map<Class<?>, MarshallTransformerFacade> m4 = new HashMap<>();
         for (MarshallTransformerFacade facade : ServiceLoader.load(MarshallTransformerFacade.class).stream().map(ServiceLoader.Provider::get).toList()) {
-            if(m4.put(facade.getClass(), facade) != null) {
-                throw new ExceptionInInitializerError("duplicate transformer : " + facade.getClass());
+            if(m4.put(facade.transformerType(), facade) != null) {
+                throw new ExceptionInInitializerError("duplicate transformer type : " + facade.getClass());
             }
         }
         MARSHALL_TRANSFORMER_FACADE_MAP = Map.copyOf(m4);

@@ -7,6 +7,7 @@ import io.jingproject.marshalljsontest.entity.BeanEntity;
 import io.jingproject.marshalljsontest.entity.EnumEntity;
 import io.jingproject.marshalljsontest.entity.RecordEntity;
 import io.jingproject.marshalljsontest.entity.RecursiveEntity;
+import io.jingproject.marshalljsontest.transformers.BigDecimalTransformer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -165,6 +166,11 @@ public class JsonDeserializationTest {
 
     @Test
     public void testDeserializeBeanEntity() {
+        JsonDeserializerOption option = JsonDeserializerOption
+                .builder()
+                .setTransformerClasses(BigDecimalTransformer.class)
+                .build();
+        JsonDeserializer deserializer = new JsonDeserializer(option);
         BeanEntity entity = new BeanEntity();
         entity.setIntValue(42);
         entity.setLongValue(100L);
@@ -184,9 +190,9 @@ public class JsonDeserializationTest {
         expectedMap.put("key1", k1);
         expectedMap.put("key2", k2);
         entity.setBeanEntityMap(expectedMap);
-        String json = "{\"intValue\": 42,\"longValue\": 100,\"stringValue\": \"\",\"enumValue\": \"\\\"ENUM_ESCAPE\\\"\",\"stringArray\": [\"hello\",\"world\",\"test\"],\"jsonPrimitiveTypeList\": [true,false,\"jing\"],\"beanEntityMap\": {\"key1\": {\"intValue\": 1},\"key2\": {\"intValue\": 2}}}";
+        String json = "{\"intValue\": 42,\"longValue\": 100,\"stringValue\": \"\",\"enumValue\": \"\\\"ENUM_ESCAPE\\\"\",\"stringArray\": [\"hello\",\"world\",\"test\"],\"jsonPrimitiveTypeList\": [true,false,\"jing\"],\"beanEntityMap\": {\"key1\": {\"intValue\": 1},\"key2\": {\"intValue\": 2}},\"decimalValue\": 12345678901234567890.12345678901234567890123456789}";
         ReadBuffer readBuffer = new HeapReadBuffer(json.getBytes(StandardCharsets.UTF_8));
-        BeanEntity actual = JSON_DESERIALIZER.deserializeMarshallableObject(BeanEntity.class, readBuffer);
+        BeanEntity actual = deserializer.deserializeMarshallableObject(BeanEntity.class, readBuffer);
         Assertions.assertEquals(entity, actual);
     }
 

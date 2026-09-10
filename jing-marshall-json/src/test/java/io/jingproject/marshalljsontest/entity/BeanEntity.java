@@ -3,6 +3,7 @@ package io.jingproject.marshalljsontest.entity;
 import io.jingproject.marshall.Marshallable;
 import io.jingproject.marshalljson.JsonPrimitiveType;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,7 @@ public final class BeanEntity {
     private String[] stringArray;
     private List<JsonPrimitiveType> jsonPrimitiveTypeList;
     private Map<String, BeanEntity> beanEntityMap;
+    private BigDecimal decimalValue;
 
     public int intValue() {
         return intValue;
@@ -72,6 +74,14 @@ public final class BeanEntity {
 
     public void setBeanEntityMap(Map<String, BeanEntity> beanEntityMap) {
         this.beanEntityMap = beanEntityMap;
+    }
+
+    public BigDecimal decimalValue() {
+        return decimalValue;
+    }
+
+    public void setDecimalValue(BigDecimal decimalValue) {
+        this.decimalValue = decimalValue;
     }
 
     @Override

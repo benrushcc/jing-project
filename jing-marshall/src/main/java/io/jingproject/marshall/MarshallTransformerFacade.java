@@ -7,6 +7,9 @@ import java.util.Objects;
 
 @ProcessorApi
 public interface MarshallTransformerFacade {
+
+    Class<?> transformerType();
+
     Class<?> customType();
 
     Class<?> builtinType();
