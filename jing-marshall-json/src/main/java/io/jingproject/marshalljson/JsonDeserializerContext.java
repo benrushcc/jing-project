@@ -364,7 +364,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
         final int end = option.maxArrayElements();
         for(int i = 0; i < end; ) {
             byte v = deserializeByte(b);
-            int i1 = Math.addExact(i, 1);
+            int i1 = Math.incrementExact(i);
             ensureByteBufferCapacity(i1);
             byteBuffer[i] = v;
             i = i1;
@@ -389,7 +389,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
         final int end = option.maxArrayElements();
         for(int i = 0; i < end; ) {
             boolean v = deserializeBoolean(b);
-            int i1 = Math.addExact(i, 1);
+            int i1 = Math.incrementExact(i);
             ensureByteBufferCapacity(i1);
             byteBuffer[i] = v ? Byte.MAX_VALUE : Byte.MIN_VALUE;
             i = i1;
@@ -447,7 +447,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
         for(int i = 0; i < end; ) {
             checkStrStart(b);
             char v = deserializeChar(b);
-            int i1 = Math.addExact(i, 1);
+            int i1 = Math.incrementExact(i);
             ensureCharBufferCapacity(i1);
             charBuffer[i] = v;
             i = i1;

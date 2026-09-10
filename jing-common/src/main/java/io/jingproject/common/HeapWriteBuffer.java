@@ -5,7 +5,6 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.Objects;
 
 public final class HeapWriteBuffer implements WriteBuffer {
 
@@ -247,7 +246,9 @@ public final class HeapWriteBuffer implements WriteBuffer {
     }
 
     public void setBufferAndPosition(byte[] bytes, int pos) {
-        Objects.checkFromToIndex(pos, bytes.length, limit);
+        if(pos < 0 || pos > bytes.length || bytes.length > limit) {
+            throw new IndexOutOfBoundsException("buffer index out of bounds");
+        }
         buffer = bytes;
         position = pos;
     }

@@ -5,7 +5,6 @@ import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
-import java.util.Objects;
 
 public final class SegmentWriteBuffer implements WriteBuffer {
     static {
@@ -246,7 +245,9 @@ public final class SegmentWriteBuffer implements WriteBuffer {
     }
 
     public void setSegmentAndPosition(MemorySegment segment, long pos) {
-        Objects.checkFromToIndex(pos, segment.byteSize(), limit);
+        if(pos < 0L || pos > segment.byteSize() || segment.byteSize() > limit) {
+            throw new IndexOutOfBoundsException("segment index out of bounds");
+        }
         seg = segment;
         position = pos;
     }

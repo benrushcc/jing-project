@@ -7,7 +7,6 @@ import io.jingproject.marshall.Marshalls;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 public final class JsonSerializer {
     public static final int INITIAL_SIZE = 4;
@@ -15,77 +14,116 @@ public final class JsonSerializer {
     private final JsonSerializerOption option;
 
     public JsonSerializer(JsonSerializerOption option) {
-        this.option = Objects.requireNonNull(option, "option must not be null");
+        if (option == null) {
+            throw new JsonSerializerException("option must not be null");
+        }
+        this.option = option;
     }
 
     public void serializeByteArray(byte[] arr, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(arr, "arr must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
+        if (arr == null) {
+            throw new JsonSerializerException("arr must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
         JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         context.serializeByteArray(arr, 1);
         context.commit();
     }
 
     public void serializeBooleanArray(boolean[] arr, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(arr, "arr must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
+        if (arr == null) {
+            throw new JsonSerializerException("arr must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
         JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         context.serializeBooleanArray(arr, 1);
         context.commit();
     }
 
     public void serializeShortArray(short[] arr, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(arr, "arr must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
+        if (arr == null) {
+            throw new JsonSerializerException("arr must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
         JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         context.serializeShortArray(arr, 1);
         context.commit();
     }
 
     public void serializeCharArray(char[] arr, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(arr, "arr must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
+        if (arr == null) {
+            throw new JsonSerializerException("arr must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
         JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         context.serializeCharArray(arr, 1);
         context.commit();
     }
 
     public void serializeIntArray(int[] arr, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(arr, "arr must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
+        if (arr == null) {
+            throw new JsonSerializerException("arr must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
         JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         context.serializeIntArray(arr, 1);
         context.commit();
     }
 
     public void serializeLongArray(long[] arr, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(arr, "arr must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
+        if (arr == null) {
+            throw new JsonSerializerException("arr must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
         JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         context.serializeLongArray(arr, 1);
         context.commit();
     }
 
     public void serializeFloatArray(float[] arr, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(arr, "arr must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
+        if (arr == null) {
+            throw new JsonSerializerException("arr must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
         JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         context.serializeFloatArray(arr, 1);
         context.commit();
     }
 
     public void serializeDoubleArray(double[] arr, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(arr, "arr must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
+        if (arr == null) {
+            throw new JsonSerializerException("arr must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
         JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         context.serializeDoubleArray(arr, 1);
         context.commit();
     }
 
-    public void serializeMarshallableObject(Object instance, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(instance, "instance must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
-        Class<?> marshallableType = instance.getClass();
+    public void serializeMarshallableObject(Object marshallable, WriteBuffer writeBuffer) {
+        if (marshallable == null) {
+            throw new JsonSerializerException("marshallable object must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
+        Class<?> marshallableType = marshallable.getClass();
         if (marshallableType.isEnum()) {
             throw new JsonSerializerException("enum cannot be directly serialized");
         }
@@ -95,13 +133,17 @@ public final class JsonSerializer {
         }
         JsonSerializerContext context = JsonSerializerContext.newCtx(option, writeBuffer);
         JsonSerializerNode root = new JsonSerializerNode();
-        root.initObj(fc, instance, 1);
+        root.initObj(fc, marshallable, 1);
         process(root, context);
     }
 
     public void serializeArray(Object[] arr, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(arr, "arr must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
+        if (arr == null) {
+            throw new JsonSerializerException("arr must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
         Class<? extends Object[]> arrType = arr.getClass();
         Class<?> componentType = arrType.getComponentType();
         if(componentType.isPrimitive()) {
@@ -127,9 +169,15 @@ public final class JsonSerializer {
     }
 
     public <T> void serializeCollection(Collection<T> collection, Class<T> elementType, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(collection, "collection must not be null");
-        Objects.requireNonNull(elementType, "elementType must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
+        if (collection == null) {
+            throw new JsonSerializerException("collection must not be null");
+        }
+        if (elementType == null) {
+            throw new JsonSerializerException("elementType must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
         if(elementType.isPrimitive()) {
             throw new JsonSerializerException("primitive type shouldn't be used as parameters : " + elementType.getName());
         }
@@ -151,10 +199,18 @@ public final class JsonSerializer {
     }
 
     public <K, V> void serializeMap(Map<K, V> map, Class<K> keyType, Class<V> valueType, WriteBuffer writeBuffer) {
-        Objects.requireNonNull(map, "map must not be null");
-        Objects.requireNonNull(keyType, "keyType must not be null");
-        Objects.requireNonNull(valueType, "valueType must not be null");
-        Objects.requireNonNull(writeBuffer, "writeBuffer must not be null");
+        if (map == null) {
+            throw new JsonSerializerException("map must not be null");
+        }
+        if (keyType == null) {
+            throw new JsonSerializerException("keyType must not be null");
+        }
+        if (valueType == null) {
+            throw new JsonSerializerException("valueType must not be null");
+        }
+        if (writeBuffer == null) {
+            throw new JsonSerializerException("writeBuffer must not be null");
+        }
         if (keyType != CharSequence.class && keyType != String.class) {
             throw new JsonSerializerException("key type not supported : " + keyType.getName());
         }

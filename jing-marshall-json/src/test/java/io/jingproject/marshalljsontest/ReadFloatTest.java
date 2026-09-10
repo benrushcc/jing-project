@@ -17,7 +17,7 @@ import java.util.concurrent.*;
 
 public class ReadFloatTest {
     private static final int BATCH = 1000000;
-    private static final int MAX_FP_SIZE = 24;
+    private static final int MAX_FP_SIZE = 256;
 
     private static void floatToStringTest(List<String> strList) {
         for (String str : strList) {

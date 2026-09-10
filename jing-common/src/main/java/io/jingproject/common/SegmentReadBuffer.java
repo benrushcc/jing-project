@@ -4,7 +4,6 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
-import java.util.Objects;
 
 public final class SegmentReadBuffer implements ReadBuffer {
 
@@ -36,7 +35,10 @@ public final class SegmentReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(int newPosition) {
-        position = Objects.checkFromToIndex(0L, newPosition, buffer.byteSize());
+        if(newPosition < 0 || newPosition > buffer.byteSize()) {
+            throw new IndexOutOfBoundsException("newPosition out of bounds : " + newPosition);
+        }
+        position = newPosition;
     }
 
     @Override
@@ -51,7 +53,10 @@ public final class SegmentReadBuffer implements ReadBuffer {
 
     @Override
     public void setPosition(long newPosition) {
-        position = Objects.checkFromToIndex(0L, newPosition, buffer.byteSize());
+        if(newPosition < 0L || newPosition > buffer.byteSize()) {
+            throw new IndexOutOfBoundsException("newPosition out of bounds : " + newPosition);
+        }
+        position = newPosition;
     }
 
     @Override
