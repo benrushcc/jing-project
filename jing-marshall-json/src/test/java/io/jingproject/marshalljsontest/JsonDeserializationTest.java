@@ -164,10 +164,12 @@ public class JsonDeserializationTest {
         Assertions.assertArrayEquals(new double[]{3.14159}, doubles);
     }
 
+    @SuppressWarnings("ExtractMethodRecommender")
     @Test
     public void testDeserializeBeanEntity() {
         JsonDeserializerOption option = JsonDeserializerOption
                 .builder()
+                .setMaxNumberBytes(100)
                 .setTransformerClasses(BigDecimalTransformer.class)
                 .build();
         JsonDeserializer deserializer = new JsonDeserializer(option);
