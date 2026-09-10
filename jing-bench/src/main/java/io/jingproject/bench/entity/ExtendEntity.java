@@ -1,7 +1,10 @@
 package io.jingproject.bench.entity;
 
+import io.jingproject.marshall.Marshallable;
+
 import java.time.Duration;
 
+@Marshallable
 public final class ExtendEntity extends BeanEntity {
     private Duration durationValue;
 

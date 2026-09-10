@@ -107,11 +107,11 @@ public final class MarshallProcessor extends AbstractProcessor {
         TypeMirror rootModuleType = elements.getModuleOf(t).asType();
         TypeMirror superType = t.getSuperclass();
         while (!typeUtils.isSameType(superType, objectType)) {
-            Marshallable superTypeAnnotation = superType.getAnnotation(Marshallable.class);
+            Element superElement = typeUtils.asElement(superType);
+            Marshallable superTypeAnnotation = superElement.getAnnotation(Marshallable.class);
             if (superTypeAnnotation == null) {
                 throw new AnnotationProcessorException("super class must be annotated with @Marshallable");
             }
-            Element superElement = typeUtils.asElement(superType);
             TypeMirror superModuleType = elements.getModuleOf(superElement).asType();
             if (!typeUtils.isSameType(rootModuleType, superModuleType)) {
                 throw new AnnotationProcessorException("super class must be within the same module");
