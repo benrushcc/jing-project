@@ -250,7 +250,7 @@ public final class Libs {
      * for optimal performance, callers should store the return value in a {@code static final} field
      */
     @SuppressWarnings("unchecked")
-    public static <T> LibDescriptor<T> getLibDescriptor(Class<T> type) {
+    public static <T> LibDescriptor<T> libDescriptor(Class<T> type) {
         return (LibDescriptor<T>) DESCRIPTORS.get(type);
     }
 
@@ -260,8 +260,8 @@ public final class Libs {
      * @return the library impl for the given type, or {@code null} if the library is missing or unsupported on current operating system
      * for optimal performance, callers should store the return value in a {@code static final} field
      */
-    public static <T> T getImpl(Class<T> type) {
-        LibDescriptor<T> libDescriptor = getLibDescriptor(type);
+    public static <T> T impl(Class<T> type) {
+        LibDescriptor<T> libDescriptor = libDescriptor(type);
         if (libDescriptor == null) {
             return null;
         }

@@ -3,8 +3,6 @@ package io.jingproject.marshall;
 import io.jingproject.common.Utils;
 import io.jingproject.common.anno.ProcessorApi;
 
-import java.util.Objects;
-
 @ProcessorApi
 public interface MarshallTransformerFacade {
 
@@ -19,7 +17,9 @@ public interface MarshallTransformerFacade {
     Object toBuiltin(Object o);
 
     default Object[] toBuiltinArray(Object[] o) {
-        Objects.requireNonNull(o, "custom array is null");
+        if(o == null) {
+            throw new IllegalArgumentException("custom array must not be null");
+        }
         if(o.length == 0) {
             return Utils.emptyObjectArray();
         }
@@ -31,7 +31,9 @@ public interface MarshallTransformerFacade {
     }
 
     default Object[] toCustomArray(Object[] o) {
-        Objects.requireNonNull(o, "builtin array is null");
+        if(o == null) {
+            throw new IllegalArgumentException("builtin array must not be null");
+        }
         if(o.length == 0) {
             return Utils.emptyObjectArray();
         }

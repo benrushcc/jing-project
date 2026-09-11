@@ -20,7 +20,10 @@ import javax.lang.model.type.TypeMirror;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.UndeclaredThrowableException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -105,7 +108,10 @@ public final class FfmProcessor extends AbstractProcessor {
     }
 
     private FfmProcessorInfo createFfmInfo(TypeElement t) {
-        FFM ffm = Objects.requireNonNull(t.getAnnotation(FFM.class));
+        FFM ffm = t.getAnnotation(FFM.class);
+        if(ffm == null) {
+            throw new AnnotationProcessorException("@FFM annotation not found");
+        }
         List<FfmDowncallInfo> ffmDowncallInfos = new ArrayList<>();
         int index = 0;
         for (Element el : t.getEnclosedElements()) {
@@ -115,7 +121,10 @@ public final class FfmProcessor extends AbstractProcessor {
                 if (modifiers.contains(Modifier.DEFAULT) || modifiers.contains(Modifier.STATIC) || modifiers.contains(Modifier.PRIVATE)) {
                     continue;
                 }
-                Downcall dc = Objects.requireNonNull(ex.getAnnotation(Downcall.class));
+                Downcall dc = ex.getAnnotation(Downcall.class);
+                if(dc == null) {
+                    throw new AnnotationProcessorException("@Downcall annotation not found");
+                }
                 ffmDowncallInfos.add(new FfmDowncallInfo(index, ex, dc.methodName(), dc.constant(), dc.critical()));
                 index = Math.incrementExact(index);
             }
@@ -207,8 +216,7 @@ public final class FfmProcessor extends AbstractProcessor {
             case FLOAT -> "float";
             case DOUBLE -> "double";
             case DECLARED -> {
-                TypeMirror targetTm = Objects.requireNonNull(memorySegmentType);
-                if (processingEnv.getTypeUtils().isSameType(tm, targetTm)) {
+                if (processingEnv.getTypeUtils().isSameType(tm, memorySegmentType)) {
                     yield source.register(MemorySegment.class);
                 }
                 throw new UnsupportedOperationException("unsupported declared return type: " + tm);
@@ -227,8 +235,7 @@ public final class FfmProcessor extends AbstractProcessor {
             case FLOAT -> "float";
             case DOUBLE -> "double";
             case DECLARED -> {
-                TypeMirror targetTm = Objects.requireNonNull(memorySegmentType);
-                if (processingEnv.getTypeUtils().isSameType(tm, targetTm)) {
+                if (processingEnv.getTypeUtils().isSameType(tm, memorySegmentType)) {
                     yield source.register(MemorySegment.class);
                 }
                 throw new UnsupportedOperationException("unsupported declared parameter type: " + tm);

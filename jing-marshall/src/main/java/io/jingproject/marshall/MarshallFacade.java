@@ -6,7 +6,6 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.charset.Charset;
 import java.util.List;
-import java.util.Objects;
 
 @ProcessorApi
 public interface MarshallFacade {
@@ -56,7 +55,9 @@ public interface MarshallFacade {
     }
 
     default MarshallInfo marshallInfoByFieldName(byte[] bytes, int from, int to, Charset charset) {
-        Objects.checkFromToIndex(from, to, bytes.length);
+        if (from < 0 || from > to || to > bytes.length) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + bytes.length);
+        }
         String name = new String(bytes, from, to - from, charset);
         return marshallInfoByFieldName(name);
     }
@@ -68,7 +69,9 @@ public interface MarshallFacade {
     }
 
     default MarshallInfo marshallInfoByFieldName(MemorySegment segment, long from, long to, Charset charset) {
-        Objects.checkFromToIndex(from, to, segment.byteSize());
+        if (from < 0 || from > to || to > segment.byteSize()) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + segment.byteSize());
+        }
         byte[] bytes = segment.asSlice(from, to - from).toArray(ValueLayout.JAVA_BYTE);
         String name = new String(bytes, charset);
         return marshallInfoByFieldName(name);
@@ -103,7 +106,9 @@ public interface MarshallFacade {
     }
 
     default MarshallInfo marshallInfoByMappedName(byte[] bytes, int from, int to, Charset charset) {
-        Objects.checkFromToIndex(from, to, bytes.length);
+        if (from < 0 || from > to || to > bytes.length) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + bytes.length);
+        }
         String mappedName = new String(bytes, from, to - from, charset);
         return marshallInfoByMappedName(mappedName);
     }
@@ -115,7 +120,9 @@ public interface MarshallFacade {
     }
 
     default MarshallInfo marshallInfoByMappedName(MemorySegment segment, long from, long to, Charset charset) {
-        Objects.checkFromToIndex(from, to, segment.byteSize());
+        if (from < 0 || from > to || to > segment.byteSize()) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + segment.byteSize());
+        }
         byte[] bytes = segment.asSlice(from, to - from).toArray(ValueLayout.JAVA_BYTE);
         String mappedName = new String(bytes, charset);
         return marshallInfoByMappedName(mappedName);

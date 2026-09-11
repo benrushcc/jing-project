@@ -103,15 +103,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>${maven-surefire-plugin.version}</version>
-                <configuration>
-                    <argLine>--enable-preview --add-modules jdk.incubator.vector</argLine> <!-- enable preview by default, using vector api -->
-                    <excludedGroups>require-native-library</excludedGroups>
-                </configuration>
-            </plugin>
 
             <plugin>
                 <groupId>io.jingproject</groupId>

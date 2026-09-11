@@ -22,7 +22,7 @@ public final class PosixMmap implements Mmap {
     /**
      * Native bindings for POSIX memory management APIs.
      */
-    private static final PosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(PosixBindings.class);
+    private static final PosixBindings SYS_POSIX_BINDINGS = Libs.impl(PosixBindings.class);
 
     static {
         if (SYS_POSIX_BINDINGS == null) {

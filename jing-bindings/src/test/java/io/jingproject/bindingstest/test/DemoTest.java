@@ -12,14 +12,19 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.charset.StandardCharsets;
-import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Tag("require-native-library")
 public class DemoTest {
-    private static final DemoBinding NATIVE_IMPL = Objects.requireNonNull(Libs.getImpl(DemoBinding.class), "Failed to load jing_demo library");
+    private static final DemoBinding NATIVE_IMPL = Libs.impl(DemoBinding.class);
     private static final DemoBinding JAVA_IMPL = new DemoBindingImpl();
     private static final int BATCH = 10000;
+
+    static {
+        if(NATIVE_IMPL == null) {
+            throw new ExceptionInInitializerError("native library not available");
+        }
+    }
 
     @Test
     public void testSingleInt() {

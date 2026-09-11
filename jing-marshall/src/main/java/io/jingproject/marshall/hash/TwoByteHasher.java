@@ -7,7 +7,6 @@ import io.jingproject.common.SegmentAccess;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
-import java.util.Objects;
 
 /**
  * takes the first two bytes as the hash value, or the only byte if the input length is 1.
@@ -24,7 +23,9 @@ public final class TwoByteHasher implements Hasher {
 
     @Override
     public int hash(byte[] bytes, int from, int to) {
-        Objects.checkFromToIndex(from, to, bytes.length);
+        if (from < 0 || from > to || to > bytes.length) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + bytes.length);
+        }
         if(to - from > 1) {
             return ArrayAccess.getShort(bytes, from, ByteOrder.BIG_ENDIAN);
         }
@@ -33,7 +34,9 @@ public final class TwoByteHasher implements Hasher {
 
     @Override
     public int hash(MemorySegment segment, long from, long to) {
-        Objects.checkFromToIndex(from, to, segment.byteSize());
+        if (from < 0 || from > to || to > segment.byteSize()) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + segment.byteSize());
+        }
         if(to - from > 1L) {
             return SegmentAccess.getShort(segment, from, ByteOrder.BIG_ENDIAN);
         }

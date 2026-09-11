@@ -26,7 +26,9 @@ import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -173,7 +175,10 @@ public final class MarshallProcessor extends AbstractProcessor {
     }
 
     private MarshallFieldInfo createMarshallFieldInfo(TypeElement t, int typeIndex, Element fieldElement, int marshallIndex, int fieldNameOffset, int mappedNameOffset) {
-        Marshallable marshallable = Objects.requireNonNull(t.getAnnotation(Marshallable.class));
+        Marshallable marshallable = t.getAnnotation(Marshallable.class);
+        if(marshallable == null) {
+            throw new AnnotationProcessorException("@Marshallable annotation not found");
+        }
         String fieldName = fieldElement.getSimpleName().toString();
         String mappedName = fieldName;
         boolean skipSerializing = false;

@@ -1,6 +1,9 @@
 package io.jingproject.marshalltest.entity;
 
-import io.jingproject.marshall.*;
+import io.jingproject.marshall.MarshallBuilder;
+import io.jingproject.marshall.MarshallFacade;
+import io.jingproject.marshall.MarshallHashInfo;
+import io.jingproject.marshall.MarshallInfo;
 
 import java.lang.foreign.MemorySegment;
 import java.time.LocalDateTime;

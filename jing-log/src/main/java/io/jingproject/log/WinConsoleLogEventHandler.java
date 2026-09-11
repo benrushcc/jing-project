@@ -8,7 +8,7 @@ import io.jingproject.ffm.Libs;
  * ConsoleLogEventHandler is designed to output logs to stdout and stderr on windows operating system
  */
 public final class WinConsoleLogEventHandler implements LogEventHandler {
-    private static final WinBindings WIN_BINDINGS = Libs.getImpl(WinBindings.class);
+    private static final WinBindings WIN_BINDINGS = Libs.impl(WinBindings.class);
     private static final String IDEA_RUNTIME_TYPICAL_CLASS_NAME = "com.intellij.rt.compiler.JavacResourcesReader";
     private static final boolean USING_INTELLIJ_IDEA = checkIntellijIdeaEnvironment();
 

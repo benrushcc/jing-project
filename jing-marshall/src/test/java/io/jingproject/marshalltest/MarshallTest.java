@@ -1,8 +1,8 @@
 package io.jingproject.marshalltest;
 
+import io.jingproject.marshall.MarshallBuilder;
 import io.jingproject.marshall.MarshallFacade;
 import io.jingproject.marshall.MarshallInfo;
-import io.jingproject.marshall.MarshallBuilder;
 import io.jingproject.marshalltest.entity.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

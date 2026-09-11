@@ -5,7 +5,6 @@ import io.jingproject.common.Os;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
-import java.util.Objects;
 
 /**
  * takes the first two and last two bytes of the input to form a 4-byte int as the hash value.
@@ -22,7 +21,9 @@ public final class FourByteHasher implements Hasher {
 
     @Override
     public int hash(byte[] bytes, int from, int to) {
-        Objects.checkFromToIndex(from, to, bytes.length);
+        if (from < 0 || from > to || to > bytes.length) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + bytes.length);
+        }
         int len = to - from;
         int i1 = bytes[from] & 0xFF;
         int i2 = len > 1 ? (bytes[from + 1] & 0xFF) : 0;
@@ -33,7 +34,9 @@ public final class FourByteHasher implements Hasher {
 
     @Override
     public int hash(MemorySegment segment, long from, long to) {
-        Objects.checkFromToIndex(from, to, segment.byteSize());
+        if (from < 0 || from > to || to > segment.byteSize()) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + segment.byteSize());
+        }
         long len = to - from;
         int i1 = segment.get(ValueLayout.JAVA_BYTE, from) & 0xFF;
         int i2 = len > 1L ? (segment.get(ValueLayout.JAVA_BYTE, from + 1L) & 0xFF) : 0;

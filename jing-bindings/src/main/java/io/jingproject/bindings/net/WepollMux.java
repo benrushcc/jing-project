@@ -11,7 +11,7 @@ import java.lang.foreign.MemorySegment;
 
 @Fragile
 public final class WepollMux implements Mux {
-    private static final WinBindings WIN_BINDINGS = Libs.getImpl(WinBindings.class);
+    private static final WinBindings WIN_BINDINGS = Libs.impl(WinBindings.class);
 
     static {
         if (WIN_BINDINGS == null) {

@@ -11,8 +11,8 @@ import java.lang.foreign.MemorySegment;
 
 @Fragile
 public final class KqueueMux implements Mux {
-    private static final MacosBindings MACOS_BINDINGS = Libs.getImpl(MacosBindings.class);
-    private static final PosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(PosixBindings.class);
+    private static final MacosBindings MACOS_BINDINGS = Libs.impl(MacosBindings.class);
+    private static final PosixBindings SYS_POSIX_BINDINGS = Libs.impl(PosixBindings.class);
     private int kqFd = 0;
 
     @Override

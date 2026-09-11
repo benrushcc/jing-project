@@ -6,7 +6,6 @@ import io.jingproject.marshall.Marshalls;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 public final class JsonDeserializer {

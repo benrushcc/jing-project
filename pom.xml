@@ -70,8 +70,9 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
-                    <!-- enable preview by default, using vector api -->
+                    <!-- enable preview by default, using vector api, skip native and exhaustive tests -->
                     <argLine>--enable-preview --add-modules jdk.incubator.vector</argLine>
+                    <excludedGroups>require-native-library, exhaustive</excludedGroups>
                 </configuration>
             </plugin>
 

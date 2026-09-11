@@ -19,7 +19,7 @@ For detailed module descriptions, refer to the README file in each submodule.
 
 ## Build & Run
 
-- Build: `mvn clean install -DskipTests=true`
+- Build: `mvn clean install -DskipTests=true` (use `mvnd` rather than `mvn` when possible)
 - Run benchmark: `java --enable-preview --add-modules jdk.incubator.vector -jar ./jing-bench/target/benchmarks.jar YourBench`
 
 ## Dependency Rules
@@ -35,6 +35,10 @@ For detailed module descriptions, refer to the README file in each submodule.
 - Indent with 4 spaces. Max line width: 120 characters.
 - No `System.out.println` in production code; use the logging facade from `jing-common`.
 - Comments and exception messages must start with a lowercase letter. Favor lowercase text throughout, except for proper terms that require uppercase
+- Never use `import static`. Every static member access must be qualified by its declaring class name.
+- Always use braces for control statements (`if`, `else`, `for`, `while`, `do`); single-line forms like `if (col > 0) doSomething();` are prohibited. 
+- Prefer `record` for inner classes and plain data classes. An empty `record` must have its braces on separate lines with proper indentation, never as `{}` on one line.
+- Never use recursion. If a recursive structure seems necessary, halt and ask for approval before proceeding, proposing whether to simulate it with an iterative approach such as a `Deque`.
 
 ## Changes Tracking
 

@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Indicates that the annotated class is used by an annotation processor.
+ * Indicates that the annotated class will be used by an annotation processor.
  *
  * <p>Classes marked with {@code @ProcessorApi} are referenced directly
  * by the annotation processor, and their class names must remain stable.

@@ -4,7 +4,6 @@ import io.jingproject.common.anno.Fragile;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.util.Objects;
 import java.util.concurrent.locks.LockSupport;
 
 /**
@@ -155,10 +154,12 @@ public final class DualLock<T extends Record> {
      *
      * @param value the new Record value (must not be null)
      * @throws IllegalStateException if the value field doesn't contain a Thread
-     * @throws NullPointerException  if value is null
+     * @throws IllegalArgumentException  if value is null
      */
     public void unlock(T value) {
-        Objects.requireNonNull(value, "value must not be null");
+        if(value == null) {
+            throw new IllegalArgumentException("value must not be null");
+        }
         Thread currentThread = Thread.currentThread();
         for (; ; ) {
             Object current = handle.getVolatile(this);

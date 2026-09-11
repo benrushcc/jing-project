@@ -10,12 +10,11 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class DemoBench extends AbstractBench {
     private static final int BATCH_SIZE = 10000;
-    private static final DemoBinding NATIVE_IMPL = Objects.requireNonNull(Libs.getImpl(DemoBinding.class), "Failed to load jing_demo library");
+    private static final DemoBinding NATIVE_IMPL = Libs.impl(DemoBinding.class);
     private static final DemoBinding JAVA_IMPL = new DemoBindingImpl();
     private int[] a;
     private int[] b;
@@ -26,6 +25,12 @@ public class DemoBench extends AbstractBench {
     private double[] d;
     private List<MemorySegment> lm;
     private List<MemorySegment> dm;
+
+    static {
+        if(NATIVE_IMPL == null) {
+            throw new ExceptionInInitializerError("native library not available");
+        }
+    }
 
     @Setup(Level.Iteration)
     public void setup() {

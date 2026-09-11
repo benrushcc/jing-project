@@ -95,7 +95,10 @@ public final class ProviderProcessor extends AbstractProcessor {
             String targetImplName = t.getQualifiedName().toString();
             String targetInterfaceName;
             try {
-                Provider provider = Objects.requireNonNull(t.getAnnotation(Provider.class));
+                Provider provider = t.getAnnotation(Provider.class);
+                if(provider == null) {
+                    throw new AnnotationProcessorException("@Provider annotation not found");
+                }
                 targetInterfaceName = provider.target().getCanonicalName();
             } catch (MirroredTypeException mte) {
                 TypeMirror mirror = mte.getTypeMirror();

@@ -7,7 +7,7 @@ import io.jingproject.ffm.NativeSegmentAccess;
 import java.lang.foreign.MemorySegment;
 
 public final class Mem {
-    private static final VmBindings VM_BINDINGS = Libs.getImpl(VmBindings.class);
+    private static final VmBindings VM_BINDINGS = Libs.impl(VmBindings.class);
 
     static {
         if (VM_BINDINGS == null) {

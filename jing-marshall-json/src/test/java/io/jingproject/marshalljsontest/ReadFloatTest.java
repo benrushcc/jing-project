@@ -85,7 +85,7 @@ public class ReadFloatTest {
 
     @Test
     @Tag("exhaustive")
-    @Timeout(value = 1, unit = TimeUnit.HOURS)
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
     public void readAllFloatTest() {
         final int SEGMENT_SIZE = 10000;
         final int BATCH_SIZE = 100;

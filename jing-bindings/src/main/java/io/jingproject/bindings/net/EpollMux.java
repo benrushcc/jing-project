@@ -11,8 +11,8 @@ import java.lang.foreign.MemorySegment;
 
 @Fragile
 public final class EpollMux implements Mux {
-    private static final LinuxBindings LINUX_BINDINGS = Libs.getImpl(LinuxBindings.class);
-    private static final PosixBindings SYS_POSIX_BINDINGS = Libs.getImpl(PosixBindings.class);
+    private static final LinuxBindings LINUX_BINDINGS = Libs.impl(LinuxBindings.class);
+    private static final PosixBindings SYS_POSIX_BINDINGS = Libs.impl(PosixBindings.class);
     private int epfd = 0;
 
     static {

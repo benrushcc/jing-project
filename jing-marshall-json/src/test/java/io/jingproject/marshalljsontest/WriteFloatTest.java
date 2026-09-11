@@ -116,7 +116,7 @@ public class WriteFloatTest {
 
     @Test
     @Tag("exhaustive")
-    @Timeout(value = 10, unit = TimeUnit.MINUTES)
+    @Timeout(value = 5, unit = TimeUnit.MINUTES)
     public void writeAllFloatTest() {
         final int SEGMENT_SIZE = 10000;
         final int BATCH_SIZE = 100;

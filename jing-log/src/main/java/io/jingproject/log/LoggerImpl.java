@@ -7,7 +7,6 @@ import io.jingproject.common.Logger;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MutableCallSite;
-import java.util.Objects;
 
 public final class LoggerImpl implements Logger {
     private final Class<?> clazz;
@@ -30,13 +29,16 @@ public final class LoggerImpl implements Logger {
 
     @Override
     public boolean enabled(LogLevel level) {
+        if(level == null) {
+            throw new IllegalArgumentException("level must not be null");
+        }
         LogLevel current;
         try {
             current = (LogLevel) mh.invokeExact();
         } catch (Throwable t) {
             throw new AssertionError("unexpected error in MutableCallSite invocation", t);
         }
-        return current.value() <= Objects.requireNonNull(level).value();
+        return current.value() <= level.value();
     }
 
     @Override

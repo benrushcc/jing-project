@@ -7,7 +7,6 @@ import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.Objects;
 
 public final class Utf8Validator {
     private static final byte TOO_SHORT = (byte) 1;
@@ -258,7 +257,9 @@ public final class Utf8Validator {
     }
 
     public static boolean scalarValidateHeap(byte[] bytes, int from, int to) {
-        Objects.checkFromToIndex(from, to, bytes.length);
+        if (from < 0 || from > to || to > bytes.length) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + bytes.length);
+        }
         int b1, b2;
         for (; ; ) {
             do {
@@ -300,7 +301,9 @@ public final class Utf8Validator {
     }
 
     public static boolean scalarValidateSegment(MemorySegment segment, long from, long to) {
-        Objects.checkFromToIndex(from, to, segment.byteSize());
+        if (from < 0 || from > to || to > segment.byteSize()) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + segment.byteSize());
+        }
         int b1, b2;
         for (; ; ) {
             do {

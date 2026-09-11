@@ -32,7 +32,7 @@ public final class MallocAllocator implements Allocator {
     /**
      * System bindings for native memory operations.
      */
-    private static final CommonBinding SYS_BINDINGS = Libs.getImpl(CommonBinding.class);
+    private static final CommonBinding SYS_BINDINGS = Libs.impl(CommonBinding.class);
 
     /**
      * Address of the free function obtained from the VM.

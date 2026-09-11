@@ -22,7 +22,7 @@ public final class WinMmap implements Mmap {
     /**
      * Native bindings for Windows memory management APIs.
      */
-    private static final WinBindings WIN_BINDINGS = Libs.getImpl(WinBindings.class);
+    private static final WinBindings WIN_BINDINGS = Libs.impl(WinBindings.class);
 
     static {
         if (WIN_BINDINGS == null) {

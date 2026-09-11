@@ -8,7 +8,6 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
-import java.util.Objects;
 
 /**
  * using FNV-1a hash implementation optimized with 8-byte word processing.
@@ -29,7 +28,9 @@ public final class FnvHasher implements Hasher {
 
     @Override
     public int hash(byte[] bytes, int from, int to) {
-        Objects.checkFromToIndex(from, to, bytes.length);
+        if (from < 0 || from > to || to > bytes.length) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + bytes.length);
+        }
         long hash = FNV_OFFSET_BASIS;
         for (; from <= to - 8; from += 8) {
             hash ^= ArrayAccess.getLong(bytes, from, ByteOrder.BIG_ENDIAN);
@@ -49,7 +50,9 @@ public final class FnvHasher implements Hasher {
 
     @Override
     public int hash(MemorySegment segment, long from, long to) {
-        Objects.checkFromToIndex(from, to, segment.byteSize());
+        if (from < 0 || from > to || to > segment.byteSize()) {
+            throw new IndexOutOfBoundsException("range [" + from + ", " + to + ") out of bounds for length : " + segment.byteSize());
+        }
         long hash = FNV_OFFSET_BASIS;
         for (; from <= to - 8L; from += 8L) {
             hash ^= SegmentAccess.getLong(segment, from, ByteOrder.BIG_ENDIAN);

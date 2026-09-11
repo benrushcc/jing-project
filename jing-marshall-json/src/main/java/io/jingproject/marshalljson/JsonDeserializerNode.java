@@ -1,6 +1,9 @@
 package io.jingproject.marshalljson;
 
-import io.jingproject.marshall.*;
+import io.jingproject.marshall.MarshallBuilder;
+import io.jingproject.marshall.MarshallFacade;
+import io.jingproject.marshall.MarshallInfo;
+import io.jingproject.marshall.MarshallUtil;
 
 import java.lang.reflect.Array;
 import java.util.*;
