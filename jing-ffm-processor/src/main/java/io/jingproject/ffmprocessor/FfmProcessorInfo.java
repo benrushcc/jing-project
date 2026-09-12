@@ -8,7 +8,7 @@ import java.util.List;
 public record FfmProcessorInfo(
         TypeElement element,
         String libraryName,
-        List<Os> supportedOS,
+        Os[] supportedOS,
         List<FfmDowncallInfo> ffmDowncallInfos
 ) {
 }

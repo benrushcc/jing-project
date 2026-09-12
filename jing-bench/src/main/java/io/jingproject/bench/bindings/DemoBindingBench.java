@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class DemoBench extends AbstractBench {
+public class DemoBindingBench extends AbstractBench {
     private static final int BATCH_SIZE = 10000;
     private static final DemoBinding NATIVE_IMPL = Libs.impl(DemoBinding.class);
     private static final DemoBinding JAVA_IMPL = new DemoBindingImpl();

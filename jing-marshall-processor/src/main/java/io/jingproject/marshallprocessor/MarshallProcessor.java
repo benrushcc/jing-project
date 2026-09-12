@@ -1,5 +1,6 @@
 package io.jingproject.marshallprocessor;
 
+import io.jingproject.common.anno.Generated;
 import io.jingproject.common.anno.Provider;
 import io.jingproject.commonprocess.AnnoUtil;
 import io.jingproject.commonprocess.AnnotationProcessorException;
@@ -29,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -67,6 +69,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                 facadeSource.addBlock(vhInitializationBlock(facadeSource, info));
                 facadeSource.addBlock(facadeInfoInitializationBlock(facadeSource, info));
                 facadeSource.addBlock(new GeneratorBlock().unindent().addLine("}").newLine());
+                facadeSource.addBlock(constructorBlock(facadeSource));
                 facadeSource.addBlock(marshallableTypeMethod(facadeSource, info));
                 facadeSource.addBlock(marshallInfosMethod(facadeSource));
                 facadeSource.addBlock(primitiveElementsMethod(facadeSource, info));
@@ -218,8 +221,8 @@ public final class MarshallProcessor extends AbstractProcessor {
     }
 
     private List<TypeElement> createTypeElements(TypeElement t) {
+        List<TypeElement> r = new ArrayList<>();
         if (t.getKind() == ElementKind.CLASS) {
-            List<TypeElement> r = new ArrayList<>();
             Types typeUtils = processingEnv.getTypeUtils();
             TypeMirror head = t.asType();
             while (!typeUtils.isSameType(head, objectType)) {
@@ -227,14 +230,15 @@ public final class MarshallProcessor extends AbstractProcessor {
                 r.add(te);
                 head = te.getSuperclass();
             }
-            return List.copyOf(r.reversed());
+            r = r.reversed();
         } else {
-            return List.of(t);
+            r.add(t);
         }
+        return r;
     }
 
     private List<MarshallFieldInfo> createFieldInfos(List<TypeElement> typeElements) {
-        List<MarshallFieldInfo> fieldInfos = new ArrayList<>();
+        List<MarshallFieldInfo> r = new ArrayList<>();
         int marshallIndex = 0;
         int fieldNameIndex = 0;
         int mappedNameIndex = 0;
@@ -250,16 +254,16 @@ public final class MarshallProcessor extends AbstractProcessor {
                 if (e.getKind() == targetKind) {
                     MarshallFieldInfo fi = createMarshallFieldInfo(te, typeIndex, e, marshallIndex, fieldNameIndex, mappedNameIndex);
                     marshallIndex = Math.incrementExact(marshallIndex);
-                    fieldInfos.add(fi);
+                    r.add(fi);
                     fieldNameIndex = Math.addExact(fieldNameIndex, fi.fieldNameUtf8Bytes().length);
                     mappedNameIndex = Math.addExact(mappedNameIndex, fi.mappedNameUtf8Bytes().length);
                 }
             }
         }
-        if (fieldInfos.size() > MAX_CLASS_FIELDS) {
-            throw new AnnotationProcessorException("too many fields : " + fieldInfos.size());
+        if (r.size() > MAX_CLASS_FIELDS) {
+            throw new AnnotationProcessorException("too many fields : " + r.size());
         }
-        return List.copyOf(fieldInfos);
+        return r;
     }
 
     private List<MarshallTypeInfo> createTypeInfos(List<MarshallFieldInfo> fieldInfos) {
@@ -286,7 +290,7 @@ public final class MarshallProcessor extends AbstractProcessor {
             fis.add(fieldInfo);
             r.add(new MarshallTypeInfo(targetClass, fis));
         }
-        return List.copyOf(r);
+        return r;
     }
 
     private List<MarshallSwitchInfo> createHashInfos(List<MarshallFieldInfo> fieldInfos, Function<MarshallFieldInfo, byte[]> fn, int hashIndex) {
@@ -304,31 +308,34 @@ public final class MarshallProcessor extends AbstractProcessor {
             list.add(fieldInfo);
             r.add(new MarshallSwitchInfo(hash, list));
         }
-        return List.copyOf(r);
+        return r;
     }
 
     private GeneratorBlock headBlock(GeneratorSource facadeSource, MarshallProcessorInfo info) {
         String providerClassName = facadeSource.register(Provider.class);
+        String generatedClassName = facadeSource.register(Generated.class);
         String facadeClassName = facadeSource.className();
+        String atomicBooleanClassName = facadeSource.register(AtomicBoolean.class);
         String marshallFacadeClassName = facadeSource.register(MarshallFacade.class);
         String listClassName = facadeSource.register(List.class);
         String marshallInfoClassName = facadeSource.register(MarshallInfo.class);
         String marshallHashInfoClassName = facadeSource.register(MarshallHashInfo.class);
         GeneratorBlock b = new GeneratorBlock()
                 .addLine("@" + providerClassName + "(target = " + marshallFacadeClassName + ".class)")
+                .addLine("@" + generatedClassName)
                 .addLine("public final class " + facadeClassName + " implements " + marshallFacadeClassName + " {")
                 .indent();
         if (info.typeElements().getLast().getKind() == ElementKind.CLASS) {
             String varhandleClassName = facadeSource.register(VarHandle.class);
             b.addLine("private static final " + listClassName + "<" + varhandleClassName + "> VHS;");
         }
-        return b.addLine("private static final " + listClassName + "<" + marshallInfoClassName + "> MARSHALL_INFOS;")
+        return b.addLine("private static final " + atomicBooleanClassName + " GUARD = new " + atomicBooleanClassName + "(false);")
+                .addLine("private static final " + listClassName + "<" + marshallInfoClassName + "> MARSHALL_INFOS;")
                 .addLine("private static final " + marshallHashInfoClassName + " HASH_INFO;")
                 .newLine();
     }
 
     private GeneratorBlock vhInitializationBlock(GeneratorSource facadeSource, MarshallProcessorInfo info) {
-        StringBuilder builder = facadeSource.builder();
         GeneratorBlock b = new GeneratorBlock();
         if (info.typeElements().getLast().getKind() == ElementKind.CLASS) {
             String methodHandlesClassName = facadeSource.register(MethodHandles.class);
@@ -353,7 +360,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                 String fieldRawClassName = facadeSource.registerRawFieldElement(fieldInfo.fieldElement());
                 b.addLine(varhandleClassName + " vh" + fieldInfo.marshallIndex() +
                         " = lookup" + fieldInfo.typeIndex() + ".findVarHandle(" + teClassName +
-                        ".class, " + AnnoUtil.escapeJavaStringLiteral(fieldInfo.fieldName(), builder) + ", " + fieldRawClassName + ".class);");
+                        ".class, " + AnnoUtil.escapeJavaStringLiteral(fieldInfo.fieldName()) + ", " + fieldRawClassName + ".class);");
             }
             b.addLine("VHS = " + listClassName + ".of(" +
                             IntStream.range(0, info.fieldInfos().size()).mapToObj(i -> "vh" + i)
@@ -366,6 +373,21 @@ public final class MarshallProcessor extends AbstractProcessor {
                     .addLine("}");
         }
         return b;
+    }
+
+    private GeneratorBlock constructorBlock(GeneratorSource facadeSource) {
+        String illegalStateExceptionClassName = facadeSource.register(IllegalStateException.class);
+        return new GeneratorBlock()
+                .addLine("public " + facadeSource.className() + "() {")
+                .indent()
+                .addLine("if(!GUARD.compareAndSet(false, true)) {")
+                .indent()
+                .addLine("throw new " + illegalStateExceptionClassName + "();")
+                .unindent()
+                .addLine("}")
+                .unindent()
+                .addLine("}")
+                .newLine();
     }
 
     private List<String> getGenericTypeLiterals(GeneratorSource source, TypeMirror tm) {
@@ -382,11 +404,10 @@ public final class MarshallProcessor extends AbstractProcessor {
                 }
             }
         }
-        return List.copyOf(r);
+        return r;
     }
 
     private GeneratorBlock facadeInfoInitializationBlock(GeneratorSource facadeSource, MarshallProcessorInfo info) {
-        StringBuilder builder = facadeSource.builder();
         GeneratorBlock b = new GeneratorBlock();
         String marshallInfoClassName = facadeSource.register(MarshallInfo.class);
         String marshallHashInfoClassName = facadeSource.register(MarshallHashInfo.class);
@@ -395,16 +416,16 @@ public final class MarshallProcessor extends AbstractProcessor {
             Element fieldElement = fieldInfo.fieldElement();
             String fieldRawClassName = facadeSource.registerRawFieldElement(fieldElement);
             List<String> genericTypeLiterals = getGenericTypeLiterals(facadeSource, fieldElement.asType());
-            String marshallInfoParams = String.join(", ", List.of(
+            String marshallInfoParams = String.join(", ",
                     fieldRawClassName + ".class",
                     !genericTypeLiterals.isEmpty() ? genericTypeLiterals.get(0) + ".class" : "null",
                     genericTypeLiterals.size() > 1 ? genericTypeLiterals.get(1) + ".class" : "null",
                     String.valueOf(fieldInfo.marshallIndex()),
-                    AnnoUtil.escapeJavaStringLiteral(fieldInfo.fieldName(), builder),
-                    AnnoUtil.escapeJavaStringLiteral(fieldInfo.mappedName(), builder),
+                    AnnoUtil.escapeJavaStringLiteral(fieldInfo.fieldName()),
+                    AnnoUtil.escapeJavaStringLiteral(fieldInfo.mappedName()),
                     String.valueOf(fieldInfo.skipSerializing()),
                     String.valueOf(fieldInfo.skipDeserializing())
-            ));
+            );
             b.addLine(marshallInfoClassName + " mi" + fieldInfo.marshallIndex() +
                     " = new " + marshallInfoClassName + "(" + marshallInfoParams + ");");
         }
@@ -464,7 +485,6 @@ public final class MarshallProcessor extends AbstractProcessor {
     }
 
     private GeneratorBlock marshallInfoByStringMethod(GeneratorSource facadeSource, MarshallProcessorInfo info, boolean f) {
-        StringBuilder builder = facadeSource.builder();
         String overrideClassName = facadeSource.register(Override.class);
         String marshallInfoClassName = facadeSource.register(MarshallInfo.class);
         String stringClassName = facadeSource.register(String.class);
@@ -477,7 +497,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                 .addLine("return switch (" + argName + ") {")
                 .indent();
         for (MarshallFieldInfo fieldInfo : info.fieldInfos()) {
-            b.addLine("case " + AnnoUtil.escapeJavaStringLiteral(f ? fieldInfo.fieldName() : fieldInfo.mappedName(), builder) +
+            b.addLine("case " + AnnoUtil.escapeJavaStringLiteral(f ? fieldInfo.fieldName() : fieldInfo.mappedName()) +
                     " -> MARSHALL_INFOS.get(" + fieldInfo.marshallIndex() + ");");
         }
         return b.addLine("default -> null;")
@@ -513,7 +533,7 @@ public final class MarshallProcessor extends AbstractProcessor {
             for (MarshallFieldInfo fi : fis) {
                 String from = String.valueOf(f ? fi.fieldNameOffset() : fi.mappedNameOffset());
                 String to = String.valueOf(f ? fi.fieldNameOffset() + fi.fieldNameUtf8Bytes().length : fi.mappedNameOffset() + fi.mappedNameUtf8Bytes().length);
-                b.addLine("if(HASH_INFO." + eqName + "(" + String.join(", ", List.of(from, to, paramName, "from", "to")) + ")) {")
+                b.addLine("if(HASH_INFO." + eqName + "(" + String.join(", ", from, to, paramName, "from", "to") + ")) {")
                         .indent()
                         .addLine("return MARSHALL_INFOS.get(" + fi.marshallIndex() + ");")
                         .unindent()

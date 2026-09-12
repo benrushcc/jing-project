@@ -11,17 +11,14 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 
-/**
- * Utility class for accessing native memorySegment and VM native functions
- */
+// utility class for accessing native memory segment and VM native functions.
 @Fragile
 @SuppressWarnings("unused")
 public final class NativeSegmentAccess {
 
-    /**
-     * Address is unsigned, so we can not represent raw address larger than Long.MAX_VALUE,
-     * However, user-land address space is usually 48-bit on most operating system, so we are all good here.
-     */
+    // an address is unsigned, so we cannot represent a raw address larger
+    // than Long.MAX_VALUE. however, user-land address space is usually 48-bit
+    // on most operating systems, so we are all good here.
     private static final MemorySegment ZERO = resize(MemorySegment.NULL, Long.MAX_VALUE);
     // jing_result related methods
     private static final MemoryLayout SIZE_T_LAYOUT = Linker.nativeLinker().canonicalLayouts().get("size_t");
@@ -73,10 +70,6 @@ public final class NativeSegmentAccess {
         }
     }
 
-    /**
-     * Private constructor to prevent instantiation.
-     * This is a utility class with only static methods.
-     */
     private NativeSegmentAccess() {
         throw new UnsupportedOperationException("utility class");
     }

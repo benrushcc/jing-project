@@ -19,11 +19,8 @@ public final class AnnoUtil {
         return "\"" + str + "\"";
     }
 
-    public static String escapeJavaStringLiteral(String str, StringBuilder builder) {
-        if (!builder.isEmpty()) {
-            throw new AnnotationProcessorException("builder not empty");
-        }
-        builder.append("\"");
+    public static String escapeJavaStringLiteral(String str) {
+        StringBuilder builder = new StringBuilder("\"");
         for (int i = 0; i < str.length(); i++) {
             char c = str.charAt(i);
             switch (c) {
@@ -46,10 +43,7 @@ public final class AnnoUtil {
                 }
             }
         }
-        builder.append("\"");
-        String r = builder.toString();
-        builder.setLength(0);
-        return r;
+        return builder.append("\"").toString();
     }
 
     public static String packageName(String fullName) {

@@ -13,25 +13,23 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Libs is a unified entry for managing dynamic library loading, providing a standardized implementation across different operating systems.
- * The dynamic library search path is first checked using the property specified by '-D' as jing.library.path.
- * Then, it looks for directories specified by the JING_LIBRARY_PATH environment variable.
- * Finally, it searches the default directories specified by java.library.path, which is the default loadLibrary() behavior of the JDK.
- * If a library or function is not found, the program can still start normally as long as the invalid functions are not invoked.
- */
+// Libs is a unified entry for managing dynamic library loading,
+// providing a standardized implementation across different operating systems.
+// the search path is first checked using the property specified by '-D'
+// as jing.library.path.
+// then, it looks for directories specified by the JING_LIBRARY_PATH
+// environment variable.
+// finally, it searches the default directories specified by java.library.path,
+// which is the default loadLibrary() behavior of the JDK.
+// if a library or function is not found, the program can still start normally
+// as long as the invalid functions are not invoked.
 @ProcessorApi
-@SuppressWarnings("unused")
 public final class Libs {
 
-    /**
-     * all the dynamic library search directories ordered by priority
-     */
+    // all the dynamic library search directories ordered by priority
     private static final List<String> SEARCH_PATH = createSearchPath();
 
-    /**
-     * critical path could be disabled globally to ensure safepoint is always checked on each downcall
-     */
+    // critical path could be disabled globally to ensure safepoint is always checked on each downcall
     private static final boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
     private static final Map<Class<?>, LibDescriptor<?>> DESCRIPTORS;
 
@@ -50,8 +48,7 @@ public final class Libs {
                         continue;
                     }
                     SymbolLookup lookup = SymbolLookup.libraryLookup(libPath, Arena.global());
-                    Object impl = facade.supplier().get();
-                    desc = new LibDescriptor<>(libName, mappedName, lookup, libPath, new HashMap<>(), impl);
+                    desc = new LibDescriptor<>(libName, mappedName, lookup, libPath, new HashMap<>(), facade.impl());
                     tempDescriptors.put(target, desc);
                 }
                 for (String methodName : facade.methodNames()) {
@@ -77,9 +74,13 @@ public final class Libs {
         throw new UnsupportedOperationException("utility class");
     }
 
-    /**
-     * @return the available dynamic library serach paths on current machine
-     */
+    // library search paths ordered by priority, from most specific to least:
+    //   1. the 'jing.library.path' system property (-Djing.library.path),
+    //      an explicit per-process override.
+    //   2. the JING_LIBRARY_PATH environment variable, a machine-wide fallback.
+    //   3. java.library.path, the jvm default search path.
+    // only existing directories are collected, so the caller (searchLibrary)
+    // can simply probe each path in order and stop at the first hit.
     private static List<String> createSearchPath() {
         List<String> r = new ArrayList<>();
         String argPath = System.getProperty("jing.library.path");
@@ -101,9 +102,8 @@ public final class Libs {
         return List.copyOf(r);
     }
 
-    /**
-     * @return the first searched path for given library name after mapping, or {@code null} if not found
-     */
+    // returns the first searched path for the given library name after mapping,
+    // or {@code null} if not found.
     private static Path searchLibrary(String mappedLibraryName) {
         for (String searchPath : SEARCH_PATH) {
             Path p = Paths.get(searchPath, mappedLibraryName);
@@ -243,23 +243,21 @@ public final class Libs {
         }
     }
 
-    /**
-     * find target libDescriptor by given type
-     *
-     * @return the library descriptor for the given type, or {@code null} if the library is missing or unsupported on current operating system
-     * for optimal performance, callers should store the return value in a {@code static final} field
-     */
+    // find the target libDescriptor by the given type.
+    // returns the library descriptor for the given type, or {@code null}
+    // if the library is missing or unsupported on the current operating system.
+    // for optimal performance, callers should store the return value
+    // in a {@code static final} field.
     @SuppressWarnings("unchecked")
     public static <T> LibDescriptor<T> libDescriptor(Class<T> type) {
         return (LibDescriptor<T>) DESCRIPTORS.get(type);
     }
 
-    /**
-     * find target impl by given type
-     *
-     * @return the library impl for the given type, or {@code null} if the library is missing or unsupported on current operating system
-     * for optimal performance, callers should store the return value in a {@code static final} field
-     */
+    // find the target impl by the given type.
+    // returns the library impl for the given type, or {@code null}
+    // if the library is missing or unsupported on the current operating system.
+    // for optimal performance, callers should store the return value
+    // in a {@code static final} field.
     public static <T> T impl(Class<T> type) {
         LibDescriptor<T> libDescriptor = libDescriptor(type);
         if (libDescriptor == null) {

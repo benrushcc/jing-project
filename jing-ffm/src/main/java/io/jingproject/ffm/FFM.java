@@ -12,12 +12,13 @@ import java.lang.annotation.Target;
 public @interface FFM {
     String VM = "jvm";
 
-    /**
-     * specifies the shared library name. the default value is JVM's internal lookup.
-     * you should never name your library "jvm".
-     */
+    // specifies the shared library name.
+    // the default value is the JVM's internal lookup.
+    // you should never name your library "jvm".
     String libraryName() default VM;
 
-    // 默认情况下支持windows linux macos，以后可能会随着jing项目的发展而引入更多操作系统的支持，该值需要严格与Os中的枚举值保持一致
+    // the default value supports windows, linux and macos.
+    // more operating systems may be added as the jing project grows.
+    // this value must stay strictly consistent with the Os enum values.
     Os[] supportedOS() default {Os.WINDOWS, Os.LINUX, Os.MACOS};
 }
