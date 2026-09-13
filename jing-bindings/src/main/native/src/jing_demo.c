@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <float.h>
 
 int demo_single_int(void) {
 	return 7355608;
@@ -28,16 +29,35 @@ int demo_int64_to_str(int64_t val, char* buf, int len) {
 }
 
 int demo_double_to_str(double val, char* buf, int len) {
-	return snprintf(buf, len, "%g", val);
+	// DBL_DECIMAL_DIG digits guarantee a bit-exact round trip through
+	// strtod/parseDouble on any conforming implementation
+	return snprintf(buf, len, "%.*g", DBL_DECIMAL_DIG, val);
 }
 
+#if defined(JING_OS_WINDOWS)
+// windows: 'long' is 4 bytes, real semantics live in demo_long_win_add
+long long demo_long_add(long long a, long long b) {
+	(void) a;
+	(void) b;
+	return 0;
+}
+
+long demo_long_win_add(long a, long b) {
+	return a + b;
+}
+#else
+// lp64: 'long' is 8 bytes, this is the real long demo
 long demo_long_add(long a, long b) {
 	return a + b;
 }
 
-long long demo_long_long_add(long long a, long long b) {
-	return a + b;
+// 4-byte stub, width matches Java 'int'
+int demo_long_win_add(int a, int b) {
+	(void) a;
+	(void) b;
+	return 0;
 }
+#endif
 
 size_t demo_size_t_add(size_t a, size_t b) {
 	return a + b;
@@ -47,9 +67,32 @@ unsigned int demo_unsigned_int_add(unsigned int a, unsigned int b) {
 	return a + b;
 }
 
+#if defined(JING_OS_WINDOWS)
+// windows: 'unsigned long' is 4 bytes, real semantics live in
+// demo_unsigned_long_win_add
+unsigned long long demo_unsigned_long_add(unsigned long long a,
+                                          unsigned long long b) {
+	(void) a;
+	(void) b;
+	return 0;
+}
+
+unsigned long demo_unsigned_long_win_add(unsigned long a, unsigned long b) {
+	return a + b;
+}
+#else
+// lp64: 'unsigned long' is 8 bytes, this is the real unsigned long demo
 unsigned long demo_unsigned_long_add(unsigned long a, unsigned long b) {
 	return a + b;
 }
+
+// 4-byte stub, width matches Java 'int'
+unsigned int demo_unsigned_long_win_add(unsigned int a, unsigned int b) {
+	(void) a;
+	(void) b;
+	return 0;
+}
+#endif
 
 size_t demo_str_len(const char* s) {
 	return strlen(s);

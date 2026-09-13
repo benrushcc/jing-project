@@ -45,38 +45,73 @@ public class DemoTest {
     @Test
     public void testComputePointer() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for (int i = 0; i < BATCH; i++) {
-            int a = random.nextInt(0, Integer.MAX_VALUE);
-            int b = random.nextInt(0, Integer.MAX_VALUE);
-            MemorySegment m1 = Arena.ofAuto().allocateFrom(ValueLayout.JAVA_INT, a);
-            MemorySegment m2 = Arena.ofAuto().allocateFrom(ValueLayout.JAVA_INT, b);
-            Assertions.assertEquals(JAVA_IMPL.computePointer(m1, m2), NATIVE_IMPL.computePointer(m1, m2));
+        try (Arena arena = Arena.ofConfined()) {
+            for (int i = 0; i < BATCH; i++) {
+                int a = random.nextInt(0, Integer.MAX_VALUE);
+                int b = random.nextInt(0, Integer.MAX_VALUE);
+                MemorySegment m1 = arena.allocateFrom(ValueLayout.JAVA_INT, a);
+                MemorySegment m2 = arena.allocateFrom(ValueLayout.JAVA_INT, b);
+                Assertions.assertEquals(JAVA_IMPL.computePointer(m1, m2), NATIVE_IMPL.computePointer(m1, m2));
+            }
         }
     }
 
     @Test
     public void testStrToLong() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for (int i = 0; i < BATCH; i++) {
-            long v = random.nextLong();
-            String str = String.valueOf(v);
-            MemorySegment segment = Arena.ofAuto().allocateFrom(str, StandardCharsets.UTF_8);
-            long v1 = JAVA_IMPL.strToLong(segment);
-            long v2 = NATIVE_IMPL.strToLong(segment);
-            Assertions.assertEquals(v1, v2);
+        try (Arena arena = Arena.ofConfined()) {
+            for (int i = 0; i < BATCH; i++) {
+                long v = random.nextLong();
+                String str = String.valueOf(v);
+                MemorySegment segment = arena.allocateFrom(str, StandardCharsets.UTF_8);
+                long v1 = JAVA_IMPL.strToLong(segment);
+                long v2 = NATIVE_IMPL.strToLong(segment);
+                Assertions.assertEquals(v1, v2);
+            }
         }
     }
 
     @Test
     public void testLongToStr() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for (int i = 0; i < BATCH; i++) {
-            long v = random.nextLong();
-            MemorySegment s1 = Arena.ofAuto().allocate(ValueLayout.JAVA_BYTE, 64);
-            int i1 = JAVA_IMPL.longToStr(v, s1, 64);
-            MemorySegment s2 = Arena.ofAuto().allocate(ValueLayout.JAVA_BYTE, 64);
-            int i2 = JAVA_IMPL.longToStr(v, s2, 64);
-            Assertions.assertEquals(i1, i2);
+        try (Arena arena = Arena.ofConfined()) {
+            for (int i = 0; i < BATCH; i++) {
+                long v = random.nextLong();
+                MemorySegment s1 = arena.allocate(ValueLayout.JAVA_BYTE, 64);
+                int i1 = JAVA_IMPL.longToStr(v, s1, 64);
+                MemorySegment s2 = arena.allocate(ValueLayout.JAVA_BYTE, 64);
+                int i2 = NATIVE_IMPL.longToStr(v, s2, 64);
+                Assertions.assertEquals(i1, i2);
+            }
+        }
+    }
+
+    @Test
+    public void testStrToDouble() {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        try (Arena arena = Arena.ofConfined()) {
+            for (int i = 0; i < BATCH; i++) {
+                double v = random.nextDouble(-Double.MAX_VALUE, Double.MAX_VALUE);
+                String str = Double.toString(v);
+                MemorySegment segment = arena.allocateFrom(str, StandardCharsets.UTF_8);
+                double r = NATIVE_IMPL.strToDouble(segment);
+                Assertions.assertEquals(Double.doubleToLongBits(v), Double.doubleToLongBits(r));
+            }
+        }
+    }
+
+    @Test
+    public void testDoubleToStr() {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        try (Arena arena = Arena.ofConfined()) {
+            for (int i = 0; i < BATCH; i++) {
+                double v = random.nextDouble(-Double.MAX_VALUE, Double.MAX_VALUE);
+                MemorySegment segment = arena.allocate(ValueLayout.JAVA_BYTE, 64);
+                NATIVE_IMPL.doubleToStr(v, segment, 64);
+                String str = segment.getString(0L, StandardCharsets.UTF_8);
+                double r = Double.parseDouble(str);
+                Assertions.assertEquals(Double.doubleToLongBits(v), Double.doubleToLongBits(r));
+            }
         }
     }
 
@@ -119,27 +154,35 @@ public class DemoTest {
 
     @Test
     public void testCommonCTypes() {
-        Assertions.assertEquals(JAVA_IMPL.longAdd(100L, 200L), NATIVE_IMPL.longAdd(100L, 200L));
-        Assertions.assertEquals(JAVA_IMPL.longAdd(Long.MAX_VALUE, 1L), NATIVE_IMPL.longAdd(Long.MAX_VALUE, 1L));
-        Assertions.assertEquals(JAVA_IMPL.longAdd(Long.MIN_VALUE, -1L), NATIVE_IMPL.longAdd(Long.MIN_VALUE, -1L));
-        Assertions.assertEquals(JAVA_IMPL.longLongAdd(100L, 200L), NATIVE_IMPL.longLongAdd(100L, 200L));
-        Assertions.assertEquals(JAVA_IMPL.longLongAdd(Long.MAX_VALUE, 1L), NATIVE_IMPL.longLongAdd(Long.MAX_VALUE, 1L));
+        if (Os.current() == Os.WINDOWS) {
+            Assertions.assertEquals(JAVA_IMPL.longWinLongAdd(100, 200), NATIVE_IMPL.longWinLongAdd(100, 200));
+            Assertions.assertEquals(JAVA_IMPL.longWinLongAdd(Integer.MAX_VALUE, 1), NATIVE_IMPL.longWinLongAdd(Integer.MAX_VALUE, 1));
+            Assertions.assertEquals(JAVA_IMPL.longWinLongAdd(Integer.MIN_VALUE, -1), NATIVE_IMPL.longWinLongAdd(Integer.MIN_VALUE, -1));
+            Assertions.assertEquals(JAVA_IMPL.unsignedLongWinAdd(-1, 1), NATIVE_IMPL.unsignedLongWinAdd(-1, 1));
+            Assertions.assertEquals(JAVA_IMPL.unsignedLongWinAdd(-1, -1), NATIVE_IMPL.unsignedLongWinAdd(-1, -1));
+        } else {
+            Assertions.assertEquals(JAVA_IMPL.longAdd(100L, 200L), NATIVE_IMPL.longAdd(100L, 200L));
+            Assertions.assertEquals(JAVA_IMPL.longAdd(Long.MAX_VALUE, 1L), NATIVE_IMPL.longAdd(Long.MAX_VALUE, 1L));
+            Assertions.assertEquals(JAVA_IMPL.longAdd(Long.MIN_VALUE, -1L), NATIVE_IMPL.longAdd(Long.MIN_VALUE, -1L));
+            Assertions.assertEquals(JAVA_IMPL.unsignedLongAdd(-1L, 1L), NATIVE_IMPL.unsignedLongAdd(-1L, 1L));
+            Assertions.assertEquals(JAVA_IMPL.unsignedLongAdd(-1L, -1L), NATIVE_IMPL.unsignedLongAdd(-1L, -1L));
+        }
         Assertions.assertEquals(JAVA_IMPL.sizeTAdd(0L, 0L), NATIVE_IMPL.sizeTAdd(0L, 0L));
         Assertions.assertEquals(JAVA_IMPL.sizeTAdd(1000L, 2000L), NATIVE_IMPL.sizeTAdd(1000L, 2000L));
         Assertions.assertEquals(JAVA_IMPL.sizeTAdd(Long.MAX_VALUE, 1L), NATIVE_IMPL.sizeTAdd(Long.MAX_VALUE, 1L));
         Assertions.assertEquals(JAVA_IMPL.unsignedIntAdd(-1, -1), NATIVE_IMPL.unsignedIntAdd(-1, -1));
         Assertions.assertEquals(JAVA_IMPL.unsignedIntAdd(-1, 1), NATIVE_IMPL.unsignedIntAdd(-1, 1));
-        Assertions.assertEquals(JAVA_IMPL.unsignedLongAdd(-1L, 1L), NATIVE_IMPL.unsignedLongAdd(-1L, 1L));
-        Assertions.assertEquals(JAVA_IMPL.unsignedLongAdd(-1L, -1L), NATIVE_IMPL.unsignedLongAdd(-1L, -1L));
     }
 
     @Test
     public void testStrLenAndPointers() {
-        MemorySegment s = Arena.ofAuto().allocateFrom("hello", StandardCharsets.UTF_8);
-        Assertions.assertEquals(JAVA_IMPL.strLen(s), NATIVE_IMPL.strLen(s));
-        MemorySegment p = Arena.ofAuto().allocate(ValueLayout.JAVA_INT, 1);
-        Assertions.assertEquals(p.address(), NATIVE_IMPL.voidPtrIdentity(p).address());
-        Assertions.assertEquals(p.address(), NATIVE_IMPL.pointerIdentity(p).address());
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment s = arena.allocateFrom("hello", StandardCharsets.UTF_8);
+            Assertions.assertEquals(JAVA_IMPL.strLen(s), NATIVE_IMPL.strLen(s));
+            MemorySegment p = arena.allocate(ValueLayout.JAVA_INT, 1);
+            Assertions.assertEquals(p.address(), NATIVE_IMPL.voidPtrIdentity(p).address());
+            Assertions.assertEquals(p.address(), NATIVE_IMPL.pointerIdentity(p).address());
+        }
     }
 
     @Test

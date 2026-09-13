@@ -11,7 +11,10 @@ import java.lang.foreign.ValueLayout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
+@Warmup(iterations = 1, time = 2000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 1, time = 4000, timeUnit = TimeUnit.MILLISECONDS)
 public class DemoBindingBench extends AbstractBench {
     private static final int BATCH_SIZE = 10000;
     private static final DemoBinding NATIVE_IMPL = Libs.impl(DemoBinding.class);

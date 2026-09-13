@@ -20,15 +20,42 @@ JING_EXPORT_SYMBOL int demo_int64_to_str(int64_t val, char* buf, int len);
 
 JING_EXPORT_SYMBOL int demo_double_to_str(double val, char* buf, int len);
 
-JING_EXPORT_SYMBOL long demo_long_add(long a, long b);
-
-JING_EXPORT_SYMBOL long long demo_long_long_add(long long a, long long b);
+#if defined(JING_OS_WINDOWS)
+JING_EXPORT_SYMBOL long long demo_long_add(
+    long long a,
+    long long b);   // 8-byte stub, ABI width matches Java 'long' on windows
+JING_EXPORT_SYMBOL long demo_long_win_add(
+    long a, long b);   // windows: C 'long' is 4 bytes and maps to Java 'int'
+#else
+JING_EXPORT_SYMBOL long
+demo_long_add(long a,
+              long b);   // lp64: C 'long' is 8 bytes and maps to Java 'long'
+JING_EXPORT_SYMBOL int
+demo_long_win_add(int a,
+                  int b);   // 4-byte stub, ABI width matches Java 'int' on lp64
+#endif
 
 JING_EXPORT_SYMBOL size_t demo_size_t_add(size_t a, size_t b);
 
-JING_EXPORT_SYMBOL unsigned int demo_unsigned_int_add(unsigned int a, unsigned int b);
+JING_EXPORT_SYMBOL unsigned int demo_unsigned_int_add(unsigned int a,
+                                                      unsigned int b);
 
-JING_EXPORT_SYMBOL unsigned long demo_unsigned_long_add(unsigned long a, unsigned long b);
+#if defined(JING_OS_WINDOWS)
+// 8-byte stub, ABI width matches Java 'long' on windows
+JING_EXPORT_SYMBOL unsigned long long demo_unsigned_long_add(
+    unsigned long long a,
+    unsigned long long b);   // windows: C 'unsigned long' is 4 bytes, stub is 8
+// windows: C 'unsigned long' is 4 bytes and maps to Java 'int'
+JING_EXPORT_SYMBOL unsigned long demo_unsigned_long_win_add(unsigned long a,
+                                                            unsigned long b);
+#else
+// lp64: C 'unsigned long' is 8 bytes and maps to Java 'long'
+JING_EXPORT_SYMBOL unsigned long demo_unsigned_long_add(unsigned long a,
+                                                        unsigned long b);
+// 4-byte stub, ABI width matches Java 'int' on lp64
+JING_EXPORT_SYMBOL unsigned int demo_unsigned_long_win_add(unsigned int a,
+                                                           unsigned int b);
+#endif
 
 JING_EXPORT_SYMBOL size_t demo_str_len(const char* s);
 

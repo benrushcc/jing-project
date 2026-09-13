@@ -34,8 +34,8 @@ public interface DemoBinding {
     @Downcall(methodName = "demo_long_add", critical = true)
     long longAdd(long a, long b);
 
-    @Downcall(methodName = "demo_long_long_add", critical = true)
-    long longLongAdd(long a, long b);
+    @Downcall(methodName = "demo_long_win_add", critical = true)
+    int longWinLongAdd(int a, int b);
 
     @Downcall(methodName = "demo_size_t_add", critical = true)
     long sizeTAdd(long a, long b);
@@ -45,6 +45,9 @@ public interface DemoBinding {
 
     @Downcall(methodName = "demo_unsigned_long_add", critical = true)
     long unsignedLongAdd(long a, long b);
+
+    @Downcall(methodName = "demo_unsigned_long_win_add", critical = true)
+    int unsignedLongWinAdd(int a, int b);
 
     @Downcall(methodName = "demo_str_len")
     long strLen(MemorySegment str);

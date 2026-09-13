@@ -11,6 +11,7 @@
     PowerShell. Requires PowerShell 7+ (pwsh) and Visual Studio 2017 or later:
     VS location is resolved exclusively through vswhere.exe. If vswhere is
     missing (VS 2015 and older), the script fails with a clear error.
+    The environment is captured freshly on every run; no cache file is used.
 
 .PARAMETER Arch
     Target architecture passed to VsDevCmd.bat. Defaults to x64.
@@ -23,14 +24,6 @@
 
 .PARAMETER VsDevCmd
     Full path to VsDevCmd.bat override (skips vswhere).
-
-.PARAMETER CacheFile
-    File used to cache the environment dump so later runs skip launching
-    cmd.exe. Defaults to .vs-env-<arch>.txt next to this script. The cache is
-    auto-invalidated when it does not match the resolved installation.
-
-.PARAMETER Refresh
-    Force a fresh dump, ignoring an existing cache.
 
 .PARAMETER Command
     If provided, the script imports the environment and then runs this command
@@ -58,8 +51,6 @@ param(
     [string]$HostArch = '',
     [string]$InstallDir = '',
     [string]$VsDevCmd = '',
-    [string]$CacheFile = '',
-    [switch]$Refresh,
     [string]$Command = '',
     [switch]$Info
 )
@@ -105,8 +96,7 @@ function Invoke-EnvDump {
     param(
         [string]$Bat,
         [string]$TargetArch,
-        [string]$HostArchValue,
-        [string]$OutFile
+        [string]$HostArchValue
     )
     $tmpBat = Join-Path $env:TEMP ("vsdev-dump-{0}.bat" -f [guid]::NewGuid().ToString('N'))
     $argsLine = '-arch=' + $TargetArch
@@ -125,11 +115,6 @@ function Invoke-EnvDump {
         Remove-Item -LiteralPath $tmpBat -Force -ErrorAction SilentlyContinue
     }
     if ($LASTEXITCODE -ne 0) { return $false }
-    if ($OutFile) {
-        $header = "# vsenv from $Bat"
-        Set-Content -LiteralPath $OutFile -Value (@($header) + $lines) -Encoding utf8
-        return $true
-    }
     return , $lines
 }
 
@@ -148,30 +133,11 @@ function Import-EnvLines {
 
 $batPath = Get-VsDevCmdPath
 
-if (-not $CacheFile) {
-    $cacheName = '.vs-env-' + $Arch
-    if ($HostArch) { $cacheName += '-' + $HostArch }
-    $CacheFile = Join-Path $PSScriptRoot ($cacheName + '.txt')
+$envLines = Invoke-EnvDump -Bat $batPath -TargetArch $Arch -HostArchValue $HostArch
+if (-not $envLines) {
+    throw "VsDevCmd.bat failed. Check that the VC++ workload (Microsoft.VisualStudio.Component.VC.Tools.x86.x64) is installed."
 }
-
-$needDump = $Refresh -or (-not (Test-Path -LiteralPath $CacheFile))
-if (-not $needDump) {
-    $cached = [System.IO.File]::ReadAllLines($CacheFile)
-    $expectedHeader = "# vsenv from $batPath"
-    if ($cached.Count -eq 0 -or $cached[0] -ne $expectedHeader) {
-        $needDump = $true
-    }
-}
-
-if ($needDump) {
-    $ok = Invoke-EnvDump -Bat $batPath -TargetArch $Arch -HostArchValue $HostArch -OutFile $CacheFile
-    if (-not $ok) {
-        throw "VsDevCmd.bat failed. Check that the VC++ workload (Microsoft.VisualStudio.Component.VC.Tools.x86.x64) is installed."
-    }
-}
-
-$lines = [System.IO.File]::ReadAllLines($CacheFile)
-Import-EnvLines -Lines $lines
+Import-EnvLines -Lines $envLines
 
 if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
     Write-Warning "cl.exe was not found after importing the VS environment; the C++ workload may be missing."
@@ -185,7 +151,6 @@ if ($Info) {
     Write-Host "  MSVC version : $($env:VCToolsVersion)"
     Write-Host "  Windows SDK  : $($env:WindowsSDKVersion)"
     Write-Host "  cl.exe       : $((Get-Command cl.exe -ErrorAction SilentlyContinue).Source)"
-    Write-Host "  cache file   : $CacheFile"
     Exit-Script 0
 }
 

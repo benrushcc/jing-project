@@ -1,5 +1,6 @@
 # Changes
 
+<<<<<<< Updated upstream
 ## 2026-09-13T23:51:24+0800
 - Modified jing-common/conf/CfgReader.java: 注释规范化——JsonCfgReader 中 10 处中文注释(parse 方法上的"构建出来的Reader只能parse一次"与 enum State 各状态说明)全部改为纯英文双斜杠注释,符合项目注释规范(纯英文、// 形式、小写开头)
 - 规范化后 jing-common 全部 36 个单元测试通过
@@ -45,6 +46,25 @@
 
 ## 2026-09-13T18:24:37+08:00
 - Added doc/Configuration-v2.md: 根据当前 jing-common 配置模块源码重新确定设计,生成全英文设计文档,记录 SPI 可插拔架构、ConfigurationFactory/ConfigurationFacade/DefaultConfigurationFacade 分层、Cfg sealed 数据模型、toml/json/properties 三种解析器子集、key 规则与加载机制,并记录三个已知问题(扩展名校验变量误用、嵌套 key 遍历跳过首段、未使用的 MAX_DEPTH)
+=======
+## 2026-09-13T21:30:00+08:00
+- Modified jing-bindings/src/main/native/vs-env.ps1: 移除环境缓存机制——删除 CacheFile/Refresh 参数、缓存判定与缓存文件读写,改为每次运行都重新通过 VsDevCmd.bat 抓取环境并注入,对外部文件依赖最小;同步更新脚本文档头并删除 -Info 输出中的 cache 行
+
+## 2026-09-13T21:18:00+08:00
+- Modified jing-bindings/src/main/native/src/jing_demo.c: demo_double_to_str 的格式化从硬编码 %.17g 改为 "%.*g" + DBL_DECIMAL_DIG(新增 <float.h> include)——该宏为标准定义的对 double 保证往返的最少十进制位数,跨平台值一致(MSVC/glibc/macOS 均为 17),消除硬编码
+
+## 2026-09-13T21:00:00+08:00
+- Modified jing-bindings/src/main/native/src/jing_demo.c: demo_double_to_str 的格式化从 %g(6 位有效数字)改为 %.17g(17 位有效数字),保证任意 double 经字符串写出后由 strtod/Double.parseDouble 解析可位级还原
+- Modified jing-bindings/src/test/java/io/jingproject/bindingstest/test/DemoTest.java: strToDouble/doubleToStr 测试改为纯位级比对方案——strToDouble 用 JDK Double.toString 生成字符串送给 native 解析,再与原值 doubleToLongBits 位比对;doubleToStr 用随机 double 调 native 写出,JDK Double.parseDouble 解析后位比对,不再对字符串内容做任何文本/长度判断;全文件 Arena.ofAuto() 统一改为 Arena.ofConfined() 配合 try-with-resources 管理生命周期;修正 testLongToStr 中 i2 误调 JAVA_IMPL 导致 native 侧 longToStr 未被实际测试的问题
+
+## 2026-09-13T20:47:00+08:00
+- Modified jing-bindings/src/test/java/io/jingproject/bindingstest/test/DemoTest.java: 为之前未覆盖的 strToDouble 与 doubleToStr 新增单元测试——strToDouble 用随机 double 字符串对拍 Java/native 解析结果(要求逐位相等);doubleToStr 因 native 用 printf %g(6 位有效数字)而 Java 参考实现用 String.valueOf(全精度),输出文本必然不同,故验证返回长度契约与 native 侧 doubleToStr→strToDouble 往返(误差在 %g 精度内)
+
+## 2026-09-13T19:50:00+08:00
+- Modified jing-bindings/src/main/native/src/jing_demo.h/.c: 修复 Windows(LLP64)下 long/unsigned long 为 4 字节导致的 ABI 语义隐患——demo_long_add 与新增的 demo_long_win_add 双符号方案,Windows 上 long_add 为 8 字节 stub(返回 0)、long_win_add 为真实语义,LP64 反之;unsigned long 同理新增 demo_unsigned_long_win_add(Windows 下 unsigned_long_add 为 8 字节 stub、win 版本为真实语义,LP64 反之);stub 补 (void) 参数消 MSVC C4100 警告
+- Modified jing-bindings/src/test/java/io/jingproject/bindingstest/entity/DemoBinding.java 与 DemoBindingImpl.java: 移除 longLongAdd 绑定,新增 int longWinLongAdd(int,int) 与 int unsignedLongWinAdd(int,int) 绑定,使任意平台下 Java 签名宽度与 C 声明 ABI 完全匹配
+- Modified jing-bindings/src/test/java/io/jingproject/bindingstest/test/DemoTest.java: testCommonCTypes 按 Os.current()==WINDOWS 分发——Windows 走 win 版本断言,Lp64 走 long/unsigned long 版本断言(含 64 位回绕),unsignedIntAdd/sizeTAdd 保持公共断言
+>>>>>>> Stashed changes
 
 ## 2026-09-13T16:35:00+08:00
 - Modified jing-common/anno/Fragile.java: 类注释从 Javadoc 改为 `//` 风格并润色,明确 @Fragile 类在设定上不当使用会导致 JVM 崩溃,内部无需过度防御性编程,只需保证正确输入下输出正确结果

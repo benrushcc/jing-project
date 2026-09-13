@@ -60,7 +60,7 @@ public final class DemoBindingImpl implements DemoBinding {
     }
 
     @Override
-    public long longLongAdd(long a, long b) {
+    public int longWinLongAdd(int a, int b) {
         return a + b;
     }
 
@@ -76,6 +76,11 @@ public final class DemoBindingImpl implements DemoBinding {
 
     @Override
     public long unsignedLongAdd(long a, long b) {
+        return a + b;
+    }
+
+    @Override
+    public int unsignedLongWinAdd(int a, int b) {
         return a + b;
     }
 
