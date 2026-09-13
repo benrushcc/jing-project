@@ -1,5 +1,51 @@
 # Changes
 
+## 2026-09-13T23:51:24+0800
+- Modified jing-common/conf/CfgReader.java: 注释规范化——JsonCfgReader 中 10 处中文注释(parse 方法上的"构建出来的Reader只能parse一次"与 enum State 各状态说明)全部改为纯英文双斜杠注释,符合项目注释规范(纯英文、// 形式、小写开头)
+- 规范化后 jing-common 全部 36 个单元测试通过
+
+## 2026-09-13T22:07:37+0800
+- Modified jing-common/conf/Cfg.java: CfgItem/CfgList/CfgObject 三个 record 实现类移入 Cfg 密封接口内部成为嵌套类型,删除独立文件,类型全名变为 Cfg.CfgItem/Cfg.CfgList/Cfg.CfgObject
+- Modified jing-common/conf/CfgReader.java: JsonCfgReader/PropertiesCfgReader/TomlCfgReader 三个实现类移入 CfgReader 密封接口内部成为嵌套类型,删除独立文件,类型全名变为 CfgReader.JsonCfgReader/CfgReader.PropertiesCfgReader/CfgReader.TomlCfgReader
+- Fixed jing-common/conf/CfgReader.java: 修复 JsonCfgReader 的 STR_ARR_OBJ_END 状态在字符串/数组值结束后无条件弹出父节点的问题——改为先读后续字节再分支:',' 留在当前对象内继续读键、'}' 才弹出父节点挂载完成的嵌套对象、EOF 在顶层返回结果/非顶层抛 CfgException,修复嵌套对象含多个键值对时后续键被错误挂到根级的问题(原实现仅单键嵌套对象恰好能工作)
+- Modified jing-common/conf/DefaultConfigurationFacade.java: 导入改为 Cfg.CfgItem/Cfg.CfgList/Cfg.CfgObject 与 CfgReader.JsonCfgReader/CfgReader.PropertiesCfgReader/CfgReader.TomlCfgReader
+- Modified jing-common 测试: JsonCfgReaderTest/TomlCfgReaderTest/PropertiesCfgReaderTest 导入改为嵌套类型,新增 parse(String)/parse(String, int) 双辅助方法;三个测试类各新增 testMaxDepthExceeded(嵌套层数超过 maxDepth=5 断言抛 CfgException)与 testComplexMixed(数组+嵌套对象混合用例,三种格式等价断言);CfgDataModelTest 导入改为 Cfg.CfgItem/Cfg.CfgList/Cfg.CfgObject
+- 修复后 jing-common 全部 36 个单元测试通过(原 30 个 + 新增 6 个)
+
+## 2026-09-13T21:43:15+0800
+- Added jing-common/conf/CfgReader.java: 新增 sealed interface CfgReader,提供 CfgObject parse(int maxDepth) throws IOException,由 JsonCfgReader/PropertiesCfgReader/TomlCfgReader 实现
+- Modified jing-common/conf/JsonCfgReader.java: 实现 CfgReader,parse 增加 maxDepth 参数,对象嵌套深度检查改用参数(替换原 CfgUtil.maxDepth())
+- Modified jing-common/conf/PropertiesCfgReader.java: 实现 CfgReader,parse 增加 maxDepth 参数,readCfgNestedKey 传入 maxDepth
+- Modified jing-common/conf/TomlCfgReader.java: 实现 CfgReader,parse 增加 maxDepth 参数,表路径 readCfgNestedKey 传入 maxDepth
+- Modified jing-common/conf/CfgUtil.java: 移除 MAX_DEPTH 相关静态字段与 resolveMaxDepth/parseMaxDepth/maxDepth 方法(归属移到 facade);readCfgNestedKey 增加 maxDepth 参数,段数检查改用参数
+- Modified jing-common/conf/DefaultConfigurationFacade.java: MAX_DEPTH 的赋值与范围校验统一在 static 块内完成——从环境变量 JING_CONFIG_MAX_DEPTH 读取,Integer.parseInt 解析,默认 128,必须大于 4(≤4 抛 ExceptionInInitializerError);createConfiguration 三处 parse 传入 MAX_DEPTH,conf/confList 的 readCfgNestedKey 传入 MAX_DEPTH
+- Modified jing-common 测试: JsonCfgReaderTest/TomlCfgReaderTest/PropertiesCfgReaderTest 的 parse() 改为 parse(128),CfgUtilTest 的 readCfgNestedKey 增加 128 参数,适配新接口签名
+
+## 2026-09-13T21:17:57+0800
+- Fixed jing-common/conf/DefaultConfigurationFacade.java: 扩展名校验从误用系统属性变量 fileExt 改为循环变量 ext,修复默认加载路径(jing.config.ext 未设置)必抛 "unsupported configuration file extension" 的问题;嵌套 key 遍历从 subList(1, size-1) 改为 subList(0, size-1),修复 conf/confList 查询嵌套 key(如 server.port)恒返回 null 的问题;删除未使用的 MAX_DEPTH 字段
+- Modified jing-common/conf/CfgUtil.java: MAX_DEPTH 改为从环境变量 JING_CONFIG_MAX_DEPTH 读取,默认 128,必须大于 4(非法值或 ≤4 抛 CfgException),校验逻辑抽为公开静态方法 parseMaxDepth;readCfgNestedKey 的 key 段数限制改用新值
+- Modified jing-common/conf/JsonCfgReader.java: 新增对象嵌套深度检查,嵌套层数达到 MAX_DEPTH 时抛 CfgException
+- Modified jing-common/conf/Cfg.java/CfgItem.java/CfgList.java/CfgObject.java: 移除 type() 方法,报错信息改用 getClass().getSimpleName() 直接打印类型
+- Modified jing-common/.../CfgDataModelTest.java: 删除 testTypes 测试(type() 已移除)
+- 顺带修正 DefaultConfigurationFacade 中文注释与 CfgUtil 中大写开头的异常消息,符合项目规范
+
+## 2026-09-13T19:35:00+0800
+- Fixed jing-common/conf/TomlCfgReader.java: VALUE_END 状态改用 CfgUtil.ignore(input, ' ', '\t') 跳过行尾空白后只读一个字节再分支,修复原实现用 ignore 跳过全部换行/注释字节导致多行 TOML(多键值、表、嵌套表)抛 AssertionError 的问题,重复键/重复表检测不再被掩盖
+- Fixed jing-common/conf/JsonCfgReader.java: STR_ARR_OBJ_END 顶层(parent==null)分支不再解析完第一个值立即返回,改为读取后续字节——',' 进入 EXPECT_KEY、'}' 或 EOF 返回结果、其余抛 CfgException,修复多顶层键只解析第一个、重复键检测被绕过的问题
+- 修复后 jing-common 全部 31 个单元测试通过(含新增 30 个配置加载测试)
+
+## 2026-09-13T18:55:05+0800
+- Modified jing-common/module-info.java: 将 io.jingproject.common.conf 限定导出给 jing.commontest 测试模块,使单元测试可直接访问内部解析器实现
+- Added jing-common/src/test/java/io/jingproject/commontest/TomlCfgReaderTest.java: 新增 TOML 解析器单元测试,用固定字符串直接构造 InputStream,覆盖单键值、多键值、表、嵌套表、数组、注释、Unicode 转义、重复键、重复表、非法键
+- Added jing-common/src/test/java/io/jingproject/commontest/JsonCfgReaderTest.java: 新增 JSON 解析器单元测试,覆盖单键值、多键、嵌套对象、数组、Unicode 转义、代理对、重复键、损坏输入
+- Added jing-common/src/test/java/io/jingproject/commontest/PropertiesCfgReaderTest.java: 新增 properties 解析器单元测试,覆盖简单键值、嵌套键、数组、注释、重复键后者覆盖
+- Added jing-common/src/test/java/io/jingproject/commontest/CfgUtilTest.java: 新增 CfgUtil 工具单元测试,覆盖 readCfgKey/readCfgNestedKey/readUnicode/writeUnicodeInUtf8/rejectKey
+- Added jing-common/src/test/java/io/jingproject/commontest/CfgDataModelTest.java: 新增 Cfg 数据模型单元测试,覆盖 type() 与 asImmutable()
+- 测试发现两个解析器缺陷(暂不修复,仅记录):TomlCfgReader 的 VALUE_END 状态用 CfgUtil.ignore 跳过全部换行/注释字节,多行 TOML 会抛 AssertionError;JsonCfgReader 的 STR_ARR_OBJ_END 在顶层(parent==null)解析完第一个值后立即返回,多顶层键只解析第一个
+
+## 2026-09-13T18:24:37+08:00
+- Added doc/Configuration-v2.md: 根据当前 jing-common 配置模块源码重新确定设计,生成全英文设计文档,记录 SPI 可插拔架构、ConfigurationFactory/ConfigurationFacade/DefaultConfigurationFacade 分层、Cfg sealed 数据模型、toml/json/properties 三种解析器子集、key 规则与加载机制,并记录三个已知问题(扩展名校验变量误用、嵌套 key 遍历跳过首段、未使用的 MAX_DEPTH)
+
 ## 2026-09-13T16:35:00+08:00
 - Modified jing-common/anno/Fragile.java: 类注释从 Javadoc 改为 `//` 风格并润色,明确 @Fragile 类在设定上不当使用会导致 JVM 崩溃,内部无需过度防御性编程,只需保证正确输入下输出正确结果
 - Modified jing-common/anno/Provider.java: 类注释与 target() 元素注释从 Javadoc 改为 `//` 风格并润色

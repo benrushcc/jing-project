@@ -9,8 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class CfgUtil {
-    private static final int MAX_DEPTH = 128;
-
     private CfgUtil() {
         throw new AssertionError();
     }
@@ -87,13 +85,13 @@ public final class CfgUtil {
         }
         for (byte b : content) {
             if (rejectKey(b)) {
-                throw new CfgException("Invalid key byte: " + b);
+                throw new CfgException("invalid key byte: " + b);
             }
         }
         return new String(content, StandardCharsets.US_ASCII);
     }
 
-    public static List<String> readCfgNestedKey(byte[] content) {
+    public static List<String> readCfgNestedKey(byte[] content, int maxDepth) {
         if (content == null || content.length == 0) {
             throw new AssertionError();
         }
@@ -110,16 +108,16 @@ public final class CfgUtil {
                     throw new CfgException("invalid consecutive delimiters");
                 }
                 r.add(new String(content, start, i - start, StandardCharsets.US_ASCII));
-                if (r.size() > MAX_DEPTH) {
-                    throw new CfgException("Maximum nesting depth exceeded");
+                if (r.size() > maxDepth) {
+                    throw new CfgException("maximum nesting depth exceeded");
                 }
                 start = i + 1;
             }
         }
         if (start < content.length) {
             r.add(new String(content, start, content.length - start, StandardCharsets.US_ASCII));
-            if (r.size() > MAX_DEPTH) {
-                throw new CfgException("Maximum nesting depth exceeded");
+            if (r.size() > maxDepth) {
+                throw new CfgException("maximum nesting depth exceeded");
             }
             return r;
         }
@@ -146,7 +144,7 @@ public final class CfgUtil {
             } else if ((b >= 'A' && b <= 'F')) {
                 r = (r << 4) | (b - 'A' + 10);
             } else {
-                throw new CfgException("Bad hex character: " + b);
+                throw new CfgException("bad hex character: " + b);
             }
         }
         return r;
