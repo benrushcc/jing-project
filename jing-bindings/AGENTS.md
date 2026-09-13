@@ -44,6 +44,60 @@ only module-specific details are documented here.
   Studio environment (cl.exe, INCLUDE/LIB, etc.). For example:
   `. .\vs-env.ps1; cmake --preset=windows && cmake --build build`
 
+# Return Value Design
+
+Native functions follow a fixed return value convention so the Java
+side can consume them uniformly.
+
+## Simple Returns: `-errno`
+
+Most C standard library syscalls return a value >= 0 on success and a
+negative value on failure, with the failure reason in `errno`. Since
+`errno` is always positive, use it as the unified error convention:
+
+- success: return a value >= 0
+- failure: return `-errno`
+
+The Java side treats a negative return as an error and takes the
+absolute value to recover the actual `errno`.
+
+```c
+int jing_linux_epoll_ctl(int epfd, int socket, int op, int eventTypes,
+                         int data) {
+    if (epoll_ctl(epfd, op, socket, eventTypes, data) < 0) {
+        return -errno;
+    }
+    return 0;
+}
+```
+
+## Complex Returns: `jing_result`
+
+When a function must return more than one value (for example a pointer
+together with the length it points to), pass a `jing_result*`
+out-parameter instead of returning a single value.
+
+`jing_result` is defined in `src/jing_common.h` and is fixed at 16
+bytes (`size_t len` plus a `jing_data` union), verified by a
+`static_assert`. The `jing_data` union can carry byte/short/char/int/
+long/float/double, a pointer, or an error code pair, so one
+out-parameter accommodates different return data types.
+
+Use the helper functions in `src/jing_common.h` to fill it:
+- `jing_err_result(r, err)` / `jing_err_result_with_flag(r, err, flag)`
+- `jing_byte_result` / `jing_short_result` / `jing_int_result` /
+  `jing_long_result` / `jing_float_result` / `jing_double_result`
+- `jing_ptr_result(r, ptr, len)` for pointer + length
+
+Conventions:
+- scalar results set `len` to `SIZE_MAX` (no length)
+- pointer results set `len` to the real length
+- errors set `len` to 0 and fill `err_val` (`err_code` + `err_flag`,
+  with `JING_SYSTEM_ERROR_FLAG` = 0 for system errors)
+
+The Java side reads this layout through
+`io.jingproject.ffm.NativeSegmentAccess` in `jing-ffm`.
+
 # Formatting
 
 - Native code is formatted with `clang-format` using the config in

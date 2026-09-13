@@ -72,6 +72,9 @@ submodule.
 - Never use recursion. If a recursive structure seems necessary, halt
   and ask for approval before proceeding, proposing whether to simulate
   it with an iterative approach such as a `Deque`.
+- Classes marked with `@Fragile` are designed so that improper use may
+  crash the JVM. Do not add excessive defensive programming to them;
+  just ensure they produce the correct output for correct input.
 
 ## Changes Tracking
 

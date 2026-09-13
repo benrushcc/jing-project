@@ -29,7 +29,10 @@ public final class Libs {
     // all the dynamic library search directories ordered by priority
     private static final List<String> SEARCH_PATH = createSearchPath();
 
-    // critical path could be disabled globally to ensure safepoint is always checked on each downcall
+    // critical path could be disabled globally to ensure safepoint is always checked on each downcall.
+    // enabling critical is strongly recommended, the improvement is significant for very short calls.
+    // only disable it when problems caused by critical calls are actually encountered,
+    // to trade a little performance for stability.
     private static final boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
     private static final Map<Class<?>, LibDescriptor<?>> DESCRIPTORS;
 

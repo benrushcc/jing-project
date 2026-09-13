@@ -12,6 +12,11 @@ import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
 
 // utility class for accessing native memory segment and VM native functions.
+// jing-common already provides SegmentAccess for reading and writing
+// MemorySegment. NativeSegmentAccess targets off-heap memory specifically,
+// accessing it directly through pointer offsets. Compared with SegmentAccess,
+// it saves one bounds check per access, but is also easier to misuse,
+// hence the @Fragile marker.
 @Fragile
 @SuppressWarnings("unused")
 public final class NativeSegmentAccess {

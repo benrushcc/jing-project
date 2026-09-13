@@ -33,7 +33,7 @@ project(jing_bindings_project VERSION 0.0.1 LANGUAGES C)
 
 # provided options
 option(JING_BUILD_DEMO   "build jing_demo dynamic library for testing purpose"        ON)
-option(JING_USE_WEPOLL   "provide wepoll related functions in jing_bindings library"  OFF)
+option(JING_USE_WEPOLL   "provide wepoll related functions in jing_bindings library"  ON)
 option(JING_USE_AWS_LC   "provide aws-lc related functions in jing_bindings library"  OFF)
 option(JING_USE_ZLIB_NG  "provide zlib-ng related functions in jing_bindings library" ON)
 
@@ -47,7 +47,7 @@ set(JING_BORINGSSL_VERSION "0.20251002.0" CACHE STRING "boringssl library versio
 set(JING_ZLIB_NG_VERSION   "2.3.3"        CACHE STRING "zlib-ng   library version" FORCE)
 
 add_library(jing_bindings SHARED)
-target_sources(jing_bindings PRIVATE src/jing_common.c)
+target_sources(jing_bindings PRIVATE src/jing_common.c src/jing_comp.c)
 if(WIN32)
     target_sources(jing_bindings PRIVATE src/jing_win.c)
     target_link_libraries(jing_bindings PRIVATE ws2_32)
@@ -79,27 +79,6 @@ if(WIN32)
         target_link_libraries(jing_bindings PRIVATE wepollstatic)
     endif()
 endif()
-
-# setup boringssl
-#if(JING_USE_BORINGSSL)
-#     target_compile_definitions(jing_bindings PRIVATE JING_ENABLE_BORINGSSL)
-#     FetchContent_Declare(
-#         boringsslproject
-#         GIT_REPOSITORY https://github.com/google/boringssl.git
-#         GIT_TAG tags/${JING_BORINGSSL_VERSION}
-#         GIT_SHALLOW TRUE
-#     )
-#     set(BUILD_TESTING OFF CACHE BOOL "whether to build boringssl tests" FORCE)
-#     message(STATUS "Configuring boringssl")
-#     FetchContent_MakeAvailable(boringsslproject)
-#     message(STATUS "Configuring boringssl succeed")
-#     set_target_properties(bssl PROPERTIES EXCLUDE_FROM_ALL TRUE) # exclude bssl from build
-#     if(APPLE)
-#         target_compile_definitions(crypto PRIVATE OPENSSL_STATIC_ARMCAP)
-#         target_compile_definitions(ssl PRIVATE OPENSSL_STATIC_ARMCAP)
-#     endif()
-#     target_link_libraries(jing_bindings PRIVATE ssl crypto)
-#endif()
 
 #setup aws-lc TODO
 if(JING_USE_AWS_LC)

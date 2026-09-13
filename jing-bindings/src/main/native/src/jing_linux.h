@@ -18,7 +18,7 @@ JING_EXPORT_SYMBOL int jing_linux_epoll_ctl_del(void);
 
 JING_EXPORT_SYMBOL int jing_linux_epoll_cloexec(void);
 
-JING_EXPORT_SYMBOL int jing_linux_epoll_create(jing_result* r);
+JING_EXPORT_SYMBOL int jing_linux_epoll_create(void);
 
 JING_EXPORT_SYMBOL int jing_linux_epoll_ctl(int epfd, int socket, int op,
                                             uint32_t events, uint32_t data);

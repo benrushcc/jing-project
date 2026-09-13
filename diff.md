@@ -1,5 +1,42 @@
 # Changes
 
+## 2026-09-13T16:35:00+08:00
+- Modified jing-common/anno/Fragile.java: 类注释从 Javadoc 改为 `//` 风格并润色,明确 @Fragile 类在设定上不当使用会导致 JVM 崩溃,内部无需过度防御性编程,只需保证正确输入下输出正确结果
+- Modified jing-common/anno/Provider.java: 类注释与 target() 元素注释从 Javadoc 改为 `//` 风格并润色
+- Modified jing-common/anno/ProcessorApi.java: 类注释从 Javadoc 改为 `//` 风格并润色
+- Modified jing-common/anno/Generated.java: 类注释从 Javadoc 改为 `//` 风格并润色,{@link} 引用改为纯文本描述 Utils.generateClassName
+- Modified AGENTS.md: 在 Code Conventions 中新增 @Fragile 设计语义说明——不当使用会导致崩溃,无需过度防御性编程,只需保证正确输入下正确输出
+- Modified jing-ffm/Downcall.java: 在 constant 元素补充注释,说明 constant 会改变函数调用行为——在类加载时即完成初始化并执行第一次调用,而非延迟到首次调用,以便更好地实现常量折叠
+- Modified jing-ffm/README.md: 在 @Downcall 的 constant() 说明中补充其改变调用行为(类加载时初始化并首次调用,非延迟到首次调用)以支持常量折叠的描述
+
+## 2026-09-13T16:21:19+08:00
+- Modified jing-ffm/Libs.java: 在 JING_CRITICAL 处补充注释,说明 critical 选项强烈建议开启,对特别短的调用提升明显;仅当遇到因开启 critical 导致的问题时才建议关闭以提高稳定性
+
+## 2026-09-13T16:12:51+08:00
+- Modified jing-ffm/NativeSegmentAccess.java: 更新类注释,说明 jing-common 已有 SegmentAccess 负责 MemorySegment 读写,而 NativeSegmentAccess 专门针对堆外内存、直接通过指针偏移访问,相比 SegmentAccess 节省一次边界检查开销,但更易出错,故以 @Fragile 标记
+
+## 2026-09-13T16:04:29+08:00
+- Modified jing-bindings/src/main/native/src/jing_ssl.h/.c: 条件编译宏从错误的 JING_USE_WEPOLL 修正为 JING_USE_SSL,文件保留不编译,留作后续 SSL 支持基础(W6)
+
+## 2026-09-13T16:02:00+08:00
+- Modified jing-bindings/src/main/java/io/jingproject/bindings/LinuxBindings.java: 将 9 个 @Downcall 的 methodName 从 jing_epoll_* 改为 jing_linux_epoll_*(与 native 侧 jing_linux.h 导出符号一致)
+- Modified jing-bindings/src/main/java/io/jingproject/bindings/MacosBindings.java: @FFM 的 libraryName 从 "jing-bindings" 改为 "jing_bindings"; 将 5 个 @Downcall 的 methodName 改为 jing_macos_* 前缀(与 native 侧 jing_macos.h 一致)
+- Modified jing-bindings/src/main/java/io/jingproject/bindings/WinBindings.java: createSocket methodName 从 jing_socket 改为 jing_win_socket 且返回类型 int→long; 删除 4 个仅 POSIX 可用的方法(stdOutputFileno/stdErrorFileno/openFd/writeFd); 将 11 个 wepoll 相关 methodName 从 jing_wepoll_* 改为 jing_win_wepoll_*; wepollWait 签名对齐 C 侧(去掉 r 参数,返回类型 void→int)
+
+## 2026-09-13T15:43:33+08:00
+- Modified jing-bindings/src/main/native/src/jing_linux.h: 去掉 jing_linux_epoll_create 的 jing_result* r 参数,改为 void 保持与其他无参函数一致
+- Modified jing-bindings/src/main/native/src/jing_linux.c: 同步修改 jing_linux_epoll_create 定义,移除未使用的 r 参数
+- Modified jing-bindings/src/main/native/src/jing_comp.h: 给 jing_zlib_ng_version 声明补上 JING_EXPORT_SYMBOL 导出宏
+- Modified jing-bindings/src/main/native/src/jing_posix.h: 在 fs related 区域补上 jing_posix_close 声明,放在 jing_sync_fd 之后
+- Modified jing-bindings/src/main/native/CMakeLists.txt: JING_USE_WEPOLL 默认 OFF 改为 ON; target_sources 追加 src/jing_comp.c; 删除第 83-102 行被注释掉的 boringssl 死配置块
+
+## 2026-09-13T15:43:33+08:00
+- Modified jing-bindings/AGENTS.md: 新增 Return Value Design 章节,规定 native 函数返回值设计规范——简单场景统一用 `-errno` 作为错误返回值(errno 恒为正,Java 侧取绝对值即可还原 errno);复杂场景(如同时返回指针与长度)用固定 16 字节的 `jing_result` 结构体作为出参,可容纳各类返回值类型
+- Modified jing-ffm/README.md: 新增 Return Value Design 章节,描述与 jing-bindings/AGENTS.md 相同的返回值约定,并说明 Java 侧通过 NativeSegmentAccess 的 JING_RESULT_LAYOUT(16 字节,运行时校验)与 errCode 访问器读取
+
+## 2026-09-13T14:51:03+08:00
+- Modified jing-bindings/PosixBindings.java: 补充缺失的 @FFM 注解(libraryName = "jing_bindings", supportedOS = {Os.LINUX, Os.MACOS}),使该接口能被 jing-ffm-processor 正常生成 facade
+
 ## 2026-09-13T14:47:08+08:00
 - Modified jing-ffm/README.md: 在 Loading Behavior 章节补充平台支持标注,明确仅支持 Windows/Linux/macOS 且仅限 64 位架构(x64 或 aarch64),不支持 32 位平台
 

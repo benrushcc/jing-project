@@ -33,7 +33,7 @@ int jing_linux_epoll_cloexec(void) {
 	return EPOLL_CLOEXEC;
 }
 
-int jing_linux_epoll_create(jing_result* r) {
+int jing_linux_epoll_create(void) {
 	int epfd = epoll_create1(0);
 	if (JING_UNLIKELY(epfd == -1)) {
 		int err = errno;

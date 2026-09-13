@@ -42,6 +42,8 @@ JING_EXPORT_SYMBOL void jing_write_fd(int fd, char* buf, size_t len,
 
 JING_EXPORT_SYMBOL void jing_sync_fd(int fd, jing_result* r);
 
+JING_EXPORT_SYMBOL int jing_posix_close(int fd);
+
 // network related
 JING_EXPORT_SYMBOL int jing_posix_af_inet_code(void);
 

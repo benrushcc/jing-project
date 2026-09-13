@@ -5,13 +5,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Indicates that the annotated class will be used by an annotation processor.
- *
- * <p>Classes marked with {@code @ProcessorApi} are referenced directly
- * by the annotation processor, and their class names must remain stable.
- * Renaming or refactoring such classes may break the code generation process.</p>
- */
+// indicates that the annotated class will be used by an annotation processor.
+// classes marked with @ProcessorApi are referenced directly by the annotation
+// processor, and their class names must remain stable.
+// renaming or refactoring such classes may break the code generation process.
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)
 public @interface ProcessorApi {

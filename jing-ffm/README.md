@@ -89,6 +89,9 @@ MemorySegment myGetName(long id);
   The result is cached and constant-folded.
   Used for native `#define` / `MACRO` values.
   Supported returns: the eight primitives and `MemorySegment`.
+  `constant` changes the call behavior: the function is initialized and
+  first invoked at class loading time, not deferred to the first call.
+  This eager evaluation is what enables constant folding.
 - `critical()`: whether the function returns immediately.
   Critical downcalls remove the safepoint check.
   This is dangerous for long-running functions.
@@ -151,6 +154,44 @@ For third-party APIs that use `int` for booleans:
 bind the parameter or return as Java `int` and convert manually,
 or add a `_Bool` wrapper on the C side.
 Never declare a `boolean` downcall against a C `int` function.
+
+## Return Value Design
+
+Bindings work best with native libraries that follow a simple, uniform
+return value convention.
+
+### Simple Returns: `-errno`
+
+Most C standard library syscalls return a value >= 0 on success and a
+negative value on failure, with the failure reason in `errno`. Since
+`errno` is always positive, the recommended convention is:
+
+- success: return a value >= 0
+- failure: return `-errno`
+
+The Java side treats a negative return as an error and takes the
+absolute value to recover the actual `errno`.
+
+### Complex Returns: `jing_result`
+
+When a function needs to return more than one value (for example a
+pointer and the length it points to), jing-ffm wraps the result in a
+`jing_result` struct passed as an out-parameter.
+
+`jing_result` is fixed at 16 bytes: a `size_t len` field plus a
+`jing_data` union that can carry byte/short/char/int/long/float/double,
+a pointer, or an error code pair. One out-parameter accommodates
+different return data types.
+
+Conventions:
+- scalar results set `len` to `SIZE_MAX` (no length)
+- pointer results set `len` to the real length
+- errors set `len` to 0 and fill the error code pair
+  (`err_code` + `err_flag`)
+
+On the Java side, `NativeSegmentAccess` provides the matching
+`JING_RESULT_LAYOUT` (16 bytes, verified at runtime) and an `errCode`
+accessor for the error code.
 
 ## Usage
 

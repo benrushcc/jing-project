@@ -65,8 +65,8 @@ public interface WinBindings {
     @Downcall(methodName = "jing_win_udp_protocol_code", constant = true, critical = true)
     int udpProtocolCode();
 
-    @Downcall(methodName = "jing_socket", critical = true)
-    int createSocket(int af, int type, int protocol);
+    @Downcall(methodName = "jing_win_socket", critical = true)
+    long createSocket(int af, int type, int protocol);
 
     @Downcall(methodName = "jing_win_ansi_support", constant = true, critical = true)
     int winAnsiSupport();
@@ -89,49 +89,37 @@ public interface WinBindings {
     @Downcall(methodName = "jing_flush_file")
     void flushFile(MemorySegment handle, MemorySegment jingResult);
 
-    @Downcall(methodName = "jing_stdout_fileno", constant = true, critical = true)
-    int stdOutputFileno();
-
-    @Downcall(methodName = "jing_stderr_fileno", constant = true, critical = true)
-    int stdErrorFileno();
-
-    @Downcall(methodName = "jing_open_fd")
-    void openFd(MemorySegment fileName, MemorySegment jingResult);
-
-    @Downcall(methodName = "jing_write_fd")
-    void writeFd(int fd, MemorySegment buf, long size, MemorySegment jingResult);
-
     // wepoll related functions
-    @Downcall(methodName = "jing_wepoll_in", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_in", constant = true, critical = true)
     int wepollIn();
 
-    @Downcall(methodName = "jing_wepoll_out", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_out", constant = true, critical = true)
     int wepollOut();
 
-    @Downcall(methodName = "jing_wepoll_err", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_err", constant = true, critical = true)
     int wepollErr();
 
-    @Downcall(methodName = "jing_wepoll_hup", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_hup", constant = true, critical = true)
     int wepollHup();
 
-    @Downcall(methodName = "jing_wepoll_ctl_add", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_ctl_add", constant = true, critical = true)
     int wepollAdd();
 
-    @Downcall(methodName = "jing_wepoll_ctl_mod", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_ctl_mod", constant = true, critical = true)
     int wepollMod();
 
-    @Downcall(methodName = "jing_wepoll_ctl_del", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_ctl_del", constant = true, critical = true)
     int wepollDel();
 
-    @Downcall(methodName = "jing_wepoll_create", critical = true)
+    @Downcall(methodName = "jing_win_wepoll_create", critical = true)
     MemorySegment wepollCreate();
 
-    @Downcall(methodName = "jing_wepoll_ctl")
+    @Downcall(methodName = "jing_win_wepoll_ctl")
     int wepollCtl(MemorySegment epfd, long socket, int op, int eventTypes, int data);
 
-    @Downcall(methodName = "jing_wepoll_wait")
-    void wepollWait(MemorySegment epfd, MemorySegment events, int maxEvents, int timeout, MemorySegment r);
+    @Downcall(methodName = "jing_win_wepoll_wait")
+    int wepollWait(MemorySegment epfd, MemorySegment events, int maxEvents, int timeout);
 
-    @Downcall(methodName = "jing_wepoll_close", critical = true)
+    @Downcall(methodName = "jing_win_wepoll_close", critical = true)
     int wepollClose(MemorySegment epfd);
 }

@@ -1,9 +1,12 @@
 package io.jingproject.bindings;
 
+import io.jingproject.common.Os;
 import io.jingproject.ffm.Downcall;
+import io.jingproject.ffm.FFM;
 
 import java.lang.foreign.MemorySegment;
 
+@FFM(libraryName = "jing_bindings", supportedOS = {Os.LINUX, Os.MACOS})
 public interface PosixBindings {
     @Downcall(methodName = "jing_posix_page_size", constant = true, critical = true)
     long posixPageSize();

@@ -1,6 +1,6 @@
 #include "jing_ssl.h"
 
-#ifdef JING_USE_WEPOLL
+#ifdef JING_USE_SSL
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
