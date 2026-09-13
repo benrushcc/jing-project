@@ -1,5 +1,24 @@
 # Changes
 
+## 2026-09-13T14:47:08+08:00
+- Modified jing-ffm/README.md: 在 Loading Behavior 章节补充平台支持标注,明确仅支持 Windows/Linux/macOS 且仅限 64 位架构(x64 或 aarch64),不支持 32 位平台
+
+## 2026-09-13T14:39:52+08:00
+- Modified jing-ffm/README.md: 新增 Type Mapping 章节,列出 Java 类型与 C 类型(64 位)的映射表,并重点说明 boolean 映射规则与注意事项(boolean 仅与 C `_Bool` 完美映射,不可与 C `int` 混用,并给出第三方 API 的适配建议)
+
+## 2026-09-13T14:24:35+08:00
+- Modified jing-ffm-processor/FfmProcessor.java: 代码生成补全 boolean 类型支持(castFfmReturnType/castFfmParameterType 增加 BOOLEAN case),使 @Downcall 方法可声明 boolean 参数与返回
+- Modified jing-bindings/src/main/native/src/jing_demo.h/.c: 新增 25 个类型映射验证函数,覆盖常见 C 类型(long/long long/size_t/unsigned int/unsigned long/char*/void*/sizeof 系列)与基础类型(bool/byte/short/char/float/void/指针),用于验证 Java FFM 与 C 的 ABI 映射
+- Modified jing-bindings/src/test/.../DemoBinding.java: 新增 23 个 @Downcall 方法(boolean 含 constant/critical 组合)
+- Modified jing-bindings/src/test/.../DemoBindingImpl.java: 新增对应 Java 参考实现(整数回绕/位模式语义与 C 一致)
+- Modified jing-bindings/src/test/.../DemoTest.java: 新增 6 个测试方法(boolean/byte/short/char/float/常见C类型/指针/void/sizeof 平台断言),验证 Java↔C 类型映射
+
+## 2026-09-13T13:54:00+08:00
+- Modified pom.xml: 将 surefire 的 excludedGroups 参数化为 ${surefire.excludedGroups} 属性(默认值不变),使 require-native-library 标签的测试可通过 -Dsurefire.excludedGroups= 在命令行运行
+
+## 2026-09-13T13:37:11+08:00
+- Fixed jing-bindings/src/main/native: 补齐 jing_posix.c 缺失的 <unistd.h>/<fcntl.h>/<sys/mman.h> 头文件,修复 jing_common.c 缺失的 <stdlib.h>/<stdalign.h>,jing_linux.h 补充 <sys/epoll.h> 并将 epoll_create/ctl/wait 声明与实现统一为 int 返回,修复 jing_posix.c 中 write 循环 total 累加变量错误,修复 jing_demo.c 的 PRId64 格式化警告,使 native 项目可在 Linux 上无警告构建
+
 ## 2026-09-10
 - Created AGENTS.md: added project guidelines for AI agents
 - Created jing-marshall/README.md: added documentation for jing-marshall module
@@ -51,3 +70,7 @@
 - Updated jing-ffm/README.md: 改写 Usage 章节为更详细的用法指引（生成接口调用、libDescriptor 底层检查、VM 函数 addrFromVM/mhFromVM 取 C 标准库函数示例、addrFromLib/mhFromLib 仅供 APT 生成代码使用用户不应直接调用）；同步重组 Libs Core Methods 说明，区分用户侧（impl/libDescriptor）与 APT 侧（addr*/mh*）两组 API
 - Updated jing-ffm/README.md: 精简文档：删除 Usage 中 Not for User Code 小节；Runtime: Libs 仅保留 Library Search Path 与 jing.ffm.critical 两点核心内容；Generated Binding 删除 Notable points 说明及其后全部章节（LibFacade、LibDescriptor、ForeignException、NativeSegmentAccess、Module Declaration、Dependency）
 - Updated jing-ffm/README.md: 在 Usage 生成接口小节补充说明，获取的实现应存放在 static final 字段中以便 JIT 常量折叠获得最佳性能，不建议每次调用时作为局部变量重新获取
+
+## 2026-09-13T14:05:00+08:00
+- Modified jing-bindings/src/main/native/src/jing_demo.h: 新增 25 个类型映射验证函数声明(含 long/long long/size_t/unsigned int/unsigned long/指针/bool/byte/short/char/float/void 等基础类型)
+- Modified jing-bindings/src/main/native/src/jing_demo.c: 新增 25 个类型映射验证函数实现,用于验证 Java FFM 绑定与 C 的类型映射正确性

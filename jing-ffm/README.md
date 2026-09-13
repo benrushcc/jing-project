@@ -104,6 +104,54 @@ Constraints on the `@FFM` interface:
 - methods must not declare type parameters
 - parameter and return types are primitives or `MemorySegment`
 
+## Type Mapping
+
+Downcall parameters and returns are primitives or `MemorySegment`.
+Each Java type maps to a fixed-size FFM layout,
+and must match the C type declared by the native function.
+
+| Java type | FFM layout | C type (64-bit) |
+|---|---|---|
+| `boolean` | `JAVA_BOOLEAN` (1 byte) | `_Bool` / `bool` |
+| `byte` | `JAVA_BYTE` (1 byte) | `int8_t` |
+| `short` | `JAVA_SHORT` (2 bytes) | `int16_t` |
+| `char` | `JAVA_CHAR` (2 bytes) | `uint16_t` |
+| `int` | `JAVA_INT` (4 bytes) | `int` |
+| `long` | `JAVA_LONG` (8 bytes) | `long` (LP64) / `long long` (LLP64) |
+| `float` | `JAVA_FLOAT` (4 bytes) | `float` |
+| `double` | `JAVA_DOUBLE` (8 bytes) | `double` |
+| `MemorySegment` | `ADDRESS` (8 bytes) | pointer |
+
+Notes:
+- `char` is 2 bytes in Java. It maps to `uint16_t`, not C `char` (1 byte).
+- `long` is always 8 bytes in Java. It matches C `long` only on LP64
+  platforms (Linux, macOS). On Windows (LLP64) C `long` is 4 bytes;
+  use `long long` or `int64_t` there.
+
+### `boolean` and C `_Bool`
+
+Java `boolean` maps to C `_Bool` (from `<stdbool.h>`).
+Both are 1 byte and carry the values 0/1.
+The mapping is exact: same size, same semantics, same ABI slot.
+A `boolean` downcall is safe in both directions.
+
+The trap is C code that uses `int` for booleans,
+which is common in real-world APIs.
+`int` is 4 bytes, so the mapping is not safe:
+
+- Java `boolean` argument to a C `int` parameter:
+  the JVM writes only the low byte of the argument register.
+  The upper bytes may hold garbage,
+  so C may read a nonzero `int` even when Java passed `false`.
+- C `int` return to a Java `boolean`:
+  the JVM reads only the low byte.
+  A C return of `256` (`0x100`) reads as `false`.
+
+For third-party APIs that use `int` for booleans:
+bind the parameter or return as Java `int` and convert manually,
+or add a `_Bool` wrapper on the C side.
+Never declare a `boolean` downcall against a C `int` function.
+
 ## Usage
 
 User code has two supported entry points.
@@ -207,7 +255,9 @@ do not try to adapt it with the ffm module.
 The module is not built for that.
 
 Like the jing project,
-the ffm module only supports Windows, Linux, and macOS.
+the ffm module only supports Windows, Linux, and macOS,
+on 64-bit architectures (x64 or aarch64).
+32-bit platforms are not supported.
 If `supportedOS` in the `@FFM` annotation
 does not include the current platform,
 the library is silently ignored.

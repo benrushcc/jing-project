@@ -53,4 +53,122 @@ public final class DemoBindingImpl implements DemoBinding {
     public void nonexist() {
         throw new UnsupportedOperationException("not exist");
     }
+
+    @Override
+    public long longAdd(long a, long b) {
+        return a + b;
+    }
+
+    @Override
+    public long longLongAdd(long a, long b) {
+        return a + b;
+    }
+
+    @Override
+    public long sizeTAdd(long a, long b) {
+        return a + b;
+    }
+
+    @Override
+    public int unsignedIntAdd(int a, int b) {
+        return a + b;
+    }
+
+    @Override
+    public long unsignedLongAdd(long a, long b) {
+        return a + b;
+    }
+
+    @Override
+    public long strLen(MemorySegment str) {
+        String s = str.getString(0L, StandardCharsets.UTF_8);
+        return s.length();
+    }
+
+    @Override
+    public MemorySegment voidPtrIdentity(MemorySegment p) {
+        return p;
+    }
+
+    @Override
+    public int sizeofInt() {
+        return 4;
+    }
+
+    @Override
+    public int sizeofLong() {
+        return 8;
+    }
+
+    @Override
+    public int sizeofSizeT() {
+        return 8;
+    }
+
+    @Override
+    public int sizeofPointer() {
+        return 8;
+    }
+
+    @Override
+    public boolean boolNot(boolean v) {
+        return !v;
+    }
+
+    @Override
+    public boolean boolAnd(boolean a, boolean b) {
+        return a && b;
+    }
+
+    @Override
+    public boolean boolTrue() {
+        return true;
+    }
+
+    @Override
+    public boolean boolFalse() {
+        return false;
+    }
+
+    @Override
+    public boolean intToBool(int v) {
+        return v != 0;
+    }
+
+    @Override
+    public int boolToInt(boolean v) {
+        return v ? 1 : 0;
+    }
+
+    @Override
+    public byte byteAdd(byte a, byte b) {
+        return (byte) (a + b);
+    }
+
+    @Override
+    public short shortAdd(short a, short b) {
+        return (short) (a + b);
+    }
+
+    @Override
+    public char charUpper(char c) {
+        if (c >= 'a' && c <= 'z') {
+            return (char) (c - ('a' - 'A'));
+        }
+        return c;
+    }
+
+    @Override
+    public float floatAdd(float a, float b) {
+        return a + b;
+    }
+
+    @Override
+    public void voidNoop() {
+    }
+
+    @Override
+    public MemorySegment pointerIdentity(MemorySegment p) {
+        return p;
+    }
 }

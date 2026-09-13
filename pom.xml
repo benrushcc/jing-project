@@ -48,6 +48,7 @@
         <maven-install-plugin.version>3.1.4</maven-install-plugin.version>
         <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
         <flatten-maven-plugin.version>1.8.0</flatten-maven-plugin.version> <!--  TODO remove in maven4  -->
+        <surefire.excludedGroups>require-native-library, exhaustive</surefire.excludedGroups>
     </properties>
 
     <build>
@@ -72,7 +73,7 @@
                 <configuration>
                     <!-- enable preview by default, using vector api, skip native and exhaustive tests -->
                     <argLine>--enable-preview --add-modules jdk.incubator.vector</argLine>
-                    <excludedGroups>require-native-library, exhaustive</excludedGroups>
+                    <excludedGroups>${surefire.excludedGroups}</excludedGroups>
                 </configuration>
             </plugin>
 

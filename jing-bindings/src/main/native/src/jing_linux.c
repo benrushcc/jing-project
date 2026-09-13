@@ -43,8 +43,8 @@ int jing_linux_epoll_create(jing_result* r) {
 	}
 }
 
-void jing_linux_epoll_ctl(int epfd, int socket, int op, uint32_t events,
-                          uint32_t data) {
+int jing_linux_epoll_ctl(int epfd, int socket, int op, uint32_t events,
+                         uint32_t data) {
 	struct epoll_event event;
 	memset(&event, 0, sizeof(event));
 	event.events   = events;
@@ -58,8 +58,8 @@ void jing_linux_epoll_ctl(int epfd, int socket, int op, uint32_t events,
 	}
 }
 
-void jing_linux_epoll_wait(int epfd, struct epoll_event* events, int maxevents,
-                           int timeout) {
+int jing_linux_epoll_wait(int epfd, struct epoll_event* events, int maxevents,
+                          int timeout) {
 	int v = epoll_wait(epfd, events, maxevents, timeout);
 	if (JING_UNLIKELY(v == -1)) {
 		int err = errno;

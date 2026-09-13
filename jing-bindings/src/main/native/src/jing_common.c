@@ -1,6 +1,9 @@
 #include "jing_common.h"
 #if defined(JING_OS_WINDOWS)
 #include <malloc.h>
+#else
+#include <stdlib.h>
+#include <stdalign.h>
 #endif
 
 static const int MAJOR_VERSION     = 0;

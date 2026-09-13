@@ -3,9 +3,12 @@
 #if defined(JING_OS_LINUX) || defined(JING_OS_MACOS)
 #include "jing_posix.h"
 #include <sys/socket.h>
+#include <sys/mman.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 // mmap related
 #define JING_DEFAULT_PAGE_SIZE 4096
@@ -112,7 +115,7 @@ void jing_open_fd(char* filename, jing_result* r) {
 }
 
 void jing_write_fd(int fd, char* buf, size_t len, jing_result* r) {
-	ssize_t written = 0, total = 0;
+	ssize_t total = 0;
 	while (total < len) {
 		int v = write(fd, buf + total, len - total);
 		if (JING_UNLIKELY(v == -1)) {
@@ -120,7 +123,7 @@ void jing_write_fd(int fd, char* buf, size_t len, jing_result* r) {
 			jing_err_result(r, err);
 			return;
 		} else {
-			total += written;
+			total += v;
 		}
 	}
 	jing_long_result(r, total);

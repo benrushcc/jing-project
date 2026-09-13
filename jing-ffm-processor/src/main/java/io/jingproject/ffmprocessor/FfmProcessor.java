@@ -345,6 +345,7 @@ public final class FfmProcessor extends AbstractProcessor {
     private String castFfmReturnType(GeneratorSource source, TypeMirror tm) {
         return switch (tm.getKind()) {
             case VOID -> "void";
+            case BOOLEAN -> "boolean";
             case BYTE -> "byte";
             case CHAR -> "char";
             case SHORT -> "short";
@@ -364,6 +365,7 @@ public final class FfmProcessor extends AbstractProcessor {
 
     private String castFfmParameterType(GeneratorSource source, TypeMirror tm) {
         return switch (tm.getKind()) {
+            case BOOLEAN -> "boolean";
             case BYTE -> "byte";
             case CHAR -> "char";
             case SHORT -> "short";
