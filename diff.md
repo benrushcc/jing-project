@@ -177,3 +177,22 @@
 ## 2026-09-13T14:05:00+08:00
 - Modified jing-bindings/src/main/native/src/jing_demo.h: 新增 25 个类型映射验证函数声明(含 long/long long/size_t/unsigned int/unsigned long/指针/bool/byte/short/char/float/void 等基础类型)
 - Modified jing-bindings/src/main/native/src/jing_demo.c: 新增 25 个类型映射验证函数实现,用于验证 Java FFM 绑定与 C 的类型映射正确性
+
+## 2026-09-14T09:55:33+0800
+- Updated doc/Marshall-Cbor.md: 基于 jing-marshall-json 深度侦察报告将设计稿从 v0.1 补齐为 v0.2——新增 §4.3 完整 initial byte/ai 编码规则与 preferred/deterministic 编码说明;§5 填入 json 模块 21 个主类职责清单与 10 条需复刻的关键机制;§6.2 包结构对齐 json 实际类(删 CborWriter/CborReader/CborTag,增 CborUtf8Validator);§6.3 给出与 JsonSerializer/JsonDeserializer 逐方法对称的完整公开 API 签名;§6.4 选项表(去除 maxEmptyBytes/maxNumberBytes/转义类选项及理由,新增 maxBytesBytes 与 deterministicEncoding);§6.5 填充 Java↔CBOR 双向类型映射表(draft CBOR 规范对照表,含 major 2 字节串路径与 tag 拒绝、ai 非法路径);§6.6/§6.7 序列化/反序列化流程(定长 vs 不定长长度策略、null 省略、BITMAP、Dummy 跳读、break 消费);§6.8 CborPrimitiveType sealed 族(四子类含 CborBytesType)与 builtin 校验;§6.9 异常体系;§7 测试矩阵(镜像 json 8 个测试类 + CBOR 特有向量/边界用例);§9 风险项按已决策内容更新
+
+## 2026-09-14T10:34:10+08:00
+- Added jing-marshall-cbor CborPrimitiveType: 新增 sealed 接口并限定四个公开 record 子类型(布尔/整数/文本/字节串), 是 CborSerializer/CborDeserializer 泛型参数上界的公共契约
+- Added jing-marshall-cbor CborBoolType/CborNumberType/CborStrType/CborBytesType: 新增基础载荷类型, CborNumberType 按设计稿采用 long 存储(仅覆盖整数语义, float/double 交由序列化层处理)
+- Added jing-marshall-cbor CborNumberUtil: 新增 initial byte 的 major 与 ai 分解、writeHead 按参数长度选择 1/2/4/8 字节大端定长编码、readArgument 对 ai 24-27 反解长度并对非法 ai 28-31 抛异常; 提供 writeSimple 与手写 half 单双精度互转(JDK 28-ea 无 Float16 类), floatToHalf 采用就近偶数舍入
+- Added jing-marshall-cbor CborUtf8Validator: 从 jing-marshall-json 的 Utf8Validator 移植, 移除依赖 ReadBuffer 的入口, 仅保留堆数组与 MemorySegment 两个向量化校验入口; 系统属性按模块更名为 jing.marshallcbor.utf8validator.vecsize
+- Added jing-marshall-cbor CborSerializerException/CborDeserializerException: 新增与 json 模块对称的序列化/反序列化异常类型
+- Added jing-marshall-cbor CborSerializeResult/CborDeserializeResult: 新增序列化与反序列化流程的状态枚举(含 NewMarshallable/NewArray/NewMap 与 Dummy 跳读相关状态)
+- Added jing-marshall-cbor CborSerializeFunc/CborDeserializeFunc: 新增与设计稿一致的两个函数式接口签名, 其参数类型引用本模块后续的 CborSerializerContext/CborDeserializerContext
+
+## 2026-09-14T11:14:52+08:00
+- Added jing-marshall-cbor CborDeserializerOption: 新增反序列化选项, 构造与校验镜像 JsonDeserializerOption 但按 CBOR 特性替换——移除 maxEmptyBytes/maxNumberBytes, 新增 maxBytesBytes(与 maxStringBytes 均默认 65535, 上限随系统属性 jing.marshallcbor.maxbytesbytes/jing.marshallcbor.maxstringbytes, 内部再与 64MB 取小), setTransformerClasses 校验 transformer 是否存在/重复/不可覆盖 builtin/不可为 bean/内置类型必须实现 CborPrimitiveType 接口, build 时经 customObjDeserializeFunc/customArrDeserializeFunc 按 5 类内置载荷字节串复用 CborDeserializerContext.builtinDeserializeObjFunc 的"不可覆盖"判定
+- Added jing-marshall-cbor CborDeserializerContext: 新增密封上下文(堆/段两实现), 按设计稿 §6.7 的原有初始字节直读约定实现——getByte/rewind(不定长容器 break 探测后回退)/advance/copyBytes/decodeUtf8(逐串 utf8 校验)/lookupMappedName(哈希直比不过滤)/三个大端原始读与大端原始读长度头(ai 24-27); 整数 major 0/1 带 2^63 上界防溢出, 浮点仅接受 major 7 且 float64→float 溢出抛错, 文本/字节串拒绝不定长; checkArrayStart/checkObjStart 为实例方法(读容器头写入 count, 供节点经 declaredCount() 取, 定长超限即抛); 含全部基本类型/基本数组/包装数组/字符串数组/CborPrimitiveType 全族与枚举的读取入口, 基本数组按定长精确分配/不定长自 OBJ_ARR_INITIAL_SIZE=8 翻倍扩展
+- Added jing-marshall-cbor CborDeserializerNode: 新增显式栈容器节点, 与 json 节点同构但改 CBOR 语义——定长容器用 count 递减判定结束、不定长容器(count=-1)以 getByte 探测 0xff break 后 rewind 回退, 不再有分隔符读取; init* 方法均携带声明数量参数; 普通字段路径(含 null 0xf6 只在 ensureAllFieldsPresent 时计数)与 setObjValue 的 missing 扫描均排除 skipDeserializing 字段, 跳过字段仅消费字节不写 builder; 修正 json 的 FUNC_TABLE[ARRAY_TYPE] 设置完整数组类型而非组件类型的缺陷, 嵌套 bean 数组元素类型由此正确; Dummy 跳读覆盖 major 0-7 完整头(含 ai 24-27 载荷/simple 值/不定长容器进入)
+- Added jing-marshall-cbor CborDeserializer: 新增反序列化入口, 与 JsonDeserializer 十二个公开方法逐一对称——byte[] 入口即字节串(非数组), 其余各基本数组/对象数组/集合/映射入口各自动新建上下文、按需走 builtin 快速路径; 对象根自 checkObjStart 后取 declaredCount 初始化; process/nextNode 沿用显式栈(INITIAL_SIZE=4, 上限 maxNestedSize), 各 New* 结果统一由 context 当前 type()/obj()/declaredCount() 初始化复用节点
+- 说明: 本文件(第 3-67 行)存在先前的合并冲突标记(<<<<<<< Updated upstream / >>>>>>> Stashed changes), 本次仅在其后按时间顺序续写, 未触碰冲突区

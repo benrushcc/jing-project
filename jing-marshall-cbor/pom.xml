@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.jingproject</groupId>
+        <artifactId>jing-project</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <artifactId>jing-marshall-cbor</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.jingproject</groupId>
+            <artifactId>jing-common</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.jingproject</groupId>
+            <artifactId>jing-marshall</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.jingproject</groupId>
+            <artifactId>jing-marshall-processor</artifactId>
+            <version>${revision}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <release>${java.version}</release>
+                    <encoding>UTF-8</encoding>
+                    <enablePreview>true</enablePreview>
+                    <proc>none</proc>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>default-testCompile</id>
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <configuration>
+                            <release>${java.version}</release>
+                            <encoding>UTF-8</encoding>
+                            <enablePreview>true</enablePreview>
+                            <proc>full</proc>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>io.jingproject</groupId>
+                                    <artifactId>jing-marshall-processor</artifactId>
+                                    <version>${revision}</version>
+                                </path>
+                            </annotationProcessorPaths>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>io.jingproject</groupId>
+                <artifactId>jing-maven-plugin</artifactId>
+                <version>${revision}</version>
+                <executions>
+                    <execution>
+                        <id>process-test-providers</id>
+                        <phase>process-test-classes</phase>
+                        <goals>
+                            <goal>process-jing-providers</goal>
+                        </goals>
+                        <configuration>
+                            <scope>test</scope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
