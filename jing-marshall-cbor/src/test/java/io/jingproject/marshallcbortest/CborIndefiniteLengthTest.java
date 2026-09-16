@@ -2,11 +2,7 @@ package io.jingproject.marshallcbortest;
 
 import io.jingproject.common.HeapReadBuffer;
 import io.jingproject.common.HeapWriteBuffer;
-import io.jingproject.marshallcbor.CborDeserializer;
-import io.jingproject.marshallcbor.CborDeserializerException;
-import io.jingproject.marshallcbor.CborDeserializerOption;
-import io.jingproject.marshallcbor.CborSerializer;
-import io.jingproject.marshallcbor.CborSerializerOption;
+import io.jingproject.marshallcbor.*;
 import io.jingproject.marshallcbortest.entity.BeanEntity;
 import io.jingproject.marshallcbortest.entity.EnumEntity;
 import io.jingproject.marshallcbortest.transformers.BigDecimalTransformer;
@@ -14,12 +10,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 // indefinite-length containers (0x9f/0xbf ... 0xff) are accepted for primitive
 // arrays and empty maps, while indefinite text/byte strings are rejected and

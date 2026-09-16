@@ -5,12 +5,7 @@ import io.jingproject.marshall.MarshallInfo;
 import io.jingproject.marshall.MarshallUtil;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 // explicit-stack node of the serialization state machine, mirroring the json
 // serializer. OBJ/ARR/LIST/MAP write definite-length container heads while COL

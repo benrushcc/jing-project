@@ -3,14 +3,7 @@ package io.jingproject.marshallcbortest;
 import io.jingproject.common.HeapReadBuffer;
 import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.common.SegmentWriteBuffer;
-import io.jingproject.marshallcbor.CborBoolType;
-import io.jingproject.marshallcbor.CborDeserializer;
-import io.jingproject.marshallcbor.CborDeserializerOption;
-import io.jingproject.marshallcbor.CborNumberType;
-import io.jingproject.marshallcbor.CborPrimitiveType;
-import io.jingproject.marshallcbor.CborSerializer;
-import io.jingproject.marshallcbor.CborSerializerOption;
-import io.jingproject.marshallcbor.CborStrType;
+import io.jingproject.marshallcbor.*;
 import io.jingproject.marshallcbortest.entity.BeanEntity;
 import io.jingproject.marshallcbortest.entity.EnumEntity;
 import io.jingproject.marshallcbortest.entity.RecordEntity;
@@ -23,11 +16,7 @@ import java.lang.foreign.Arena;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class CborSerializationTest {
     private static final CborSerializer SERIALIZER = new CborSerializer(CborSerializerOption.defaultOption());

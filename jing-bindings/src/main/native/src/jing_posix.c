@@ -25,11 +25,10 @@ void* jing_posix_memalign(size_t alignment, size_t size) {
 	return p;
 }
 
-void jing_posix_batch_free(uintptr_t* ptrs, size_t len, void (*free_func_t)(void*)) {
-	size_t count = len / sizeof(uintptr_t);
+void jing_posix_batch_free(void** ptrs, size_t len, void (*free_func_t)(void*)) {
+	size_t count = len / sizeof(void*);  
 	for (size_t i = 0; i < count; ++i) {
-		uintptr_t addr = (uintptr_t) ptrs[i];
-		free_func_t((void*) addr);
+		free_func_t(ptrs[i]);
 	}
 	free_func_t(ptrs);
 }

@@ -26,8 +26,8 @@ void* jing_win_aligned_alloc(size_t size, size_t alignment) {
 	return r;
 }
 
-void jing_win_batch_free(uintptr_t* ptrs, size_t len, void (*free_func_t)(void*)) {
-	size_t count = len / sizeof(uintptr_t);
+void jing_win_batch_free(void** ptrs, size_t len, void (*free_func_t)(void*)) {
+	size_t count = len / sizeof(void*);
 	for (size_t i = 0; i < count; ++i) {
 		uintptr_t addr = (uintptr_t) ptrs[i];
 		if (addr & 1u) {

@@ -13,11 +13,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 // deterministic encoding writes definite-length container heads, forces null
 // entries to be serialized as 0xf6 and sorts map keys by UTF-8 byte length then

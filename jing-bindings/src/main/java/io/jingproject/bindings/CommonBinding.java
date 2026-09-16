@@ -20,13 +20,4 @@ public interface CommonBinding {
 
     @Downcall(methodName = "jing_ptr_err_flag", constant = true, critical = true)
     long ptrErrFlag();
-
-    @Downcall(methodName = "jing_max_align", constant = true, critical = true)
-    long maxAlign();
-
-    @Downcall(methodName = "jing_aligned_alloc", critical = true)
-    long alignedAlloc(long size, long alignment);
-
-    @Downcall(methodName = "jing_batch_free")
-    void batchFree(long ptrs, long count, long freeAddr);
 }

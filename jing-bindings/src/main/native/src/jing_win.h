@@ -15,7 +15,7 @@ JING_EXPORT_SYMBOL size_t jing_win_max_align(void);
 
 JING_EXPORT_SYMBOL void* jing_win_aligned_alloc(size_t size, size_t alignment);
 
-JING_EXPORT_SYMBOL void jing_win_batch_free(uintptr_t* ptrs, size_t len, void (*free_func_t)(void*));
+JING_EXPORT_SYMBOL void jing_win_batch_free(void** ptrs, size_t len, void (*free_func_t)(void*));
 
 JING_EXPORT_SYMBOL size_t jing_win_page_size(void);
 

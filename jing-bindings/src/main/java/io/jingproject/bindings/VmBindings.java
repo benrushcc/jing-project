@@ -3,8 +3,6 @@ package io.jingproject.bindings;
 import io.jingproject.ffm.Downcall;
 import io.jingproject.ffm.FFM;
 
-import java.lang.foreign.MemorySegment;
-
 @FFM
 public interface VmBindings {
     @Downcall(methodName = "malloc", critical = true)

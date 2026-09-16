@@ -1,6 +1,7 @@
 package io.jingproject.marshallcbor;
 
-import io.jingproject.common.*;
+import io.jingproject.common.Os;
+import io.jingproject.common.SegmentAccess;
 import jdk.incubator.vector.*;
 
 import java.lang.foreign.MemorySegment;
