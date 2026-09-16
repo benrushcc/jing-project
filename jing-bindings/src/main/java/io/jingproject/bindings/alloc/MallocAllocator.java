@@ -1,8 +1,8 @@
 package io.jingproject.bindings.alloc;
 
-import io.jingproject.bindings.CommonBinding;
+import io.jingproject.bindings.PosixBindings;
+import io.jingproject.bindings.WinBindings;
 import io.jingproject.common.Os;
-import io.jingproject.common.Utils;
 import io.jingproject.common.anno.Fragile;
 import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
@@ -10,15 +10,21 @@ import io.jingproject.ffm.NativeSegmentAccess;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandles;
 
-// allocator backed by system malloc.
-// tracks every allocated pointer in a contiguous array so close() can batch-free
-// all of them in a single native call. aligned allocations are tagged with the
-// lowest pointer bit so the batch free can pick the matching deallocator.
-// not thread-safe: use one instance per thread or guard externally with a lock.
+// per-thread malloc-backed allocator.
+//
+// every allocation is recorded in a dynamically growing tracking array.
+// on close(), a single batch-free call releases all tracked payloads and
+// the array itself. alignment requests below the platform threshold go
+// through plain malloc (the fast path); requests above it use the
+// platform-specific aligned allocator (_aligned_malloc on windows,
+// posix_memalign on linux/macos). on windows, aligned allocations are
+// tagged with bit 1 so batch-free can dispatch between _aligned_free
+// and free. posix_memalign results are free()-safe, so no tag is needed
+
+// not thread-safe: one instance must be used by a single thread at a time
 @Fragile
-public final class MallocAllocator implements Allocator {
-    private static final long MALLOC_ARRAY_DEFAULT_CAPACITY = 32L;
-    private static final CommonBinding SYS_BINDINGS = Libs.impl(CommonBinding.class);
+public abstract sealed class MallocAllocator implements Allocator permits MallocAllocator.WinMallocAllocator, MallocAllocator.PosixMallocAllocator {
+    private static final long MALLOC_ARRAY_DEFAULT_CAPACITY = 4 * Long.BYTES;
 
     static {
         try {
@@ -26,21 +32,23 @@ public final class MallocAllocator implements Allocator {
         } catch (IllegalAccessException e) {
             throw new ExceptionInInitializerError(e);
         }
-        if(SYS_BINDINGS == null) {
-            throw new ExceptionInInitializerError("cannot initialize SYS_BINDINGS");
-        }
-        if(SYS_BINDINGS.maxAlign() <= 1L) {
-            throw new ExceptionInInitializerError("max alignment cannot be less than 1");
-        }
     }
 
-    private long addr = 0L;
-    private long len = 0L;
-    private long index = 0L;
+    public static MallocAllocator newInstance() {
+        if(Os.current() == Os.WINDOWS) {
+            return new WinMallocAllocator();
+        }
+        return new PosixMallocAllocator();
+    }
 
-    // allocates byteSize bytes aligned to byteAlignment. alignment within the
-    // platform max goes through malloc; larger alignment uses a platform aligned
-    // allocation, tagged with the lowest pointer bit for the batch free.
+    protected long addr = 0L;
+    protected long len = 0L;
+    protected long index = 0L;
+
+    public value record Alloc(long actual, long stored) {
+
+    }
+
     @Override
     public MemorySegment allocate(long byteSize, long byteAlignment) {
         if(byteSize <= 0L) {
@@ -51,61 +59,108 @@ public final class MallocAllocator implements Allocator {
         }
         if(addr == -1L) {
             throw new IllegalStateException("malloc allocator already closed");
-        }
-        long r;
-        if (byteAlignment <= SYS_BINDINGS.maxAlign()) {
-            // Request at least byteAlignment bytes so malloc's guarantee covers the actual alignment.
-            // Per N2293 (weak-alignment model), for sizes smaller than _Alignof(max_align_t),
-            // malloc only needs to align to the largest power of two not exceeding the requested size.
-            // https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2293.htm
-            r = Mem.malloc(Math.max(byteSize, byteAlignment));
-        } else {
-            // aligned_alloc size parameter requirements vary by platform:
-            // - Windows: size need not be a multiple of alignment; pass byteSize as-is.
-            // - Linux (glibc): requires glibc 2.38+ to allow size not a multiple of alignment;
-            //   earlier versions require size to be a multiple of alignment.
-            // - macOS: strictly requires size to be a multiple of alignment, otherwise returns NULL and sets errno=EINVAL.
-            // Therefore, for non-Windows platforms, round size up to a multiple of alignment for cross-platform compatibility.
-            r = SYS_BINDINGS.alignedAlloc(Os.current() == Os.WINDOWS ? byteSize : Utils.alignUp(byteSize, byteAlignment), byteAlignment);
-        }
-        if(r == 0L) {
-            throw new OutOfMemoryError();
-        }
-        if(addr == 0L) {
+        } else if(addr == 0L) {
             len = MALLOC_ARRAY_DEFAULT_CAPACITY;
             addr = Mem.malloc(MALLOC_ARRAY_DEFAULT_CAPACITY);
             if(addr == 0L) {
-                Mem.free(r);
                 throw new OutOfMemoryError();
             }
         } else if(index >= len) {
             long newLen = Math.addExact(len, len);
             long newAddr = Mem.realloc(addr, newLen);
             if(newAddr == 0L) {
-                // realloc leaves the old tracking array intact on failure; keep
-                // it so close() can still batch-free every tracked pointer.
-                Mem.free(r);
                 throw new OutOfMemoryError();
             }
             len = newLen;
             addr = newAddr;
         }
-        // tag the lowest bit to mark an aligned allocation
-        NativeSegmentAccess.setLong(MemorySegment.ofAddress(addr), index, byteAlignment <= SYS_BINDINGS.maxAlign() ? r : (1L | r));
-        index += 8L;
-        return NativeSegmentAccess.reinterpret(MemorySegment.ofAddress(r), byteSize);
+        Alloc alloc = doAllocate(byteSize, byteAlignment);
+        NativeSegmentAccess.setLong(MemorySegment.ofAddress(addr), index, alloc.stored());
+        index += Long.BYTES;
+        return NativeSegmentAccess.reinterpret(MemorySegment.ofAddress(alloc.actual()), byteSize);
     }
 
-    // batch-frees every tracked pointer and nulls the tracking array.
-    // the tag on aligned pointers makes batchFree use the right deallocator.
+    protected abstract Alloc doAllocate(long byteSize, long byteAlignment);
+
+    protected abstract void doFree(long addr, long index);
+
     @Override
     public void close() {
         if(addr == -1L) {
             throw new IllegalStateException("malloc allocator already closed");
         }
         if(index > 0L) {
-            SYS_BINDINGS.batchFree(addr, index, Mem.freeFuncAddr());
+            doFree(addr, index);
         }
         addr = -1L;
+    }
+
+    static final class WinMallocAllocator extends MallocAllocator {
+        private static final WinBindings WIN_BINDINGS = Libs.impl(WinBindings.class);
+
+        static {
+            if(WIN_BINDINGS == null) {
+                throw new ExceptionInInitializerError("cannot initialize WIN_BINDINGS");
+            }
+            if(WIN_BINDINGS.winMaxAlign() < Long.BYTES) {
+                throw new ExceptionInInitializerError("max alignment must be at least : " + Long.BYTES);
+            }
+        }
+
+        @Override
+        protected Alloc doAllocate(long byteSize, long byteAlignment) {
+            if(byteAlignment <= WIN_BINDINGS.winMaxAlign()) {
+                long r = Mem.malloc(Math.max(byteSize, byteAlignment));
+                if(r == 0L) {
+                    throw new OutOfMemoryError("failed to invoke malloc");
+                }
+                return new Alloc(r, r);
+            }
+            long r = WIN_BINDINGS.winAlignedAlloc(byteSize, byteAlignment);
+            if(NativeSegmentAccess.isErrPtr(r)) {
+                throw new OutOfMemoryError("failed to invoke _aligned_malloc, err : " + NativeSegmentAccess.errCode(r));
+            }
+            return new Alloc(r, 1L | r);
+        }
+
+        @Override
+        protected void doFree(long addr, long index) {
+            WIN_BINDINGS.winBatchFree(addr, index, Mem.freeFuncAddr());
+        }
+    }
+
+    static final class PosixMallocAllocator extends MallocAllocator {
+        private static final PosixBindings POSIX_BINDINGS = Libs.impl(PosixBindings.class);
+
+        static {
+            if(POSIX_BINDINGS == null) {
+                throw new ExceptionInInitializerError("cannot initialize POSIX_BINDINGS");
+            }
+            if(POSIX_BINDINGS.posixMaxAlign() < Long.BYTES) {
+                throw new ExceptionInInitializerError("max alignment must be at least : " + Long.BYTES);
+            }
+        }
+
+        @Override
+        protected Alloc doAllocate(long byteSize, long byteAlignment) {
+            long r;
+            if(byteAlignment <= POSIX_BINDINGS.posixMaxAlign()) {
+                r = Mem.malloc(Math.max(byteSize, byteAlignment));
+                if(r == 0L) {
+                    throw new OutOfMemoryError("failed to invoke malloc");
+                }
+            } else {
+                r = POSIX_BINDINGS.posixMemAlign(byteAlignment, byteSize);
+                if(NativeSegmentAccess.isErrPtr(r)) {
+                    throw new OutOfMemoryError("failed to invoke posix_memalign, err : " + NativeSegmentAccess.errCode(r));
+                }
+            }
+            return new Alloc(r, r);
+        }
+
+        @Override
+        protected void doFree(long addr, long index) {
+            POSIX_BINDINGS.posixBatchFree(addr, index, Mem.freeFuncAddr());
+        }
     }
 }

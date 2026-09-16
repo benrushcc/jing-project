@@ -23,7 +23,7 @@ public class AllocTest {
 
     @Test
     public void testMallocAllocator() {
-        try (Allocator allocator = new MallocAllocator()) {
+        try (Allocator allocator = MallocAllocator.newInstance()) {
             MemorySegment segment = allocator.allocate(32L, 8L);
             Assertions.assertNotEquals(0L, segment.address());
             Assertions.assertEquals(32L, segment.byteSize());
@@ -32,13 +32,13 @@ public class AllocTest {
             NativeSegmentAccess.setInt(segment, 24L, 42);
             Assertions.assertEquals(42, NativeSegmentAccess.getInt(segment, 24L));
         }
-        try (Allocator allocator = new MallocAllocator()) {
+        try (Allocator allocator = MallocAllocator.newInstance()) {
             MemorySegment segment = allocator.allocate(4096L, 4096L);
             Assertions.assertEquals(0L, segment.address() % 4096L);
             NativeSegmentAccess.setLong(segment, 4096L - 8L, 0x0123456789abcdefL);
             Assertions.assertEquals(0x0123456789abcdefL, NativeSegmentAccess.getLong(segment, 4096L - 8L));
         }
-        try (Allocator allocator = new MallocAllocator()) {
+        try (Allocator allocator = MallocAllocator.newInstance()) {
             for(int i = 0; i < 1000; i++) {
                 MemorySegment segment = allocator.allocate(1L, 1L);
                 Assertions.assertEquals(1L, segment.byteSize());
@@ -48,7 +48,7 @@ public class AllocTest {
 
     @Test
     public void testMallocAllocatorInvalidArguments() {
-        try (Allocator allocator = new MallocAllocator()) {
+        try (Allocator allocator = MallocAllocator.newInstance()) {
             Assertions.assertThrows(IllegalArgumentException.class, () -> allocator.allocate(0L, 8L));
             Assertions.assertThrows(IllegalArgumentException.class, () -> allocator.allocate(-1L, 8L));
             Assertions.assertThrows(IllegalArgumentException.class, () -> allocator.allocate(8L, 0L));
@@ -60,13 +60,13 @@ public class AllocTest {
 
     @Test
     public void testMallocAllocatorCloseSemantics() {
-        Allocator allocator = new MallocAllocator();
+        Allocator allocator = MallocAllocator.newInstance();
         allocator.allocate(32L, 8L);
         allocator.close();
         Assertions.assertThrows(IllegalStateException.class, () -> allocator.allocate(32L, 8L));
         Assertions.assertThrows(IllegalStateException.class, allocator::close);
 
-        Allocator allocator2 = new MallocAllocator();
+        Allocator allocator2 = MallocAllocator.newInstance();
         allocator2.close();
         Assertions.assertThrows(IllegalStateException.class, allocator2::close);
     }

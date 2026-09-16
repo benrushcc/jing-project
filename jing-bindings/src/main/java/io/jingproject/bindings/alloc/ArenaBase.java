@@ -12,8 +12,9 @@ import io.jingproject.ffm.NativeSegmentAccess;
 import java.lang.foreign.MemorySegment;
 
 // base class of an arena that reserves a large virtual memory up front and
-// commits pages on demand, serving as the backing store of ArenaAllocator.
-// not thread-safe: one arena must be used by a single thread at a time.
+// commits pages on demand, serving as the backing store of ArenaAllocator
+
+// not thread-safe: one arena must be used by a single thread at a time
 @Fragile
 public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBase.WinArenaBase, ArenaBase.PosixArenaBase {
 
@@ -114,31 +115,24 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
         pos = previousPos;
     }
 
-    // allocation granularity of the platform.
     protected abstract long granularity();
 
-    // page size of the platform.
     protected abstract long pageSize();
 
-    // reserves size bytes and returns the base address.
     protected abstract long reserve(long size);
 
-    // releases the reserved range.
     protected abstract void release();
 
-    // backs the given range with physical memory.
     protected abstract void commit(long addr, long size);
 
-    // returns the given range to the operating system.
     protected abstract void uncommit(long addr, long size);
 
-    // releases the whole arena.
     @Override
     public void close() {
         release();
     }
 
-    // windows arena backed by VirtualAlloc and VirtualFree.
+    // windows arena backed by VirtualAlloc and VirtualFree
     static final class WinArenaBase extends ArenaBase {
         private static final WinBindings WIN_BINDINGS = Libs.impl(WinBindings.class);
 
@@ -209,8 +203,7 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
         }
     }
 
-    // posix arena backed by mmap/munmap. commit is a no-op because the range is
-    // mapped up front; uncommit returns pages to the os via madvise.
+    // posix arena backed by mmap/munmap
     static final class PosixArenaBase extends ArenaBase {
         private static final PosixBindings POSIX_BINDINGS = Libs.impl(PosixBindings.class);
 

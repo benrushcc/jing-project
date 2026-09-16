@@ -2,6 +2,8 @@
 
 #if defined(JING_OS_LINUX) || defined(JING_OS_MACOS)
 #include "jing_posix.h"
+#include <stdlib.h>
+#include <stdalign.h>
 #include <sys/socket.h>
 #include <sys/mman.h>
 #include <netinet/in.h>
@@ -9,6 +11,28 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+
+size_t jing_posix_max_align(void) {
+	return alignof(max_align_t);
+}
+
+void* jing_posix_memalign(size_t alignment, size_t size) {
+	void* p = NULL;
+	int r = posix_memalign(&p, alignment, size);
+	if(r != 0) {
+		return jing_make_error_ptr(r);
+	}
+	return p;
+}
+
+void jing_posix_batch_free(uintptr_t* ptrs, size_t len, void (*free_func_t)(void*)) {
+	size_t count = len / sizeof(uintptr_t);
+	for (size_t i = 0; i < count; ++i) {
+		uintptr_t addr = (uintptr_t) ptrs[i];
+		free_func_t((void*) addr);
+	}
+	free_func_t(ptrs);
+}
 
 // mmap related
 #define JING_DEFAULT_PAGE_SIZE 4096

@@ -5,6 +5,39 @@
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <errno.h>
+#include <malloc.h>
+
+typedef struct {
+	long long _max_align_ll;
+	long double _max_align_ld;
+} max_align_t;
+
+size_t jing_win_max_align(void) {
+	return __alignof(max_align_t);
+}
+
+void* jing_win_aligned_alloc(size_t size, size_t alignment) {
+	void* r = _aligned_malloc(size, alignment);
+	if(JING_UNLIKELY(r == NULL)) {
+		int err = errno;
+		return jing_make_error_ptr(err);
+	}
+	return r;
+}
+
+void jing_win_batch_free(uintptr_t* ptrs, size_t len, void (*free_func_t)(void*)) {
+	size_t count = len / sizeof(uintptr_t);
+	for (size_t i = 0; i < count; ++i) {
+		uintptr_t addr = (uintptr_t) ptrs[i];
+		if (addr & 1u) {
+			_aligned_free((void*) (addr & ~(uintptr_t) 1u));
+		} else {
+			free_func_t((void*) addr);
+		}
+	}
+	free_func_t(ptrs);
+}
 
 size_t jing_win_page_size(void) {
 	SYSTEM_INFO sys_info;

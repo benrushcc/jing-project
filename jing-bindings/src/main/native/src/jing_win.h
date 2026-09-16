@@ -11,6 +11,12 @@
 static_assert(sizeof(DWORD) == 4, "DWORD size mismatch");
 static_assert(sizeof(SOCKET) == 8, "SOCKET size mismatch");
 
+JING_EXPORT_SYMBOL size_t jing_win_max_align(void);
+
+JING_EXPORT_SYMBOL void* jing_win_aligned_alloc(size_t size, size_t alignment);
+
+JING_EXPORT_SYMBOL void jing_win_batch_free(uintptr_t* ptrs, size_t len, void (*free_func_t)(void*));
+
 JING_EXPORT_SYMBOL size_t jing_win_page_size(void);
 
 JING_EXPORT_SYMBOL size_t jing_win_allocate_granularity(void);
@@ -30,6 +36,7 @@ JING_EXPORT_SYMBOL void* jing_win_virtual_alloc(void* addr, size_t size,
 
 JING_EXPORT_SYMBOL int jing_win_virtual_free(void* addr, size_t size,
                                              DWORD type);
+
 JING_EXPORT_SYMBOL int jing_win_ansi_support(void);
 
 JING_EXPORT_SYMBOL DWORD jing_std_output_dword(void);

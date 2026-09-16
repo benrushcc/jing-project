@@ -20,7 +20,7 @@ public sealed interface Allocator extends SegmentAllocator, AutoCloseable permit
         if (MMAP_SCOPE.isBound()) {
             return new ArenaAllocator(MMAP_SCOPE.get());
         }
-        return new MallocAllocator();
+        return MallocAllocator.newInstance();
     }
 
     @Override
