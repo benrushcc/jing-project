@@ -34,16 +34,23 @@ public final class Libs {
     // only disable it when problems caused by critical calls are actually encountered,
     // to trade a little performance for stability.
     private static final boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
-    private static final Map<Class<?>, LibDescriptor<?>> DESCRIPTORS;
+    private static final Map<Class<?>, LibDescriptor> LIB_MAPPINGS;
+    private static final Map<Class<?>, Object> VM_MAPPINGS;
 
     static {
         List<LibFacade> facades = ServiceLoader.load(LibFacade.class).stream().map(ServiceLoader.Provider::get).toList();
-        Map<Class<?>, LibDescriptor<?>> tempDescriptors = new HashMap<>();
+        Map<Class<?>, LibDescriptor> libMappings = new HashMap<>();
+        Map<Class<?>, Object> vmMappings = new HashMap<>();
         for (LibFacade facade : facades) {
             if (facade.supportedOS().contains(Os.current())) {
                 Class<?> target = facade.target();
                 String libName = facade.libName();
-                LibDescriptor<?> desc = tempDescriptors.get(target);
+                Object impl = facade.impl();
+                if(libName.equals(FFM.VM)) {
+                    vmMappings.put(target, impl);
+                    continue ;
+                }
+                LibDescriptor desc = libMappings.get(target);
                 if (desc == null) {
                     String mappedName = System.mapLibraryName(libName);
                     Path libPath = searchLibrary(mappedName);
@@ -51,8 +58,8 @@ public final class Libs {
                         continue;
                     }
                     SymbolLookup lookup = SymbolLookup.libraryLookup(libPath, Arena.global());
-                    desc = new LibDescriptor<>(libName, mappedName, lookup, libPath, new HashMap<>(), facade.impl());
-                    tempDescriptors.put(target, desc);
+                    desc = new LibDescriptor(libName, mappedName, lookup, libPath, new HashMap<>(), impl);
+                    libMappings.put(target, desc);
                 }
                 for (String methodName : facade.methodNames()) {
                     if (!desc.functions().containsKey(methodName)) {
@@ -62,15 +69,16 @@ public final class Libs {
                 }
             }
         }
-        DESCRIPTORS = tempDescriptors.entrySet().stream().collect(Collectors.toUnmodifiableMap(
+        LIB_MAPPINGS = libMappings.entrySet().stream().collect(Collectors.toUnmodifiableMap(
                 Map.Entry::getKey,
                 entry -> {
-                    LibDescriptor<?> desc = entry.getValue();
+                    LibDescriptor desc = entry.getValue();
                     Map<String, MemorySegment> immutableFunctions =
                             Map.copyOf(desc.functions());
-                    return new LibDescriptor<>(desc.libName(), desc.mappedName(), desc.lookup(), desc.libPath(), immutableFunctions, desc.impl());
+                    return new LibDescriptor(desc.libName(), desc.mappedName(), desc.lookup(), desc.libPath(), immutableFunctions, desc.impl());
                 }
         ));
+        VM_MAPPINGS = Map.copyOf(vmMappings);
     }
 
     private Libs() {
@@ -132,7 +140,7 @@ public final class Libs {
     }
 
     public static MemorySegment addrFromLib(Class<?> libType, String methodName) {
-        LibDescriptor<?> libDescriptor = DESCRIPTORS.get(libType);
+        LibDescriptor libDescriptor = LIB_MAPPINGS.get(libType);
         if (libDescriptor == null) {
             return MemorySegment.NULL;
         }
@@ -251,9 +259,8 @@ public final class Libs {
     // if the library is missing or unsupported on the current operating system.
     // for optimal performance, callers should store the return value
     // in a {@code static final} field.
-    @SuppressWarnings("unchecked")
-    public static <T> LibDescriptor<T> libDescriptor(Class<T> type) {
-        return (LibDescriptor<T>) DESCRIPTORS.get(type);
+    public static <T> LibDescriptor libDescriptor(Class<T> type) {
+        return LIB_MAPPINGS.get(type);
     }
 
     // find the target impl by the given type.
@@ -261,11 +268,12 @@ public final class Libs {
     // if the library is missing or unsupported on the current operating system.
     // for optimal performance, callers should store the return value
     // in a {@code static final} field.
+    @SuppressWarnings("unchecked")
     public static <T> T impl(Class<T> type) {
-        LibDescriptor<T> libDescriptor = libDescriptor(type);
+        LibDescriptor libDescriptor = libDescriptor(type);
         if (libDescriptor == null) {
-            return null;
+            return (T) VM_MAPPINGS.get(type);
         }
-        return libDescriptor.impl();
+        return (T) libDescriptor.impl();
     }
 }

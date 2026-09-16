@@ -39,10 +39,22 @@ only module-specific details are documented here.
   - Windows: `cmake --preset=windows && cmake --build build`
   - Linux: `cmake --preset=linux && cmake --build build`
   - macOS: `cmake --preset=macos && cmake --build build`
-- Windows note: before configuring or building on Windows, run
-  `vs-env.ps1` (dot-source it) so the current shell has the Visual
-  Studio environment (cl.exe, INCLUDE/LIB, etc.). For example:
-  `. .\vs-env.ps1; cmake --preset=windows && cmake --build build`
+- Windows: the whole configure + build can be done in a single line:
+  `. .\vs-env.ps1 && cmake --preset=windows && cmake --build build`
+  The leading dot is the dot-source operator: it runs `vs-env.ps1` in
+  the current shell (instead of launching a new process) so the Visual
+  Studio environment (cl.exe, INCLUDE/LIB, etc.) stays loaded for the
+  subsequent `cmake` commands.
+
+## Local Testing
+
+To test against a locally built native library without passing
+`-Djing.library.path` on every command line, set the
+`JING_LIBRARY_PATH` environment variable to point at the native build
+output directory (for example `src/main/native/build`). It is consulted
+after the `jing.library.path` system property and before
+`java.library.path`, and is treated as a single directory, so tests can
+load the native library without any extra command-line arguments.
 
 # Return Value Design
 

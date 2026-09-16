@@ -75,6 +75,10 @@ submodule.
 - Classes marked with `@Fragile` are designed so that improper use may
   crash the JVM. Do not add excessive defensive programming to them;
   just ensure they produce the correct output for correct input.
+- Utility classes containing only static methods must have a private
+  constructor that throws
+  `new UnsupportedOperationException("utility class");` to prevent
+  instantiation.
 
 ## Changes Tracking
 

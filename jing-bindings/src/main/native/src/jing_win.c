@@ -59,7 +59,7 @@ int jing_win_virtual_free(void* addr, size_t size, DWORD type) {
 	int v = VirtualFree(addr, size, type);
 	if (JING_UNLIKELY(v == 0)) {
 		int err = GetLastError();
-		return err;
+		return -err;
 	} else {
 		return 0;
 	}
@@ -224,7 +224,7 @@ jing_win_wepoll_create() {
 	HANDLE ptr = epoll_create1(0);
 	if (JING_UNLIKELY(ptr == NULL)) {
 		int err = GetLastError();
-		return -err;
+		return (HANDLE) jing_make_error_ptr(err);
 	} else {
 		return ptr;
 	}

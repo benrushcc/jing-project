@@ -3,12 +3,11 @@ package io.jingproject.bindings;
 import io.jingproject.ffm.Downcall;
 import io.jingproject.ffm.FFM;
 
-import java.lang.foreign.MemorySegment;
-
 @FFM(libraryName = "jing_bindings")
 public interface CommonBinding {
-    @Downcall(methodName = "jing_version_string", constant = true, critical = true)
-    MemorySegment versionString();
+    default String versionString() {
+        return majorVersion() + "." + minorVersion() + "." + patchVersion();
+    }
 
     @Downcall(methodName = "jing_major_version", constant = true, critical = true)
     int majorVersion();
@@ -26,11 +25,8 @@ public interface CommonBinding {
     long maxAlign();
 
     @Downcall(methodName = "jing_aligned_alloc", critical = true)
-    MemorySegment alignedAlloc(long size, long alignment);
+    long alignedAlloc(long size, long alignment);
 
-    @Downcall(methodName = "jing_aligned_free", critical = true)
-    void alignedFree(MemorySegment segment);
-
-    @Downcall(methodName = "jing_batch_free", critical = true)
-    void batchFree(MemorySegment ptrs, long count, MemorySegment freeAddr); // TODO 看要不要切换签名，count有死循环风险
+    @Downcall(methodName = "jing_batch_free")
+    void batchFree(long ptrs, long count, long freeAddr);
 }

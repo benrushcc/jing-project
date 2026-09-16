@@ -4,12 +4,10 @@ import io.jingproject.common.Os;
 import io.jingproject.common.SegmentAccess;
 import io.jingproject.common.anno.Fragile;
 
-import java.lang.foreign.Linker;
-import java.lang.foreign.MemoryLayout;
-import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
+import java.lang.foreign.*;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteOrder;
+import java.util.function.Consumer;
 
 // utility class for accessing native memory segment and VM native functions.
 // jing-common already provides SegmentAccess for reading and writing
@@ -24,7 +22,7 @@ public final class NativeSegmentAccess {
     // an address is unsigned, so we cannot represent a raw address larger
     // than Long.MAX_VALUE. however, user-land address space is usually 48-bit
     // on most operating systems, so we are all good here.
-    private static final MemorySegment ZERO = resize(MemorySegment.NULL, Long.MAX_VALUE);
+    private static final MemorySegment ZERO = reinterpret(MemorySegment.NULL, Long.MAX_VALUE);
     // jing_result related methods
     private static final MemoryLayout SIZE_T_LAYOUT = Linker.nativeLinker().canonicalLayouts().get("size_t");
     private static final MemoryLayout JING_ERR_VAL_LAYOUT = MemoryLayout.structLayout(
@@ -323,13 +321,31 @@ public final class NativeSegmentAccess {
         return (seg.address() & JING_POINTER_ERR_FLAG) != 0;
     }
 
+    public static boolean isErrPtr(long addr) {
+        return (addr & JING_POINTER_ERR_FLAG) != 0;
+    }
+
     public static int errCode(MemorySegment seg) {
         return (int) seg.address();
     }
 
-    public static MemorySegment resize(MemorySegment seg, long newSize) {
+    public static int errCode(long addr) {
+        return (int) addr;
+    }
 
+    // convenience wrappers for lifetime rebinding of memory segments.
+    // these can bypass the --enable-native-access warning, since only the current
+    // module needs a pass to use them.
+    public static MemorySegment reinterpret(MemorySegment seg, long newSize) {
         return seg.reinterpret(newSize);
+    }
+
+    public static MemorySegment reinterpret(MemorySegment seg, Arena arena, Consumer<MemorySegment> cleanup) {
+        return seg.reinterpret(arena, cleanup);
+    }
+
+    public static MemorySegment reinterpret(MemorySegment seg, long newSize, Arena arena, Consumer<MemorySegment> cleanup) {
+        return seg.reinterpret(newSize, arena, cleanup);
     }
 
 }

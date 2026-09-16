@@ -27,11 +27,12 @@
       "inherits": "default",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl",
-        "CMAKE_C_STANDARD": "11",
+        "CMAKE_C_STANDARD": "17",
         "CMAKE_LINKER_TYPE": "MSVC",
         "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL",
-        "CMAKE_C_FLAGS": "/DWIN32 /D_WINDOWS /DWIN32_LEAN_AND_MEAN /W4 /nologo /utf-8",
-        "CMAKE_SHARED_LINKER_FLAGS": "/machine:x64 /DEBUG:NONE"
+        "CMAKE_C_FLAGS": "/DWIN32 /D_WINDOWS /DWIN32_LEAN_AND_MEAN /nologo /utf-8",
+        "CMAKE_SHARED_LINKER_FLAGS": "/machine:x64 /DEBUG:NONE",
+        "JING_WARNING_FLAGS": "/W4"
       }
     },
     {
@@ -40,10 +41,11 @@
       "inherits": "default",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "gcc",
-        "CMAKE_C_STANDARD": "11",
+        "CMAKE_C_STANDARD": "17",
         "CMAKE_C_EXTENSIONS": "ON",
         "CMAKE_CXX_EXTENSIONS": "ON",
-        "CMAKE_C_FLAGS": "-Wall -g0 -march=native -fvisibility=hidden"
+        "CMAKE_C_FLAGS": "-g0 -march=native -fvisibility=hidden",
+        "JING_WARNING_FLAGS": "-Wall"
       }
     },
     {
@@ -52,8 +54,9 @@
       "inherits": "default",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang",
-        "CMAKE_C_STANDARD": "11",
-        "CMAKE_C_FLAGS": "-Wall -g0 -march=native -fvisibility=hidden"
+        "CMAKE_C_STANDARD": "17",
+        "CMAKE_C_FLAGS": "-g0 -march=native -fvisibility=hidden",
+        "JING_WARNING_FLAGS": "-Wall"
       }
     }
   ]

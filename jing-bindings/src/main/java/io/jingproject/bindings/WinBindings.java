@@ -30,10 +30,10 @@ public interface WinBindings {
     int winPageReadWrite();
 
     @Downcall(methodName = "jing_win_virtual_alloc", critical = true)
-    MemorySegment winVirtualAlloc(MemorySegment addr, long size, int type, int prot);
+    long winVirtualAlloc(long addr, long size, int type, int prot);
 
     @Downcall(methodName = "jing_win_virtual_free", critical = true)
-    int winVirtualFree(MemorySegment addr, long size, int type);
+    int winVirtualFree(long addr, long size, int type);
 
     @Downcall(methodName = "jing_win_connect_blocked_errcode", constant = true, critical = true)
     int connectBlockErrCode();

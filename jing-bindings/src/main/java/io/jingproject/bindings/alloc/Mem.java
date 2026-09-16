@@ -1,75 +1,82 @@
 package io.jingproject.bindings.alloc;
 
 import io.jingproject.bindings.VmBindings;
+import io.jingproject.common.anno.Fragile;
 import io.jingproject.ffm.Libs;
-import io.jingproject.ffm.NativeSegmentAccess;
 
-import java.lang.foreign.MemorySegment;
-
+// provides wrappers around C standard library memory functions.
+@Fragile
 public final class Mem {
     private static final VmBindings VM_BINDINGS = Libs.impl(VmBindings.class);
+    // function pointer for C's malloc()
+    private static final long MALLOC_FUNC_ADDR = Libs.addrFromVM("malloc").address();
+    // function pointer for C's free()
+    private static final long FREE_FUNC_ADDR = Libs.addrFromVM("free").address();
 
     static {
         if (VM_BINDINGS == null) {
             throw new ExceptionInInitializerError("cannot initialize vm bindings");
         }
+        if(MALLOC_FUNC_ADDR == 0L) {
+            throw new ExceptionInInitializerError("cannot initialize malloc function pointer");
+        }
+        if(FREE_FUNC_ADDR == 0L) {
+            throw new ExceptionInInitializerError("cannot initialize free function pointer");
+        }
     }
 
-    /**
-     * Private constructor to prevent instantiation.
-     * This is a utility class with only static methods.
-     */
     private Mem() {
         throw new UnsupportedOperationException("utility class");
     }
 
-    public static MemorySegment malloc(long byteSize) {
-
-        MemorySegment r = VM_BINDINGS.malloc(byteSize);
-        if (r.address() == 0L) {
-            throw new OutOfMemoryError();
-        }
-        return NativeSegmentAccess.resize(r, byteSize);
+    // returns the function pointer for C's malloc()
+    public static long mallocFuncAddr() {
+        return MALLOC_FUNC_ADDR;
     }
 
-    public static MemorySegment realloc(MemorySegment segment, long newSize) {
-
-        MemorySegment r = VM_BINDINGS.realloc(segment, newSize);
-        if (r.address() == 0L) {
-            free(segment);
-            throw new OutOfMemoryError();
-        }
-        return NativeSegmentAccess.resize(r, newSize);
+    // returns the function pointer for C's free()
+    public static long freeFuncAddr() {
+        return FREE_FUNC_ADDR;
     }
 
-    public static void free(MemorySegment segment) {
-
-        VM_BINDINGS.free(segment);
+    // corresponds to C's malloc()
+    public static long malloc(long size) {
+        return VM_BINDINGS.malloc(size);
     }
 
-    public static int memcmp(MemorySegment dest, MemorySegment src, long size) {
+    // corresponds to C's realloc()
+    public static long realloc(long addr, long newSize) {
+        return VM_BINDINGS.realloc(addr, newSize);
+    }
 
+    // corresponds to C's free()
+    public static void free(long addr) {
+        VM_BINDINGS.free(addr);
+    }
+
+    // corresponds to C's memcmp()
+    public static int memcmp(long dest, long src, long size) {
         return VM_BINDINGS.memcmp(dest, src, size);
     }
 
-    public static void memcpy(MemorySegment dest, MemorySegment src, long size) {
-
-
-        MemorySegment _ = VM_BINDINGS.memcpy(dest, src, size);
+    // corresponds to C's memcpy()
+    public static long memcpy(long dest, long src, long size) {
+        return VM_BINDINGS.memcpy(dest, src, size);
     }
 
-    public static void memmove(MemorySegment dest, MemorySegment src, long size) {
-
-        MemorySegment _ = VM_BINDINGS.memmove(dest, src, size);
+    // corresponds to C's memmove()
+    public static long memmove(long dest, long src, long size) {
+        return VM_BINDINGS.memmove(dest, src, size);
     }
 
-    public static MemorySegment memchr(MemorySegment src, byte ch, long size) {
-
-        return VM_BINDINGS.memchr(src, Byte.toUnsignedInt(ch), size);
+    // corresponds to C's memchr()
+    public static long memchr(long src, byte b, long size) {
+        int i = b & 0xFF;
+        return VM_BINDINGS.memchr(src, i, size);
     }
 
-    public static void memset(MemorySegment src, byte ch, long count) {
-
-        MemorySegment _ = VM_BINDINGS.memset(src, Byte.toUnsignedInt(ch), count);
+    // corresponds to C's memset()
+    public static long memset(long src, byte ch, long count) {
+        return VM_BINDINGS.memset(src, Byte.toUnsignedInt(ch), count);
     }
 }

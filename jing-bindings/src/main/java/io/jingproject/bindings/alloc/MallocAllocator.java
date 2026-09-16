@@ -1,156 +1,111 @@
 package io.jingproject.bindings.alloc;
 
 import io.jingproject.bindings.CommonBinding;
+import io.jingproject.common.Os;
+import io.jingproject.common.Utils;
+import io.jingproject.common.anno.Fragile;
 import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
 
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
+import java.lang.invoke.MethodHandles;
 
-/**
- * An implementation of {@link Allocator} using system malloc for memory allocation.
- * <p>
- * This allocator uses a contiguous array to track allocated pointers, enabling efficient
- * batch deallocation through native batch free operations. Compared to JDK's
- * {@code Arena.ofConfined} which uses linked-list management, this design provides
- * better cache locality and reduces allocation overhead.
- * <p>
- * For aligned allocations: on Linux/macOS uses C11's {@code aligned_alloc}, on Windows
- * uses MSVC's {@code _aligned_malloc}. The pointer's highest bit is used to mark
- * aligned allocations for proper deallocation.
- */
+// allocator backed by system malloc.
+// tracks every allocated pointer in a contiguous array so close() can batch-free
+// all of them in a single native call. aligned allocations are tagged with the
+// lowest pointer bit so the batch free can pick the matching deallocator.
+// not thread-safe: use one instance per thread or guard externally with a lock.
+@Fragile
 public final class MallocAllocator implements Allocator {
-    /**
-     * Initial length of the pointer tracking array (in number of pointers).
-     * <p>
-     * This value can be adjusted based on performance requirements and typical
-     * allocation patterns. A larger value reduces array resizing frequency but
-     * consumes more memory upfront.
-     */
-    private static final long MALLOC_ARRAY_DEFAULT_CAPACITY = 4L;
-
-    /**
-     * System bindings for native memory operations.
-     */
+    private static final long MALLOC_ARRAY_DEFAULT_CAPACITY = 32L;
     private static final CommonBinding SYS_BINDINGS = Libs.impl(CommonBinding.class);
 
-    /**
-     * Address of the free function obtained from the VM.
-     * <p>
-     * Using the VM's internal free function ensures consistent memory management
-     * throughout the application. This prevents issues that could arise from mixing
-     * different malloc/free implementations (e.g., system malloc vs. library-specific
-     * allocators), which can lead to memory corruption or undefined behavior.
-     */
-    private static final MemorySegment FREE_FUNC_ADDR = Libs.addrFromVM("free");
-
     static {
-        if (SYS_BINDINGS == null) {
+        try {
+            Class<Os> _ = MethodHandles.lookup().ensureInitialized(Os.class);
+        } catch (IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+        if(SYS_BINDINGS == null) {
             throw new ExceptionInInitializerError("cannot initialize SYS_BINDINGS");
         }
-        if (FREE_FUNC_ADDR == null || FREE_FUNC_ADDR.address() == 0L) {
-            throw new ExceptionInInitializerError("cannot initialize FREE_FUNC_ADDR");
+        if(SYS_BINDINGS.maxAlign() <= 1L) {
+            throw new ExceptionInInitializerError("max alignment cannot be less than 1");
         }
     }
 
-    /**
-     * Array tracking allocated pointers for batch deallocation.
-     * <p>
-     * State transitions:
-     * - Initially: {@code MemorySegment.NULL} (no allocations yet)
-     * - After first allocation: Becomes a valid malloc-allocated segment
-     * - After {@link #close()}: Set to {@code null} (allocator closed)
-     * <p>
-     * Checking if this field is {@code null} can determine if the allocator
-     * has been closed.
-     */
-    private MemorySegment addressArray = MemorySegment.NULL;
+    private long addr = 0L;
+    private long len = 0L;
+    private long index = 0L;
 
-    /**
-     * Current index in the address array, measured in bytes.
-     */
-    private long addressIndex = 0L;
-
-    /**
-     * Allocates memory with the specified size and alignment.
-     * <p>
-     * Platform-specific behavior:
-     * - For alignments ≤ maxAlign: uses standard malloc/free
-     * - For larger alignments:
-     * • Linux/macOS: uses C11 aligned_alloc/free
-     * • Windows: uses _aligned_malloc/_aligned_free
-     * <p>
-     * The pointer's highest bit is set for aligned allocations, allowing
-     * batchFree to distinguish between malloc and aligned_alloc pointers.
-     *
-     * @param byteSize      the size of memory to allocate in bytes
-     * @param byteAlignment the alignment requirement (must be a power of two)
-     * @return the allocated memory segment
-     * @throws IllegalStateException if the allocator has been closed
-     * @throws OutOfMemoryError      if allocation fails
-     */
+    // allocates byteSize bytes aligned to byteAlignment. alignment within the
+    // platform max goes through malloc; larger alignment uses a platform aligned
+    // allocation, tagged with the lowest pointer bit for the batch free.
     @Override
     public MemorySegment allocate(long byteSize, long byteAlignment) {
-
-        if (addressArray == null) {
-            throw new IllegalStateException("mallocBumper already closed");
+        if(byteSize <= 0L) {
+            throw new IllegalArgumentException("byteSize must be positive : " + byteSize);
         }
-        MemorySegment ptr;
-        long storedAddr;
+        if(byteAlignment <= 0L || (byteAlignment & (byteAlignment - 1L)) != 0L) {
+            throw new IllegalArgumentException("byteAlignment must be a positive power of two : " + byteAlignment);
+        }
+        if(addr == -1L) {
+            throw new IllegalStateException("malloc allocator already closed");
+        }
+        long r;
         if (byteAlignment <= SYS_BINDINGS.maxAlign()) {
-            if (byteSize > byteAlignment) {
-                ptr = Mem.malloc(byteSize);
-            } else {
-                // Allocate at least 'byteAlignment' bytes, so that malloc is guaranteed to return a pointer aligned to that alignment
-                ptr = NativeSegmentAccess.resize(Mem.malloc(byteAlignment), byteSize);
-            }
-            storedAddr = ptr.address();
+            // Request at least byteAlignment bytes so malloc's guarantee covers the actual alignment.
+            // Per N2293 (weak-alignment model), for sizes smaller than _Alignof(max_align_t),
+            // malloc only needs to align to the largest power of two not exceeding the requested size.
+            // https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2293.htm
+            r = Mem.malloc(Math.max(byteSize, byteAlignment));
         } else {
-            MemorySegment p = SYS_BINDINGS.alignedAlloc(byteSize, byteAlignment);
-            if (p.address() == 0L) {
+            // aligned_alloc size parameter requirements vary by platform:
+            // - Windows: size need not be a multiple of alignment; pass byteSize as-is.
+            // - Linux (glibc): requires glibc 2.38+ to allow size not a multiple of alignment;
+            //   earlier versions require size to be a multiple of alignment.
+            // - macOS: strictly requires size to be a multiple of alignment, otherwise returns NULL and sets errno=EINVAL.
+            // Therefore, for non-Windows platforms, round size up to a multiple of alignment for cross-platform compatibility.
+            r = SYS_BINDINGS.alignedAlloc(Os.current() == Os.WINDOWS ? byteSize : Utils.alignUp(byteSize, byteAlignment), byteAlignment);
+        }
+        if(r == 0L) {
+            throw new OutOfMemoryError();
+        }
+        if(addr == 0L) {
+            len = MALLOC_ARRAY_DEFAULT_CAPACITY;
+            addr = Mem.malloc(MALLOC_ARRAY_DEFAULT_CAPACITY);
+            if(addr == 0L) {
+                Mem.free(r);
                 throw new OutOfMemoryError();
             }
-            ptr = NativeSegmentAccess.resize(p, byteSize);
-            // Mark pointer's highest bit to indicate aligned allocation
-            storedAddr = SYS_BINDINGS.ptrErrFlag() | ptr.address();
+        } else if(index >= len) {
+            long newLen = Math.addExact(len, len);
+            long newAddr = Mem.realloc(addr, newLen);
+            if(newAddr == 0L) {
+                // realloc leaves the old tracking array intact on failure; keep
+                // it so close() can still batch-free every tracked pointer.
+                Mem.free(r);
+                throw new OutOfMemoryError();
+            }
+            len = newLen;
+            addr = newAddr;
         }
-        if (addressArray.address() == 0L) {
-            addressArray = Mem.malloc(Math.multiplyExact(MALLOC_ARRAY_DEFAULT_CAPACITY, ValueLayout.JAVA_LONG.byteSize()));
-        }
-        if (addressIndex == addressArray.byteSize()) {
-            long newSize = Math.multiplyExact(addressArray.byteSize(), 2L);
-            addressArray = Mem.realloc(addressArray, newSize);
-        }
-        NativeSegmentAccess.setLong(addressArray, addressIndex, storedAddr);
-        addressIndex = Math.addExact(addressIndex, ValueLayout.JAVA_LONG.byteSize());
-        return ptr;
+        // tag the lowest bit to mark an aligned allocation
+        NativeSegmentAccess.setLong(MemorySegment.ofAddress(addr), index, byteAlignment <= SYS_BINDINGS.maxAlign() ? r : (1L | r));
+        index += 8L;
+        return NativeSegmentAccess.reinterpret(MemorySegment.ofAddress(r), byteSize);
     }
 
-    /**
-     * Closes the allocator and releases all tracked memory.
-     * <p>
-     * Uses platform-specific batch free:
-     * - Standard malloc pointers: freed normally
-     * - Marked aligned pointers (highest bit set): platform-specific free function
-     * • Linux/macOS: standard free (aligned_alloc uses free)
-     * • Windows: _aligned_free (marked pointers need special handling)
-     * <p>
-     * After successful execution:
-     * - {@code addressArray} is set to {@code null} indicating closure
-     * - {@code addressIndex} is set to {@code Long.MIN_VALUE} as a sentinel value
-     * - All tracked memory segments are freed
-     *
-     * @throws IllegalStateException if the allocator has already been closed
-     */
+    // batch-frees every tracked pointer and nulls the tracking array.
+    // the tag on aligned pointers makes batchFree use the right deallocator.
     @Override
     public void close() {
-        if (addressArray == null) {
-            throw new IllegalStateException("mallocBumper already closed");
+        if(addr == -1L) {
+            throw new IllegalStateException("malloc allocator already closed");
         }
-        long count = Math.divideExact(addressIndex, ValueLayout.JAVA_LONG.byteSize());
-        if (count > 0L) {
-            SYS_BINDINGS.batchFree(addressArray, count, FREE_FUNC_ADDR);
-            addressIndex = Long.MIN_VALUE;
+        if(index > 0L) {
+            SYS_BINDINGS.batchFree(addr, index, Mem.freeFuncAddr());
         }
+        addr = -1L;
     }
 }

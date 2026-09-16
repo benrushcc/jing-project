@@ -3,6 +3,10 @@ package io.jingproject.common;
 import java.nio.ByteOrder;
 
 public final class Utils {
+    private static final int MAJOR_VERSION = 0;
+    private static final int MINOR_VERSION = 0;
+    private static final int PATCH_VERSION = 1;
+
     private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
     private static final boolean[] EMPTY_BOOLEAN_ARRAY = new boolean[0];
@@ -14,7 +18,23 @@ public final class Utils {
     private static final double[] EMPTY_DOUBLE_ARRAY = new double[0];
 
     private Utils() {
-        throw new AssertionError();
+        throw new UnsupportedOperationException("utility class");
+    }
+
+    public static int majorVersion() {
+        return MAJOR_VERSION;
+    }
+
+    public static int minorVersion() {
+        return MINOR_VERSION;
+    }
+
+    public static int patchVersion() {
+        return PATCH_VERSION;
+    }
+
+    public static String versionString() {
+        return MAJOR_VERSION + "." + MINOR_VERSION + "." + PATCH_VERSION;
     }
 
     public static Object[] emptyObjectArray() {
@@ -62,14 +82,24 @@ public final class Utils {
         return "_" + base + "$$" + tag;
     }
 
-    public static int roundUp(int value, int scale) {
+    public static int roundUp(int value, int alignment) {
         if(value <= 0) {
             throw new IllegalArgumentException("value must be positive");
         }
-        if(scale < 2 || Integer.bitCount(scale) != 1) {
-            throw new IllegalArgumentException("scale must be power of 2");
+        if(alignment <= 0 || (alignment & (alignment - 1)) != 0) {
+            throw new IllegalArgumentException("alignment must be power of 2");
         }
-        return (Math.addExact(value, scale - 1)) & -scale;
+        return (Math.addExact(value, alignment - 1)) & -alignment;
+    }
+
+    public static long alignUp(long value, long alignment) {
+        if(value <= 0L) {
+            throw new IllegalArgumentException("value must be positive");
+        }
+        if(alignment <= 0L || (alignment & (alignment - 1L)) != 0L) {
+            throw new IllegalArgumentException("alignment must be power of 2");
+        }
+        return (Math.addExact(value, alignment - 1L)) & -alignment;
     }
 
     public static short compact(byte b0, byte b1) {

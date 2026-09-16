@@ -6,14 +6,9 @@
 #include <stdalign.h>
 #endif
 
-static const int MAJOR_VERSION     = 0;
-static const int MINOR_VERSION     = 0;
-static const int PATCH_VERSION     = 1;
-static const char VERSION_STRING[] = "0.0.1";
-
-const char* jing_version_string(void) {
-	return VERSION_STRING;
-}
+static const int MAJOR_VERSION = 0;
+static const int MINOR_VERSION = 0;
+static const int PATCH_VERSION = 1;
 
 int jing_major_version(void) {
 	return MAJOR_VERSION;
@@ -31,7 +26,8 @@ uintptr_t jing_ptr_err_flag(void) {
 	return JING_PTR_ERR_FLAG;
 }
 
-#if defined(JING_OS_WINDOWS)   // Fix MSVC align support
+// provide MSVC align support
+#if defined(JING_OS_WINDOWS)
 typedef struct {
 	long long _max_align_ll;
 	long double _max_align_ld;
@@ -52,23 +48,19 @@ void* jing_aligned_alloc(size_t size, size_t alignment) {
 #endif
 }
 
-void jing_aligned_free(void* mem) {
-#if defined(JING_OS_WINDOWS)
-	_aligned_free(mem);
-#else
-	free(mem);
-#endif
-}
-
-void jing_batch_free(void** ptrs, size_t count, void (*free_func_t)(void*)) {
+void jing_batch_free(uintptr_t* ptrs, size_t len, void (*free_func_t)(void*)) {
+	size_t count = len / sizeof(uintptr_t);
 	for (size_t i = 0; i < count; ++i) {
 		uintptr_t addr = (uintptr_t) ptrs[i];
-		if (addr & JING_PTR_ERR_FLAG) {
-			addr &= ~(JING_PTR_ERR_FLAG);
-			jing_aligned_free((void*) addr);
+#if defined(JING_OS_WINDOWS)
+		if (addr & 1u) {
+			_aligned_free((void*) (addr & ~(uintptr_t) 1u));
 		} else {
 			free_func_t((void*) addr);
 		}
+#else
+		free_func_t((void*) (addr & ~(uintptr_t) 1u));
+#endif
 	}
 	free(ptrs);
 }

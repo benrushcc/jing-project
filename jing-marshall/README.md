@@ -28,6 +28,14 @@ This separation of concerns means:
 - The core library remains lightweight and format-agnostic.
 - Format-specific implementations can evolve independently without changing the core metadata.
 
+### Inspiration
+
+The design draws on two lightweight references: **miniserde**, a deliberately minimal serialization framework from the Rust ecosystem written by the same author as serde, which keeps the design small while preserving performance; and the JDK's **Serialization 2.0** initiative, which establishes a unified object schema model decoupled from both the in-memory representation and the wire encoding. jing-marshall follows the same spirit: a compact, metadata-focused core whose value comes from being consumed by format-specific serializers rather than from the core doing everything itself.
+
+### Stateless Dispatch
+
+marshall never reuses any runtime state other than metadata across serialization and deserialization runs. Each call re-resolves the dispatch path from the compile-time type information, unlike most frameworks that pre-compute a per-type dispatch plan ahead of time. This is a deliberate trade-off: it favors implementation simplicity over a small amount of dispatch performance. The loss is negligible in practice, because the metadata is fully fixed at compile time — at runtime the framework only sees immutable collections with no node mutation or synchronization overhead, so the cost of rebuilding the working state is entirely acceptable.
+
 Currently, the jing project ships one such format implementation: **jing-marshall-json**, a high-performance JSON serializer/deserializer built on top of jing-marshall's metadata. For usage, refer to its README.
 
 ## Module Structure

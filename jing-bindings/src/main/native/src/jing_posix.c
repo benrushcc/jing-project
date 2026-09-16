@@ -29,12 +29,8 @@ int jing_posix_prot_write(void) {
 	return PROT_WRITE;
 }
 
-int jing_posix_prot_none(void) {
-	return PROT_NONE;
-}
-
-int jing_posix_madv_dontneed(void) {
-	return MADV_DONTNEED;
+int jing_posix_madv_free(void) {
+	return MADV_FREE;
 }
 
 int jing_posix_map_private(void) {
@@ -60,7 +56,7 @@ int jing_posix_mprotect(void* addr, size_t size, int prot) {
 	int v = mprotect(addr, size, prot);
 	if (JING_UNLIKELY(v == -1)) {
 		int err = errno;
-		return err;
+		return -err;
 	} else {
 		return 0;
 	}
@@ -70,7 +66,7 @@ int jing_posix_madvise(void* addr, size_t size, int advice) {
 	int v = madvise(addr, size, advice);
 	if (JING_UNLIKELY(v == -1)) {
 		int err = errno;
-		return err;
+		return -err;
 	} else {
 		return 0;
 	}
@@ -80,7 +76,7 @@ int jing_posix_munmap(void* addr, size_t size) {
 	int v = munmap(addr, size);
 	if (JING_UNLIKELY(v == -1)) {
 		int err = errno;
-		return err;
+		return -err;
 	} else {
 		return 0;
 	}
@@ -90,7 +86,7 @@ int jing_posix_close(int fd) {
 	int v = close(fd);
 	if (JING_UNLIKELY(v == -1)) {
 		int err = errno;
-		return err;
+		return -err;
 	}
 	return 0;
 }

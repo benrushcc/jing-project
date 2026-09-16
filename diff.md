@@ -196,3 +196,56 @@
 - Added jing-marshall-cbor CborDeserializerNode: 新增显式栈容器节点, 与 json 节点同构但改 CBOR 语义——定长容器用 count 递减判定结束、不定长容器(count=-1)以 getByte 探测 0xff break 后 rewind 回退, 不再有分隔符读取; init* 方法均携带声明数量参数; 普通字段路径(含 null 0xf6 只在 ensureAllFieldsPresent 时计数)与 setObjValue 的 missing 扫描均排除 skipDeserializing 字段, 跳过字段仅消费字节不写 builder; 修正 json 的 FUNC_TABLE[ARRAY_TYPE] 设置完整数组类型而非组件类型的缺陷, 嵌套 bean 数组元素类型由此正确; Dummy 跳读覆盖 major 0-7 完整头(含 ai 24-27 载荷/simple 值/不定长容器进入)
 - Added jing-marshall-cbor CborDeserializer: 新增反序列化入口, 与 JsonDeserializer 十二个公开方法逐一对称——byte[] 入口即字节串(非数组), 其余各基本数组/对象数组/集合/映射入口各自动新建上下文、按需走 builtin 快速路径; 对象根自 checkObjStart 后取 declaredCount 初始化; process/nextNode 沿用显式栈(INITIAL_SIZE=4, 上限 maxNestedSize), 各 New* 结果统一由 context 当前 type()/obj()/declaredCount() 初始化复用节点
 - 说明: 本文件(第 3-67 行)存在先前的合并冲突标记(<<<<<<< Updated upstream / >>>>>>> Stashed changes), 本次仅在其后按时间顺序续写, 未触碰冲突区
+
+## 2026-09-15T13:34:01+08:00
+- Added jing-marshall-cbor CborSerializer: 新增序列化入口, 与 JsonSerializer 十二个公开方法逐一对称——byte[] 入口编码为 major 2 字节串(非数组), 其余各基本数组/对象数组/集合/映射/对象入口各内部新建上下文并初始化容器节点; 引用 CborSerializerContext 提交语义, 对象根以 declaredCount 定长头起步, deterministicEncoding 下容器全部定长且 map 键按 UTF-8 字节长度+字节序排序
+- Added jing-marshall-cbor CborSerializerOption: 新增序列化选项构建器, 含 deterministicEncoding(强制定长容器/键排序/序列化 null)与 setTransformerClasses 校验(transformer 存在性/重复/不可覆盖 builtin/不可为 bean/内置类型须实现 CborPrimitiveType 接口)
+- Added jing-marshall-cbor CborSerializerContext: 新增密封上下文(堆/段两实现), 含全部基本类型/数组/包装数组/字符串数组/CborPrimitiveType 全族与枚举的写出入口, 容器头定长写 count/不定长写 0x9f/0xbf 与 0xff break, deterministic 键排序(UTF-8 字节长度优先, 再字节序字典序), float 恒用 0xfa 4 字节/double 恒用 0xfb 8 字节(即使能缩成 half), byte[]→major 2 特判, CborStrType→major 3, 长常量池与消息均小写开头
+- Added jing-marshall-cbor CborSerializerNode: 新增显式栈容器节点(五状态含定长/不定长容器), deterministic 键排序收集与去重, skipSerializing 感知, null 省略与强制编码两路径; 修正 json 版 FUNC_TABLE[ARRAY_TYPE] 设置组件类型的缺陷, 嵌套 bean 数组元素类型由此正确
+- Added jing-marshall-cbor 单元测试: 镜像 json 模块 8 个测试类 + CBOR 特有 4 个测试类, 共 12 类 122 用例——CborSerializationTest/CborDeserializationTest(实体 Bean/Record/Enum/Recursive 与 BigDecimalTransformer 往返、unknown field/duplicate key/missing field/limit 异常)、CborWriteIntegerTest/CborReadIntegerTest(整数 0/23/24/255/256/65535/65536/2^32/Long 边界与负数 arg=-1-value 语义、非法 ai 28-31)、CborWriteFloatTest/CborReadFloatTest(0xf9/0xfa/0xfb 精确字节、NaN/±0/±Inf 位级、float64→float 溢出)、CborUtf8ValidationTest(validateHeap/validateSegment 损坏序列与超长编码/代理区/越界码点)、CborStringSerializationTest(文本/字节串头与中文/emoji 往返)、CborDeterministicEncodingTest(键排序/定长头/null 强制)、CborTagRejectionTest(tag not supported)、CborIndefiniteLengthTest(不定长容器/孤立 break)、CborNumberUtilRfc8949Test(RFC 8949 向量与 ai 拒绝)
+- Fixed jing-marshall-cbor 测试: 修复 CborReadFloatTest 中 float64 数组第二元素 0x125 错误(1.5 应为 fb3ff8000000000000)与溢出向量(2^64 换成 2^128 才能真正溢出 float32 上界)与消息字符串精确性; 修复 CborStringSerializationTest 中混合字符串数组 hex 向量多一个字节; 修复 CborWriteFloatTest 中 -1.0f 的 float32 位模式(bf800000 而非 bfc00000)
+- Fixed jing-marshall-cbor 测试: 修复 CborNumberUtilRfc8949Test 与 CborTagRejectionTest 两处 lambda 捕获非 effectively final 循环变量的编译错误(改复制到局部 final 变量)
+- Verified jing-marshall-cbor: mvn -o test -pl jing-marshall-cbor -am 全绿——12 个测试类 122 用例 0 失败 0 错误; 未触碰本文件第 3-67 行的既有合并冲突区
+
+## 2026-09-16T03:52:50+08:00
+- Fixed jing-bindings/jing_win.c: jing_win_wepoll_create 错误路径 `return -err`(int) 与返回类型 HANDLE 不匹配, 触发 C4047 警告且符号扩展后无法被 Java 侧 NativeSegmentAccess.isErrPtr/errCode 正确解码——改为 `(HANDLE) jing_make_error_ptr(err)`, 与 jing_win_virtual_alloc/jing_win_socket 的错误指针编码约定一致(低 32 位错误码 + 最高位标记); 已通过 clang-format 并全量重编验证 C4047 消失
+- Note jing-bindings 构建: 剩余 D9025 警告(32 条)均来自 zlib-ng 第三方源码——主 preset 全局 /W4 被 zlib-ng 自身 /W3 覆盖所致, 属配置噪声, 未处理
+
+## 2026-09-16T04:04:38+08:00
+- Modified jing-bindings/CMakePresets.json: 按平台将警告选项从全局 CMAKE_C_FLAGS 迁出至独立 cache 变量——windows 增 "JING_WARNING_FLAGS": "/W4", linux/macos 增 "JING_WARNING_FLAGS": "-Wall"; CMAKE_C_FLAGS 相应移除 /W4/-Wall, 其余平台 flags 不变, 平台差异化配置仍集中在 preset
+- Modified jing-bindings/CMakeLists.txt: 新增平台警告选项应用块——若 JING_WARNING_FLAGS 已定义且非空, 经 foreach 以 target_compile_options PRIVATE 逐目标应用至 jing_bindings 与 jing_demo(JING_BUILD_DEMO=ON 时), 置于 include(FetchContent) 之前; 第三方子项目(zlib-ng/wepoll)不再继承项目警告级别
+- Fixed jing-bindings/CMakeLists.txt: target_compile_options 不接受多目标参数(实测 a b 两目标报 "called with invalid arguments"), 改用 foreach 逐目标调用
+- Verified jing-bindings: cmake --preset=windows 重新 configure 时预设变量显示 JING_WARNING_FLAGS="/W4" 且 CMAKE_C_FLAGS 已去 /W4; clean-first 全量重建 59 步全过——D9025 警告 32 条归零, C4047 无回归; ninja -t commands 核验 jing_bindings 3 个 .c 编译命令均含 /W4、wepollstatic/zlib-ng 命令不含项目警告 flags
+
+## 2026-09-16T04:43:56+08:00
+- Added jing-bindings AllocTest: 新增 Allocator 接口堆外内存分配单元测试类(19 个用例)——MallocAllocator 基本分配/SegmentAllocator 默认方法/对齐 ≤ 与 > maxAlign/20 块跟踪数组增长(地址唯一性)/Mem.memset 读写回验/非法参数六连/close 语义/无分配 close; ArenaAllocator 基本分配/4096 对齐/commit 增长(8×64KB 写尾部)/越界 ForeignException/非法参数/close 后 shrink 与地址复用; newAlloc 默认与 ScopedValue 绑定两条路径; 测试为 require-native-library 标签
+- Fixed jing-ffm Libs.java: @FFM VM 接口(libraryName="jvm")此前按普通库名走 System.mapLibraryName→"jvm.dll" 文件搜索必然失败而被 continue 跳过, 导致 Mem.<clinit> 报 "cannot initialize vm bindings"、所有 MallocAllocator 测试崩——增加 FFM.VM 判定分支改用 Linker.nativeLinker().defaultLookup() 解析 VM 命名空间符号, 并重排被编辑破坏的缩进; 实测 classpath 下 VmBindings 已注册, 模块路径下 ServiceLoader 因模块可读性差异不发现 provider(原行为, 非回归)
+- Fixed jing-bindings Allocator.java: newAlloc() 用 MMAP_SCOPE.orElse(null) 在未绑定时抛 NPE(ScopedValue.orElse 拒绝 null 参数)——改为 isBound() 判空后再 get(), 未绑定返回 MallocAllocator
+- Fixed jing-bindings MallocAllocator.java: 指针跟踪数组扩容缺陷——初始 addressArray 为 MemorySegment.NULL(byteSize=0), 原 if(addressArray==null) 初始化分支永不触发, 首次写入触发 addressIndex>=currentSize(0>=0) 走 realloc(NULL,0) 返回 NULL 抛 OutOfMemoryError; 改为 currentSize==0 时用 malloc(初始容量) 而非 realloc 翻倍
+- Verified jing-bindings: mvn -o test -pl jing-bindings -am 全绿——AllocTest 19 例 0 失败 0 错误, CommonBindingTest 1 例、DemoTest 14 例通过, BUILD SUCCESS; 期间曾观察到 surefire fork 崩溃(0xC0000374 堆损坏)与 MallocAllocator OOM, 均由此处 MallocAllocator/Allocator 修复消除
+
+## 2026-09-16T15:31:16+08:00
+- Simplified jing-bindings alloc 包注释(4 文件, 纯注释改动): Allocator.java 类注释由 14 行压至 7 行并修正过时的 MmapAllocator/MmapSegment 名称(实际实现为 ArenaAllocator/ArenaBase), MMAP_SCOPE 与新 newAlloc 注释各压至 1-2 行; MallocAllocator.java 类注释压至 4 行、容量与 close 注释压缩, allocate 注释修正与代码矛盾的"最高位标记"描述(代码实际标记最低位 1L|address()), 补 SYS_BINDINGS 字段与静态块各 1 行注释, 压短两处行内注释; ArenaBase.java/ArenaAllocator.java 原无注释, 为类、构造器、newInstance/slice/shrink/close、六个抽象方法与两个平台子类各补 1-4 行纯 `//` 注释描述逻辑(无 Javadoc/无 @code 等格式化); Mem.java 注释已简洁未动
+- Verified jing-bindings: 注释改动后 mvn -o test -pl jing-bindings -am 全绿(AllocTest 8 例 + CommonBindingTest 1 例 + DemoTest 14 例), 编译无警告
+
+## 2026-09-16T16:20:00+08:00
+- Added jing-bench AllocatorBench: 新增堆外分配路径对比基准——同一负载(每轮随机 1..1024 字节分配 128 次后 close, 共 10 轮, 随机大小预生成至 int[] 避免计入随机数开销, @OperationsPerInvocation(1280))下对比三种分配方式: testNewAllocMalloc(不绑定 MMAP_SCOPE, newAlloc 走 MallocAllocator)、testNewAllocArena(每轮经 ScopedValue.where 绑定复用 ArenaBase, newAlloc 走 ArenaAllocator, close 后 shrink 回退位置)、testJdkArenaOfConfined(JDK Arena.ofConfined 基线); 对齐统一取 1L 与 JDK arena 默认对齐一致, Blackhole 消费 segment.address() 防 JIT 消除分配; 基准参数 1 次 warmup 2s + 1 次测量 4s
+
+## 2026-09-16T16:45:00+08:00
+- Modified jing-bindings/CMakePresets.json: 将 windows/linux/macos 三个 preset 的 "CMAKE_C_STANDARD" 从 "11" 改为 "17"(C17 是 C11 的 bugfix-only 修订版, 无破坏性变更); 编译标志映射: windows cl -> /std:c17, linux gcc(C_EXTENSIONS ON) -> -std=gnu17, macos clang -> -std:gnu17; 重新配置后 CMAKE_AR 需重新探测(首次在非 VS 环境下 configure 导致 CMAKE_AR 误检为 Strawberry Perl 的 ar.exe 而非 MSVC 的 lib.exe, 需删除 CMakeCache.txt 重新 configure 修复)
+- Verified jing-bindings: 删除 CMakeCache.txt -> pwsh + vs-env.ps1 重新 configure -> CMAKE_C_STANDARD=17 确认 -> ninja -t commands 核验编译命令含 -std:c17 -> 全量重建 59 步全过(wepollstatic.lib / zlibstatic.lib / jing_bindings.dll / jing_demo.dll) -> mvn -o test -pl jing-bindings -am 全绿(AllocTest 8 例 + CommonBindingTest 1 例 + DemoTest 14 例), 无新增警告
+
+## 2026-09-16T17:51:14+08:00
+- Updated jing-marshall/README.md: 在 Design Philosophy 章节新增 Inspiration 与 Stateless Dispatch 两个小节——说明设计思路源自 miniserde(Rust serde 同作者的轻量级设计)与 JDK Serialization 2.0, 以及 marshall 在多次序列化/反序列化间不复用元数据以外状态、每次按编译期类型重新判定分发路径的刻意取舍(元数据编译期固定, 运行时为不可变集合, 无节点变更与同步开销, 重建现场消耗可接受)
+- Updated AGENTS.md: Code Conventions 新增工具类规范——只含静态方法的工具类必须提供私有构造器并 throw new UnsupportedOperationException("utility class") 防止实例化
+- Updated jing-bindings/AGENTS.md: Windows 构建改为单行命令 . .\vs-env.ps1 && cmake --preset=windows && cmake --build build, 并说明开头的点是点源操作符(在当前 shell 运行而非启动新进程, 使 VS 环境保留给后续 cmake); 新增 Local Testing 小节, 说明可通过 JING_LIBRARY_PATH 环境变量指向本地 native 构建目录, 免去每条测试命令传 -Djing.library.path
+
+## 2026-09-16T19:48:15+08:00
+- Fixed jing-bindings MallocAllocator: realloc 失败路径删除错误的 Mem.free(addr)——该行会释放仍存活的旧跟踪数组, 造成后续 close() 对已释放内存批量 free 的 use-after-free/野指针崩溃; realloc 失败时旧块按 C11 语义仍有效必须保留, 只释放未入表的新 payload r
+- Updated jing-bindings MallocAllocator/ArenaBase: 类注释补充线程安全约束(not thread-safe: one instance per thread or guard externally / one arena must be used by a single thread), 落实 review 中 M-2 项
+- Updated jing-bindings ArenaAllocator: allocate() 增加 closed guard, close 后调用抛 IllegalStateException, 与 MallocAllocator 的 close 后语义对齐
+- Verified jing-bindings: mvn -o test -pl jing-bindings -am 全绿(AllocTest 8 例 + CommonBindingTest 1 例 + DemoTest 14 例), BUILD SUCCESS
+
+## 2026-09-16T20:04:41+08:00
+- Fixed jing-bindings ArenaBase: 构造器 reserve 成功后 commit 抛 ForeignException 时调用 release() 释放保留区再重抛, 消除构造失败路径的地址空间泄漏(L-3); Windows 侧 VirtualFree(MEM_RELEASE) 与 POSIX 侧 munmap 均不依赖 commit 状态, release 兜底安全
+- Verified jing-bindings: mvn -o test -pl jing-bindings -am 全绿(AllocTest 8 例 + CommonBindingTest 1 例 + DemoTest 14 例), BUILD SUCCESS

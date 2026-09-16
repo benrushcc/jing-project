@@ -13,9 +13,7 @@ JING_EXPORT_SYMBOL int jing_posix_prot_read(void);
 
 JING_EXPORT_SYMBOL int jing_posix_prot_write(void);
 
-JING_EXPORT_SYMBOL int jing_posix_prot_none(void);
-
-JING_EXPORT_SYMBOL int jing_posix_madv_dontneed(void);
+JING_EXPORT_SYMBOL int jing_posix_madv_free(void);
 
 JING_EXPORT_SYMBOL int jing_posix_map_private(void);
 

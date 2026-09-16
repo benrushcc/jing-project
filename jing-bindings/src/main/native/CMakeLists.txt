@@ -57,6 +57,18 @@ else()
     target_sources(jing_bindings PRIVATE src/jing_posix.c src/jing_linux.c)
 endif()
 
+# apply platform-specific warning flags to the project's own targets only;
+# third-party subprojects (zlib-ng, wepoll) keep their own warning setups.
+if(DEFINED JING_WARNING_FLAGS AND NOT "${JING_WARNING_FLAGS}" STREQUAL "")
+    set(JING_WARN_TARGETS jing_bindings)
+    if(JING_BUILD_DEMO)
+        list(APPEND JING_WARN_TARGETS jing_demo)
+    endif()
+    foreach(JING_WARN_TARGET IN LISTS JING_WARN_TARGETS)
+        target_compile_options(${JING_WARN_TARGET} PRIVATE ${JING_WARNING_FLAGS})
+    endforeach()
+endif()
+
 include(FetchContent)
 
 # setup wepoll

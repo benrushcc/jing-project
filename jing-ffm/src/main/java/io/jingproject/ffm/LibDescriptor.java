@@ -5,7 +5,7 @@ import java.lang.foreign.SymbolLookup;
 import java.nio.file.Path;
 import java.util.Map;
 
-public record LibDescriptor<T> (
+public record LibDescriptor (
         // the original library name declared in the @FFM annotation.
         String libName,
         // the OS-mapped library name (System.mapLibraryName result),
@@ -19,6 +19,6 @@ public record LibDescriptor<T> (
         // NULL segments stand for missing symbols.
         Map<String, MemorySegment> functions,
         // the singleton implementation instance of the binding.
-        T impl
+        Object impl
 ) {
 }
