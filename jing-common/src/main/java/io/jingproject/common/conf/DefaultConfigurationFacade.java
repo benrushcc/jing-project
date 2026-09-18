@@ -78,83 +78,48 @@ public final class DefaultConfigurationFacade implements ConfigurationFacade {
 
     @Override
     public String conf(String key) {
+        Cfg cfg = navigate(key);
+        if (cfg == null) {
+            return null;
+        }
+        if (cfg instanceof CfgItem(String value)) {
+            return value;
+        }
+        throw new CfgException("invalid key: " + key + ", type : " + cfg.getClass().getSimpleName());
+    }
+
+    private static Cfg navigate(String key) {
+        if (key.isEmpty()) {
+            throw new CfgException("invalid key: " + key);
+        }
         CfgObject cfgObject = getConfiguration();
-        List<String> nestedkeys = CfgUtil.readCfgNestedKey(key.getBytes(StandardCharsets.UTF_8), MAX_DEPTH);
-        switch (nestedkeys.size()) {
-            case 0 -> throw new CfgException("invalid key: " + key);
-            case 1 -> {
-                Cfg cfg = cfgObject.value().get(nestedkeys.getLast());
-                if (cfg == null) {
-                    return null;
-                }
-                if (cfg instanceof CfgItem(String value)) {
-                    return value;
-                }
-                throw new CfgException("invalid key : " + key + ", type : " + cfg.getClass().getSimpleName());
+        byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
+        List<String> nestedkeys = CfgUtil.readCfgNestedKey(keyBytes, 0, keyBytes.length, MAX_DEPTH);
+        CfgObject current = cfgObject;
+        for (String nestedKey : nestedkeys.subList(0, Math.subtractExact(nestedkeys.size(), 1))) {
+            Cfg cfg = current.value().get(nestedKey);
+            if (cfg == null) {
+                return null;
             }
-            default -> {
-                CfgObject current = cfgObject;
-                for (String nestedKey : nestedkeys.subList(0, Math.subtractExact(nestedkeys.size(), 1))) {
-                    Cfg cfg = current.value().get(nestedKey);
-                    if (cfg == null) {
-                        return null;
-                    }
-                    if (cfg instanceof CfgObject co) {
-                        current = co;
-                    } else {
-                        throw new CfgException("invalid key : " + key + ", current nested key: " + nestedKey + ", type : " + cfg.getClass().getSimpleName());
-                    }
-                }
-                Cfg cfg = current.value().get(nestedkeys.getLast());
-                if (cfg == null) {
-                    return null;
-                }
-                if (cfg instanceof CfgItem(String value)) {
-                    return value;
-                }
-                throw new CfgException("invalid key : " + key + ", type : " + cfg.getClass().getSimpleName());
+            if (cfg instanceof CfgObject co) {
+                current = co;
+            } else {
+                throw new CfgException("invalid key: " + key + ", current nested key: " + nestedKey
+                        + ", type : " + cfg.getClass().getSimpleName());
             }
         }
+        return current.value().get(nestedkeys.getLast());
     }
 
     @Override
     public List<String> confList(String key) {
-        CfgObject cfgObject = getConfiguration();
-        List<String> nestedkeys = CfgUtil.readCfgNestedKey(key.getBytes(StandardCharsets.UTF_8), MAX_DEPTH);
-        switch (nestedkeys.size()) {
-            case 0 -> throw new CfgException("invalid key: " + key);
-            case 1 -> {
-                Cfg cfg = cfgObject.value().get(nestedkeys.getLast());
-                if (cfg == null) {
-                    return null;
-                }
-                if (cfg instanceof CfgList(List<String> value)) {
-                    return value;
-                }
-                throw new CfgException("invalid key : " + key + ", type : " + cfg.getClass().getSimpleName());
-            }
-            default -> {
-                CfgObject current = cfgObject;
-                for (String nestedKey : nestedkeys.subList(0, Math.subtractExact(nestedkeys.size(), 1))) {
-                    Cfg cfg = current.value().get(nestedKey);
-                    if (cfg == null) {
-                        return null;
-                    }
-                    if (cfg instanceof CfgObject co) {
-                        current = co;
-                    } else {
-                        throw new CfgException("invalid key : " + key + ", current nested key: " + nestedKey + ", type : " + cfg.getClass().getSimpleName());
-                    }
-                }
-                Cfg cfg = current.value().get(nestedkeys.getLast());
-                if (cfg == null) {
-                    return null;
-                }
-                if (cfg instanceof CfgList(List<String> value)) {
-                    return value;
-                }
-                throw new CfgException("invalid key : " + key + ", type : " + cfg.getClass().getSimpleName());
-            }
+        Cfg cfg = navigate(key);
+        if (cfg == null) {
+            return null;
         }
+        if (cfg instanceof CfgList(List<String> value)) {
+            return List.copyOf(value);
+        }
+        throw new CfgException("invalid key: " + key + ", type : " + cfg.getClass().getSimpleName());
     }
 }

@@ -1,14 +1,18 @@
 package io.jingproject.log;
 
-import io.jingproject.common.LogLevel;
+import io.jingproject.common.log.LogLevel;
 
-public record LogEvent(
+import java.time.OffsetDateTime;
+import java.util.Map;
+
+public record LogEvent (
         LogLevel level,
-        long timestamp,
+        OffsetDateTime offsetDateTime,
         String className,
         String threadName,
+        String msg,
         Throwable throwable,
-        String msg
+        Map<String, Object> logContext
 ) {
 
 }

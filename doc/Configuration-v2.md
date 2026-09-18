@@ -171,8 +171,11 @@ Nested keys use `.` as the separator, e.g. `server.port`. Nesting depth is cappe
 ## 5. File format subsets
 
 The parsers do not implement full TOML/JSON/Properties. They implement a deliberate
-subset that only supports the string model above. This keeps the parsers small and
-avoids surprising value conversions.
+subset that supports the string value model plus strict numeric and boolean forms
+(canonicalized to strings by the v3 readers), avoiding surprising value conversions.
+Nesting depth is limited by `maxDepth` (root counts as depth 1; a layer deeper than
+`maxDepth` is rejected, a layer exactly at `maxDepth` is accepted). Truncated or
+garbage-tailed input is rejected with `CfgException`.
 
 ### 5.1 TOML (`TomlCfgReader`)
 
@@ -181,13 +184,15 @@ Supported:
 - table headers `[a.b.c]` (dotted bare keys), which switch the current table;
 - bare keys only (`[a-zA-Z0-9_-]`), optionally dotted;
 - string values in double quotes, single line;
-- string arrays `["a", "b"]`;
-- comments starting with `#`;
+- numbers (`int`, `float`, `inf`, `nan`, strict grammar) and booleans;
+- string arrays `["a", "b"]`, empty arrays `[]`;
+- comments starting with `#`, including a comment running to EOF without a trailing
+  newline;
 - escapes in strings: `\b \t \n \f \r \e \" \\ \xXX \uXXXX \UXXXXXXXX`;
 - duplicate table and duplicate key detection (both rejected).
 
-Not supported (rejected): numbers, booleans, dates, quoted keys, multi-line strings,
-literal strings `'...'`, arrays of tables `[[...]]`, inline tables.
+Not supported (rejected): dates, quoted keys, multi-line strings, literal strings
+`'...'`, arrays of tables `[[...]]`, inline tables, empty table headers `[]`.
 
 ### 5.2 JSON (`JsonCfgReader`)
 
@@ -195,14 +200,16 @@ Supported:
 
 - a single top-level object `{ ... }`;
 - string keys and string values;
-- string arrays `["a", "b"]`;
-- nested objects;
+- numbers (strict per RFC 8259 grammar) and booleans;
+- string arrays `["a", "b"]`, empty arrays `[]`;
+- nested objects (subject to `maxDepth`);
 - escapes in strings: `\" \\ \/ \b \f \n \r \t \uXXXX`, including surrogate pairs
   (`\uD800\uDC00` combined into a single code point);
 - duplicate key detection (rejected).
 
-Not supported (rejected): numbers, booleans, `null`, arrays at the top level, arrays of
-objects.
+Not supported (rejected): `null`, arrays at the top level, arrays of objects. Truncated
+input (missing the closing `}`) and any non-whitespace after the root object are
+rejected.
 
 ### 5.3 Properties (`PropertiesCfgReader`)
 
@@ -210,10 +217,12 @@ Supported:
 
 - standard `java.util.Properties.load` semantics (UTF-8 reader), including its escape
   handling and comment lines;
-- flat keys with `.` separators are expanded into a nested `CfgObject` tree;
+- flat keys with `.` separators are expanded into a nested `CfgObject` tree (subject to
+  `maxDepth`, segment count capped);
 - a value wrapped in `[` ... `]` is split on `,` into a `CfgList` (blank items are
   dropped);
-- duplicate key detection (rejected).
+- duplicate key and nested-conflict (a key both used as a leaf and as a path segment)
+  detection (rejected).
 
 ## 6. Known issues (recorded, not yet fixed)
 

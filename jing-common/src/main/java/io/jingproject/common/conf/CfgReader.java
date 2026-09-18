@@ -1,5 +1,6 @@
 package io.jingproject.common.conf;
 
+import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.common.conf.Cfg.CfgItem;
 import io.jingproject.common.conf.Cfg.CfgList;
 import io.jingproject.common.conf.Cfg.CfgObject;
@@ -12,35 +13,34 @@ public sealed interface CfgReader {
     CfgObject parse(int maxDepth) throws IOException;
 
     final class JsonCfgReader implements CfgReader {
-        private final InputStream input;
-        private final Deque<Map<String, Cfg>> previous = new ArrayDeque<>();
-        private final Deque<String> keys = new ArrayDeque<>();
+        private record Frame(Map<String, Cfg> parent, String key) {}
+
+        private final PushbackInputStream input;
+        private final HeapWriteBuffer out = new HeapWriteBuffer(64);
+        private final Deque<Frame> frames = new ArrayDeque<>();
         private Map<String, Cfg> current = new HashMap<>();
         private String key = null;
 
         public JsonCfgReader(InputStream input) {
-            this.input = input;
+            this.input = new PushbackInputStream(input);
         }
 
-        private static void readJsonStrValue(InputStream input, ByteArrayOutputStream output) throws IOException {
+        private static void readJsonStrValue(InputStream input, HeapWriteBuffer output) throws IOException {
             boolean escaping = false;
             int b;
             while ((b = input.read()) != -1) {
                 if (escaping) {
                     switch (b) {
-                        case '\"' -> output.write('\"');
-                        case '\\' -> output.write('\\');
-                        case '/' -> output.write('/');
-                        case 'b' -> output.write('\b');
-                        case 'f' -> output.write('\f');
-                        case 'n' -> output.write('\n');
-                        case 'r' -> output.write('\r');
-                        case 't' -> output.write('\t');
+                        case '\"' -> output.writeByte((byte) '\"');
+                        case '\\' -> output.writeByte((byte) '\\');
+                        case '/' -> output.writeByte((byte) '/');
+                        case 'b' -> output.writeByte((byte) '\b');
+                        case 'f' -> output.writeByte((byte) '\f');
+                        case 'n' -> output.writeByte((byte) '\n');
+                        case 'r' -> output.writeByte((byte) '\r');
+                        case 't' -> output.writeByte((byte) '\t');
                         case 'u' -> {
                             int codePoint = CfgUtil.readUnicode(input, 4);
-                            if (!Character.isValidCodePoint(codePoint)) {
-                                throw new CfgException("invalid code point: " + codePoint);
-                            }
                             if (codePoint instanceof char highSurrogate && Character.isHighSurrogate(highSurrogate)) {
                                 CfgUtil.assume(input, '\\');
                                 CfgUtil.assume(input, 'u');
@@ -49,7 +49,7 @@ public sealed interface CfgReader {
                                     codePoint = Character.toCodePoint(highSurrogate, lowSurrogate);
                                 }
                             }
-                            CfgUtil.writeUnicodeInUtf8(output, codePoint);
+                            output.writeCodePointInUtf8(codePoint);
                         }
                         default -> throw new CfgException("invalid escape sequence: " + b);
                     }
@@ -60,7 +60,7 @@ public sealed interface CfgReader {
                     } else if (b == '"') {
                         return;
                     } else {
-                        output.write(b);
+                        output.writeByte((byte) b);
                     }
                 }
             }
@@ -69,143 +69,194 @@ public sealed interface CfgReader {
 
         // the constructed reader can only parse once, further parse is undefined behavior
         public CfgObject parse(int maxDepth) throws IOException {
-            State state = State.INITIAL;
-            int b;
-            try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                for (; ; ) {
-                    switch (state) {
-                        case INITIAL -> {
-                            b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                            if (b != '{') {
-                                throw new CfgException("Corrupted json configuration");
-                            }
-                            state = State.OBJ_START;
-                        }
-                        case OBJ_START -> {
-                            if (key != null) {
-                                if (previous.size() >= maxDepth) {
-                                    throw new CfgException("maximum nesting depth exceeded");
-                                }
-                                keys.addLast(key);
-                                key = null;
-                                previous.addLast(current);
-                                current = new HashMap<>();
-                            }
-                            b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                            if (b == '}') {
-                                state = State.STR_ARR_OBJ_END;
-                            } else if (b == '"') {
-                                state = State.KEY_START;
-                            } else {
-                                throw new CfgException("Corrupted json configuration");
-                            }
-                        }
-                        case STR_ARR_OBJ_END -> {
-                            b = CfgUtil.ignore(input, ' ', '\t', '\r', '\n');
-                            if (b == ',') {
-                                state = State.EXPECT_KEY;
-                            } else if (b == '}') {
-                                Map<String, Cfg> parent = previous.pollLast();
-                                if (parent == null) {
-                                    return new CfgObject(current);
-                                }
-                                key = keys.pollLast();
-                                if (parent.putIfAbsent(key, new CfgObject(current)) != null) {
-                                    throw new CfgException("Duplicate key: " + key);
-                                }
-                                current = parent;
-                                key = null;
-                            } else if (b == -1) {
-                                if (previous.isEmpty()) {
-                                    return new CfgObject(current);
-                                }
-                                throw new CfgException("EOF reached");
-                            } else {
-                                throw new CfgException("Corrupted json configuration");
-                            }
-                        }
-                        case EXPECT_KEY -> {
-                            b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                            if (b == '"') {
-                                state = State.KEY_START;
-                            } else {
-                                throw new CfgException("Corrupted json configuration");
-                            }
-                        }
-                        case KEY_START -> {
-                            CfgUtil.search(input, output, '"');
-                            byte[] keyBytes = output.toByteArray();
-                            output.reset();
-                            key = CfgUtil.readCfgKey(keyBytes);
-                            state = State.KEY_END;
-                        }
-                        case KEY_END -> {
-                            b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                            if (b != ':') {
-                                throw new CfgException("Corrupted json configuration");
-                            }
-                            state = State.EXPECT_VALUE;
-                        }
-                        case EXPECT_VALUE -> {
-                            b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                            if (b == '"') {
-                                state = State.STR_START;
-                            } else if (b == '[') {
-                                state = State.ARR_START;
-                            } else if (b == '{') {
-                                state = State.OBJ_START;
-                            } else {
-                                throw new CfgException("Corrupted json configuration");
-                            }
-                        }
-                        case STR_START -> {
-                            readJsonStrValue(input, output);
-                            String str = output.toString(StandardCharsets.UTF_8);
-                            output.reset();
-                            if (current.putIfAbsent(key, new CfgItem(str)) != null) {
-                                throw new CfgException("Duplicate key: " + key);
-                            }
-                            key = null;
-                            state = State.STR_ARR_OBJ_END;
-                        }
-                        case ARR_START -> {
-                            List<String> strList = new ArrayList<>();
-                            for (; ; ) {
-                                b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                                if (b != '"') {
-                                    throw new CfgException("Corrupted json configuration");
-                                }
-                                readJsonStrValue(input, output);
-                                strList.add(output.toString(StandardCharsets.UTF_8));
-                                output.reset();
-                                b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                                if (b == ']') {
-                                    if (current.putIfAbsent(key, new CfgList(strList)) != null) {
-                                        throw new CfgException("Duplicate key: " + key);
-                                    }
-                                    key = null;
-                                    state = State.STR_ARR_OBJ_END;
-                                    break;
-                                } else if (b != ',') {
-                                    throw new CfgException("Corrupted json configuration");
-                                }
-                            }
-                        }
-                    }
-                }
+            if (maxDepth <= 0) {
+                throw new CfgException("invalid max depth: " + maxDepth);
             }
+            State state = State.INITIAL;
+            while (state != State.DONE) {
+                state = switch (state) {
+                    case INITIAL -> onInitial();
+                    case OBJ_START -> onObjStart(maxDepth);
+                    case AFTER_VALUE -> onAfterValue();
+                    case EXPECT_KEY -> onExpectKey();
+                    case KEY_READ -> onKeyRead();
+                    case COLON -> onColon();
+                    case EXPECT_VALUE -> onExpectValue();
+                    case ARRAY -> onArray();
+                    case DONE -> throw new AssertionError();
+                };
+            }
+            int tail = CfgUtil.ignore(input, ' ', '\t', '\r', '\n');
+            if (tail != -1) {
+                throw new CfgException("Corrupted json configuration");
+            }
+            return new CfgObject(current);
+        }
+
+        private State onInitial() throws IOException {
+            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
+            if (b != '{') {
+                throw new CfgException("Corrupted json configuration");
+            }
+            return State.OBJ_START;
+        }
+
+        private State onObjStart(int maxDepth) throws IOException {
+            if (key != null) {
+                if (frames.size() + 2 > maxDepth) {
+                    throw new CfgException("maximum nesting depth exceeded");
+                }
+                frames.addLast(new Frame(current, key));
+                current = new HashMap<>();
+                key = null;
+            }
+            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
+            if (b == '}' && key == null && frames.isEmpty()) {
+                // root object closed, exit the parse loop
+                return State.DONE;
+            }
+            if (b == '}') {
+                // empty nested object, resolve the frame that was pushed above
+                if (!frames.isEmpty()) {
+                    Frame frame = frames.pollLast();
+                    if (frame.parent().putIfAbsent(frame.key(), new CfgObject(current)) != null) {
+                        throw new CfgException("Duplicate key: " + frame.key());
+                    }
+                    current = frame.parent();
+                }
+                return State.AFTER_VALUE;
+            }
+            if (b == '"') {
+                return State.KEY_READ;
+            }
+            throw new CfgException("Corrupted json configuration");
+        }
+
+        private State onAfterValue() throws IOException {
+            int b = CfgUtil.ignore(input, ' ', '\t', '\r', '\n');
+            if (b == ',') {
+                return State.EXPECT_KEY;
+            }
+            if (b == '}') {
+                Frame frame = frames.pollLast();
+                if (frame == null) {
+                    return State.DONE;
+                }
+                key = frame.key();
+                if (frame.parent().putIfAbsent(key, new CfgObject(current)) != null) {
+                    throw new CfgException("Duplicate key: " + key);
+                }
+                current = frame.parent();
+                key = null;
+                return State.AFTER_VALUE;
+            }
+            if (b == -1) {
+                throw new CfgException("EOF reached");
+            }
+            throw new CfgException("Corrupted json configuration");
+        }
+
+        private State onExpectKey() throws IOException {
+            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
+            if (b == '"') {
+                return State.KEY_READ;
+            }
+            throw new CfgException("Corrupted json configuration");
+        }
+
+        private State onKeyRead() throws IOException {
+            CfgUtil.search(input, out, '"');
+            key = CfgUtil.readCfgKey(out.rawByteArray(), 0, out.intPosition());
+            out.reset();
+            return State.COLON;
+        }
+
+        private State onColon() throws IOException {
+            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
+            if (b != ':') {
+                throw new CfgException("Corrupted json configuration");
+            }
+            return State.EXPECT_VALUE;
+        }
+
+        private State onExpectValue() throws IOException {
+            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
+            if (b == '{') {
+                return State.OBJ_START;
+            }
+            if (b == '[') {
+                return State.ARRAY;
+            }
+            storeItem(readScalarValue(b));
+            return State.AFTER_VALUE;
+        }
+
+        private State onArray() throws IOException {
+            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
+            if (b == ']') {
+                storeList(new ArrayList<>());
+                return State.AFTER_VALUE;
+            }
+            List<String> list = new ArrayList<>();
+            for (;;) {
+                list.add(readScalarValue(b));
+                b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
+                if (b == ']') {
+                    break;
+                }
+                if (b != ',') {
+                    throw new CfgException("Corrupted json configuration");
+                }
+                b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
+            }
+            storeList(list);
+            return State.AFTER_VALUE;
+        }
+
+        private String readScalarValue(int firstByte) throws IOException {
+            if (firstByte == '"') {
+                readJsonStrValue(input, out);
+                String str = new String(out.rawByteArray(), 0, out.intPosition(), StandardCharsets.UTF_8);
+                out.reset();
+                return str;
+            }
+            if (firstByte == '-' || (firstByte >= '0' && firstByte <= '9')) {
+                String num = CfgUtil.readJsonNumber(input, firstByte, out);
+                out.reset();
+                return num;
+            }
+            if (firstByte == 't' || firstByte == 'f') {
+                String bool = CfgUtil.readJsonBool(input, firstByte, out);
+                out.reset();
+                return bool;
+            }
+            throw new CfgException("Corrupted json configuration");
+        }
+
+        private void storeItem(String value) {
+            if (current.putIfAbsent(key, new CfgItem(value)) != null) {
+                throw new CfgException("Duplicate key: " + key);
+            }
+            key = null;
+        }
+
+        private void storeList(List<String> value) {
+            if (current.putIfAbsent(key, new CfgList(value)) != null) {
+                throw new CfgException("Duplicate key: " + key);
+            }
+            key = null;
         }
 
         enum State {
-            INITIAL, // initial state, expecting the next '{' as the start of an object
-            OBJ_START, // read the object start '{', expecting a key start '"' or the object end '}'
-            STR_ARR_OBJ_END, // read the end of a string, array or object '"' ']' '}', expecting '}' or ','
-            EXPECT_KEY, // expecting the opening quote of the next string key
-            KEY_START, // read the opening quote of a key, now parsing the key content
-            KEY_END, // read the closing quote of a key, expecting the separator ':'
-            EXPECT_VALUE, // read ':', expecting the value start, one of '"' '[' '{'
-            STR_START, // read the value start '"', expecting the value end '"'
-            ARR_START, // read the array start '[', expecting the array end ']'
+            INITIAL,       // find the opening '{' of the root object
+            OBJ_START,     // entering an object: push a frame if a key is pending, expect '}' or '"'
+            AFTER_VALUE,   // a value just completed: expect ',' or '}' (root '}' -> DONE)
+            EXPECT_KEY,    // expect the opening '"' of a key
+            KEY_READ,      // reading the key content up to the closing '"'
+            COLON,         // expect the ':' separator
+            EXPECT_VALUE,  // dispatch on the first byte of a value
+            ARRAY,         // parsing array elements
+            DONE,          // root object finished, exit the loop
         }
     }
 
@@ -231,6 +282,9 @@ public sealed interface CfgReader {
         }
 
         public CfgObject parse(int maxDepth) throws IOException {
+            if (maxDepth <= 0) {
+                throw new CfgException("invalid max depth: " + maxDepth);
+            }
             CfgObject r = new CfgObject(new HashMap<>());
             CfgObject current = r;
             Properties prop = new Properties();
@@ -244,9 +298,10 @@ public sealed interface CfgReader {
                     if (value.isBlank()) {
                         continue;
                     }
-                    List<String> nestedKeys = CfgUtil.readCfgNestedKey(key.getBytes(StandardCharsets.UTF_8), maxDepth);
+                    byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
+                    List<String> nestedKeys = CfgUtil.readCfgNestedKey(keyBytes, 0, keyBytes.length, maxDepth);
                     switch (nestedKeys.size()) {
-                        case 0 -> throw new AssertionError();
+                        case 0 -> throw new CfgException("invalid key: " + key);
                         case 1 -> {
                             if (current.value().putIfAbsent(nestedKeys.getLast(), buildCfgObject(value)) != null) {
                                 throw new CfgException("Duplicate key: " + key);
@@ -279,14 +334,15 @@ public sealed interface CfgReader {
     }
 
     final class TomlCfgReader implements CfgReader {
-        private final InputStream input;
+        private final PushbackInputStream input;
+        private final HeapWriteBuffer out = new HeapWriteBuffer(64);
         private final CfgObject root = new CfgObject(new HashMap<>());
         private final Set<String> tables = new HashSet<>();
         private CfgObject current = root;
         private String key = null;
 
         public TomlCfgReader(InputStream input) {
-            this.input = input;
+            this.input = new PushbackInputStream(input);
         }
 
         // based on https://toml.io/en/v1.1.0#comment
@@ -294,39 +350,33 @@ public sealed interface CfgReader {
             return (b >= 0x0000 && b <= 0x0008) || (b >= 0x000A && b <= 0x001F) || b == 0x007F;
         }
 
-        private static void readTomlStrValue(InputStream input, ByteArrayOutputStream output) throws IOException {
+        private static void readTomlStrValue(InputStream input, HeapWriteBuffer output) throws IOException {
             boolean escaping = false;
             int b;
             while ((b = input.read()) != -1) {
                 if (escaping) {
                     switch (b) {
-                        case 'b' -> output.write('\b');
-                        case 't' -> output.write('\t');
-                        case 'n' -> output.write('\n');
-                        case 'f' -> output.write('\f');
-                        case 'r' -> output.write('\r');
-                        case 'e' -> output.write('\u001B');
-                        case '"' -> output.write('\"');
-                        case '\\' -> output.write('\\');
+                        case 'b' -> output.writeByte((byte) '\b');
+                        case 't' -> output.writeByte((byte) '\t');
+                        case 'n' -> output.writeByte((byte) '\n');
+                        case 'f' -> output.writeByte((byte) '\f');
+                        case 'r' -> output.writeByte((byte) '\r');
+                        case 'e' -> output.writeByte((byte) '\u001B');
+                        case '"' -> output.writeByte((byte) '\"');
+                        case '\\' -> output.writeByte((byte) '\\');
                         case 'x' -> {
                             int codePoint = CfgUtil.readUnicode(input, 2);
-                            if (!Character.isValidCodePoint(codePoint)) {
-                                throw new CfgException("invalid code point: " + codePoint);
-                            }
                             if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
                                 throw new CfgException("invalid surrogate code point: " + codePoint);
                             }
-                            CfgUtil.writeUnicodeInUtf8(output, codePoint);
+                            output.writeCodePointInUtf8(codePoint);
                         }
                         case 'u' -> {
                             int codePoint = CfgUtil.readUnicode(input, 4);
-                            if (!Character.isValidCodePoint(codePoint)) {
-                                throw new CfgException("invalid code point: " + codePoint);
-                            }
                             if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
                                 throw new CfgException("invalid surrogate code point: " + codePoint);
                             }
-                            CfgUtil.writeUnicodeInUtf8(output, codePoint);
+                            output.writeCodePointInUtf8(codePoint);
                         }
                         case 'U' -> {
                             int codePoint = CfgUtil.readUnicode(input, 8);
@@ -336,7 +386,7 @@ public sealed interface CfgReader {
                             if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
                                 throw new CfgException("invalid surrogate code point: " + codePoint);
                             }
-                            CfgUtil.writeUnicodeInUtf8(output, codePoint);
+                            output.writeCodePointInUtf8(codePoint);
                         }
                         default -> throw new CfgException("invalid escape sequence: " + b);
                     }
@@ -347,7 +397,7 @@ public sealed interface CfgReader {
                     } else if (b == '"') {
                         return;
                     } else {
-                        output.write(b);
+                        output.writeByte((byte) b);
                     }
                 }
             }
@@ -355,141 +405,179 @@ public sealed interface CfgReader {
         }
 
         public CfgObject parse(int maxDepth) throws IOException {
+            if (maxDepth <= 0) {
+                throw new CfgException("invalid max depth: " + maxDepth);
+            }
             State state = State.INITIAL;
+            while (state != State.DONE) {
+                state = switch (state) {
+                    case INITIAL -> onInitial();
+                    case COMMENT -> onComment();
+                    case TABLE_START -> onTableStart(maxDepth);
+                    case VALUE_END -> onValueEnd();
+                    case KEY_READ -> onKeyRead();
+                    case VALUE_START -> onValueStart();
+                    case ARRAY -> onArray();
+                    case DONE -> throw new AssertionError();
+                };
+            }
+            return root;
+        }
+
+        private State onInitial() throws IOException {
+            int b = CfgUtil.ignore(input, ' ', '\t', '\r', '\n');
+            if (b == -1) {
+                return State.DONE;
+            }
+            if (b == '#') {
+                return State.COMMENT;
+            }
+            if (b == '[') {
+                return State.TABLE_START;
+            }
+            out.writeByte((byte) b);
+            return State.KEY_READ;
+        }
+
+        private State onComment() throws IOException {
             int b;
-            try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                for (; ; ) {
-                    switch (state) {
-                        case INITIAL -> {
-                            b = CfgUtil.ignore(input, ' ', '\t', '\r', '\n');
-                            if (b == -1) {
-                                return root;
-                            } else if (b == '#') {
-                                state = State.COMMENT;
-                            } else if (b == '[') {
-                                state = State.TABLE_START;
-                            } else {
-                                output.write(b);
-                                state = State.KEY_START;
-                            }
-                        }
-                        case COMMENT -> {
-                            CfgUtil.search(input, output, '\r', '\n');
-                            String commentStr = output.toString(StandardCharsets.UTF_8);
-                            output.reset();
-                            commentStr.chars().forEach(c -> {
-                                if (Character.getType(c) == Character.CONTROL && rejectCommentControlCharacter(c)) {
-                                    throw new CfgException("Corrupt toml configuration");
-                                }
-                            });
-                            state = State.INITIAL;
-                        }
-                        case TABLE_START -> {
-                            current = root;
-                            CfgUtil.search(input, output, ']');
-                            byte[] nestedKeyBytes = output.toByteArray();
-                            String nestedKeyStr = new String(nestedKeyBytes, StandardCharsets.US_ASCII);
-                            if (!tables.add(nestedKeyStr)) {
-                                throw new CfgException("Duplicate table: " + nestedKeyStr);
-                            }
-                            output.reset();
-                            for (String nestedKey : CfgUtil.readCfgNestedKey(nestedKeyBytes, maxDepth)) {
-                                Map<String, Cfg> currentMap = current.value();
-                                Cfg currentObj = currentMap.get(nestedKey);
-                                if (currentObj == null) {
-                                    CfgObject cm = new CfgObject(new HashMap<>());
-                                    currentMap.put(nestedKey, cm);
-                                    current = cm;
-                                } else if (currentObj instanceof CfgObject cm) {
-                                    current = cm;
-                                } else {
-                                    throw new CfgException("Duplicate table: " + nestedKeyStr);
-                                }
-                            }
-                            state = State.VALUE_END;
-                        }
-                        case VALUE_END -> {
-                            b = CfgUtil.ignore(input, ' ', '\t');
-                            if (b == -1) {
-                                return root;
-                            } else if (b == '\r' || b == '\n') {
-                                state = State.INITIAL;
-                            } else if (b == '#') {
-                                state = State.COMMENT;
-                            } else {
-                                throw new AssertionError();
-                            }
-                        }
-                        case KEY_START -> {
-                            b = CfgUtil.search(input, output, ' ', '\t', '=');
-                            byte[] keyBytes = output.toByteArray();
-                            output.reset();
-                            key = CfgUtil.readCfgKey(keyBytes);
-                            if (b != '=') {
-                                b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-                                if (b != '=') {
-                                    throw new CfgException("Corrupt toml configuration");
-                                }
-                            }
-                            state = State.VALUE_START;
-                        }
-                        case VALUE_START -> {
-                            b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-                            if (b == '"') {
-                                state = State.STR_START;
-                            } else if (b == '[') {
-                                state = State.ARR_START;
-                            } else {
-                                throw new CfgException("Corrupt toml configuration");
-                            }
-                        }
-                        case STR_START -> {
-                            readTomlStrValue(input, output);
-                            String str = output.toString(StandardCharsets.UTF_8);
-                            output.reset();
-                            if (current.value().putIfAbsent(key, new CfgItem(str)) != null) {
-                                throw new CfgException("Duplicate key: " + key);
-                            }
-                            key = null;
-                            state = State.VALUE_END;
-                        }
-                        case ARR_START -> {
-                            List<String> strList = new ArrayList<>();
-                            for (; ; ) {
-                                b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-                                if (b != '"') {
-                                    throw new CfgException("Corrupt toml configuration");
-                                }
-                                readTomlStrValue(input, output);
-                                strList.add(output.toString(StandardCharsets.UTF_8));
-                                output.reset();
-                                b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-                                if (b == ']') {
-                                    if (current.value().putIfAbsent(key, new CfgList(strList)) != null) {
-                                        throw new CfgException("Duplicate key: " + key);
-                                    }
-                                    key = null;
-                                    state = State.VALUE_END;
-                                    break;
-                                } else if (b != ',') {
-                                    throw new CfgException("Corrupt toml configuration");
-                                }
-                            }
-                        }
-                    }
+            while ((b = input.read()) != -1 && b != '\r' && b != '\n') {
+                if (rejectCommentControlCharacter(b)) {
+                    throw new CfgException("Corrupt toml configuration");
                 }
             }
+            return b == -1 ? State.DONE : State.INITIAL;
+        }
+
+        private State onTableStart(int maxDepth) throws IOException {
+            current = root;
+            CfgUtil.search(input, out, ']');
+            int nestedKeyLen = out.intPosition();
+            if (nestedKeyLen == 0) {
+                throw new CfgException("Corrupt toml configuration");
+            }
+            String nestedKeyStr = new String(out.rawByteArray(), 0, nestedKeyLen, StandardCharsets.US_ASCII);
+            if (!tables.add(nestedKeyStr)) {
+                throw new CfgException("Duplicate table: " + nestedKeyStr);
+            }
+            for (String nestedKey : CfgUtil.readCfgNestedKey(out.rawByteArray(), 0, nestedKeyLen, maxDepth)) {
+                Map<String, Cfg> currentMap = current.value();
+                Cfg currentObj = currentMap.get(nestedKey);
+                if (currentObj == null) {
+                    CfgObject cm = new CfgObject(new HashMap<>());
+                    currentMap.put(nestedKey, cm);
+                    current = cm;
+                } else if (currentObj instanceof CfgObject cm) {
+                    current = cm;
+                } else {
+                    throw new CfgException("Duplicate table: " + nestedKeyStr);
+                }
+            }
+            out.reset();
+            return State.VALUE_END;
+        }
+
+        private State onValueEnd() throws IOException {
+            int b = CfgUtil.ignore(input, ' ', '\t');
+            if (b == -1) {
+                return State.DONE;
+            }
+            if (b == '\r' || b == '\n') {
+                return State.INITIAL;
+            }
+            if (b == '#') {
+                return State.COMMENT;
+            }
+            throw new CfgException("Corrupt toml configuration");
+        }
+
+        private State onKeyRead() throws IOException {
+            int b = CfgUtil.search(input, out, ' ', '\t', '=');
+            key = CfgUtil.readCfgKey(out.rawByteArray(), 0, out.intPosition());
+            out.reset();
+            if (b != '=') {
+                b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
+                if (b != '=') {
+                    throw new CfgException("Corrupt toml configuration");
+                }
+            }
+            return State.VALUE_START;
+        }
+
+        private State onValueStart() throws IOException {
+            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
+            if (b == '[') {
+                return State.ARRAY;
+            }
+            storeItem(readScalarValue(b));
+            return State.VALUE_END;
+        }
+
+        private State onArray() throws IOException {
+            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
+            if (b == ']') {
+                storeList(new ArrayList<>());
+                return State.VALUE_END;
+            }
+            List<String> list = new ArrayList<>();
+            for (;;) {
+                list.add(readScalarValue(b));
+                b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
+                if (b == ']') {
+                    break;
+                }
+                if (b != ',') {
+                    throw new CfgException("Corrupt toml configuration");
+                }
+                b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
+            }
+            storeList(list);
+            return State.VALUE_END;
+        }
+
+        private String readScalarValue(int firstByte) throws IOException {
+            if (firstByte == '"') {
+                readTomlStrValue(input, out);
+                String str = new String(out.rawByteArray(), 0, out.intPosition(), StandardCharsets.UTF_8);
+                out.reset();
+                return str;
+            }
+            if (firstByte == '-' || firstByte == '+' || (firstByte >= '0' && firstByte <= '9')) {
+                String num = CfgUtil.readTomlNumber(input, firstByte, out);
+                out.reset();
+                return num;
+            }
+            if (firstByte == 't' || firstByte == 'f' || firstByte == 'i' || firstByte == 'n') {
+                String word = CfgUtil.readTomlWord(input, firstByte, out);
+                out.reset();
+                return word;
+            }
+            throw new CfgException("Corrupt toml configuration");
+        }
+
+        private void storeItem(String value) {
+            if (current.value().putIfAbsent(key, new CfgItem(value)) != null) {
+                throw new CfgException("Duplicate key: " + key);
+            }
+            key = null;
+        }
+
+        private void storeList(List<String> value) {
+            if (current.value().putIfAbsent(key, new CfgList(value)) != null) {
+                throw new CfgException("Duplicate key: " + key);
+            }
+            key = null;
         }
 
         enum State {
-            INITIAL,
-            COMMENT,
-            TABLE_START,
-            VALUE_END,
-            KEY_START,
-            VALUE_START,
-            STR_START,
-            ARR_START,
+            INITIAL,       // skip whitespace, detect EOF / '#' / '[' / key start
+            COMMENT,       // skip to EOL, validate control characters
+            TABLE_START,   // read '[table.header]' and navigate `current`
+            VALUE_END,     // after a value: expect newline, EOF, or '#'
+            KEY_READ,      // read the key up to '='
+            VALUE_START,   // dispatch on the first byte of a value
+            ARRAY,         // parsing array elements
+            DONE,          // EOF reached, exit the loop
         }
     }
 }

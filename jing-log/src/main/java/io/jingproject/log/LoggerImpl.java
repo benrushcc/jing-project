@@ -1,8 +1,8 @@
 package io.jingproject.log;
 
-import io.jingproject.common.BatchQueue;
-import io.jingproject.common.LogLevel;
-import io.jingproject.common.Logger;
+import io.jingproject.common.MpscLinkedQueue;
+import io.jingproject.common.log.LogLevel;
+import io.jingproject.common.log.Logger;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -12,13 +12,15 @@ public final class LoggerImpl implements Logger {
     private final Class<?> clazz;
     private final MutableCallSite site;
     private final MethodHandle mh;
-    private final BatchQueue<LogEvent> queue;
+    private final MpscLinkedQueue<LogEvent> queue;
+    private final Thread thread;
 
-    public LoggerImpl(Class<?> clazz, LogLevel level, BatchQueue<LogEvent> queue) {
+    public LoggerImpl(Class<?> clazz, LogLevel level, MpscLinkedQueue<LogEvent> queue, Thread thread) {
         this.clazz = clazz;
         this.site = new MutableCallSite(MethodHandles.constant(LogLevel.class, level));
         this.mh = site.dynamicInvoker();
         this.queue = queue;
+        this.thread = thread;
     }
 
     @Override

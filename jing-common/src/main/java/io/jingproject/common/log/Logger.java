@@ -1,4 +1,4 @@
-package io.jingproject.common;
+package io.jingproject.common.log;
 
 import java.util.function.Supplier;
 

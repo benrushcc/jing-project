@@ -1,16 +1,18 @@
 package io.jingproject.common.conf;
 
-import java.io.ByteArrayOutputStream;
+import io.jingproject.common.HeapWriteBuffer;
+import io.jingproject.common.WriteBuffer;
+
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.PushbackInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 public final class CfgUtil {
     private CfgUtil() {
-        throw new AssertionError();
+        throw new UnsupportedOperationException("utility class");
     }
 
     public static void assume(InputStream input, int target) throws IOException {
@@ -26,7 +28,7 @@ public final class CfgUtil {
         }
     }
 
-    public static int search(InputStream input, OutputStream output, int... targets) throws IOException {
+    public static int search(InputStream input, WriteBuffer output, int... targets) throws IOException {
         if (input == null) {
             throw new AssertionError();
         }
@@ -37,9 +39,7 @@ public final class CfgUtil {
                     return target;
                 }
             }
-            if (output != null) {
-                output.write(b);
-            }
+            output.writeByte((byte) b);
         }
         throw new CfgException("EOF reached");
     }
@@ -79,43 +79,43 @@ public final class CfgUtil {
         return (b < 'a' || b > 'z') && (b < 'A' || b > 'Z') && (b < '0' || b > '9') && b != '-' && b != '_';
     }
 
-    public static String readCfgKey(byte[] content) {
-        if (content == null || content.length == 0) {
-            throw new AssertionError();
+    public static String readCfgKey(byte[] data, int off, int len) {
+        if (data == null || len == 0) {
+            throw new CfgException("empty key");
         }
-        for (byte b : content) {
-            if (rejectKey(b)) {
-                throw new CfgException("invalid key byte: " + b);
+        for (int i = off; i < off + len; i++) {
+            if (rejectKey(data[i])) {
+                throw new CfgException("invalid key byte: " + data[i]);
             }
         }
-        return new String(content, StandardCharsets.US_ASCII);
+        return new String(data, off, len, StandardCharsets.US_ASCII);
     }
 
-    public static List<String> readCfgNestedKey(byte[] content, int maxDepth) {
-        if (content == null || content.length == 0) {
-            throw new AssertionError();
+    public static List<String> readCfgNestedKey(byte[] data, int off, int len, int maxDepth) {
+        if (data == null || len == 0) {
+            throw new CfgException("empty key");
         }
-        for (byte b : content) {
-            if (rejectKey(b) && b != (byte) '.') {
-                throw new CfgException("invalid key byte: " + b);
+        for (int i = off; i < off + len; i++) {
+            if (rejectKey(data[i]) && data[i] != (byte) '.') {
+                throw new CfgException("invalid key byte: " + data[i]);
             }
         }
         List<String> r = new ArrayList<>();
-        int start = 0;
-        for (int i = 0; i < content.length; i++) {
-            if (content[i] == '.') {
+        int start = off;
+        for (int i = off; i < off + len; i++) {
+            if (data[i] == '.') {
                 if (i == start) {
                     throw new CfgException("invalid consecutive delimiters");
                 }
-                r.add(new String(content, start, i - start, StandardCharsets.US_ASCII));
+                r.add(new String(data, start, i - start, StandardCharsets.US_ASCII));
                 if (r.size() > maxDepth) {
                     throw new CfgException("maximum nesting depth exceeded");
                 }
                 start = i + 1;
             }
         }
-        if (start < content.length) {
-            r.add(new String(content, start, content.length - start, StandardCharsets.US_ASCII));
+        if (start < off + len) {
+            r.add(new String(data, start, off + len - start, StandardCharsets.US_ASCII));
             if (r.size() > maxDepth) {
                 throw new CfgException("maximum nesting depth exceeded");
             }
@@ -150,24 +150,352 @@ public final class CfgUtil {
         return r;
     }
 
-    public static void writeUnicodeInUtf8(ByteArrayOutputStream out, int codePoint) {
-        if (!Character.isValidCodePoint(codePoint)) {
-            throw new CfgException("invalid code point: " + codePoint);
+    public static String readJsonNumber(InputStream input, int firstByte, HeapWriteBuffer buf) throws IOException {
+        PushbackInputStream p = asPushback(input);
+        buf.reset();
+        int b = firstByte;
+        if (b == '-') {
+            buf.writeByte((byte) b);
+            b = p.read();
         }
-        if (codePoint < 0x80) {
-            out.write(codePoint);
-        } else if (codePoint < 0x800) {
-            out.write(0xC0 | (codePoint >> 6));
-            out.write(0x80 | (codePoint & 0x3F));
-        } else if (codePoint < 0x10000) {
-            out.write(0xE0 | (codePoint >> 12));
-            out.write(0x80 | ((codePoint >> 6) & 0x3F));
-            out.write(0x80 | (codePoint & 0x3F));
+        if (b >= '0' && b <= '9') {
+            buf.writeByte((byte) b);
+            if (b == '0') {
+                b = p.read();
+                if (b >= '0' && b <= '9') {
+                    throw new CfgException("invalid json number: leading zero: " + b);
+                }
+            } else {
+                b = p.read();
+                while (b >= '0' && b <= '9') {
+                    buf.writeByte((byte) b);
+                    b = p.read();
+                }
+            }
         } else {
-            out.write(0xF0 | (codePoint >> 18));
-            out.write(0x80 | ((codePoint >> 12) & 0x3F));
-            out.write(0x80 | ((codePoint >> 6) & 0x3F));
-            out.write(0x80 | (codePoint & 0x3F));
+            throw new CfgException("invalid json number: " + b);
         }
+        if (b == '.') {
+            buf.writeByte((byte) b);
+            b = p.read();
+            if (b < '0' || b > '9') {
+                throw new CfgException("invalid json number: " + b);
+            }
+            while (b >= '0' && b <= '9') {
+                buf.writeByte((byte) b);
+                b = p.read();
+            }
+        }
+        if (b == 'e' || b == 'E') {
+            buf.writeByte((byte) b);
+            b = p.read();
+            if (b == '+' || b == '-') {
+                buf.writeByte((byte) b);
+                b = p.read();
+            }
+            if (b < '0' || b > '9') {
+                throw new CfgException("invalid json number: " + b);
+            }
+            while (b >= '0' && b <= '9') {
+                buf.writeByte((byte) b);
+                b = p.read();
+            }
+        }
+        if (b != -1) {
+            p.unread(b);
+        }
+        return new String(buf.rawByteArray(), 0, buf.intPosition(), StandardCharsets.US_ASCII);
+    }
+
+    public static String readJsonBool(InputStream input, int firstByte, HeapWriteBuffer buf) throws IOException {
+        PushbackInputStream p = asPushback(input);
+        buf.reset();
+        String literal;
+        if (firstByte == 't') {
+            literal = "true";
+        } else if (firstByte == 'f') {
+            literal = "false";
+        } else {
+            throw new CfgException("invalid json boolean: " + firstByte);
+        }
+        for (int i = 1; i < literal.length(); i++) {
+            int b = p.read();
+            if (b != literal.charAt(i)) {
+                throw new CfgException("invalid json boolean: " + b);
+            }
+        }
+        return literal;
+    }
+
+    public static String readTomlNumber(InputStream input, int firstByte, HeapWriteBuffer buf) throws IOException {
+        PushbackInputStream p = asPushback(input);
+        buf.reset();
+        boolean negative = false;
+        boolean hasSign = false;
+        int b = firstByte;
+        if (b == '-' || b == '+') {
+            hasSign = true;
+            negative = (b == '-');
+            b = p.read();
+            if (b == -1) {
+                throw new CfgException("invalid toml number: " + b);
+            }
+        }
+        if (b == 'i' || b == 'n') {
+            return readTomlInfNan(p, negative, b, buf);
+        }
+        if (b == '0') {
+            int d = p.read();
+            if (isRadixPrefix(d)) {
+                if (hasSign) {
+                    throw new CfgException("invalid toml integer: sign not allowed for radix literal");
+                }
+                return accumulateRadix(p, d);
+            }
+            if (d >= '0' && d <= '9') {
+                throw new CfgException("invalid toml integer: leading zero: " + d);
+            }
+            if (d == '_') {
+                throw new CfgException("invalid toml integer: misplaced underscore: " + d);
+            }
+            if (d == '.' || d == 'e' || d == 'E') {
+                if (negative) {
+                    buf.writeByte((byte) '-');
+                }
+                buf.writeByte((byte) '0');
+                return readTomlFloatContinue(p, d, buf);
+            }
+            if (d != -1) {
+                p.unread(d);
+            }
+            return "0";
+        }
+        if (b >= '1' && b <= '9') {
+            if (negative) {
+                buf.writeByte((byte) '-');
+            }
+            buf.writeByte((byte) b);
+            long acc = -(b - '0');
+            boolean overflow = false;
+            boolean lastWasUnderscore = false;
+            int d = p.read();
+            while (d >= '0' && d <= '9' || d == '_') {
+                if (d == '_') {
+                    if (lastWasUnderscore) {
+                        throw new CfgException("invalid toml integer: adjacent underscore");
+                    }
+                    lastWasUnderscore = true;
+                } else {
+                    lastWasUnderscore = false;
+                    buf.writeByte((byte) d);
+                    if (!overflow) {
+                        int digit = d - '0';
+                        if (acc < Long.MIN_VALUE / 10) {
+                            overflow = true;
+                        } else {
+                            acc = acc * 10;
+                            if (acc < Long.MIN_VALUE + digit) {
+                                overflow = true;
+                            } else {
+                                acc = acc - digit;
+                            }
+                        }
+                    }
+                }
+                d = p.read();
+            }
+            if (lastWasUnderscore) {
+                throw new CfgException("invalid toml integer: trailing underscore");
+            }
+            if (d == '.' || d == 'e' || d == 'E') {
+                return readTomlFloatContinue(p, d, buf);
+            }
+            if (d != -1) {
+                p.unread(d);
+            }
+            if (overflow) {
+                throw new CfgException("integer literal out of range: " + new String(buf.rawByteArray(), 0, buf.intPosition(), StandardCharsets.US_ASCII));
+            }
+            long value;
+            if (negative) {
+                value = acc;
+            } else if (acc == Long.MIN_VALUE) {
+                throw new CfgException("integer literal out of range");
+            } else {
+                value = -acc;
+            }
+            return Long.toString(value);
+        }
+        throw new CfgException("invalid toml number: " + b);
+    }
+
+    public static String readTomlWord(InputStream input, int firstByte, HeapWriteBuffer buf) throws IOException {
+        PushbackInputStream p = asPushback(input);
+        buf.reset();
+        if (firstByte == 't' || firstByte == 'f') {
+            String literal = firstByte == 't' ? "true" : "false";
+            for (int i = 1; i < literal.length(); i++) {
+                int b = p.read();
+                if (b != literal.charAt(i)) {
+                    throw new CfgException("invalid toml value: " + b);
+                }
+            }
+            return literal;
+        }
+        if (firstByte == 'i' || firstByte == 'n') {
+            return readTomlInfNan(p, false, firstByte, buf);
+        }
+        throw new CfgException("invalid toml value: " + firstByte);
+    }
+
+    private static PushbackInputStream asPushback(InputStream input) {
+        if (input instanceof PushbackInputStream p) {
+            return p;
+        }
+        throw new AssertionError();
+    }
+
+    private static boolean isRadixPrefix(int b) {
+        return b == 'x' || b == 'X' || b == 'o' || b == 'O' || b == 'b' || b == 'B';
+    }
+
+    private static String readTomlInfNan(PushbackInputStream p, boolean negative, int firstByte, HeapWriteBuffer buf) throws IOException {
+        buf.reset();
+        buf.writeByte((byte) firstByte);
+        int b = p.read();
+        while (b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z') {
+            buf.writeByte((byte) b);
+            b = p.read();
+        }
+        if (b != -1) {
+            p.unread(b);
+        }
+        String word = new String(buf.rawByteArray(), 0, buf.intPosition(), StandardCharsets.US_ASCII);
+        if (word.equals("inf")) {
+            if (negative) {
+                return "-Infinity";
+            }
+            return "Infinity";
+        }
+        if (word.equals("nan")) {
+            return "NaN";
+        }
+        throw new CfgException("invalid toml value: " + word);
+    }
+
+    private static String accumulateRadix(PushbackInputStream p, int prefixByte) throws IOException {
+        int radix;
+        if (prefixByte == 'x' || prefixByte == 'X') {
+            radix = 16;
+        } else if (prefixByte == 'o' || prefixByte == 'O') {
+            radix = 8;
+        } else {
+            radix = 2;
+        }
+        long acc = 0;
+        boolean hasDigit = false;
+        boolean lastWasUnderscore = false;
+        int b = p.read();
+        while (true) {
+            int digit = radixDigitValue(b, radix);
+            if (digit >= 0) {
+                hasDigit = true;
+                lastWasUnderscore = false;
+                if (acc < Long.MIN_VALUE / radix) {
+                    throw new CfgException("integer literal out of range: " + b);
+                }
+                acc = acc * radix;
+                if (acc < Long.MIN_VALUE + digit) {
+                    throw new CfgException("integer literal out of range: " + b);
+                }
+                acc = acc - digit;
+            } else if (b == '_') {
+                if (lastWasUnderscore || !hasDigit) {
+                    throw new CfgException("invalid toml integer: misplaced underscore");
+                }
+                lastWasUnderscore = true;
+            } else {
+                break;
+            }
+            b = p.read();
+        }
+        if (lastWasUnderscore) {
+            throw new CfgException("invalid toml integer: trailing underscore");
+        }
+        if (!hasDigit) {
+            throw new CfgException("invalid toml integer: missing digits after radix prefix");
+        }
+        if (b != -1) {
+            p.unread(b);
+        }
+        if (acc == Long.MIN_VALUE) {
+            throw new CfgException("integer literal out of range");
+        }
+        return Long.toString(-acc);
+    }
+
+    private static int radixDigitValue(int b, int radix) {
+        if (b >= '0' && b <= '9') {
+            int v = b - '0';
+            return v < radix ? v : -1;
+        }
+        if (radix == 16) {
+            if (b >= 'a' && b <= 'f') {
+                return b - 'a' + 10;
+            }
+            if (b >= 'A' && b <= 'F') {
+                return b - 'A' + 10;
+            }
+        }
+        return -1;
+    }
+
+    private static String readTomlFloatContinue(PushbackInputStream p, int dotOrExp, HeapWriteBuffer buf) throws IOException {
+        int b = dotOrExp;
+        if (b == '.') {
+            buf.writeByte((byte) b);
+            b = p.read();
+            if (b < '0' || b > '9') {
+                throw new CfgException("invalid toml float: " + b);
+            }
+            boolean lastWasUnderscore = false;
+            while (b >= '0' && b <= '9' || b == '_') {
+                if (b == '_') {
+                    if (lastWasUnderscore) {
+                        throw new CfgException("invalid toml float: adjacent underscore: " + b);
+                    }
+                    lastWasUnderscore = true;
+                } else {
+                    lastWasUnderscore = false;
+                    buf.writeByte((byte) b);
+                }
+                b = p.read();
+            }
+            if (lastWasUnderscore) {
+                throw new CfgException("invalid toml float: trailing underscore");
+            }
+        }
+        if (b == 'e' || b == 'E') {
+            buf.writeByte((byte) b);
+            b = p.read();
+            if (b == '+' || b == '-') {
+                buf.writeByte((byte) b);
+                b = p.read();
+            }
+            if (b < '0' || b > '9') {
+                throw new CfgException("invalid toml float: " + b);
+            }
+            while (b >= '0' && b <= '9') {
+                buf.writeByte((byte) b);
+                b = p.read();
+            }
+            if (b == '_') {
+                throw new CfgException("invalid toml float: underscore in exponent");
+            }
+        }
+        if (b != -1) {
+            p.unread(b);
+        }
+        return new String(buf.rawByteArray(), 0, buf.intPosition(), StandardCharsets.US_ASCII);
     }
 }

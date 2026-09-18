@@ -1,6 +1,5 @@
 package io.jingproject.commontest;
 
-import io.jingproject.common.conf.Cfg;
 import io.jingproject.common.conf.Cfg.CfgItem;
 import io.jingproject.common.conf.Cfg.CfgList;
 import io.jingproject.common.conf.Cfg.CfgObject;
@@ -11,7 +10,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -21,45 +19,37 @@ public class PropertiesCfgReaderTest {
     }
 
     private static CfgObject parse(String properties, int maxDepth) throws Exception {
-        return new PropertiesCfgReader(new ByteArrayInputStream(properties.getBytes(StandardCharsets.UTF_8))).parse(maxDepth);
+        return new PropertiesCfgReader(
+            new ByteArrayInputStream(properties.getBytes(StandardCharsets.UTF_8))).parse(maxDepth);
     }
 
     @Test
     public void testSimple() throws Exception {
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("a", new CfgItem("1"));
-        expected.put("b", new CfgItem("2"));
-        Assertions.assertEquals(new CfgObject(expected), parse("a=1\nb=2"));
+        Assertions.assertEquals(
+            new CfgObject(Map.of("a", new CfgItem("1"), "b", new CfgItem("2"))),
+            parse("a=1\nb=2"));
     }
 
     @Test
     public void testNested() throws Exception {
-        Map<String, Cfg> inner = new HashMap<>();
-        inner.put("b", new CfgItem("1"));
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("a", new CfgObject(inner));
-        Assertions.assertEquals(new CfgObject(expected), parse("a.b=1"));
+        Assertions.assertEquals(
+            new CfgObject(Map.of("a", new CfgObject(Map.of("b", new CfgItem("1"))))),
+            parse("a.b=1"));
     }
 
     @Test
     public void testArray() throws Exception {
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("key", new CfgList(List.of("a", " b")));
-        Assertions.assertEquals(new CfgObject(expected), parse("key=[a, b]"));
+        Assertions.assertEquals(new CfgObject(Map.of("key", new CfgList(List.of("a", " b")))), parse("key=[a, b]"));
     }
 
     @Test
     public void testComment() throws Exception {
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("a", new CfgItem("1"));
-        Assertions.assertEquals(new CfgObject(expected), parse("# comment\na=1"));
+        Assertions.assertEquals(new CfgObject(Map.of("a", new CfgItem("1"))), parse("# comment\na=1"));
     }
 
     @Test
     public void testDuplicateLastWins() throws Exception {
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("a", new CfgItem("2"));
-        Assertions.assertEquals(new CfgObject(expected), parse("a=1\na=2"));
+        Assertions.assertEquals(new CfgObject(Map.of("a", new CfgItem("2"))), parse("a=1\na=2"));
     }
 
     @Test
@@ -69,14 +59,30 @@ public class PropertiesCfgReaderTest {
 
     @Test
     public void testComplexMixed() throws Exception {
-        Map<String, Cfg> tls = new HashMap<>();
-        tls.put("enabled", new CfgItem("true"));
-        Map<String, Cfg> server = new HashMap<>();
-        server.put("host", new CfgItem("localhost"));
-        server.put("ports", new CfgList(List.of("8080", "8081")));
-        server.put("tls", new CfgObject(tls));
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("server", new CfgObject(server));
-        Assertions.assertEquals(new CfgObject(expected), parse("server.host=localhost\nserver.ports=[8080,8081]\nserver.tls.enabled=true"));
+        Assertions.assertEquals(
+            new CfgObject(Map.of("server", new CfgObject(Map.of(
+                "host", new CfgItem("localhost"),
+                "ports", new CfgList(List.of("8080", "8081")),
+                "tls", new CfgObject(Map.of("enabled", new CfgItem("true"))))))),
+            parse("server.host=localhost\nserver.ports=[8080,8081]\nserver.tls.enabled=true"));
+    }
+
+    @Test
+    public void testMaxDepthBoundary() throws Exception {
+        Assertions.assertEquals(
+            new CfgObject(Map.of("a", new CfgObject(Map.of("b", new CfgItem("1"))))),
+            parse("a.b=1", 2));
+        Assertions.assertThrows(CfgException.class, () -> parse("a.b.c=1", 2));
+    }
+
+    @Test
+    public void testNestedConflictThrows() {
+        Assertions.assertThrows(CfgException.class, () -> parse("a.b=1\na=2"));
+        Assertions.assertThrows(CfgException.class, () -> parse("a=1\na.b=2"));
+    }
+
+    @Test
+    public void testZeroMaxDepthThrows() {
+        Assertions.assertThrows(CfgException.class, () -> parse("a=1", 0));
     }
 }

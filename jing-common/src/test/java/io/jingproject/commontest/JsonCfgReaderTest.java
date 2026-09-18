@@ -1,6 +1,5 @@
 package io.jingproject.commontest;
 
-import io.jingproject.common.conf.Cfg;
 import io.jingproject.common.conf.Cfg.CfgItem;
 import io.jingproject.common.conf.Cfg.CfgList;
 import io.jingproject.common.conf.Cfg.CfgObject;
@@ -11,7 +10,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -26,47 +24,38 @@ public class JsonCfgReaderTest {
 
     @Test
     public void testSingleKeyValue() throws Exception {
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("key", new CfgItem("value"));
-        Assertions.assertEquals(new CfgObject(expected), parse("{\"key\": \"value\"}"));
+        Assertions.assertEquals(new CfgObject(Map.of("key", new CfgItem("value"))), parse("{\"key\": \"value\"}"));
     }
 
     @Test
     public void testMultipleKeys() throws Exception {
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("a", new CfgItem("1"));
-        expected.put("b", new CfgItem("2"));
-        Assertions.assertEquals(new CfgObject(expected), parse("{\"a\": \"1\", \"b\": \"2\"}"));
+        Assertions.assertEquals(
+            new CfgObject(Map.of("a", new CfgItem("1"), "b", new CfgItem("2"))),
+            parse("{\"a\": \"1\", \"b\": \"2\"}"));
     }
 
     @Test
     public void testNestedObject() throws Exception {
-        Map<String, Cfg> inner = new HashMap<>();
-        inner.put("b", new CfgItem("c"));
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("a", new CfgObject(inner));
-        Assertions.assertEquals(new CfgObject(expected), parse("{\"a\": {\"b\": \"c\"}}"));
+        Assertions.assertEquals(
+            new CfgObject(Map.of("a", new CfgObject(Map.of("b", new CfgItem("c"))))),
+            parse("{\"a\": {\"b\": \"c\"}}"));
     }
 
     @Test
     public void testArray() throws Exception {
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("a", new CfgList(List.of("x", "y")));
-        Assertions.assertEquals(new CfgObject(expected), parse("{\"a\": [\"x\", \"y\"]}"));
+        Assertions.assertEquals(
+            new CfgObject(Map.of("a", new CfgList(List.of("x", "y")))),
+            parse("{\"a\": [\"x\", \"y\"]}"));
     }
 
     @Test
     public void testUnicodeEscape() throws Exception {
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("a", new CfgItem("你"));
-        Assertions.assertEquals(new CfgObject(expected), parse("{\"a\": \"\\u4F60\"}"));
+        Assertions.assertEquals(new CfgObject(Map.of("a", new CfgItem("你"))), parse("{\"a\": \"\\u4F60\"}"));
     }
 
     @Test
     public void testSurrogatePair() throws Exception {
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("a", new CfgItem("😀"));
-        Assertions.assertEquals(new CfgObject(expected), parse("{\"a\": \"\\uD83D\\uDE00\"}"));
+        Assertions.assertEquals(new CfgObject(Map.of("a", new CfgItem("😀"))), parse("{\"a\": \"\\uD83D\\uDE00\"}"));
     }
 
     @Test
@@ -81,19 +70,54 @@ public class JsonCfgReaderTest {
 
     @Test
     public void testMaxDepthExceeded() {
-        Assertions.assertThrows(CfgException.class, () -> parse("{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{}}}}}}}", 5));
+        Assertions.assertThrows(CfgException.class,
+            () -> parse("{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{}}}}}}}", 5));
     }
 
     @Test
     public void testComplexMixed() throws Exception {
-        Map<String, Cfg> tls = new HashMap<>();
-        tls.put("enabled", new CfgItem("true"));
-        Map<String, Cfg> server = new HashMap<>();
-        server.put("host", new CfgItem("localhost"));
-        server.put("ports", new CfgList(List.of("8080", "8081")));
-        server.put("tls", new CfgObject(tls));
-        Map<String, Cfg> expected = new HashMap<>();
-        expected.put("server", new CfgObject(server));
-        Assertions.assertEquals(new CfgObject(expected), parse("{\"server\":{\"host\":\"localhost\",\"ports\":[\"8080\",\"8081\"],\"tls\":{\"enabled\":\"true\"}}}"));
+        Assertions.assertEquals(
+            new CfgObject(Map.of("server", new CfgObject(Map.of(
+                "host", new CfgItem("localhost"),
+                "ports", new CfgList(List.of("8080", "8081")),
+                "tls", new CfgObject(Map.of("enabled", new CfgItem("true"))))))),
+            parse(
+                "{\"server\":{\"host\":\"localhost\",\"ports\":[\"8080\",\"8081\"],\"tls\":{\"enabled\":\"true\"}}}"));
+    }
+
+    @Test
+    public void testTruncatedThrows() {
+        Assertions.assertThrows(CfgException.class, () -> parse("{\"a\": 1"));
+    }
+
+    @Test
+    public void testEmptyObject() throws Exception {
+        Assertions.assertEquals(new CfgObject(Map.of()), parse("{}"));
+    }
+
+    @Test
+    public void testTrailingGarbageThrows() {
+        Assertions.assertThrows(CfgException.class, () -> parse("{\"a\":1}x"));
+        Assertions.assertThrows(CfgException.class, () -> parse("{\"a\":1}}"));
+    }
+
+    @Test
+    public void testEmptyArray() throws Exception {
+        Assertions.assertEquals(
+            new CfgObject(Map.of("a", new CfgList(List.of()))),
+            parse("{\"a\":[]}"));
+    }
+
+    @Test
+    public void testMaxDepthBoundary() throws Exception {
+        Assertions.assertEquals(
+            new CfgObject(Map.of("a", new CfgObject(Map.of("b", new CfgItem("c"))))),
+            parse("{\"a\":{\"b\":\"c\"}}", 2));
+        Assertions.assertThrows(CfgException.class, () -> parse("{\"a\":{\"b\":{\"c\":\"d\"}}}", 2));
+    }
+
+    @Test
+    public void testZeroMaxDepthThrows() {
+        Assertions.assertThrows(CfgException.class, () -> parse("{\"a\": 1}", 0));
     }
 }

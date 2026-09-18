@@ -53,7 +53,7 @@ public final class ConfigurationFactory {
     }
 
     public static int valueAsInt(String value, int defaultValue) {
-        if (value == null) {
+        if (value == null || value.isBlank()) {
             return defaultValue;
         }
         return Integer.parseInt(value);
@@ -64,7 +64,7 @@ public final class ConfigurationFactory {
     }
 
     public static long valueAsLong(String value, long defaultValue) {
-        if (value == null) {
+        if (value == null || value.isBlank()) {
             return defaultValue;
         }
         return Long.parseLong(value);
@@ -75,7 +75,7 @@ public final class ConfigurationFactory {
     }
 
     public static float valueAsFloat(String value, float defaultValue) {
-        if (value == null) {
+        if (value == null || value.isBlank()) {
             return defaultValue;
         }
         return Float.parseFloat(value);
@@ -86,7 +86,7 @@ public final class ConfigurationFactory {
     }
 
     public static double valueAsDouble(String value, double defaultValue) {
-        if (value == null) {
+        if (value == null || value.isBlank()) {
             return defaultValue;
         }
         return Double.parseDouble(value);

@@ -164,11 +164,4 @@ JING_EXPORT_SYMBOL int jing_patch_version(void);
 
 JING_EXPORT_SYMBOL uintptr_t jing_ptr_err_flag(void);
 
-JING_EXPORT_SYMBOL size_t jing_max_align(void);
-
-JING_EXPORT_SYMBOL void* jing_aligned_alloc(size_t size, size_t alignment);
-
-JING_EXPORT_SYMBOL void jing_batch_free(uintptr_t* ptrs, size_t len,
-                                        void (*free_func_t)(void*));
-
 #endif
