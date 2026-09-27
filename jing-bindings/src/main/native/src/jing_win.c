@@ -19,7 +19,7 @@ size_t jing_win_max_align(void) {
 
 void* jing_win_aligned_alloc(size_t size, size_t alignment) {
 	void* r = _aligned_malloc(size, alignment);
-	if(JING_UNLIKELY(r == NULL)) {
+	if (JING_UNLIKELY(r == NULL)) {
 		int err = errno;
 		return jing_make_error_ptr(err);
 	}
@@ -168,6 +168,104 @@ void jing_flush_file(HANDLE h, jing_result* r) {
 	} else {
 		int err = GetLastError();
 		jing_err_result(r, err);
+	}
+}
+
+// log io related
+void* jing_log_win_stdout_handle(void) {
+	HANDLE v = GetStdHandle(STD_OUTPUT_HANDLE);
+	if (JING_UNLIKELY(v == INVALID_HANDLE_VALUE)) {
+		int err = GetLastError();
+		return jing_make_error_ptr(err);
+	} else if (JING_UNLIKELY(v == NULL)) {
+		int err = ERROR_INVALID_HANDLE;
+		return jing_make_error_ptr(err);
+	} else {
+		return v;
+	}
+}
+
+void* jing_log_win_stderr_handle(void) {
+	HANDLE v = GetStdHandle(STD_ERROR_HANDLE);
+	if (JING_UNLIKELY(v == INVALID_HANDLE_VALUE)) {
+		int err = GetLastError();
+		return jing_make_error_ptr(err);
+	} else if (JING_UNLIKELY(v == NULL)) {
+		int err = ERROR_INVALID_HANDLE;
+		return jing_make_error_ptr(err);
+	} else {
+		return v;
+	}
+}
+
+void* jing_log_win_open_append(const char* filename) {
+	int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, filename, -1,
+	                              NULL, 0);
+	if (JING_UNLIKELY(len == 0)) {
+		return jing_make_error_ptr(ERROR_INVALID_PARAMETER);
+	}
+	wchar_t* wide = (wchar_t*) malloc((size_t) len * sizeof(wchar_t));
+	if (JING_UNLIKELY(wide == NULL)) {
+		return jing_make_error_ptr(ERROR_NOT_ENOUGH_MEMORY);
+	}
+	if (JING_UNLIKELY(MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+	                                      filename, -1, wide, len) == 0)) {
+		free(wide);
+		return jing_make_error_ptr(ERROR_INVALID_PARAMETER);
+	}
+	HANDLE v = CreateFileW(wide, GENERIC_WRITE, FILE_SHARE_READ, NULL,
+	                       OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	free(wide);
+	if (JING_UNLIKELY(v == INVALID_HANDLE_VALUE)) {
+		int err = GetLastError();
+		return jing_make_error_ptr(err);
+	} else {
+		return v;
+	}
+}
+
+long long jing_log_win_write(void* handle, const char* buffer, size_t len) {
+	size_t total = 0;
+	while (total < len) {
+		size_t remain = len - total;
+		DWORD chunk =
+		    remain > (size_t) UINT32_MAX ? UINT32_MAX : (DWORD) remain;
+		DWORD written = 0;
+		if (JING_UNLIKELY(!WriteFile((HANDLE) handle, buffer + total, chunk,
+		                             &written, NULL))) {
+			int err = GetLastError();
+			return -(long long) err;
+		}
+		total += written;
+	}
+	return (long long) total;
+}
+
+int jing_log_win_flush(void* handle) {
+	if (JING_LIKELY(FlushFileBuffers((HANDLE) handle))) {
+		return 0;
+	} else {
+		int err = GetLastError();
+		return -err;
+	}
+}
+
+long long jing_log_win_file_size(void* handle) {
+	LARGE_INTEGER size;
+	if (JING_LIKELY(GetFileSizeEx((HANDLE) handle, &size))) {
+		return (long long) size.QuadPart;
+	} else {
+		int err = GetLastError();
+		return -(long long) err;
+	}
+}
+
+int jing_log_win_close(void* handle) {
+	if (JING_LIKELY(CloseHandle((HANDLE) handle))) {
+		return 0;
+	} else {
+		int err = GetLastError();
+		return -err;
 	}
 }
 

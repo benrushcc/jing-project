@@ -1,0 +1,21 @@
+# tables, nested tables and dotted keys
+[server]
+host = "localhost"
+port = 8080
+
+[server.tls]
+enabled = true
+
+[database]
+name = "app"
+
+[database.pool]
+size = 10
+
+[deep.nested.table]
+value = 1
+
+[client]
+name = "x"
+address.city = "NYC"
+address.zip = 10001

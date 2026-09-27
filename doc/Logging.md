@@ -1,6 +1,6 @@
-# jing-log 异步日志实现方案与规格 (v2)
+# jing-log 异步日志实现方案与规格 (v3)
 
-Status: design / not yet implemented
+Status: design + 已实施 + 2026-09-19 review 巡检修复（65 测试全绿）
 Scope: `jing-log` 模块为主，附带 `jing-bindings` 新增的日志 I/O native binding 设计。
 本文档是对 jing-log 模块具体实现的完整规格。`jing-common` 的日志门面
 （`io.jingproject.common.log`）与默认兜底 logger 已经实现，不属于本文档范围。
@@ -30,14 +30,14 @@ Scope: `jing-log` 模块为主，附带 `jing-bindings` 新增的日志 I/O nati
 | `jing-common/.../log/LogLevel.java` | TRACE(-7355608)/DEBUG(-60937)/INFO(0)/WARN(60937)/ERROR(7355608)，`value()`、`fromString(String)`，保持不变 |
 | `jing-common/.../log/LoggerFacade.java` | SPI：`Logger getLogger(Class<?>)` |
 | `jing-common/.../log/LoggerFactory.java` | 静态入口，ServiceLoader + 默认 console 兜底；其持有的 `LazyConstant` 为 JDK 28 `java.base` 的 `java.lang.LazyConstant`，无编译问题 |
-| `jing-log/.../LogEvent.java` | `record LogEvent(LogLevel level, OffsetDateTime offsetDateTime, String className, String threadName, String msg, Throwable throwable, Map<String,Object> logContext)`，保持不变 |
-| `jing-log/.../LogEventHandler.java` | **接口签名需改造**：改为处理 `List<LogEvent>`（§2 D4） |
-| `jing-log/.../LoggerFacadeImpl.java` | `LoggerFacade` + `LifeCycle`，持 `MpscLinkedQueue<LogEvent>` 与未启动线程，`start()/stop()` 为空，`LOGGING_CONTEXT` ScopedValue 已声明 |
-| `jing-log/.../LoggerImpl.java` | `MutableCallSite` level 分发已实现；`log()` 为 TODO 空壳 |
-| `jing-log/.../WinConsoleLogEventHandler.java` | 实验残留，作为旧 native 方案的一部分将被移除，由新的 `ConsoleLogEventHandler` 取代 |
-| `jing-log/src/main/resources/META-INF/services/...LoggerFacade` + `module-info.java` | 手工维护的 SPI 注册，保持不变 |
+| `jing-log/.../LogEvent.java` | `record LogEvent(LogLevel level, Instant instant, String className, String threadName, String msg, Throwable throwable, Map<String,Object> logContext)`，生产端 `Instant.now()`（字段名 `instant`，非 OffsetDateTime） |
+| `jing-log/.../LogEventHandler.java` | 已定型：`void handle(List<LogEvent> events)` + `String id()` + `default void flush()`，非 `@FunctionalInterface` |
+| `jing-log/.../LoggerFacadeImpl.java` | `LoggerFacade` + `LifeCycle`，持 `MpscLinkedQueue<LogEvent>` 与消费线程，`start()/stop()` 实现 park/unpark 消费循环 + ScopedValue 绑定 arena，`LOGGING_CONTEXT` ScopedValue 已声明 |
+| `jing-log/.../LoggerImpl.java` | `MutableCallSite` level 分发已实现；`log()` 实现：enabled 检查 → `Instant.now()` 事件构造 → `offer` + `unpark` |
+| `jing-log/.../WinConsoleLogEventHandler.java` | 实验残留，**已删除**，由 `ConsoleLogEventHandler` 取代 |
+| `jing-log/src/main/resources/META-INF/services/...LoggerFacade` + `module-info.java` | 手工维护的 SPI 注册；`module-info` 整个包导出 `io.jingproject.log`（见 §0.3-13） |
 
-### 0.3 与 v1 文档的差异（本次修订要点）
+### 0.3 版本修订要点
 
 1. ~~LazyConstant 编译阻塞~~ 不存在：`java.lang.LazyConstant` 是 JDK 28 `java.base`
    正式类（`java/lang/LazyConstant.java`），`jing-common` 可正常编译。
@@ -57,6 +57,24 @@ Scope: `jing-log` 模块为主，附带 `jing-bindings` 新增的日志 I/O nati
    未命中才按自定义模式解析。
 9. JSON 输出不依赖任何库（包括 jing-marshall），直接按固定 schema 手工拼接。
 10. 批大小只作为上限；`LogEventHandler` 直接处理 `List<LogEvent>`。
+11. `LogEvent` 时间戳改为 `Instant`（生产端零时区/零转换开销）；消费端格式化时
+    统一按 `jing.log.timezone`（默认系统时区）转 `ZonedDateTime` 再交给 `%date`。
+12. native 出错免 `jing_result` 结构：能单值表达的返回值直接返回；指针/句柄错误
+    用"最高位为 1"的地址标志（沿用 `JING_PTR_ERR_FLAG`），int/long 错误用负数
+    （`-errno` / `-GetLastError`），Java 侧统一判定；且**不新建 native 源文件**，
+    函数并入已有 `jing_win.c` 与 `jing_posix.c`（声明进对应 `.h`）。
+13. **模块导出决策（2026-09-19，用户拍板）**：`io.jingproject.log` **整个包导出**
+    （移除 `to jing.logtest` 限定）——模块路径应用可直接访问
+    `LoggerFacadeImpl.LOGGING_CONTEXT` 等类型（MDC 上下文）；副作用是
+    `RegionOut`/`FormatPattern`/两个 handler 也一并公开，它们按"实现细节"对待、
+    不承诺 API 稳定性。
+14. **首轮代码 review 修复（2026-09-19）**：独立 review 巡检后修复并回填文档——
+    (a) `%logger` 不支持 width（拒绝而非静默忽略）；(b) `%d{}` 空 options 拒绝；
+    (c) 写出结果按"实际字节数 != 请求长度"判定失败（覆盖负数与短写）；
+    (d) 禁用 handler 先 close 再摘除（native 文件句柄不泄漏）；(e) 超大事件丢弃
+    分支回卷游标（杜绝重复输出与 region 错位）；(f) maxAge 保留清理并入每次
+    `open()`（覆盖启动与旋转）；(g) JSON `ex` 与 `%ex` 同源（printStackTrace 含
+    suppressed）；(h) 孤立代理项统一编码为 U+FFFD。对应回归测试全部补齐。
 
 ---
 
@@ -108,7 +126,7 @@ public void log(LogLevel level, String msg, Throwable throwable) {
     if (!enabled(level)) return;                      // MutableCallSite 快路径折叠
     LogEvent event = new LogEvent(
         level,
-        OffsetDateTime.now(),
+        Instant.now(),                             // 生产端零转换开销
         className,                                   // 构造时预计算一次
         Thread.currentThread().getName(),
         msg,
@@ -127,7 +145,10 @@ public void log(LogLevel level, String msg, Throwable throwable) {
 - LogContext（MDC 语义）：`LOGGING_CONTEXT` 是 `LoggerFacadeImpl` 的静态
   `ScopedValue<Map<String,Object>>`；`log()` 实现读它：绑定则把该值放入事件的
   `logContext`，未绑定则放 `Map.of()`。事件中的 `logContext` 永不 null。
-- `OffsetDateTime.now()` 每事件一次，v1 接受（consideration：可换 `Instant`）。
+  模块整体导出后（§0.3-13），应用可直接引用 `LoggerFacadeImpl.LOGGING_CONTEXT`
+  绑定上下文。
+- `Instant.now()` 每事件一次：无时区解析/转换开销，格式化交给消费端统一按
+  `jing.log.timezone` 处理（见 D6.3）。
 
 ### D3. 消费端批量处理与生命周期
 
@@ -147,11 +168,14 @@ public void log(LogLevel level, String msg, Throwable throwable) {
 public interface LogEventHandler {
     void handle(List<LogEvent> events);      // 尽量一次 handle 处理一批
 
+    String id();                             // 与 jing.log.handlers 配置 id 匹配
+
     default void flush() {}                  // 由消费端按策略定期/停止时调用
 }
 ```
 
-- 去掉 `@FunctionalInterface` 与单事件 `handle`；这是 jing-log 模块内私有 API。
+- 去掉 `@FunctionalInterface` 与单事件 `handle`；`id()` 供 facade 按
+  `jing.log.handlers` 配置从 ServiceLoader 提供者池中挑选并按配置顺序实例化。
 - 每个 handler 的 `handle` 在消费线程内执行（ScopedValue 可见），每批内部自主
   决定分配/格式化/写出节奏。
 
@@ -184,10 +208,11 @@ public interface LogEventHandler {
    mmap 内存，无反复 mmap/munmap、无每次分配的 malloc/free。
 
 **格式化器的容量保证**：格式化 method handle 返回"本事件实际写入字节数"，或返回
-`-1` 表示"此 region 剩余容量不足"（此时该事件尚未写入任何字节即可判定）。判定
-规则：先按最坏情况估算再写（见 D7.4），保证单事件要么完整写入连续区，要么
-完全未写（可安全触发 flush 重试）。单个事件超过整个 arena 时降级为丢弃并上报
-（§2 D9）。
+`-1` 表示"此 region 剩余容量不足"。判定规则：写入期间越过 region 容量即回滚到
+本事件起点（伴随的无效字节不进入任何 flush 范围），保证单事件要么完整写入连续
+区、要么整体丢弃（不产生半条输出）；见 D6.4。单个事件超过单个写 region
+（`REGION_SIZE` = 1 MiB，重分配后仍放不下）时降级为
+丢弃并上报（§2 D9），游标回卷到本事件起点再继续后续事件。
 
 ### D6. 格式化模式语言（严格子集，无颜色字）
 
@@ -201,7 +226,7 @@ pattern    := segment*
 segment    := literal | conversion
 literal    := 除 '%' 外任意字符；'%%' 输出字面 '%'
 conversion := '%' width? specifier options?
-width      := '-'? digits          （仅 level/logger 支持，见 specifier 表）
+width      := '-'? digits          （仅 level 支持，见 specifier 表）
 specifier  := 'date'|'d' | 'thread'|'t' | 'level'|'p' | 'logger'|'c'
             | 'msg'|'m' | 'ex'|'throwable' | 'n' | 'X'|'context'
 options    := '{' 见各 specifier '}'
@@ -211,10 +236,10 @@ options    := '{' 见各 specifier '}'
 
 | 记号 | 源 | options | 说明 |
 |---|---|---|---|
-| `%date` / `%d` | `offsetDateTime` | `{预设名或模式}`，默认 `yyyy-MM-dd HH:mm:ss.SSS` | 预设：JDK `DateTimeFormatter` 常量名，命中直接用常量；未命中按模式经 `DateTimeFormatterBuilder.parsePattern` 校验构造，非法字母 → 初始化期异常。预设清单见下 |
+| `%date` / `%d` | `instant.atZone(zone)` | `{预设名或模式}`，默认 `yyyy-MM-dd HH:mm:ss.SSS` | 预设：JDK `DateTimeFormatter` 常量名，命中直接用常量；未命中按模式经 `DateTimeFormatterBuilder.parsePattern` 校验构造，非法字母 → 初始化期异常。预设清单见下；`zone` 来自配置 `jing.log.timezone` |
 | `%thread` / `%t` | `threadName` | 无 | |
 | `%level` / `%p` | `level` | `width`：`%-5level` 左对齐补空格，`%5level` 右对齐；无宽度不补 | level 名称字节（含 ANSI 色码）初始化期预计算一次 |
-| `%logger` / `%c` | `className` | `{N}` 缩写预算，N≥1 | 缩写规则见下 |
+| `%logger` / `%c` | `className` | `{N}` 缩写预算，N≥1；**不支持 width** | 缩写规则见下；带 width（如 `%5logger`）→ 初始化期异常 |
 | `%msg` / `%m` | `msg` | 无 | null 输出 `null` |
 | `%ex` / `%throwable` | `throwable` | 无 | 渲染完整堆栈以 `\n` 分行；null 时输出空串；容量不足时截断并追加 `...`（见 D7.4） |
 | `%n` | — | 无 | 恒输出单字节 `0x0A`（不做平台换行转换） |
@@ -231,6 +256,11 @@ options    := '{' 见各 specifier '}'
 `DateTimeFormatter` 常量；未命中 → 视为自定义模式文本，交给
 `DateTimeFormatterBuilder.parsePattern` 构造（非法模式字母在初始化期抛异常）。
 
+时区：`jing.log.timezone` 决定 `%date`（与 JSON `ts`）所用的 `ZoneId`，默认
+`ZoneId.systemDefault()`；配置为非法时区名 → 启动期异常。格式化前先
+`instant.atZone(zone)` 再交给 `DateTimeFormatter`（对象放在 static 初始化期
+构造一次）。
+
 #### `%logger{N}` 缩写规则
 
 1. 全名长度 ≤ N → 原样输出。
@@ -241,7 +271,8 @@ options    := '{' 见各 specifier '}'
 #### 严格性规则（与 logback 的差异，逐一列举）
 
 1. 未知 specifier（`%foo`）→ 初始化期异常，消息带出错位置下标。
-2. `width` 必须为数字；`-` 后无数字、options 里给 width、数字非法 → 异常。
+2. `width` 必须为数字；`-` 后无数字、数字非法 → 异常；且 width **仅** `%level`
+   支持，其余 specifier（含 `%logger`）带 width → 异常。
 3. 不支持 options 的 specifier 出现 `{}`、`{N}` 中 N 非法 → 异常。
 4. 日期模式经 `parsePattern` 校验，未知模式字母 → 异常。
 5. 孤立行尾 `%` → 异常。
@@ -253,26 +284,31 @@ options    := '{' 见各 specifier '}'
 - Console：`%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n`
 - File（log 格式）：同上。
 
-#### D6.4 编译期 MethodHandle 格式化器
+#### D6.4 编译期格式化器（单一绑定 MethodHandle）
 
 在 handler 的 static 初始化中完成：
 
-1. 解析模式 → 节点序列（AST）。
+1. 解析模式 → 节点序列（AST），规范化别名（`%p`→`%level` 等），展开宽度与选项。
 2. 常量部分预编码为 `byte[]`：字面文本、`%n`、level 名称字节（含宽度与 ANSI 色码
    包裹）。
-3. 动态部分绑定最快路径：
-   - `%date`：绑定构造好的 `DateTimeFormatter`，通过 `formatTo(temporal, Appendable)`
-     直接写 region（region 适配为 Appendable，写 region 即写堆外，零堆中转）；
-   - `%thread` / `%logger` / `%msg`：UTF-8 直接编入 region（复用 CharsetEncoder /
-     直接逐字符编码，不产生堆 String）；
+3. 动态节点是对 region 的直写例程，经 `RegionOut`（region 适配 Appendable，写
+   region 即写堆外，零堆中转）执行：
+   - `%date`：构造好的 `DateTimeFormatter` 通过 `formatTo(instant.atZone(zone),
+     RegionOut)` 直接写 region；
+   - `%thread` / `%logger` / `%msg`：UTF-8 直接编入 region（逐字符编码，不产生堆
+     String）；
    - `%ex`：`Throwable.printStackTrace(PrintStream)` 写 region（region 适配
-     OutputStream）；输出量估算计入最坏情况（见下）。
-4. 用 `MethodHandles` 组合子链成单一 method handle：
+     OutputStream），写满 region 即截断（栈轨迹不可重放，属容量不足例外，见 §4）。
+4. 全部节点装进 `Node[]`，用 MethodHandles 绑定为单一方法句柄：
    `long fill(MemorySegment region, long offset, long capacity, LogEvent event)`
-   → 新 offset；容量不足 → `-1`（写前即判，保证无部分写入）。
-   容量判定按"每节点最坏字节数"累计：string 类字段按 `len*3`（UTF-8 上界）、日期按
-   固定上界、`%ex` 按 region 剩余空间上限处理（写满即截断，见 D6.4）。
+   → 新 offset；`-1` = 容量不足。方法体是**确定性迭代（无递归）**：常量字节整体
+   写入、动态节点按节点类型分发直写；任一写入越过容量即标记失败并回滚到
+   `eventStart`，`fill` 返回 `-1`。
 5. 存入 `static final`，运行期零解析、零常量重算。
+
+实现取舍说明：与"方法句柄组合子链"相比，单一循环体更易验证（offset 传递、失败
+短路、`%ex` 截断语义直观），仍保留"一次编译、零运行期解析"与常量预编码的性质；
+JIT 对绑定数组的循环同样可以内联与常量折叠。
 
 handler 类惰性加载：static 初始化发生在 `start()` 实例化 handler 时，模式/预设/
 颜色等配置错误在启动期立刻暴露（fail fast）。
@@ -296,7 +332,8 @@ handler 类惰性加载：static 初始化发生在 `start()` 实例化 handler 
   - 不做任何平台/终端探测：只要 `jing.log.ansi=true` 且对应 level 有颜色配置，
     即输出 `\x1b[<code>m` + level 名 + `\x1b[0m`。
 - 批内写出：`WriteFile`/`write` 到 stdout/stderr 句柄，C 侧做全量写入循环；
-  Java 侧检查 `jing_result` 错误标志，失败走 §2 D9 失效处理。
+  Java 侧按 §D8.2 返回值约定判定失败（err-ptr 高位标志 / 短写 `v != len`），
+  失败走 §2 D9 失效处理。
 - 无需 flush（终端写本身无缓冲语义），`flush()` 为空实现。
 
 ### D8. FileLogEventHandler 与 Native API 设计（重点章节）
@@ -332,7 +369,8 @@ handler 类惰性加载：static 初始化发生在 `start()` 实例化 handler 
     JSON 对象，UTF-8 输出，`\n` 结尾。字段顺序固定：
     `{"ts":..,"level":..,"thread":..,"logger":..,"msg":..,"ctx":{..},"ex":..}`
     - 必有：`ts`（ISO_OFFSET_DATE_TIME 文本）、`level`、`thread`、`logger`、`msg`；
-    - 可选：`logContext` 非空时输出 `ctx`；`throwable` 非 null 时输出 `ex`（堆栈
+    - 可选：`logContext` 非空时输出 `ctx`；`throwable` 非 null 时输出 `ex`（与
+      `%ex` 同源：`printStackTrace` 写 region，完整布局含 suppressed 与 cause，
       渲染为单字段字符串，内部换行转义为 `\n` 字面）；
     - 转义规则：`"` → `\"`，`\` → `\\`，`\n`/`\r`/`\t`/`\b`/`\f` → 对应转义，
       其余 <0x20 控制字符 → `\uXXXX`。手工按字符判跳转义，直接写入 region。
@@ -340,14 +378,25 @@ handler 类惰性加载：static 初始化发生在 `start()` 实例化 handler 
 #### D8.2 Native 重新按需设计——结论先行
 
 旧的实验 binding（`WinBindings` 控制台/文件、`PosixBindings` 缺失项）一律不沿用。
-正式实现需要在 `jing-bindings` 新增两个 `@FFM` 接口并配套 native 实现。以下列表
-即**完成任务所需的全部** native 调用，一项不多：
+正式实现需要在 `jing-bindings` 新增两个 `@FFM` Java 接口并配套 native 实现。
+native 函数**不新建源文件**：Windows 全部并入现有 `jing_win.c` / `jing_win.h`，
+POSIX 全部并入现有 `jing_posix.c` / `jing_posix.h`。以下列表即**完成任务所需的
+全部** native 调用，一项不多：
 
 需要的 I/O 原语 = 控制台句柄(仅 Win) + 打开追加 + 全量写 + flush + 尺寸(仅文件) +
-关闭。
+关闭。文件名以 UTF-8 空终止字符串传入（Windows C 侧自行转 UTF-16）。
 
-用 `jing_result` 16 字节结构承载返回值与错误（沿用现有 ABI，`NativeSegmentAccess`
-访问）；文件名以 UTF-8 空终止字符串传入（Windows C 侧自行转 UTF-16）。
+**返回值约定（免 `jing_result`）**：能单值表达的返回值一律直接表达状态，不分配
+16 字节 `jing_result`，省去每个调用一次结构写。统一规则：
+
+| 返回形态 | 成功 | 失败 | Java 侧判定 |
+|---|---|---|---|
+| 指针 / 句柄（Windows HANDLE、`void*`） | 有效地址 | 地址最高位=1（`JING_PTR_ERR_FLAG`），低 32 位为错误码，用 `jing_make_error_ptr` | `NativeSegmentAccess.isErrPtr(v)` / `.errCode(v)` |
+| int / long（fd、字节数、尺寸、状态） | `>= 0` | `< 0`，`-v` 即错误码（POSIX `errno` / Windows `GetLastError`） | `v < 0` → 错误码 `-v` |
+
+本设计中不需要"指针+长度"多值返回：写操作是**全量写循环**，成功时返回实际写入
+字节数（恒等于请求长度），无需 out 参数。若未来出现真正的多值需求再退回
+`jing_result`（`NativeSegmentAccess` 支持仍在）。
 
 ##### Windows —— 新 binding `WinLogIoBindings`
 
@@ -355,13 +404,13 @@ handler 类惰性加载：static 初始化发生在 `start()` 实例化 handler 
 
 | Java @Downcall | C 函数 | 语义 |
 |---|---|---|
-| `long stdoutHandle()` `constant,critical` | `jing_log_win_stdout_handle()` | `GetStdHandle(STD_OUTPUT_HANDLE)`，类加载期求值 |
-| `long stderrHandle()` `constant,critical` | `jing_log_win_stderr_handle()` | `GetStdHandle(STD_ERROR_HANDLE)` |
-| `void openAppend(MemorySegment fileNameCStr, MemorySegment jingResult)` | `jing_log_win_open_append(const char*, jing_result*)` | `CreateFileW(GENERIC_WRITE, FILE_APPEND_DATA, OPEN_ALWAYS)`，handle 经 result 返回 |
-| `void write(long handle, MemorySegment buf, int len, MemorySegment jingResult)` | `jing_log_win_write(HANDLE, const char*, size_t, jing_result*)` | `WriteFile` **全量写入循环**（处理短写），字节数经 result 返回 |
-| `void flush(long handle, MemorySegment jingResult)` | `jing_log_win_flush(HANDLE, jing_result*)` | `FlushFileBuffers` |
-| `void fileSize(long handle, MemorySegment jingResult)` | `jing_log_win_file_size(HANDLE, jing_result*)` | `GetFileSizeEx`，供 size 旋转初始值 |
-| `void close(long handle, MemorySegment jingResult)` | `jing_log_win_close(HANDLE, jing_result*)` | `CloseHandle` |
+| `long stdoutHandle()` `constant,critical` | `jing_log_win_stdout_handle()` | `GetStdHandle(STD_OUTPUT_HANDLE)`，类加载期求值；失败 err-ptr |
+| `long stderrHandle()` `constant,critical` | `jing_log_win_stderr_handle()` | `GetStdHandle(STD_ERROR_HANDLE)`；失败 err-ptr |
+| `long openAppend(MemorySegment fileNameCStr)` | `jing_log_win_open_append(const char*)` | UTF-8→UTF-16 后 `CreateFileW(GENERIC_WRITE, FILE_SHARE_READ, OPEN_ALWAYS)`，成功返回 HANDLE，失败 err-ptr |
+| `long write(long handle, MemorySegment buf, long len)` | `jing_log_win_write(HANDLE, const char*, size_t)` | `WriteFile` **全量写入循环**（处理短写），成功返回实际字节数(==len)，失败 `-GetLastError` |
+| `int flush(long handle)` | `jing_log_win_flush(HANDLE)` | `FlushFileBuffers`；成功 0，失败 `-GetLastError` |
+| `long fileSize(long handle)` | `jing_log_win_file_size(HANDLE)` | `GetFileSizeEx`；成功返回尺寸，失败 `-GetLastError`，供 size 旋转初始值 |
+| `int close(long handle)` | `jing_log_win_close(HANDLE)` | `CloseHandle`；成功 0，失败 `-GetLastError` |
 
 ##### POSIX —— 新 binding `PosixLogIoBindings`
 
@@ -369,11 +418,14 @@ handler 类惰性加载：static 初始化发生在 `start()` 实例化 handler 
 
 | Java @Downcall | C 函数 | 语义 |
 |---|---|---|
-| `void openAppend(MemorySegment fileNameCStr, MemorySegment jingResult)` | `jing_log_posix_open_append(const char*, jing_result*)` | `open(path, O_WRONLY\|O_CREAT\|O_APPEND, 0644)`，fd 经 result 返回 |
-| `void write(int fd, MemorySegment buf, long len, MemorySegment jingResult)` | `jing_log_posix_write(int, const char*, size_t, jing_result*)` | `write` **全量写入循环**（处理 EINTR/短写） |
-| `void flush(int fd, MemorySegment jingResult)` | `jing_log_posix_flush(int, jing_result*)` | `fsync` |
-| `void fileSize(int fd, MemorySegment jingResult)` | `jing_log_posix_file_size(int, jing_result*)` | `fstat` st_size |
-| `void close(int fd, MemorySegment jingResult)` | `jing_log_posix_close(int, jing_result*)` | `close` |
+| `int openAppend(MemorySegment fileNameCStr)` | `jing_log_posix_open_append(const char*)` | `open(path, O_WRONLY\|O_CREAT\|O_APPEND, 0644)`，成功返回 fd，失败 `-errno` |
+| `long write(int fd, MemorySegment buf, long len)` | `jing_log_posix_write(int, const char*, size_t)` | `write` **全量写入循环**（处理 `EINTR`/短写），成功返回实际字节数(==len)，失败 `-errno` |
+| `int flush(int fd)` | `jing_log_posix_flush(int)` | `fsync`；成功 0，失败 `-errno` |
+| `long fileSize(int fd)` | `jing_log_posix_file_size(int)` | `fstat` st_size；成功返回尺寸，失败 `-errno` |
+| `int close(int fd)` | `jing_log_posix_close(int)` | `close`；成功 0，失败 `-errno` |
+
+POSIX stdout/stderr：不提供 binding，恒用常量 fd 1/2（`STDOUT_FILENO` /
+`STDERR_FILENO`）。
 
 ##### 明确不做成 native 的事（理由一并记录）
 
@@ -385,26 +437,32 @@ handler 类惰性加载：static 初始化发生在 `start()` 实例化 handler 
   不为它扩大 native 面。
 - **目录创建**：`Files.createDirectories` 启动期一次调用。
 - **ANSI 检测 / isatty / terminal capability**：按需求不做探测（§0.3-6）。
-- **时钟 / 时间函数**：Java `Clock`/`OffsetDateTime` 已满足旋转与时间戳需求。
+- **时钟 / 时间函数**：Java `Clock`/`Instant` 已满足旋转与时间戳需求。
 - **内存分配相关**：arena 的 mmap/VirtualAlloc/commit 等沿用现有 `ArenaBase`
   底层（该部分 infra 保留复用，不重设计）。
-- 上述 C 函数在 jing_bindings native 库中新增 `jing_log_win.c` /
-  `jing_log_posix.c`（或并入现有 `jing_win.c`/`jing_posix.c`，实现自由，但函数名
-  统一 `jing_log_*` 前缀）。
+- 上述 C 函数全部并入现有 `jing_win.c` / `jing_posix.c`，声明进对应 `.h`；函数名
+  统一 `jing_log_*` 前缀。
 
 ### D9. 错误处理
 
 - handler 构造期（static 初始化）全部校验 fail fast：模式、预设置、颜色、旋转/
-  flush/format 枚举、handler id。枚举错误用统一的 `CfgException`（含键与非法值）。
-- 写失败（`jing_result` 错误标志）：不抛给调用方。消费线程 catch per-handler：
-  标记该 handler 失效，后续批次跳过；通过 `System.err` 输出一次降级错误（与
-  `DefaultLogger` 的 System.out 类似，属蓄意降级输出）。不中断消费循环。
-- 单事件超过整个 arena → 丢弃并上报一次（同上降级通道）。
+  flush/format 枚举、handler id。枚举与数值校验错误统一抛
+  `IllegalArgumentException`（消息含键与非法值，如 `"jing.log.level : unsupported
+  value 'x'"`、`"jing.log.handlers : unknown handler id 'x'"`、`"jing.log.file.rotate.size
+  : value out of range [min, max], actual : n"`）；`jing-common` 的配置装载层错误沿用 `CfgException`
+  （配置文件语法/加载失败，不是 jing-log 的值校验）。
+- 写失败（返回值约定，见 §D8.2：err-ptr 高位标志 / 短写 `v != len`）：不抛给调用方。
+  消费线程 catch per-handler：标记该 handler 失效，后续批次跳过；通过 `System.err`
+  输出一次降级错误（与 `DefaultLogger` 的 System.out 类似，属蓄意降级输出）。
+  不中断消费循环。
+- 单事件超出单个写 region（`REGION_SIZE` = 1 MiB，重分配后仍放不下）→ 丢弃并
+  上报一次（同上降级通道），游标回卷到本事件起点后继续后续事件（不产生重复前缀）。
 
 ### D10. 配置支持总表（细致版）
 
 读取一律走 `ConfigurationFactory`。合法性：字符串枚举在启动期（handler 实例化 /
-facade 构造）校验，非法值抛 `CfgException("unsupported <item> : <value>")`；
+facade 构造）校验，非法值抛 `IllegalArgumentException("<key> : unsupported value
+'<value>'")`；数值与范围校验抛 `IllegalArgumentException`（消息见 §2 D9）；
 布尔/数值沿用 `confAsBoolean`/`confAsInt` 语义（空白 → 默认，解析失败抛异常）。
 
 | key | 可提供的每一个值 | 默认 | 语义 |
@@ -413,6 +471,7 @@ facade 构造）校验，非法值抛 `CfgException("unsupported <item> : <value
 | `jing.log.handlers` | `console` `file`（confList） | `[console]` | 激活 handler，顺序即调用顺序；未知 id → 启动失败 |
 | `jing.log.batch.max` | 正整数 | `1024` | 单批上限（仅上限，不凑批） |
 | `jing.log.arena.size` | 正整数（字节） | `16777216` | `ArenaBase` 保留虚拟内存 |
+| `jing.log.timezone` | 空=系统默认；任意 JDK `ZoneId` 名（如 `UTC`、`Asia/Shanghai`） | 系统默认时区 | `%date` 与 JSON `ts` 的格式化时区；非法名 → 启动期异常 |
 | `jing.log.ansi` | `true` `false` | `true` | 全局 ANSI 开关；`false` 时颜色配置一律不输出 |
 | `jing.log.level.color` | `black` `red` `green` `yellow` `blue` `magenta` `cyan` `white` `bold` 或逗号组合；空=无色 | 无 | `%level` 通用颜色 |
 | `jing.log.level.trace.color` | 同上 | 无 | 覆盖通用值（trace） |
@@ -455,7 +514,16 @@ facade 构造）校验，非法值抛 `CfgException("unsupported <item> : <value
    内出现）；停止后队列残留被最终 drain。
 7. **构建验证**：`mvnd clean install -DskipTests=true` 后 `mvnd -pl jing-log test`；
    启动期 fail-fast 用例（坏模式 / 坏 handler id / 坏颜色名）。
-8. **基准**（`jing-bench`，类名 `LogBench`）：log() 入队吞吐；消费端批量格式化
+8. **review 巡检回归（2026-09-19 新增）**：
+   - 控制台超大事件（超 REGION_SIZE 后重分配仍放不下）丢弃后游标回卷，后续小事件
+     输出无重复/损坏前缀（F1）；
+   - 运行期抛错的 handler 被禁用时 close 恰好调用一次（F2，计数 AutoCloseable
+     handler）；本次修复同时覆盖 `stop()` 时对已禁用 handler 的 double-close 防护；
+   - 孤立代理项写 region 编码为 U+FFFD、控制台与文件两 handler 一致（F3）；
+   - 短写模拟（写返回 != len）按失败处理且文件尺寸不重复累计（F4）；
+   - `%logger` 带 width、`%d{}`/`%d{ }` 空 options → 解析即异常（F7/F8）；
+   - JSON `ex` 输出与 `%ex` 渲染一致，含 suppressed 与 caused by（F9）。
+9. **基准**（`jing-bench`，类名 `LogBench`）：log() 入队吞吐；消费端批量格式化
    吞吐；格式化 MH ns/op；批级单写 vs 逐事件写。运行：
    `java --enable-preview --add-modules jdk.incubator.vector -jar ./jing-bench/target/benchmarks.jar LogBench`
 
@@ -475,8 +543,8 @@ facade 构造）校验，非法值抛 `CfgException("unsupported <item> : <value
 
 - **背压**：日志峰值可打爆内存。备选：有界队列 + 丢弃计数（facade 提供
   `dropped` 计量）或按 level 丢弃。v1 取无界。
-- **时间戳成本**：`OffsetDateTime.now()` 每事件一次；可换 `Instant` + 消费端分区
-  计算。
+- ~~时间戳成本~~ 已决议：生产端 `Instant.now()`（零转换开销），消费端统一按
+  `jing.log.timezone` 一次转换。
 - **logContext**：`Map.of()` 与绑定快照两种形态并存；快照语义需文档明确
   （取值引用、应视为不可变）。
 - **`%ex` 截断**：超容量时截断追加 `...`，与"容量不足 flush 重试"的策略在此字段上
@@ -488,11 +556,14 @@ facade 构造）校验，非法值抛 `CfgException("unsupported <item> : <value
 
 ## 5. 实施顺序
 
-严格按阶段推进，每阶段以编译 + 该阶段测试收尾（§2 D11 对应项）。
+严格按阶段推进，每阶段以编译 + 该阶段测试收尾（§2 D11 对应项）。截至 2026-09-19：
+Phase 0–4 及 review 巡检修复（§0.3-14）全部完成（Phase 0–4 + review 回归合计
+65 测试全绿），Phase 5 的 `LogBench` 基准另行安排。
 
 - **Phase 0（native）**：`jing-bindings` 新增 `WinLogIoBindings` /
-  `PosixLogIoBindings` 两个 `@FFM` 接口 + `jing_log_win.c` / `jing_log_posix.c`
-  实现 + binding 测试。验证：`mvnd clean install -DskipTests=true` 全量编译。
+  `PosixLogIoBindings` 两个 `@FFM` 接口；native 函数**并入现有** `jing_win.c` /
+  `jing_posix.c`（不新建源文件），遵循 §D8.2 返回值约定。验证：
+  `mvnd clean install -DskipTests=true` 全量编译。
 - **Phase 1（消费核心）**：`LogEventHandler` 接口改 `handle(List)` +
   `flush()`；`LoggerFacadeImpl` 的 start/stop + park/unpark 消费循环 +
   `ScopedValue.where(MMAP_SCOPE, arena)` 绑定；`LoggerImpl.log()` 接线

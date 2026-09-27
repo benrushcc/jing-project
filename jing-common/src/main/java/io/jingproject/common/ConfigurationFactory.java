@@ -1,33 +1,27 @@
 package io.jingproject.common;
 
-import io.jingproject.common.conf.DefaultConfigurationFacade;
+import io.jingproject.common.conf.DefaultOldConfigurationFacade;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 
 public final class ConfigurationFactory {
+    private static final LazyConstant<ConfigurationFacade> FACTORY = LazyConstant.of(() -> Anchor.compute(ConfigurationFacade.class, () -> {
+        Optional<ConfigurationFacade> cf = ServiceLoader.load(ConfigurationFacade.class).findFirst();
+        return cf.orElseGet(DefaultOldConfigurationFacade::new);
+    }));
 
     private ConfigurationFactory() {
         throw new UnsupportedOperationException("utility class");
     }
 
-    private static ConfigurationFacade instance() {
-        class Holder {
-            static final ConfigurationFacade INSTANCE = Anchor.compute(ConfigurationFacade.class, () -> {
-                Optional<ConfigurationFacade> cf = ServiceLoader.load(ConfigurationFacade.class).findFirst();
-                return cf.orElseGet(DefaultConfigurationFacade::new);
-            });
-        }
-        return Holder.INSTANCE;
-    }
-
     public static String conf(String key) {
-        return instance().conf(key);
+        return FACTORY.get().conf(key);
     }
 
     public static List<String> confList(String key) {
-        return instance().confList(key);
+        return FACTORY.get().confList(key);
     }
 
     public static String conf(String key, String defaultValue) {

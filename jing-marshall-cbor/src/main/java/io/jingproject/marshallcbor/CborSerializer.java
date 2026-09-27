@@ -303,7 +303,7 @@ public final class CborSerializer {
                 r.initMap(map.entrySet().iterator(), fn);
                 yield r;
             }
-            case null, default -> throw new AssertionError();
+            default -> throw new AssertionError();
         };
     }
 }

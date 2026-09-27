@@ -10,7 +10,8 @@ JING_EXPORT_SYMBOL size_t jing_posix_max_align(void);
 
 JING_EXPORT_SYMBOL void* jing_posix_memalign(size_t alignment, size_t size);
 
-JING_EXPORT_SYMBOL void jing_posix_batch_free(void** ptrs, size_t len, void (*free_func_t)(void*));
+JING_EXPORT_SYMBOL void jing_posix_batch_free(void** ptrs, size_t len,
+                                              void (*free_func_t)(void*));
 
 // mmap related
 JING_EXPORT_SYMBOL long jing_posix_page_size();
@@ -47,6 +48,18 @@ JING_EXPORT_SYMBOL void jing_write_fd(int fd, char* buf, size_t len,
 JING_EXPORT_SYMBOL void jing_sync_fd(int fd, jing_result* r);
 
 JING_EXPORT_SYMBOL int jing_posix_close(int fd);
+
+// log io related
+JING_EXPORT_SYMBOL int jing_log_posix_open_append(const char* filename);
+
+JING_EXPORT_SYMBOL long long jing_log_posix_write(int fd, const char* buffer,
+                                                  size_t len);
+
+JING_EXPORT_SYMBOL int jing_log_posix_flush(int fd);
+
+JING_EXPORT_SYMBOL long long jing_log_posix_file_size(int fd);
+
+JING_EXPORT_SYMBOL int jing_log_posix_close(int fd);
 
 // network related
 JING_EXPORT_SYMBOL int jing_posix_af_inet_code(void);

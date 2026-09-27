@@ -15,7 +15,8 @@ JING_EXPORT_SYMBOL size_t jing_win_max_align(void);
 
 JING_EXPORT_SYMBOL void* jing_win_aligned_alloc(size_t size, size_t alignment);
 
-JING_EXPORT_SYMBOL void jing_win_batch_free(void** ptrs, size_t len, void (*free_func_t)(void*));
+JING_EXPORT_SYMBOL void jing_win_batch_free(void** ptrs, size_t len,
+                                            void (*free_func_t)(void*));
 
 JING_EXPORT_SYMBOL size_t jing_win_page_size(void);
 
@@ -51,6 +52,22 @@ JING_EXPORT_SYMBOL void jing_write_file(HANDLE h, char* buffer, int len,
                                         jing_result* r);
 
 JING_EXPORT_SYMBOL void jing_flush_file(HANDLE h, jing_result* r);
+
+// log io related
+JING_EXPORT_SYMBOL void* jing_log_win_stdout_handle(void);
+
+JING_EXPORT_SYMBOL void* jing_log_win_stderr_handle(void);
+
+JING_EXPORT_SYMBOL void* jing_log_win_open_append(const char* filename);
+
+JING_EXPORT_SYMBOL long long jing_log_win_write(void* handle,
+                                                const char* buffer, size_t len);
+
+JING_EXPORT_SYMBOL int jing_log_win_flush(void* handle);
+
+JING_EXPORT_SYMBOL long long jing_log_win_file_size(void* handle);
+
+JING_EXPORT_SYMBOL int jing_log_win_close(void* handle);
 
 // network related
 JING_EXPORT_SYMBOL int jing_win_connect_blocked_errcode(void);

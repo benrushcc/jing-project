@@ -1,0 +1,9 @@
+# plain, quoted and dotted keys
+plain = 1
+with-dash = 2
+with_underscore = 3
+"quoted" = 4
+'literal' = 5
+"a"."b" = 6
+a."c" = 7
+"d".b = 8

@@ -81,7 +81,7 @@ Resolution order:
 
 1. `ServiceLoader.load(ConfigurationFacade.class).findFirst()` — a user-provided SPI
    implementation wins if present.
-2. Otherwise fall back to `DefaultConfigurationFacade`.
+2. Otherwise fall back to `DefaultOldConfigurationFacade`.
 
 `Anchor.compute` is a small global registry (`Map<Class<?>, Object>` guarded by a
 `ReentrantLock`); combined with the `Holder` idiom this gives a thread-safe lazy
@@ -147,7 +147,7 @@ Nested keys use `.` as the separator, e.g. `server.port`. Nesting depth is cappe
 
 ### 4.1 Loading
 
-`DefaultConfigurationFacade` loads the configuration from a classpath resource:
+`DefaultOldConfigurationFacade` loads the configuration from a classpath resource:
 
 - File name: system property `jing.config.file`, default `jing-config`.
 - Extension: system property `jing.config.ext`, default empty.
@@ -177,7 +177,7 @@ Nesting depth is limited by `maxDepth` (root counts as depth 1; a layer deeper t
 `maxDepth` is rejected, a layer exactly at `maxDepth` is accepted). Truncated or
 garbage-tailed input is rejected with `CfgException`.
 
-### 5.1 TOML (`TomlCfgReader`)
+### 5.1 TOML (`TomlCfgOldReader`)
 
 Supported:
 
@@ -194,7 +194,7 @@ Supported:
 Not supported (rejected): dates, quoted keys, multi-line strings, literal strings
 `'...'`, arrays of tables `[[...]]`, inline tables, empty table headers `[]`.
 
-### 5.2 JSON (`JsonCfgReader`)
+### 5.2 JSON (`JsonCfgOldReader`)
 
 Supported:
 
@@ -211,7 +211,7 @@ Not supported (rejected): `null`, arrays at the top level, arrays of objects. Tr
 input (missing the closing `}`) and any non-whitespace after the root object are
 rejected.
 
-### 5.3 Properties (`PropertiesCfgReader`)
+### 5.3 Properties (`PropertiesCfgOldReader`)
 
 Supported:
 
@@ -237,6 +237,6 @@ recorded here for later triage; the document above describes the intended design
 2. `conf()`/`confList()` traverse nested keys with
    `nestedkeys.subList(1, size - 1)`, which skips the first segment. A key like
    `server.port` resolves against the root instead of the `server` table. The
-   `PropertiesCfgReader` uses the correct `subList(0, size - 1)` form.
+   `PropertiesCfgOldReader` uses the correct `subList(0, size - 1)` form.
 3. `DefaultConfigurationFacade.MAX_DEPTH = 128` is declared but unused; the depth check
-   lives in `CfgUtil`.
+   lives in `CfgOldUtil`.

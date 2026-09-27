@@ -1,13 +1,17 @@
 package io.jingproject.bench.twi;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.helidon.json.binding.Json;
+import io.jingproject.marshall.MarshallAttr;
 import io.jingproject.marshall.Marshallable;
 import io.jingproject.marshall.NamingConvention;
 
-@Marshallable(from = NamingConvention.CAMEL_CASE, to = NamingConvention.SNAKE_CASE)
+@Marshallable
+@Json.Entity
 public record TwiSizes(
-        TwiSize medium,
-        TwiSize small,
-        TwiSize thumb,
-        TwiSize large
+        @MarshallAttr(mappedName = "medium") @JsonProperty("medium") @Json.Property("medium") TwiSize medium,
+        @MarshallAttr(mappedName = "small") @JsonProperty("small") @Json.Property("small") TwiSize small,
+        @MarshallAttr(mappedName = "thumb") @JsonProperty("thumb") @Json.Property("thumb") TwiSize thumb,
+        @MarshallAttr(mappedName = "large") @JsonProperty("large") @Json.Property("large") TwiSize large
 ) {
 }

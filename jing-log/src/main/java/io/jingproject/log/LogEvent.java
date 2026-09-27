@@ -2,12 +2,12 @@ package io.jingproject.log;
 
 import io.jingproject.common.log.LogLevel;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.Map;
 
-public record LogEvent (
+public record LogEvent(
         LogLevel level,
-        OffsetDateTime offsetDateTime,
+        Instant instant,
         String className,
         String threadName,
         String msg,

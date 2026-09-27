@@ -1,0 +1,11 @@
+# arrays of scalars
+arr_empty = []
+arr_ints = [1, 2, 3]
+arr_strings = ["a", "b", "c"]
+arr_mixed = [1, "two", true, 3.5]
+arr_trailing = [1, 2, 3,]
+arr_signed = [-1, +2, -0.5]
+arr_radix = [0x1F, 0o17, 0b101]
+arr_infnan = [inf, -inf, nan]
+arr_literal = ['x', 'y']
+arr_spaces = [ 1 , 2 , 3 ]

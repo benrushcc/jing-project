@@ -1,240 +1,436 @@
 package io.jingproject.commontest;
 
-import io.jingproject.common.HeapWriteBuffer;
-import io.jingproject.common.conf.Cfg.CfgItem;
-import io.jingproject.common.conf.Cfg.CfgList;
-import io.jingproject.common.conf.Cfg.CfgObject;
+import io.jingproject.common.conf.Cfg;
 import io.jingproject.common.conf.CfgException;
-import io.jingproject.common.conf.CfgUtil;
-import io.jingproject.common.conf.CfgReader.JsonCfgReader;
-import io.jingproject.common.conf.CfgReader.TomlCfgReader;
+import io.jingproject.common.conf.CfgReader;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.JarURLConnection;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
-import java.util.Map;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 public class CfgTest {
-    private record JsonCase(String input, CfgObject expected) {
-    }
 
-    private record TomlCase(String input, CfgObject expected) {
-    }
-
-    private static CfgObject parseJson(String json) throws Exception {
-        return new JsonCfgReader(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8))).parse(128);
-    }
-
-    private static CfgObject parseToml(String toml) throws Exception {
-        return new TomlCfgReader(new ByteArrayInputStream(toml.getBytes(StandardCharsets.UTF_8))).parse(128);
-    }
-
-    @Test
-    public void testReadCfgKey() {
-        byte[] d = "abc".getBytes(StandardCharsets.US_ASCII);
-        Assertions.assertEquals("abc", CfgUtil.readCfgKey(d, 0, d.length));
-        byte[] d2 = "a-b_c1".getBytes(StandardCharsets.US_ASCII);
-        Assertions.assertEquals("a-b_c1", CfgUtil.readCfgKey(d2, 0, d2.length));
-        byte[] d3 = "a b".getBytes(StandardCharsets.US_ASCII);
-        Assertions.assertThrows(CfgException.class, () -> CfgUtil.readCfgKey(d3, 0, d3.length));
-        byte[] d4 = "a.b".getBytes(StandardCharsets.US_ASCII);
-        Assertions.assertThrows(CfgException.class, () -> CfgUtil.readCfgKey(d4, 0, d4.length));
-    }
-
-    @Test
-    public void testReadCfgNestedKey() {
-        byte[] d = "a.b.c".getBytes(StandardCharsets.US_ASCII);
-        Assertions.assertEquals(List.of("a", "b", "c"), CfgUtil.readCfgNestedKey(d, 0, d.length, 128));
-        byte[] d2 = "a".getBytes(StandardCharsets.US_ASCII);
-        Assertions.assertEquals(List.of("a"), CfgUtil.readCfgNestedKey(d2, 0, d2.length, 128));
-        byte[] d3 = ".a".getBytes(StandardCharsets.US_ASCII);
-        Assertions.assertThrows(CfgException.class, () -> CfgUtil.readCfgNestedKey(d3, 0, d3.length, 128));
-        byte[] d4 = "a.".getBytes(StandardCharsets.US_ASCII);
-        Assertions.assertThrows(CfgException.class, () -> CfgUtil.readCfgNestedKey(d4, 0, d4.length, 128));
-        byte[] d5 = "a..b".getBytes(StandardCharsets.US_ASCII);
-        Assertions.assertThrows(CfgException.class, () -> CfgUtil.readCfgNestedKey(d5, 0, d5.length, 128));
-    }
-
-    @Test
-    public void testReadUnicode() throws Exception {
-        Assertions.assertEquals(0x4F60, CfgUtil.readUnicode(
-            new ByteArrayInputStream("4F60".getBytes(StandardCharsets.US_ASCII)), 4));
-        Assertions.assertThrows(CfgException.class, () -> CfgUtil.readUnicode(
-            new ByteArrayInputStream("zz".getBytes(StandardCharsets.US_ASCII)), 2));
-    }
-
-    @Test
-    public void testWriteCodePointInUtf8() {
-        HeapWriteBuffer buf = new HeapWriteBuffer(64);
-        buf.writeCodePointInUtf8(0x4F60);
-        byte[] actual = new byte[buf.intPosition()];
-        System.arraycopy(buf.rawByteArray(), 0, actual, 0, buf.intPosition());
-        Assertions.assertArrayEquals("你".getBytes(StandardCharsets.UTF_8), actual);
-    }
-
-    @Test
-    public void testRejectKey() {
-        Assertions.assertFalse(CfgUtil.rejectKey((byte) 'a'));
-        Assertions.assertFalse(CfgUtil.rejectKey((byte) 'Z'));
-        Assertions.assertFalse(CfgUtil.rejectKey((byte) '0'));
-        Assertions.assertFalse(CfgUtil.rejectKey((byte) '-'));
-        Assertions.assertFalse(CfgUtil.rejectKey((byte) '_'));
-        Assertions.assertTrue(CfgUtil.rejectKey((byte) '.'));
-        Assertions.assertTrue(CfgUtil.rejectKey((byte) ' '));
-    }
-
-    // --- json accept ---
-
-    @Test
-    public void testJsonAccepts() throws Exception {
-        List<JsonCase> cases = List.of(
-            new JsonCase("{\"a\": 42}", new CfgObject(Map.of("a", new CfgItem("42")))),
-            new JsonCase("{\"a\": -7}", new CfgObject(Map.of("a", new CfgItem("-7")))),
-            new JsonCase("{\"a\": 0}", new CfgObject(Map.of("a", new CfgItem("0")))),
-            new JsonCase("{\"a\": -0}", new CfgObject(Map.of("a", new CfgItem("-0")))),
-            new JsonCase("{\"a\": 123}", new CfgObject(Map.of("a", new CfgItem("123")))),
-            new JsonCase("{\"a\": 12345678901234567890}",
-                new CfgObject(Map.of("a", new CfgItem("12345678901234567890")))),
-            new JsonCase("{\"a\": 3.14}", new CfgObject(Map.of("a", new CfgItem("3.14")))),
-            new JsonCase("{\"a\": 0.5}", new CfgObject(Map.of("a", new CfgItem("0.5")))),
-            new JsonCase("{\"a\": -0.5}", new CfgObject(Map.of("a", new CfgItem("-0.5")))),
-            new JsonCase("{\"a\": 1e10}", new CfgObject(Map.of("a", new CfgItem("1e10")))),
-            new JsonCase("{\"a\": 0e0}", new CfgObject(Map.of("a", new CfgItem("0e0")))),
-            new JsonCase("{\"a\": 1E2}", new CfgObject(Map.of("a", new CfgItem("1E2")))),
-            new JsonCase("{\"a\": 2.5E-3}", new CfgObject(Map.of("a", new CfgItem("2.5E-3")))),
-            new JsonCase("{\"a\": 1.5E+10}", new CfgObject(Map.of("a", new CfgItem("1.5E+10")))),
-            new JsonCase("{\"a\": true}", new CfgObject(Map.of("a", new CfgItem("true")))),
-            new JsonCase("{\"a\": false}", new CfgObject(Map.of("a", new CfgItem("false")))),
-            new JsonCase("{\"a\": [1, \"two\", true]}",
-                new CfgObject(Map.of("a", new CfgList(List.of("1", "two", "true")))))
-        );
-        for (JsonCase c : cases) {
-            Assertions.assertEquals(c.expected(), parseJson(c.input()), c.input());
+    private static byte[] readCase(String path) {
+        try (InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream(path)) {
+            if (in == null) {
+                throw new IOException("corpus resource not found: " + path);
+            }
+            return in.readAllBytes();
+        } catch (IOException e) {
+            throw new AssertionError(e);
         }
     }
 
-    // --- json reject ---
-
-    @Test
-    public void testJsonRejects() {
-        List<String> inputs = List.of(
-            "{\"a\": 007}",
-            "{\"a\": 01}",
-            "{\"a\": .5}",
-            "{\"a\": .}",
-            "{\"a\": 5.}",
-            "{\"a\": 1e}",
-            "{\"a\": 1e+}",
-            "{\"a\": 1e-}",
-            "{\"a\": +1}",
-            "{\"a\": -}",
-            "{\"a\": 1_0}",
-            "{\"a\": 1..2}",
-            "{\"a\": 0xFF}",
-            "{\"a\": 0x1}",
-            ""
-        );
-        for (String input : inputs) {
-            Assertions.assertThrows(CfgException.class, () -> parseJson(input), "expected CfgException for: " + input);
+    protected static List<String> caseFiles(String dir) {
+        try {
+            List<String> r = new ArrayList<>();
+            Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResources(dir);
+            while (urls.hasMoreElements()) {
+                URL url = urls.nextElement();
+                switch (url.getProtocol()) {
+                    case "file" -> {
+                        Path path = Path.of(url.toURI());
+                        try (var s = Files.list(path)) {
+                            s.filter(Files::isRegularFile)
+                                    .map(p -> p.getFileName().toString())
+                                    .forEach(r::add);
+                        }
+                    }
+                    case "jar" -> {
+                        JarURLConnection connection = (JarURLConnection) url.openConnection();
+                        connection.setUseCaches(false);
+                        String prefix = dir.endsWith("/") ? dir : dir + "/";
+                        try (JarFile jar = connection.getJarFile()) {
+                            jar.stream()
+                                    .filter(e -> !e.isDirectory())
+                                    .map(JarEntry::getName)
+                                    .filter(name -> name.startsWith(prefix))
+                                    .map(name -> name.substring(prefix.length()))
+                                    .filter(name -> !name.contains("/"))
+                                    .forEach(r::add);
+                        }
+                    }
+                    default -> throw new AssertionError("unsupported classpath protocol : " + url.getProtocol());
+                }
+            }
+            return r;
+        } catch (RuntimeException | IOException | URISyntaxException e) {
+            throw new AssertionError(e);
         }
     }
 
-    // --- toml accept ---
+    private static String itemValue(Cfg.CfgObject obj, String key) {
+        if(obj.value().get(key) instanceof Cfg.CfgItem(String value)) {
+            return value;
+        }
+        throw new AssertionError();
+    }
 
-    @Test
-    public void testTomlAccepts() throws Exception {
-        List<TomlCase> cases = List.of(
-            new TomlCase("", new CfgObject(Map.of())),
-            new TomlCase("a = 42", new CfgObject(Map.of("a", new CfgItem("42")))),
-            new TomlCase("a = -7", new CfgObject(Map.of("a", new CfgItem("-7")))),
-            new TomlCase("a = +3", new CfgObject(Map.of("a", new CfgItem("3")))),
-            new TomlCase("a = 1_000_000", new CfgObject(Map.of("a", new CfgItem("1000000")))),
-            new TomlCase("a = 0", new CfgObject(Map.of("a", new CfgItem("0")))),
-            new TomlCase("a = -0", new CfgObject(Map.of("a", new CfgItem("0")))),
-            new TomlCase("a = +0", new CfgObject(Map.of("a", new CfgItem("0")))),
-            new TomlCase("a = -9223372036854775808",
-                new CfgObject(Map.of("a", new CfgItem("-9223372036854775808")))),
-            new TomlCase("a = 0xFF", new CfgObject(Map.of("a", new CfgItem("255")))),
-            new TomlCase("a = 0xF_F", new CfgObject(Map.of("a", new CfgItem("255")))),
-            new TomlCase("a = 0x0", new CfgObject(Map.of("a", new CfgItem("0")))),
-            new TomlCase("a = 0o77", new CfgObject(Map.of("a", new CfgItem("63")))),
-            new TomlCase("a = 0b1010", new CfgObject(Map.of("a", new CfgItem("10")))),
-            new TomlCase("a = 0b10_10", new CfgObject(Map.of("a", new CfgItem("10")))),
-            new TomlCase("a = 0b1_0", new CfgObject(Map.of("a", new CfgItem("2")))),
-            new TomlCase("a = 3.14", new CfgObject(Map.of("a", new CfgItem("3.14")))),
-            new TomlCase("a = 0.5", new CfgObject(Map.of("a", new CfgItem("0.5")))),
-            new TomlCase("a = 1e10", new CfgObject(Map.of("a", new CfgItem("1e10")))),
-            new TomlCase("a = 5e0", new CfgObject(Map.of("a", new CfgItem("5e0")))),
-            new TomlCase("a = 1e+2", new CfgObject(Map.of("a", new CfgItem("1e+2")))),
-            new TomlCase("a = 2.5E-3", new CfgObject(Map.of("a", new CfgItem("2.5E-3")))),
-            new TomlCase("a = 1_0.5", new CfgObject(Map.of("a", new CfgItem("10.5")))),
-            new TomlCase("a = inf", new CfgObject(Map.of("a", new CfgItem("Infinity")))),
-            new TomlCase("a = -inf", new CfgObject(Map.of("a", new CfgItem("-Infinity")))),
-            new TomlCase("a = +inf", new CfgObject(Map.of("a", new CfgItem("Infinity")))),
-            new TomlCase("a = nan", new CfgObject(Map.of("a", new CfgItem("NaN")))),
-            new TomlCase("a = -nan", new CfgObject(Map.of("a", new CfgItem("NaN")))),
-            new TomlCase("a = +nan", new CfgObject(Map.of("a", new CfgItem("NaN")))),
-            new TomlCase("a = true", new CfgObject(Map.of("a", new CfgItem("true")))),
-            new TomlCase("a = false", new CfgObject(Map.of("a", new CfgItem("false")))),
-            new TomlCase("a = [1, \"two\", true]",
-                new CfgObject(Map.of("a", new CfgList(List.of("1", "two", "true"))))),
-            new TomlCase("[t]\nn = 1\nb = true",
-                new CfgObject(Map.of("t", new CfgObject(Map.of("n", new CfgItem("1"), "b", new CfgItem("true"))))))
-        );
-        for (TomlCase c : cases) {
-            Assertions.assertEquals(c.expected(), parseToml(c.input()), c.input());
+    private static Cfg.CfgObject object(Cfg.CfgObject obj, String key) {
+        if(obj.value().get(key) instanceof Cfg.CfgObject cfgObject) {
+            return cfgObject;
+        }
+        throw new AssertionError();
+    }
+
+    private static Cfg.CfgList list(Cfg.CfgObject obj, String key) {
+        if(obj.value().get(key) instanceof Cfg.CfgList cfgList) {
+            return cfgList;
+        }
+        throw new AssertionError();
+    }
+
+    @Nested
+    class JsonCfgTest {
+        private static Cfg.CfgObject parseJson(byte[] bytes) {
+            return parseJson(bytes, Integer.MAX_VALUE);
+        }
+
+        private static Cfg.CfgObject parseJson(byte[] bytes, int maxDepth) {
+            return new CfgReader.JsonCfgReader().parse(new ByteArrayInputStream(bytes), maxDepth);
+        }
+
+        @Test
+        void scalars() {
+            Cfg.CfgObject j = parseJson(readCase("cases/json/valid/scalars.json"));
+            Assertions.assertEquals("hello", itemValue(j, "str"));
+            Assertions.assertEquals("héllo", itemValue(j, "str_unicode"));
+            Assertions.assertEquals("42", itemValue(j, "int"));
+            Assertions.assertEquals("-17", itemValue(j, "neg"));
+            Assertions.assertEquals("3.14", itemValue(j, "float"));
+            Assertions.assertEquals("1.5e3", itemValue(j, "exp"));
+            Assertions.assertEquals("1.5E3", itemValue(j, "exp_upper"));
+            Assertions.assertEquals("1e+5", itemValue(j, "exp_plus"));
+            Assertions.assertEquals("1e-5", itemValue(j, "exp_minus"));
+            Assertions.assertEquals("9223372036854775807", itemValue(j, "big"));
+            Assertions.assertEquals("-0.0", itemValue(j, "neg_zero"));
+            Assertions.assertEquals("1.0", itemValue(j, "one"));
+            Assertions.assertEquals("0", itemValue(j, "zero"));
+            Assertions.assertEquals("true", itemValue(j, "bool_true"));
+            Assertions.assertEquals("false", itemValue(j, "bool_false"));
+        }
+
+        @Test
+        void arrays() {
+            Cfg.CfgObject j = parseJson(readCase("cases/json/valid/arrays.json"));
+            Assertions.assertEquals(List.of("1", "2", "3"), list(j, "ints").value());
+            Assertions.assertEquals(List.of("a", "b"), list(j, "strings").value());
+            Assertions.assertEquals(List.of("1", "two", "true"), list(j, "mixed").value());
+            Assertions.assertEquals(List.of("1.5", "-0.5", "1e3"), list(j, "floats").value());
+            Assertions.assertEquals(List.of("only"), list(j, "single").value());
+        }
+
+        @Test
+        void nested() {
+            Cfg.CfgObject j = parseJson(readCase("cases/json/valid/nested.json"));
+            Cfg.CfgObject server = object(j, "server");
+            Assertions.assertEquals("localhost", itemValue(server, "host"));
+            Assertions.assertEquals("8080", itemValue(server, "port"));
+            Assertions.assertEquals("true", itemValue(object(server, "tls"), "enabled"));
+            Assertions.assertEquals("10", itemValue(object(object(j, "db"), "pool"), "size"));
+        }
+
+        @Test
+        void emptyObject() {
+            Assertions.assertTrue(parseJson(readCase("cases/json/valid/empty.json")).value().isEmpty());
+        }
+
+        @Test
+        void keys() {
+            Cfg.CfgObject j = parseJson(readCase("cases/json/valid/keys.json"));
+            Assertions.assertEquals("1", itemValue(j, "keyone"));
+            Assertions.assertEquals("2", itemValue(j, "with-dash"));
+            Assertions.assertEquals("3", itemValue(j, "with_underscore"));
+            Assertions.assertEquals("4", itemValue(j, "a-b-c"));
+        }
+
+        @Test
+        void unicode() {
+            Cfg.CfgObject j = parseJson(readCase("cases/json/valid/unicode.json"));
+            Assertions.assertEquals("héllo", itemValue(j, "escaped"));
+            Assertions.assertEquals("😀", itemValue(j, "emoji"));
+            Assertions.assertEquals("café", itemValue(j, "raw"));
+        }
+
+        @Test
+        void invalid() {
+            for (String fileName : caseFiles("cases/json/invalid")) {
+                Assertions.assertThrows(CfgException.class, () -> parseJson(readCase("cases/json/invalid/" + fileName)), fileName + " failed");
+            }
+        }
+
+        @Test
+        void maxDepth() {
+            // shallow corpus files (depth <= 3) pass at maxDepth=4
+            Assertions.assertDoesNotThrow(() -> parseJson(readCase("cases/json/valid/scalars.json"), 4));
+            Assertions.assertDoesNotThrow(() -> parseJson(readCase("cases/json/valid/nested.json"), 4));
+            Assertions.assertDoesNotThrow(() -> parseJson(readCase("cases/json/valid/empty.json"), 4));
+            // deep.json nests 5 levels: rejected at maxDepth=4, accepted at 5
+            Assertions.assertThrows(CfgException.class, () -> parseJson(readCase("cases/json/valid/deep.json"), 4));
+            Assertions.assertDoesNotThrow(() -> parseJson(readCase("cases/json/valid/deep.json"), 5));
+        }
+
+        @Test
+        void immutableCopyIsDeep() {
+            // nested lists are copied and made immutable
+            Cfg.CfgObject json = parseJson("{\"b\": [\"x\", \"y\"]}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            Cfg.CfgObject immutable = json.asImmutable();
+            Cfg.CfgList list = (Cfg.CfgList) immutable.value().get("b");
+            Assertions.assertThrows(UnsupportedOperationException.class, () -> list.value().add("z"));
         }
     }
 
-    // --- toml reject ---
+    @Nested
+    class PropCfgTest {
+        private static Cfg.CfgObject parseProps(byte[] bytes) {
+            return parseProps(bytes, Integer.MAX_VALUE);
+        }
 
-    @Test
-    public void testTomlRejects() {
-        List<String> inputs = List.of(
-            "a = 007",
-            "a = _1",
-            "a = 0_1",
-            "a = 1__0",
-            "a = 1_",
-            "a = +",
-            "a = +0xFF",
-            "a = -0xFF",
-            "a = 0x",
-            "a = 0xG",
-            "a = 0o8",
-            "a = 0b2",
-            "a = 0xFF_",
-            "a = 1e1_0",
-            "a = .5",
-            "a = 5.",
-            "a = 1.",
-            "a = 1e+",
-            "a = 1._0",
-            "a = 9223372036854775808"
-        );
-        for (String input : inputs) {
-            Assertions.assertThrows(CfgException.class, () -> parseToml(input), "expected CfgException for: " + input);
+        private static Cfg.CfgObject parseProps(byte[] bytes, int maxDepth) {
+            return new CfgReader.PropertiesCfgReader().parse(new ByteArrayInputStream(bytes), maxDepth);
+        }
+
+        @Test
+        void basic() {
+            Cfg.CfgObject p = parseProps(readCase("cases/props/valid/basic.properties"));
+            Assertions.assertEquals("1", itemValue(p, "a"));
+            Assertions.assertEquals("hello", itemValue(p, "b"));
+            Assertions.assertEquals("true", itemValue(p, "c"));
+            Assertions.assertEquals("3.14", itemValue(p, "d"));
+            Assertions.assertEquals("1e5", itemValue(p, "e"));
+            Assertions.assertEquals("-17", itemValue(p, "f"));
+            Assertions.assertEquals("0x1F", itemValue(p, "g"));
+        }
+
+        @Test
+        void dotted() {
+            Cfg.CfgObject p = parseProps(readCase("cases/props/valid/dotted.properties"));
+            Assertions.assertEquals("1", itemValue(object(p, "a"), "b"));
+            Assertions.assertEquals("2", itemValue(object(p, "a"), "c"));
+            Assertions.assertEquals("3", itemValue(object(object(p, "x"), "y"), "z"));
+        }
+
+        @Test
+        void lists() {
+            // Properties.load keeps the spaces after each comma inside the value
+            Cfg.CfgObject p = parseProps(readCase("cases/props/valid/lists.properties"));
+            Assertions.assertEquals(List.of("1", " 2", " 3"), list(p, "arr").value());
+            Assertions.assertEquals(List.of("a", " b", " c"), list(p, "strs").value());
+            Assertions.assertEquals(List.of("only"), list(p, "single").value());
+            Assertions.assertEquals(List.of("1", " x", " true"), list(p, "mixed").value());
+        }
+
+        @Test
+        void specialKeys() {
+            Cfg.CfgObject p = parseProps(readCase("cases/props/valid/special.properties"));
+            Assertions.assertEquals("value one", itemValue(p, "keyone"));
+            Assertions.assertEquals("two", itemValue(p, "with-dash"));
+            Assertions.assertEquals("three", itemValue(p, "with_underscore"));
+            Assertions.assertEquals("four", itemValue(p, "a-b-c"));
+        }
+
+        @Test
+        void emptyDocument() {
+            Assertions.assertTrue(parseProps(readCase("cases/props/valid/empty.properties")).value().isEmpty());
+        }
+
+        @Test
+        void escapes() {
+            // Properties.load decodes backslash and \\uXXXX escapes
+            Cfg.CfgObject p = parseProps(readCase("cases/props/valid/escaped.properties"));
+            Assertions.assertEquals("C:\\temp\\file", itemValue(p, "path"));
+            Assertions.assertEquals("é", itemValue(p, "unicode"));
+        }
+
+        @Test
+        void comments() {
+            // # and ! only start comments at the start of a line
+            Cfg.CfgObject p = parseProps(readCase("cases/props/valid/comments.properties"));
+            Assertions.assertEquals("1 # not a comment in properties", itemValue(p, "a"));
+        }
+
+        @Test
+        void invalidDocuments() {
+            for (String fileName : caseFiles("cases/props/invalid")) {
+                Assertions.assertThrows(CfgException.class, () -> parseProps(readCase("cases/props/invalid/" + fileName)), fileName + " failed");
+            }
+        }
+
+        @Test
+        void maxDepth() {
+            // shallow corpus files (depth <= 3) pass at maxDepth=4
+            Assertions.assertDoesNotThrow(() -> parseProps(readCase("cases/props/valid/basic.properties"), 4));
+            Assertions.assertDoesNotThrow(() -> parseProps(readCase("cases/props/valid/dotted.properties"), 4));
+            Assertions.assertDoesNotThrow(() -> parseProps(readCase("cases/props/valid/empty.properties"), 4));
+            // deep.properties has 5 key segments: rejected at maxDepth=4, accepted at 5
+            Assertions.assertThrows(CfgException.class, () -> parseProps(readCase("cases/props/valid/deep.properties"), 4));
+            Assertions.assertDoesNotThrow(() -> parseProps(readCase("cases/props/valid/deep.properties"), 5));
         }
     }
 
-    // --- jdk-convertibility ---
+    @Nested
+    class TomlCfgTest {
+        private static Cfg.CfgObject parseToml(byte[] bytes) {
+            return parseToml(bytes, Integer.MAX_VALUE);
+        }
 
-    @Test
-    public void testJdkConvertibility() {
-        List<String> intStrings = List.of("42", "-7", "3", "1000000", "255", "63", "10", "0", "-0");
-        for (String s : intStrings) {
-            Assertions.assertDoesNotThrow(() -> Integer.parseInt(s), "Integer.parseInt failed for: " + s);
-            Assertions.assertDoesNotThrow(() -> Long.parseLong(s), "Long.parseLong failed for: " + s);
+        private static Cfg.CfgObject parseToml(byte[] bytes, int maxDepth) {
+            return new CfgReader.TomlCfgReader().parse(new ByteArrayInputStream(bytes), maxDepth);
         }
-        String minLong = "-9223372036854775808";
-        Assertions.assertDoesNotThrow(() -> Long.parseLong(minLong), "Long.parseLong failed for: " + minLong);
-        List<String> doubleStrings = List.of("3.14", "1e10", "2.5E-3", "10.5", "-0.5", "Infinity", "-Infinity", "NaN");
-        for (String s : doubleStrings) {
-            Assertions.assertDoesNotThrow(() -> Double.parseDouble(s), "Double.parseDouble failed for: " + s);
+
+        @Test
+        void scalars() {
+            Cfg.CfgObject t = parseToml(readCase("cases/toml/valid/scalars.toml"));
+            Assertions.assertEquals("hello world", itemValue(t, "str_basic"));
+            Assertions.assertEquals("\b\t\n\f\r\"\\\u001B", itemValue(t, "str_escapes"));
+            Assertions.assertEquals("Aé😀", itemValue(t, "str_unicode"));
+            Assertions.assertEquals("literal \\n no escape", itemValue(t, "str_literal"));
+            Assertions.assertEquals("", itemValue(t, "str_empty"));
+            Assertions.assertEquals("true", itemValue(t, "bool_true"));
+            Assertions.assertEquals("false", itemValue(t, "bool_false"));
+            Assertions.assertEquals("42", itemValue(t, "int_dec"));
+            Assertions.assertEquals("-17", itemValue(t, "int_neg"));
+            Assertions.assertEquals("+99", itemValue(t, "int_pos"));
+            Assertions.assertEquals("1000000", itemValue(t, "int_underscore"));
+            Assertions.assertEquals("3735928559", itemValue(t, "int_hex"));
+            Assertions.assertEquals("493", itemValue(t, "int_oct"));
+            Assertions.assertEquals("13", itemValue(t, "int_bin"));
+            Assertions.assertEquals("9223372036854775807", itemValue(t, "int_max"));
+            Assertions.assertEquals("-9223372036854775808", itemValue(t, "int_min"));
+            Assertions.assertEquals("3.14", itemValue(t, "float_frac"));
+            Assertions.assertEquals("1E5", itemValue(t, "float_exp"));
+            Assertions.assertEquals("1E+5", itemValue(t, "float_exp_plus"));
+            Assertions.assertEquals("1E-5", itemValue(t, "float_exp_minus"));
+            Assertions.assertEquals("1E5", itemValue(t, "float_upper"));
+            Assertions.assertEquals("1.5E3", itemValue(t, "float_mixed"));
+            Assertions.assertEquals("1000.55", itemValue(t, "float_underscore"));
+            Assertions.assertEquals("0E5", itemValue(t, "float_zero_exp"));
+            Assertions.assertEquals("-0.0", itemValue(t, "float_neg_zero"));
+            Assertions.assertEquals("+0.0", itemValue(t, "float_pos_zero"));
+            Assertions.assertEquals("1.7976931348623157E308", itemValue(t, "float_max"));
+            Assertions.assertEquals("4.9406564584124654E-324", itemValue(t, "float_min"));
+            Assertions.assertEquals("Infinity", itemValue(t, "inf_pos"));
+            Assertions.assertEquals("-Infinity", itemValue(t, "inf_neg"));
+            Assertions.assertEquals("Infinity", itemValue(t, "inf_plus"));
+            Assertions.assertEquals("NaN", itemValue(t, "nan_pos"));
+            Assertions.assertEquals("-NaN", itemValue(t, "nan_neg"));
+            Assertions.assertEquals("NaN", itemValue(t, "nan_plus"));
         }
-        Assertions.assertTrue(Boolean.parseBoolean("true"));
-        Assertions.assertFalse(Boolean.parseBoolean("false"));
+
+        @Test
+        void arrays() {
+            Cfg.CfgObject t = parseToml(readCase("cases/toml/valid/arrays.toml"));
+            Assertions.assertEquals(List.of(), list(t, "arr_empty").value());
+            Assertions.assertEquals(List.of("1", "2", "3"), list(t, "arr_ints").value());
+            Assertions.assertEquals(List.of("a", "b", "c"), list(t, "arr_strings").value());
+            Assertions.assertEquals(List.of("1", "two", "true", "3.5"), list(t, "arr_mixed").value());
+            Assertions.assertEquals(List.of("1", "2", "3"), list(t, "arr_trailing").value());
+            Assertions.assertEquals(List.of("-1", "+2", "-0.5"), list(t, "arr_signed").value());
+            Assertions.assertEquals(List.of("31", "15", "5"), list(t, "arr_radix").value());
+            Assertions.assertEquals(List.of("Infinity", "-Infinity", "NaN"), list(t, "arr_infnan").value());
+            Assertions.assertEquals(List.of("x", "y"), list(t, "arr_literal").value());
+            Assertions.assertEquals(List.of("1", "2", "3"), list(t, "arr_spaces").value());
+        }
+
+        @Test
+        void tables() {
+            Cfg.CfgObject t = parseToml(readCase("cases/toml/valid/tables.toml"));
+            Cfg.CfgObject server = object(t, "server");
+            Assertions.assertEquals("localhost", itemValue(server, "host"));
+            Assertions.assertEquals("8080", itemValue(server, "port"));
+            Assertions.assertEquals("true", itemValue(object(server, "tls"), "enabled"));
+            Cfg.CfgObject db = object(t, "database");
+            Assertions.assertEquals("app", itemValue(db, "name"));
+            Assertions.assertEquals("10", itemValue(object(db, "pool"), "size"));
+            Assertions.assertEquals("1", itemValue(object(object(object(t, "deep"), "nested"), "table"), "value"));
+            Cfg.CfgObject client = object(t, "client");
+            Assertions.assertEquals("x", itemValue(client, "name"));
+            Assertions.assertEquals("NYC", itemValue(object(client, "address"), "city"));
+            Assertions.assertEquals("10001", itemValue(object(client, "address"), "zip"));
+        }
+
+        @Test
+        void keys() {
+            Cfg.CfgObject t = parseToml(readCase("cases/toml/valid/keys.toml"));
+            Assertions.assertEquals("1", itemValue(t, "plain"));
+            Assertions.assertEquals("2", itemValue(t, "with-dash"));
+            Assertions.assertEquals("3", itemValue(t, "with_underscore"));
+            Assertions.assertEquals("4", itemValue(t, "quoted"));
+            Assertions.assertEquals("5", itemValue(t, "literal"));
+            Assertions.assertEquals("6", itemValue(object(t, "a"), "b"));
+            Assertions.assertEquals("7", itemValue(object(t, "a"), "c"));
+            Assertions.assertEquals("8", itemValue(object(t, "d"), "b"));
+        }
+
+        @Test
+        void commentsAndWhitespace() {
+            Cfg.CfgObject t = parseToml(readCase("cases/toml/valid/comments_whitespace.toml"));
+            Assertions.assertEquals("1", itemValue(t, "a"));
+            Assertions.assertEquals("2", itemValue(t, "b"));
+            Assertions.assertEquals("3", itemValue(t, "c"));
+        }
+
+        @Test
+        void crlf() {
+            Cfg.CfgObject t = parseToml(readCase("cases/toml/valid/crlf.toml"));
+            Assertions.assertEquals("1", itemValue(t, "a"));
+            Assertions.assertEquals("2", itemValue(t, "b"));
+            Assertions.assertEquals("3", itemValue(object(t, "tab"), "c"));
+        }
+
+        @Test
+        void overflow() {
+            Cfg.CfgObject t = parseToml(readCase("cases/toml/valid/float_overflow.toml"));
+            Assertions.assertEquals("1E999", itemValue(t, "a"));
+            Cfg.CfgObject u = parseToml(readCase("cases/toml/valid/float_underflow.toml"));
+            Assertions.assertEquals("1E-999", itemValue(u, "a"));
+        }
+
+        @Test
+        void emptyDocuments() {
+            Assertions.assertTrue(parseToml(readCase("cases/toml/valid/empty.toml")).value().isEmpty());
+        }
+
+        @Test
+        void invalidDocuments() {
+            for (String fileName : caseFiles("cases/toml/invalid")) {
+                Assertions.assertThrows(CfgException.class, () -> parseToml(readCase("cases/toml/invalid/" + fileName)), fileName + " failed");
+            }
+        }
+
+        @Test
+        void maxDepth() {
+            // shallow corpus files (depth <= 4) pass at maxDepth=4
+            Assertions.assertDoesNotThrow(() -> parseToml(readCase("cases/toml/valid/scalars.toml"), 4));
+            Assertions.assertDoesNotThrow(() -> parseToml(readCase("cases/toml/valid/keys.toml"), 4));
+            Assertions.assertDoesNotThrow(() -> parseToml(readCase("cases/toml/valid/tables.toml"), 4));
+            Assertions.assertDoesNotThrow(() -> parseToml(readCase("cases/toml/valid/empty.toml"), 4));
+            // deep.toml needs depth 5 ([a.b.c.d] + value): rejected at maxDepth=4, accepted at 5
+            Assertions.assertThrows(CfgException.class, () -> parseToml(readCase("cases/toml/valid/deep.toml"), 4));
+            Assertions.assertDoesNotThrow(() -> parseToml(readCase("cases/toml/valid/deep.toml"), 5));
+        }
+
+        @Test
+        void immutableCopyIsDeep() {
+            // mutating the original must not affect the immutable copy
+            Cfg.CfgObject toml = parseToml("a = 1\n[tab]\nb = 2".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            Cfg.CfgObject immutable = toml.asImmutable();
+            toml.value().put("a", new Cfg.CfgItem("999"));
+            Assertions.assertEquals("1", itemValue(immutable, "a"));
+            Assertions.assertEquals("2", itemValue(object(immutable, "tab"), "b"));
+        }
     }
 }

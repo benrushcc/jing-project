@@ -1,5 +1,7 @@
 package io.jingproject.maven.plugin;
 
+import jdk.incubator.json.Json;
+import jdk.incubator.json.JsonValue;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -15,6 +17,9 @@ import java.lang.classfile.ClassModel;
 import java.lang.classfile.attribute.ModuleAttribute;
 import java.lang.classfile.attribute.ModuleProvideInfo;
 import java.lang.constant.ClassDesc;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,7 +28,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.*;
 
 @Mojo(name = "process-jing-providers", defaultPhase = LifecyclePhase.PROCESS_CLASSES, threadSafe = true)
-@SuppressWarnings("unused")
 public final class JingProvidersMojo extends AbstractMojo {
     // must be strictly consistent with jing-common-processor module
     private static final String FILE_NAME = "jing-providers.json";
@@ -38,92 +42,9 @@ public final class JingProvidersMojo extends AbstractMojo {
     @Parameter(defaultValue = "main")
     private String scope; // main or test
 
-    private static Map<String, Set<String>> parseProviderData(byte[] content) throws MojoFailureException {
-        if (content == null || content.length < 2) {
-            throw new MojoFailureException("empty provider data");
-        }
-        Map<String, Set<String>> r = new HashMap<>();
-        String key;
-        Set<String> set = new HashSet<>();
-        int idx1 = 0, idx2;
-        idx1 = searchByte(content, idx1, b -> b == (byte) '{');
-        idx2 = searchByte(content, idx1, b -> b != (byte) ' ' && b != (byte) '\t' && b != (byte) '\r' && b != (byte) '\n');
-        if (content[idx2 - 1] == (byte) '}') {
-            return r;
-        }
-        for (; ; ) {
-            idx1 = searchByte(content, idx1, b -> b == (byte) '"');
-            idx2 = searchByte(content, idx1, b -> b == (byte) '"');
-            key = new String(content, idx1, idx2 - idx1 - 1, StandardCharsets.UTF_8);
-            idx1 = searchByte(content, idx2, b -> b == (byte) ':');
-            idx1 = searchByte(content, idx1, b -> b == (byte) '[');
-            do {
-                idx1 = searchByte(content, idx1, b -> b == (byte) '"');
-                idx2 = searchByte(content, idx1, b -> b == (byte) '"');
-                if (!set.add(new String(content, idx1, idx2 - idx1 - 1, StandardCharsets.UTF_8))) {
-                    throw new MojoFailureException(FILE_NAME + " contains duplicate data");
-                }
-                idx1 = searchByte(content, idx2, b -> b == (byte) ',' || b == (byte) ']');
-            } while (content[idx1 - 1] == (byte) ',');
-            if (r.put(key, set) != null) {
-                throw new MojoFailureException(FILE_NAME + " contains duplicate key");
-            }
-            set = new HashSet<>();
-            idx1 = searchByte(content, idx1, b -> b == (byte) ',' || b == (byte) '}');
-            if (content[idx1 - 1] == (byte) '}') {
-                return r;
-            }
-        }
-    }
-
-    private static int searchByte(byte[] content, int fromIndex, ByteConsumer consumer) throws MojoFailureException {
-        if (fromIndex < 0 || fromIndex >= content.length) {
-            throw new MojoFailureException("File format corrupted");
-        }
-        for (int i = fromIndex; i < content.length; i++) {
-            if (consumer.accept(content[i])) {
-                return i + 1;
-            }
-        }
-        throw new MojoFailureException("invalid json structure");
-    }
-
-    private static byte[] updateModuleInfoByteCodes(byte[] bytecodes, Map<String, Set<String>> data) throws MojoFailureException {
-        ClassFile cf = ClassFile.of();
-        ClassModel model = cf.parse(bytecodes);
-        ModuleAttribute currentAttribute = model.findAttribute(Attributes.module()).orElseThrow(() -> new MojoFailureException("failed to get module attributes"));
-        List<ModuleProvideInfo> currentProvides = currentAttribute.provides();
-        for (ModuleProvideInfo m : currentProvides) {
-            if (data.containsKey(m.provides().asSymbol().displayName())) {
-                throw new MojoFailureException("Module-info already contains generated SPI directives");
-            }
-        }
-        List<ModuleProvideInfo> newProvides = new ArrayList<>(currentProvides);
-        for (Map.Entry<String, Set<String>> entry : data.entrySet()) {
-            String key = entry.getKey();
-            Set<String> set = entry.getValue();
-            newProvides.add(ModuleProvideInfo.of(ClassDesc.of(key), set.stream().map(ClassDesc::of).toList()));
-        }
-        ModuleAttribute newAttribute = ModuleAttribute.of(currentAttribute.moduleName(), currentAttribute.moduleFlagsMask(), currentAttribute.moduleVersion().orElse(null),
-                currentAttribute.requires(), currentAttribute.exports(), currentAttribute.opens(), currentAttribute.uses(), newProvides);
-        return cf.buildModule(newAttribute);
-    }
-
-    private String outputDir() throws MojoFailureException {
-        if (scope == null || scope.isBlank()) {
-            throw new MojoFailureException("empty scope");
-        } else if (scope.equals("main")) {
-            return project.getBuild().getOutputDirectory();
-        } else if (scope.equals("test")) {
-            return project.getBuild().getTestOutputDirectory();
-        } else {
-            throw new MojoFailureException("invalid scope : " + scope);
-        }
-    }
-
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        Path outputDir = Path.of(outputDir());
+        Path outputDir = outputDir();
         getLog().info("searching for " + FILE_NAME + " file at directory: " + outputDir.toAbsolutePath());
         Path targetPath = outputDir.resolve(FILE_NAME);
         if (Files.isRegularFile(targetPath)) {
@@ -131,31 +52,97 @@ public final class JingProvidersMojo extends AbstractMojo {
             processJingProviderFile(targetPath);
             consumeJingProviderFile(targetPath);
         } else {
-            throw new MojoExecutionException(FILE_NAME + " file not found, maybe jing-common-processor is not effective");
+            throw new MojoFailureException(FILE_NAME + " file not found, maybe jing-common-processor is not effective");
         }
     }
 
-    private void processJingProviderFile(Path path) throws MojoExecutionException, MojoFailureException {
-        if (!Files.isReadable(path)) {
-            throw new MojoExecutionException(FILE_NAME + " is not readable");
+    private static byte[] updateModuleInfoByteCodes(byte[] bytecodes, Map<String, Set<String>> providerMap) throws MojoFailureException {
+        try {
+            ClassFile cf = ClassFile.of();
+            ClassModel model = cf.parse(bytecodes);
+            ModuleAttribute currentAttribute = model.findAttribute(Attributes.module()).orElseThrow(() -> new MojoFailureException("failed to get module attributes"));
+            List<ModuleProvideInfo> currentProvides = currentAttribute.provides();
+            for (ModuleProvideInfo m : currentProvides) {
+                if (providerMap.containsKey(m.provides().asSymbol().displayName())) {
+                    throw new MojoFailureException("module-info already contains generated SPI directives");
+                }
+            }
+            List<ModuleProvideInfo> newProvides = new ArrayList<>(currentProvides);
+            for (Map.Entry<String, Set<String>> entry : providerMap.entrySet()) {
+                String key = entry.getKey();
+                Set<String> set = entry.getValue();
+                newProvides.add(ModuleProvideInfo.of(ClassDesc.of(key), set.stream().map(ClassDesc::of).toList()));
+            }
+            ModuleAttribute newAttribute = ModuleAttribute.of(currentAttribute.moduleName(), currentAttribute.moduleFlagsMask(), currentAttribute.moduleVersion().orElse(null),
+                    currentAttribute.requires(), currentAttribute.exports(), currentAttribute.opens(), currentAttribute.uses(), newProvides);
+            return cf.buildModule(newAttribute);
+        } catch (RuntimeException e) {
+            throw new MojoFailureException("failed to update module-info", e);
         }
+    }
+
+    private Path outputDir() throws MojoFailureException {
+        return switch (scope) {
+            case "main" -> Path.of(project.getBuild().getOutputDirectory());
+            case "test" -> Path.of(project.getBuild().getTestOutputDirectory());
+            default -> throw new MojoFailureException("invalid scope : " + scope);
+        };
+    }
+
+    private Map<String, Set<String>> buildProviderMap(Path path) throws MojoExecutionException, MojoFailureException {
         byte[] content;
         try {
             content = Files.readAllBytes(path);
         } catch (IOException e) {
             throw new MojoExecutionException("Cannot read from " + FILE_NAME + " file", e);
         }
-        Map<String, Set<String>> data = parseProviderData(content);
-        if (data.isEmpty()) {
+        String json;
+        try {
+            json = StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(content))
+                    .toString();
+        } catch (CharacterCodingException e) {
+            throw new MojoFailureException(FILE_NAME + " contains invalid utf8 sequence");
+        }
+        try {
+            Map<String, JsonValue> jsonValueMap = Json.parse(json).asMap();
+            Map<String, Set<String>> providerMap = new LinkedHashMap<>(jsonValueMap.size());
+            for (Map.Entry<String, JsonValue> entry : jsonValueMap.entrySet()) {
+                String key = entry.getKey();
+                List<JsonValue> list = entry.getValue().asList();
+                if(list.isEmpty()) {
+                    throw new MojoFailureException("no impl present for provider : " + key);
+                }
+                Set<String> providers = new LinkedHashSet<>(list.size());
+                for (JsonValue element : list) {
+                    String impl = element.asString();
+                    if (!providers.add(impl)) {
+                        throw new MojoFailureException("duplicate impl : " + impl);
+                    }
+                }
+                providerMap.put(key, providers);
+            }
+            return providerMap;
+        } catch (RuntimeException e) {
+            throw new MojoFailureException(FILE_NAME + " contains invalid json structure", e);
+        }
+    }
+
+    private void processJingProviderFile(Path path) throws MojoExecutionException, MojoFailureException {
+        Map<String, Set<String>> providerMap = buildProviderMap(path);
+        if (providerMap.isEmpty()) {
             return;
         }
-        Path targetDirPath = Path.of(outputDir(), META_INF, SERVICES);
+        Path targetDirPath = outputDir().resolve(META_INF).resolve(SERVICES);
         try {
             Files.createDirectories(targetDirPath);
         } catch (IOException e) {
             throw new MojoExecutionException("cannot create " + META_INF + "/" + SERVICES + " directory", e);
         }
-        for (Map.Entry<String, Set<String>> entry : data.entrySet()) {
+        for (Map.Entry<String, Set<String>> entry : providerMap.entrySet()) {
             String key = entry.getKey();
             Set<String> lines = entry.getValue();
             getLog().info("processing key : " + key);
@@ -167,13 +154,13 @@ public final class JingProvidersMojo extends AbstractMojo {
                 throw new MojoExecutionException("cannot write SPI file : " + targetPath.toAbsolutePath(), e);
             }
         }
-        Path moduleInfoPath = Path.of(outputDir(), MODULE_INFO_CLASS);
+        Path moduleInfoPath = outputDir().resolve(MODULE_INFO_CLASS);
         if (Files.isRegularFile(moduleInfoPath)) {
             getLog().info("found module-info : " + moduleInfoPath.toAbsolutePath());
             byte[] bytecodes;
             try {
                 bytecodes = Files.readAllBytes(moduleInfoPath);
-                bytecodes = updateModuleInfoByteCodes(bytecodes, data);
+                bytecodes = updateModuleInfoByteCodes(bytecodes, providerMap);
                 Files.write(moduleInfoPath, bytecodes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
             } catch (IOException e) {
                 throw new MojoExecutionException("cannot perform IO operations when modifying module-info", e);
@@ -189,11 +176,6 @@ public final class JingProvidersMojo extends AbstractMojo {
         } catch (IOException e) {
             throw new MojoExecutionException("Failed to rename " + FILE_NAME + " to " + CONSUMED_FILE_NAME + " after processing", e);
         }
-    }
-
-    @FunctionalInterface
-    interface ByteConsumer {
-        boolean accept(byte b);
     }
 
 }

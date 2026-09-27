@@ -1,11 +1,14 @@
 package io.jingproject.bench.twi;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.helidon.json.binding.Json;
+import io.jingproject.marshall.MarshallAttr;
 import io.jingproject.marshall.Marshallable;
-import io.jingproject.marshall.NamingConvention;
 
-@Marshallable(from = NamingConvention.CAMEL_CASE, to = NamingConvention.SNAKE_CASE)
+@Marshallable
+@Json.Entity
 public record TwiUserEntities(
-        TwiUserUrl url,
-        TwiUserEntitiesDescription description
+        @MarshallAttr(mappedName = "url") @JsonProperty("url") @Json.Property("url") TwiUserUrl url,
+        @MarshallAttr(mappedName = "description") @JsonProperty("description") @Json.Property("description") TwiUserEntitiesDescription description
 ) {
 }

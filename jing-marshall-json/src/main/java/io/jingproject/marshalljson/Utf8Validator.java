@@ -130,26 +130,6 @@ public final class Utf8Validator {
         throw new UnsupportedOperationException("utility class");
     }
 
-    public static void validate(ReadBuffer readBuffer) {
-        switch (readBuffer) {
-            case HeapReadBuffer heapReadBuffer -> {
-                byte[] bytes = heapReadBuffer.rawByteArray();
-                int position = heapReadBuffer.intPosition();
-                if (!validateHeap(bytes, position, bytes.length)) {
-                    throw new JsonDeserializerException("illegal utf-8 encoded heap readBuffer");
-                }
-            }
-            case SegmentReadBuffer segmentReadBuffer -> {
-                MemorySegment segment = segmentReadBuffer.rawSegment();
-                long position = segmentReadBuffer.longPosition();
-                if (!validateSegment(segment, position, segment.byteSize())) {
-                    throw new JsonDeserializerException("illegal utf-8 encoded segment readBuffer");
-                }
-            }
-            case null, default -> throw new AssertionError();
-        }
-    }
-
     public static boolean validateHeap(byte[] bytes, int from, int to) {
         if(NON_MASK && to - from < BYTE_SPECIES.length()) {
             return scalarValidateHeap(bytes, from, to);

@@ -303,7 +303,7 @@ public final class JsonSerializer {
                 r.initMap(map.entrySet().iterator(), nextIndent, fn);
                 yield r;
             }
-            case null, default -> throw new AssertionError();
+            default -> throw new AssertionError();
         };
     }
 }

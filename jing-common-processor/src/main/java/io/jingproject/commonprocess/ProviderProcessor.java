@@ -1,6 +1,7 @@
 package io.jingproject.commonprocess;
 
 import io.jingproject.common.anno.Provider;
+import jdk.incubator.json.*;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
@@ -43,39 +44,22 @@ public final class ProviderProcessor extends AbstractProcessor {
         return true;
     }
 
-    // TODO after json API got stablized into JDK, could replace it here to reduce the complexity
     private void writeJsonConfigurationFile() {
         try {
-            FileObject fo = processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", FILE_NAME);
+            FileObject fo = processingEnv.getFiler()
+                    .createResource(StandardLocation.CLASS_OUTPUT, "", FILE_NAME);
             try (Writer writer = fo.openWriter()) {
-                // if data is empty, there will still be an empty json configuration file for consumption
-                writer.write("{\n");
-                for (Iterator<Map.Entry<String, Set<String>>> it = data.entrySet().iterator(); it.hasNext(); ) {
-                    Map.Entry<String, Set<String>> entry = it.next();
-                    String key = entry.getKey();
-                    Set<String> value = entry.getValue();
-                    writer.write(INDENT + "\"");
-                    writer.write(key);
-                    writer.write("\": [\n");
-                    Iterator<String> valueIterator = value.iterator();
-                    while (valueIterator.hasNext()) {
-                        String val = valueIterator.next();
-                        writer.write(INDENT.repeat(2) + "\"");
-                        writer.write(val);
-                        writer.write("\"");
-                        if (valueIterator.hasNext()) {
-                            writer.write(",");
-                        }
-                        writer.write("\n");
+                Map<String, JsonValue> object = new LinkedHashMap<>();
+                for (Map.Entry<String, Set<String>> entry : data.entrySet()) {
+                    ArrayList<JsonValue> values = new ArrayList<>(entry.getValue().size());
+                    for (String value : entry.getValue()) {
+                        values.add(JsonString.of(value));
                     }
-                    writer.write(INDENT + "]");
-                    if (it.hasNext()) {
-                        writer.write(",");
-                    }
-                    writer.write("\n");
+                    object.put(entry.getKey(), JsonArray.of(values));
                 }
-                writer.write("}\n");
-                writer.flush();
+                JsonObject json = JsonObject.of(object);
+                writer.write(Json.toDisplayString(json, INDENT));
+                writer.write('\n');
             } catch (IOException e) {
                 throw new AnnotationProcessorException("failed to open writer", e);
             }

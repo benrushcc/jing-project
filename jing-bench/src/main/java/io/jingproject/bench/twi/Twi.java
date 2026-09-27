@@ -1,5 +1,8 @@
 package io.jingproject.bench.twi;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.helidon.json.binding.Json;
+import io.jingproject.marshall.MarshallAttr;
 import io.jingproject.marshall.Marshallable;
 import io.jingproject.marshall.NamingConvention;
 
@@ -9,10 +12,11 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-@Marshallable(from = NamingConvention.CAMEL_CASE, to = NamingConvention.SNAKE_CASE)
+@Marshallable
+@Json.Entity
 public record Twi(
-        List<TwiStatus> statuses,
-        TwiSearchMetaData searchMetadata
+        @MarshallAttr(mappedName = "statuses") @JsonProperty("statuses") @Json.Property("statuses") List<TwiStatus> statuses,
+        @MarshallAttr(mappedName = "search_metadata") @JsonProperty("search_metadata") @Json.Property("search_metadata") TwiSearchMetaData searchMetadata
 ) {
     private static final String TWI_FILE_NAME = "twitter.json";
 

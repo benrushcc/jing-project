@@ -22,9 +22,11 @@ the facade described there remain authoritative).
    construction are storing it into `Cfg` and (by the caller) JDK converters
    such as `Integer.parseInt` / `Double.parseDouble`.
 6. **No regex** anywhere.
-7. **JDK-compatible canonical forms**: every stored number string must be
-   directly convertible by the JDK number parsers without extra preprocessing
-   (see section 5.3).
+7. **Plain canonical forms**: every stored number string is the canonical
+   plain-text form (underscores removed, radix converted to decimal, sign
+   applied), directly convertible by the JDK number parsers **if the value
+   fits the target type**; range is enforced by the caller's converters
+   (`NumberFormatException`), never at parse time (see section 5.3).
 
 ## 2. Constraints
 
@@ -63,10 +65,10 @@ consuming it (the surrounding state machine then reads the delimiter itself,
 e.g. `,` `]` `}` `}` `\n`).
 
 - Wrap the incoming `InputStream` with `PushbackInputStream` **inside the
-  reader constructors** (`JsonCfgReader`, `TomlCfgReader`).
+  reader constructors** (`JsonCfgOldReader`, `TomlCfgOldReader`).
 - Token readers read one byte; if it belongs to the token character class, they
-  write it / accumulate it, otherwise they call `pushback.unread(b)` and return.
-- All existing `CfgUtil` stream helpers (`ignore`, `ignoreTillEOF`, `search`,
+  write it, otherwise they call `pushback.unread(b)` and return.
+- All existing `CfgOldUtil` stream helpers (`ignore`, `ignoreTillEOF`, `search`,
   `assume`, `readUnicode`) keep working unchanged on the wrapped stream.
 
 Rationale: `InputStream` has no native pushback; `PushbackInputStream` is JDK,
@@ -87,7 +89,7 @@ JDK-parseable form:
 | source | canonical stored String |
 |---|---|
 | TOML decimal int `42`, `+3`, `-7`, `1_000_000` | `42`, `3`, `-7`, `1000000` (underscores removed, sign applied) |
-| TOML hex `0xFF`, `0xF_F` | `255` (value accumulated in base 16, emitted decimal) |
+| TOML hex `0xFF`, `0xF_F` | `255` (base-16 digits converted via `BigInteger`, emitted decimal) |
 | TOML octal `0o77`, `0o7_7` | `63` |
 | TOML binary `0b1010`, `0b10_10` | `10` |
 | TOML float `3.14`, `1e10`, `1_0.5` | `3.14`, `1e10`, `10.5` (underscores stripped; digits/exponent preserved) |
@@ -97,9 +99,12 @@ JDK-parseable form:
 | JSON float `3.14`, `1e10`, `2.5E-3` | `3.14`, `1e10`, `2.5E-3` (kept as written) |
 | boolean `true` / `false` | `true` / `false` |
 
-Integer canonicalization is done via value accumulation (`long`) and a single
-`Long.toString(value)` at the end; float/JSON forms are copied byte-for-byte
-(with underscores skipped) into the buffer and decoded once at the end.
+Integer canonicalization: TOML decimal integers are copied byte-for-byte
+(sign applied, underscores skipped) with **no `long` accumulation and no range
+limit**; TOML hex/octal/binary digits are copied then converted with
+arbitrary-precision `BigInteger` and emitted as decimal text. float/JSON forms
+are copied byte-for-byte (with underscores skipped) into the buffer and decoded
+once at the end.
 
 ### D5. Buffer sizing
 
@@ -122,7 +127,8 @@ After this redesign, `new String(...)` / string literals appear exactly at:
 |---|---|---|
 | string value ends (JSON/TOML) | `new String(buf.rawByteArray(), 0, buf.intPosition(), UTF_8)` | none (single decode) |
 | key ends (JSON/TOML) | `CfgUtil.readCfgKey(buf.rawByteArray(), 0, buf.intPosition())` -> `new String(data, off, len, US_ASCII)` | none (single decode) |
-| TOML integer canonical | `Long.toString(accumulated)` (after byte-level accumulation) | none |
+| TOML decimal integer canonical | `new String(buf.rawByteArray(), 0, buf.intPosition(), US_ASCII)` (byte copy, sign applied, underscores skipped) | none |
+| TOML radix integer canonical | `digits = new String(buf.rawByteArray(), 0, buf.intPosition(), US_ASCII)` then `new BigInteger(digits, radix).toString()` | none (digits decode + BigInteger conversion; no re-scanning) |
 | JSON number / TOML float | `new String(buf.rawByteArray(), 0, buf.intPosition(), US_ASCII)` | none |
 | boolean / inf / nan | string literals `"true"`, `"false"`, `"Infinity"`, `"-Infinity"`, `"NaN"` | none |
 
@@ -189,21 +195,26 @@ Underscore rules (byte-level):
 - hex/octal/binary literals are **unsigned** per TOML spec (a `-` or `+`
   directly before `0x`/`0o`/`0b` is rejected).
 
-Overflow:
-- decimal/hex/octal/binary magnitudes are accumulated into `long`. If the
-  accumulated magnitude overflows the 64-bit signed range, throw
-  `CfgException` (TOML integers are specified as signed 64-bit).
-- `Long.MIN_VALUE` (`-9223372036854775808`) is handled via negative
-  accumulation (see section 6.2) and produces the exact canonical string.
+Range:
+- **no range check at parse time**: decimal/hex/octal/binary integers of any
+  magnitude are canonicalized and stored verbatim (decimal via byte copy,
+  radix via `BigInteger`). `9223372036854775808` is a valid stored value.
+- whether a value fits `int`/`long`/`float`/`double` is decided by the caller's
+  JDK converter at access time; an out-of-range value throws
+  `NumberFormatException` there, not during parse.
 
-Canonical forms (D4): decimal integers and hex/octal/binary emit
-`Long.toString(value)`; floats emit copied bytes with underscores stripped;
+Canonical forms (D4): decimal integers emit the copied digit bytes (sign
+applied, underscores stripped); hex/octal/binary emit `new BigInteger(digits,
+radix).toString()`; floats emit copied bytes with underscores stripped;
 inf/nan emit the fixed literals.
 
 ### 5.3 JDK conversion contract
 
 Every stored number string must be directly convertible, **without any
-pre-processing by the caller**, as follows:
+pre-processing by the caller**, provided the value fits the target type. When
+a stored value exceeds the target type's range, the JDK converter throws
+`NumberFormatException` at the caller's call site — range is a consumer
+concern, not a parse-time one:
 
 | stored canonical string | direct JDK conversion |
 |---|---|
@@ -212,6 +223,7 @@ pre-processing by the caller**, as follows:
 | `3.14`, `1e10`, `2.5E-3`, `10.5` | `Double.parseDouble(s)` |
 | `Infinity`, `-Infinity`, `NaN` | `Double.parseDouble(s)` |
 | `true`, `false` | `Boolean.parseBoolean(s)` |
+| `9223372036854775808` | stored verbatim (fits neither `int` nor `long`); `Long.parseLong(s)` throws `NumberFormatException` |
 
 This is why `0xFF`-style raw text is never stored as-is, and why underscores
 are stripped at parse time (JDK converters reject both).
@@ -220,7 +232,7 @@ are stripped at parse time (JDK converters reject both).
 
 Conventions:
 - `b` is the current byte (`int` from `input.read()`, `-1` = EOF).
-- token scanners are `static` helpers in `CfgUtil`; they take the wrapped
+- token scanners are `static` helpers in `CfgOldUtil`; they take the wrapped
   `PushbackInputStream`, the `firstByte` already consumed by the dispatcher,
   and the `HeapWriteBuffer` for output.
 - on hitting a non-token byte or EOF, scanners `pushback.unread(b)` (EOF -> no
@@ -243,8 +255,8 @@ Scanner writes every accepted byte into `buf` (verbatim copy).
 ### 6.2 TOML number scanner: `readTomlNumber(input, firstByte, buf) -> String`
 
 ```
-consume optional sign (record it, do NOT emit — decimal canonical form is
-  produced from the accumulated value).
+consume optional sign (record it; emit only for '-' as part of the copy; '+' is
+  dropped).
 peek next byte:
   if 'i' or 'n' -> inf/nan word reader (6.4), apply sign to form
     "+inf"/"-inf"/"+nan"/"-nan" handling; emit literal; return.
@@ -252,15 +264,23 @@ peek next byte:
     unsigned per spec (a recorded sign here -> CfgException).
   else -> decimal reader.
 
-decimal/radix accumulation (shared):
-  acc = 0 (accumulate as negative to cover Long.MIN_VALUE):
-  for each digit d (radix r): acc = acc*r - digitValue(d)
-  after end: if sign negative -> value = acc
-             else: if acc == Long.MIN_VALUE -> overflow CfgException
-                   else value = -acc
-  emit Long.toString(value) — this is the terminal String; no byte copy.
-  (decimals and radix forms both land here; underscore bytes are consumed and
-   validated but never emitted.)
+decimal integers:
+  consume optional sign ('-' is emitted; '+' is dropped; the 0 branch skips
+  the sign by design so -0/+0 canonicalize to "0").
+  copy each digit byte into buf; skip and validate underscore bytes (never
+  leading/trailing/adjacent). No numeric accumulation, no range limit.
+  if '.' or 'e'/'E' appears -> float reader (below), which continues the copy.
+  terminal String = single US_ASCII decode of buf.
+
+radix integers (hex/octal/binary; unsigned per spec — a recorded sign here ->
+  CfgException):
+  copy each byte that is a valid base-16/8/2 digit into buf; skip and validate
+  underscore bytes; on a byte that is neither a valid digit nor '_', stop and
+  unread it.
+  if no digit was seen -> CfgException("invalid toml integer: missing digits
+    after radix prefix").
+  terminal String = new BigInteger(digits, radix).toString(), where digits is
+  a single US_ASCII decode of buf (arbitrary precision; no range checks).
 ```
 
 Float handling (TOML), when a `.` or `e/E` appears in the decimal path:
@@ -332,7 +352,7 @@ Added (all byte-level scanners, no regex):
 | `readJsonBool(InputStream, int firstByte, HeapWriteBuffer buf) -> String` | FSM 6.3 |
 | `readTomlNumber(InputStream, int firstByte, HeapWriteBuffer buf) -> String` | FSM 6.2 (routes dec/radix/float/inf-nan) |
 | `readTomlWord(InputStream, int firstByte, HeapWriteBuffer buf) -> String` | FSM 6.3 + 6.4 (true/false/inf/nan) |
-| private `readTomlInfNan(...)`, private `accumulateInt(...)`, private `readTomlFloat(...)` | internal helpers of 6.2/6.4 |
+| private `readTomlInfNan(...)`, private `accumulateRadix(...)`, private `readTomlFloatContinue(...)` | internal helpers of 6.2/6.4 |
 
 Unchanged: `assume`, `ignore`, `ignoreTillEOF`, `rejectKey`, `readUnicode`, the
 priv-constructor utility-class guard.
@@ -340,7 +360,7 @@ priv-constructor utility-class guard.
 Note: scanner inputs are typed as `InputStream`; inside they cast to
 `PushbackInputStream` (readers guarantee the wrapped stream).
 
-### 7.2 `CfgReader.java` — `JsonCfgReader`
+### 7.2 `CfgReader.java` — `JsonCfgOldReader`
 
 Fields / construction:
 
@@ -363,7 +383,7 @@ State changes (by current state name / line refs of the current file):
 
 `State` enum: unchanged.
 
-### 7.3 `CfgReader.java` — `TomlCfgReader`
+### 7.3 `CfgReader.java` — `TomlCfgOldReader`
 
 Mirror of JsonCfgReader:
 
@@ -372,7 +392,7 @@ Mirror of JsonCfgReader:
 - `VALUE_START`: dispatcher adds
   - `'-'` / `'+'` / `'0'..'9'` -> `CfgUtil.readTomlNumber(input, b, out)` -> `CfgItem(...)`, `state = VALUE_END`;
   - `'t'` / `'f'` / `'i'` / `'n'` -> `CfgUtil.readTomlWord(input, b, out)` -> `CfgItem(...)`, `state = VALUE_END`;
-  - all other exits as today (`CfgException("Corrupt toml configuration")`).
+  - all other exits as today (`CfgException("corrupt toml configuration")`).
 - `ARR_START`: loop body gains the same two branches (number, then word);
   `,`/`]` continuation logic unchanged.
 - `TABLE_START` / `COMMENT` / `INITIAL` / `VALUE_END`: unchanged.
@@ -381,7 +401,7 @@ Mirror of JsonCfgReader:
 
 | file | reason |
 |---|---|
-| `PropertiesCfgReader` | reads via `java.util.Properties.load(Reader)`; values are strings by nature; no buffer/scan change |
+| `PropertiesCfgOldReader` | reads via `java.util.Properties.load(Reader)`; values are strings by nature; no buffer/scan change |
 | `Cfg.java` | type model untouched |
 | `DefaultConfigurationFacade.java` | only routes `InputStream` into readers; dispatch/conf/confList untouched |
 | `CfgException.java` | unchanged |
@@ -400,8 +420,10 @@ are already accessible within `jing-common`).
   `invalid toml value: ...`). No partial `String` is left behind; the buffer is
   simply reset on the next token.
 - Duplicate keys/tables: existing `putIfAbsent` paths, unchanged messages.
-- Overflow of TOML 64-bit integers: `CfgException` (e.g.
-  `integer literal out of range: ...`).
+- TOML integers of any magnitude: always accepted (format check only); an
+  out-of-range value surfaces later as `NumberFormatException` from the
+  consumer's JDK converter (see 5.3). No parse-time "out of range" error
+  exists anymore.
 - `HeapWriteBuffer` growth beyond `limit`: would throw unchecked
   `SizeLimitExceededException`; with `new HeapWriteBuffer(64)` (limit =
   `Integer.MAX_VALUE`) this is unreachable in practice (documented D5).
@@ -432,13 +454,17 @@ parsing small resources / in-memory `ByteArrayInputStream`):
 | TOML `a = true` / `false` | `"true"` / `"false"` |
 | TOML `a = [1, "two", true]` | `CfgList(["1", "two", "true"])` |
 | TOML `a = -9223372036854775808` | `"-9223372036854775808"` |
-| TOML rejections | `a = 007`, `a = 0x`, `a = 0xFF_`, `a = _1`, `a = 1__0`, `a = 1e1_0`, `a = .5`, `a = 5.`, `a = 9223372036854775808`, `a = -0xFF` |
+| TOML `a = 9223372036854775808` / `a = -9223372036854775809` | `"9223372036854775808"` / `"-9223372036854775809"` (beyond `long` range, stored verbatim) |
+| TOML `a = 0xFFFFFFFFFFFFFFFF` | `"18446744073709551615"` (radix beyond `long`, via `BigInteger`) |
+| TOML rejections | `a = 007`, `a = 0x`, `a = 0xFF_`, `a = _1`, `a = 1__0`, `a = 1e1_0`, `a = .5`, `a = 5.`, `a = -0xFF`, `a = -0xFFFFFFFFFFFFFFFF` |
 | Mixed TOML table `[t]` with numeric/bool keys | nested values canonicalized |
 
 JDK-convertibility assertion helper in the test: for every accepted canonical
 string, assert the corresponding `Integer.parseInt` / `Long.parseLong` /
-`Double.parseDouble` / `Boolean.parseBoolean` succeeds (this pins the contract
-of 5.3).
+`Double.parseDouble` / `Boolean.parseBoolean` succeeds **when the value fits**
+the target type; for canonical strings beyond a type's range, assert the
+converter throws `NumberFormatException` (this pins the contract of 5.3: pure
+format at parse time, range at consumer time).
 
 ## 10. Estimated Diff Size
 
@@ -454,9 +480,9 @@ of 5.3).
 - JSON sign: strict RFC 8259 (reject `+`). Decision taken (documents the
   current "Corrupted" strictness).
 - TOML radix literals: unsigned per spec (reject `-0xFF`). Decision taken.
-- `-0` TOML decimal canonicalizes to `"0"` via `Long.toString` (information
-  equivalent); JSON keeps `"-0"` verbatim (byte copy). Both acceptable under
-  5.3.
+- `-0` TOML decimal canonicalizes to `"0"` (the `0` branch drops the sign;
+  `Long.toString` is no longer involved); JSON keeps `"-0"` verbatim (byte
+  copy). Both acceptable under 5.3.
 - Array-of-objects / empty arrays: remain unsupported (existing limitation,
   unchanged).
 - inf/nan canonical casing: `Infinity`/`-Infinity`/`NaN` (Java

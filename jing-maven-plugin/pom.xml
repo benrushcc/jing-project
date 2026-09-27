@@ -14,9 +14,9 @@
 
     <!--  based on https://maven.apache.org/guides/plugin/guide-java-plugin-development.html  -->
     <properties>
-        <plugin.java.version>26</plugin.java.version>
-        <maven-plugin-api.version>3.9.15</maven-plugin-api.version>
-        <maven-plugin-tools.version>3.15.2</maven-plugin-tools.version>
+        <plugin.java.version>27</plugin.java.version>
+        <maven-plugin-api.version>3.9.16</maven-plugin-api.version>
+        <maven-plugin-tools.version>3.16.0</maven-plugin-tools.version>
     </properties>
 
     <dependencies>
@@ -41,7 +41,12 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler-plugin.version}</version>
                 <configuration>
-                    <release>${plugin.java.version}</release>
+                    <source>${plugin.java.version}</source>
+                    <target>${plugin.java.version}</target>
+                    <compilerArgs>
+                        <arg>--add-modules</arg>
+                        <arg>jdk.incubator.json</arg>
+                    </compilerArgs>
                     <enablePreview>false</enablePreview>
                 </configuration>
             </plugin>

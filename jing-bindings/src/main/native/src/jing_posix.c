@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 size_t jing_posix_max_align(void) {
 	return alignof(max_align_t);
@@ -18,15 +19,16 @@ size_t jing_posix_max_align(void) {
 
 void* jing_posix_memalign(size_t alignment, size_t size) {
 	void* p = NULL;
-	int r = posix_memalign(&p, alignment, size);
-	if(r != 0) {
+	int r   = posix_memalign(&p, alignment, size);
+	if (r != 0) {
 		return jing_make_error_ptr(r);
 	}
 	return p;
 }
 
-void jing_posix_batch_free(void** ptrs, size_t len, void (*free_func_t)(void*)) {
-	size_t count = len / sizeof(void*);  
+void jing_posix_batch_free(void** ptrs, size_t len,
+                           void (*free_func_t)(void*)) {
+	size_t count = len / sizeof(void*);
 	for (size_t i = 0; i < count; ++i) {
 		free_func_t(ptrs[i]);
 	}
@@ -155,6 +157,63 @@ void jing_sync_fd(int fd, jing_result* r) {
 		jing_err_result(r, err);
 	} else {
 		jing_int_result(r, 0);
+	}
+}
+
+// log io related
+int jing_log_posix_open_append(const char* filename) {
+	int v = open(filename, O_WRONLY | O_CREAT | O_APPEND, 0644);
+	if (JING_UNLIKELY(v == -1)) {
+		int err = errno;
+		return -err;
+	} else {
+		return v;
+	}
+}
+
+long long jing_log_posix_write(int fd, const char* buffer, size_t len) {
+	ssize_t total = 0;
+	while (total < (ssize_t) len) {
+		ssize_t v = write(fd, buffer + total, len - (size_t) total);
+		if (JING_UNLIKELY(v == -1)) {
+			int err = errno;
+			if (err == EINTR) {
+				continue;
+			}
+			return -(long long) err;
+		}
+		total += v;
+	}
+	return (long long) total;
+}
+
+int jing_log_posix_flush(int fd) {
+	int v = fsync(fd);
+	if (JING_UNLIKELY(v == -1)) {
+		int err = errno;
+		return -err;
+	} else {
+		return 0;
+	}
+}
+
+long long jing_log_posix_file_size(int fd) {
+	struct stat st;
+	if (JING_UNLIKELY(fstat(fd, &st) == -1)) {
+		int err = errno;
+		return -(long long) err;
+	} else {
+		return (long long) st.st_size;
+	}
+}
+
+int jing_log_posix_close(int fd) {
+	int v = close(fd);
+	if (JING_UNLIKELY(v == -1)) {
+		int err = errno;
+		return -err;
+	} else {
+		return 0;
 	}
 }
 

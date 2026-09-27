@@ -14,7 +14,7 @@ Cfg (sealed interface)
 └── CfgObject(Map<String, Cfg> value) // 对象节点，键 → 子节点
 ```
 
-- **值模型为纯字符串层**：所有格式的数字、布尔、inf/nan 在解析期被规范化/校验为字符串后存入 `CfgItem`，不做数值换算（具体规范化规则见各格式章节）；`CfgList` 元素同样全部是字符串。
+- **值模型为纯字符串层**：所有格式的数字、布尔、inf/nan 在解析期被规范化/校验为字符串后存入 `CfgItem`；规范化含下划线剥除、radix→十进制换算（`BigInteger`，任意精度）、符号应用，**但不做数值范围判定**（是否适配 int/long/float/double 由消费者转换期决定，见 §5）；`CfgList` 元素同样全部是字符串。
 - 三实现均为嵌套 record，`CfgException` 为唯一用户可见异常（`RuntimeException`）。
 - `asImmutable()`：`CfgItem` 返回自身（String 本就不可变）；`CfgList` 返回 `List.copyOf` 包装；`CfgObject` 深拷贝整棵子树。**注意**：门面公共 API 不依赖它（见 2.2），它面向直接持有 `Cfg` 的调用方。
 
@@ -29,7 +29,7 @@ Cfg (sealed interface)
 
 ### 1.3 门面级单例缓存语义
 
-- `ConfigurationFactory.instance()`：Holder 单例；优先 `ServiceLoader` 提供的 `ConfigurationFacade` 实现，无则 `DefaultConfigurationFacade`。
+- `ConfigurationFactory.instance()`：Holder 单例；优先 `ServiceLoader` 提供的 `ConfigurationFacade` 实现，无则 `DefaultOldConfigurationFacade`。
 - `DefaultConfigurationFacade.getConfiguration()`：Holder 单例，**首个 conf/confList 调用时才加载**，之后全进程复用同一棵 `CfgObject` 解析结果（不监听文件变化）。
 - 资源查找：`jing.config.file`（默认 `jing-config`）+ 扩展名，classpath 资源；扩展名缺省时按 **toml → json → properties** 顺序取**第一个存在**的文件，找到即解析并停止，解析失败不回退到下一个扩展名。
 - 自定义扩展名：`jing.config.ext`（逗号无关，单值），非白名单（toml/json/properties）→ 抛异常。
@@ -44,7 +44,7 @@ String conf(String key);
 List<String> confList(String key);
 ```
 
-### 2.2 `DefaultConfigurationFacade`
+### 2.2 `DefaultOldConfigurationFacade`
 
 统一经私有 `navigate(key)`（`DefaultConfigurationFacade.java` L91-112）解析键路径；两方法行为：
 
@@ -58,7 +58,7 @@ List<String> confList(String key);
 | 末段为 `CfgList` | `CfgException("invalid key: <key>, type : CfgList")` | 返回 `List.copyOf(value)`（**每次调用返回不可变拷贝，不泄漏内部 ArrayList**） |
 | 末段为 `CfgObject` | `CfgException("invalid key: <key>, type : CfgObject")` | `CfgException("invalid key: <key>, type : CfgObject")` |
 | 中间段为 `CfgItem`/`CfgList`（非对象） | `CfgException("invalid key: <key>, current nested key: <段>, type : <类型名>")` | 同左 |
-| key 含非法字节（如空格、`.`连续等） | `CfgUtil` 系异常（"invalid key byte: N" / "invalid consecutive delimiters" / "invalid delimiters"） | 同左 |
+| key 含非法字节（如空格、`.`连续等） | `CfgOldUtil` 系异常（"invalid key byte: N" / "invalid consecutive delimiters" / "invalid delimiters"） | 同左 |
 | key 段数 > MAX_DEPTH | `CfgException("maximum nesting depth exceeded")` | 同左 |
 
 - 键路径用 UTF-8 字节解析，点号分段；`"a.b"` 表示两层。
@@ -71,14 +71,14 @@ List<String> confList(String key);
 | `conf(key, default)` | 值为 null 或 blank（`isBlank()`，含全空白）→ 返回 default；否则返回原值 |
 | `valueAsBoolean(v, def)` | `equalsIgnoreCase` 匹配 `"true"`/`"false"` → 对应布尔；其余（null/blank/其他）→ default |
 | `confAsBoolean(key, def)` | `valueAsBoolean(conf(key), def)`；key 缺失 → conf 返回 null → default |
-| `valueAsInt/Long/Float/Double(v, def)` | `v == null || v.isBlank()` → default；否则 `parse*` 转换，**解析失败抛 NumberFormatException（不回落 default）** |
+| `valueAsInt/Long/Float/Double(v, def)` | `v == null || v.isBlank()` → default；否则 `parse*` 转换，**解析失败或超出目标类型范围抛 NumberFormatException（不回落 default）** |
 | `confAsInt/Long/Float/Double(key, def)` | 委托 `conf`；缺失（null→default）、空白值（blank→default）、非法数值（NumberFormatException） |
 
 - 设计对齐点：配置文件中写入的值经解析器得到 `""` 等空白时，`confAs*` 与 `conf(key, default)` 行为一致（都取 default）；只有 **非空白且非法的字符串** 才会让 NumberFormatException 逃逸。
 
 ## 3. 三种格式的输入→输出规范
 
-### 3.1 JSON（`JsonCfgReader`）
+### 3.1 JSON（`JsonCfgOldReader`）
 
 **结构规则**：根必须是对象；空白字符集 `' ' '\t' '\r' '\n'` 各处可用；对象值可为对象/数组/标量；数组元素仅标量。字符串默认 UTF-8 字节透传解码（非 UTF-8 字节产生 U+FFFD 替换，不报错）；控制字符（含裸换行）不做规范校验、原样接受（宽容行为）。
 
@@ -111,16 +111,16 @@ List<String> confList(String key);
 |---|---|
 | `""`（空输入）、`{`、`{"a":` | `EOF reached` |
 | `{"a": 1`（缺根收尾 `}`） | `EOF reached` |
-| `{"a":1}x`、`{"a":1}}`（根闭合后非空白尾随字节） | `Corrupted json configuration` |
-| `[1,2]`、`"s"`、`123`、`null`（根非对象） | `Corrupted json configuration` |
-| `{"a": null}` / `{"a": NaN}`（不支持的值首字节） | `Corrupted json configuration` |
-| `{"a": }` / `{"a":1,}` / `{` 后非法字符 | `Corrupted json configuration` |
+| `{"a":1}x`、`{"a":1}}`（根闭合后非空白尾随字节） | `corrupted json configuration` |
+| `[1,2]`、`"s"`、`123`、`null`（根非对象） | `corrupted json configuration` |
+| `{"a": null}` / `{"a": NaN}`（不支持的值首字节） | `corrupted json configuration` |
+| `{"a": }` / `{"a":1,}` / `{` 后非法字符 | `corrupted json configuration` |
 | `{"a": 007}`、`{"a": 01}` | `invalid json number: leading zero: 55`（b 为首个违规数字字节值） |
 | `{"a": .5}`、`{"a": .}`、`{"a": 5.}`、`{"a": 1..2}` | `invalid json number: 46` 等（b 为该处读到的字节值） |
 | `{"a": 1e}`、`{"a": 1e+}`、`{"a": 1e-}` | `invalid json number: 125` 等 |
 | `{"a": +1}`、`{"a": -}` | `invalid json number: 43` / `...: 125` |
-| `{"a": 1_0}`、`{"a": 0xFF}`、`{"a": 0x1}` | 数字扫描后由状态机在 `_`/`F` 处报 `Corrupted json configuration`（下划线/十六进制不受支持） |
-| `{"a": truex}` | `Corrupted json configuration`（`true` 读毕，`x` 在值后） |
+| `{"a": 1_0}`、`{"a": 0xFF}`、`{"a": 0x1}` | 数字扫描后由状态机在 `_`/`F` 处报 `corrupted json configuration`（下划线/十六进制不受支持） |
+| `{"a": truex}` | `corrupted json configuration`（`true` 读毕，`x` 在值后） |
 | 重复键 `{"a": "1", "a": "2"}`、`{"a":{},"a":{}}` | `Duplicate key: a` |
 | `{"a": 1, "a": {}}` 类跨形态重复 | `Duplicate key: a` |
 | `{"a": "x\u0042"}` 键内转义（键含 `\`） | `invalid key byte: 92` |
@@ -130,13 +130,13 @@ List<String> confList(String key);
 | `"\\q"` 类未知转义 | `invalid escape sequence: 113` |
 | `"\uD83D"`（单独高代理后跟非 `\u`） | `invalid target, assumed: 92 actual: 34`（assume 失败即报错） |
 | `"\uG004"` 非法十六进制 | `bad hex character: 71` |
-| `[1,]` / `[[]]` / `[{}]`（尾逗号/嵌套元素） | `Corrupted json configuration` |
+| `[1,]` / `[[]]` / `[{}]`（尾逗号/嵌套元素） | `corrupted json configuration` |
 | 深度超限（见第 4 节） | `maximum nesting depth exceeded` |
 | `maxDepth <= 0` | `invalid max depth: 0` |
 
 **宽松点**（不报错但偏离 RFC 8259）：字符串内裸控制字符/裸换行原样接受；未配对代理（除上述紧随非 `\u` 的硬错误外）经 `writeCodePointInUtf8` 写出后以 U+FFFD 呈现（例如 `"\uD83D\u0041"` → `"\uFFFDA"`）。
 
-### 3.2 TOML（`TomlCfgReader`）
+### 3.2 TOML（`TomlCfgOldReader`）
 
 **结构规则**：行式 kv + `[表头]`；键字符集 `[a-zA-Z0-9_-]`（点号键 `a.b = 1` 不支持）；值可为双引号字符串、数字（含 inf/nan）、布尔、扁平数组；键/值两侧空白 `' ' '\t'` 容忍，行分隔允许 `\r\n`/`\n`；空文件/纯空白文件 → 空 `CfgObject{}`。
 
@@ -148,7 +148,10 @@ List<String> confList(String key);
 | `a = 42` / `a = -7` / `a = +3` | `CfgItem("42")` / `CfgItem("-7")` / `CfgItem("3")`（正号剥除） |
 | `a = 1_000_000` | `CfgItem("1000000")`（下划线剥除） |
 | `a = 0` / `a = -0` / `a = +0` | `CfgItem("0")`（符号归并） |
-| `a = -9223372036854775808` | `CfgItem("-9223372036854775808")`（Long.MIN 精确支持） |
+| `a = -9223372036854775808` | `CfgItem("-9223372036854775808")` |
+| `a = 9223372036854775808` | `CfgItem("9223372036854775808")`（超出 long 正范围，纯文本保留） |
+| `a = -9223372036854775809` | `CfgItem("-9223372036854775809")`（超出 long 负范围，纯文本保留） |
+| `a = 0xFFFFFFFFFFFFFFFF` | `CfgItem("18446744073709551615")`（任意精度换算，超出 long 范围；带符号 radix 一律拒绝，见拒绝表 `-0xFF` 行） |
 | `a = 0xFF` / `a = 0xF_F` / `a = 0x0` | `CfgItem("255")` / `CfgItem("255")` / `CfgItem("0")`（十六进制换算十进制） |
 | `a = 0o77` / `a = 0b1010` / `a = 0b10_10` | `CfgItem("63")` / `CfgItem("10")` / `CfgItem("10")` |
 | `a = 3.14` / `a = 0.5` / `a = 1.0` 类 | 原样字符串 |
@@ -174,42 +177,42 @@ List<String> confList(String key);
 
 | 输入 | 异常消息 |
 |---|---|
-| `a = 1b`、`a = truex`、`[t]x`（值后/表头后杂散字节） | `Corrupt toml configuration` |
-| `[]`（空表头） | `Corrupt toml configuration` |
+| `a = 1b`、`a = truex`、`[t]x`（值后/表头后杂散字节） | `corrupt toml configuration` |
+| `[]`（空表头） | `corrupt toml configuration` |
 | `[t`（表头未闭合） | `EOF reached` |
 | `[a]\nx = 1\n[a]`（完全相同表头重复） | `Duplicate table: a` |
 | `a = 1` 后 `[a]` 或 `[a]` 后 `a = 1`（表/键冲突） | `Duplicate table: a` / `Duplicate key: a` |
 | `a b = "1"` | `invalid key byte: 32` |
-| `a = 007` | `invalid toml integer: leading zero: 55` |
-| `a = _1` | 断言于数字不合法首字节 → `invalid toml number: 95` |
-| `a = 0_1` | `invalid toml integer: misplaced underscore: 49` |
+| `a = 007` | `invalid toml integer: leading zero: 48` |
+| `a = _1` | `corrupt toml configuration`（`_` 在值首字节分派即拒，不进入 readTomlNumber） |
+| `a = 0_1` | `invalid toml integer: misplaced underscore: 95` |
 | `a = 1__0` | `invalid toml integer: adjacent underscore` |
 | `a = 1_` | `invalid toml integer: trailing underscore` |
 | `a = +` | `invalid toml number: -1` |
 | `a = +0xFF` / `a = -0xFF` | `invalid toml integer: sign not allowed for radix literal` |
 | `a = 0x` | `invalid toml integer: missing digits after radix prefix` |
-| `a = 0xG` / `a = 0o8` / `a = 0b2` | `integer literal out of range: 71` 等（radix 溢出一并拒绝非法 digit） |
+| `a = 0xG` / `a = 0o8` / `a = 0b2` | `invalid toml integer: missing digits after radix prefix`（非法 digit 不被接受，视为 radix 后无数字） |
 | `a = 0xFF_` | `invalid toml integer: trailing underscore` |
-| `a = 9223372036854775808` | `integer literal out of range: 9223372036854775808` |
 | `a = 1e1_0` | `invalid toml float: underscore in exponent` |
-| `a = .5` / `a = 5.` / `a = 1.` | `invalid toml float: 46` 等 |
+| `a = .5` | `corrupt toml configuration`（`.` 在值首字节分派即拒，不进入 readTomlNumber） |
+| `a = 5.` / `a = 1.` | `invalid toml float: -1`（小数点后直接 EOF） |
 | `a = 1._0` | `invalid toml float: 95` |
-| `a = 1e+` | `invalid toml float: 125` |
-| `a = infinity` / `a = infi` / `a = NAN` | `invalid toml value: infinity` 等（只认小写 `inf`/`nan`，其余字母串按 word 报错；`N` 首字节 → `Corrupt toml configuration`） |
+| `a = 1e+` | `invalid toml float: -1` |
+| `a = infinity` / `a = infi` / `a = NAN` | `invalid toml value: infinity` 等（只认小写 `inf`/`nan`，其余字母串按 word 报错；`N` 首字节 → `corrupt toml configuration`） |
 | 重复键 `key = "a"\nkey = "b"`（同表内） | `Duplicate key: key` |
 | `key = "a`（未闭合字符串） | `EOF reached` |
 | `key = "\q"` | `invalid escape sequence: 113` |
 | `key = "\uD83D"`（TOML 禁代理码点） | `invalid surrogate code point: 55357` |
 | `key = "\U00110000"`（超出 Unicode 范围） | `invalid code point: 1114112` |
-| `key = [1,]`（尾逗号）/ 数组内嵌套 | `Corrupt toml configuration` |
-| `a = 1 b = 2`（一行两 kv） | `Corrupt toml configuration` |
-| 注释行含控制字符（0x00-0x08、0x0A-0x1F、0x7F，tab 除外） | `Corrupt toml configuration` |
+| `key = [1,]`（尾逗号）/ 数组内嵌套 | `corrupt toml configuration` |
+| `a = 1 b = 2`（一行两 kv） | `corrupt toml configuration` |
+| 注释行含控制字符（0x00-0x08、0x0A-0x1F、0x7F，tab 除外） | `corrupt toml configuration` |
 | 深度超限（见第 4 节） | `maximum nesting depth exceeded` |
 | `maxDepth <= 0` | `invalid max depth: 0` |
 
 **细节**：`[a.b]` 之后再 `[a]` 表头——实现允许（导航进入已存在对象继续合并，仅对**完全相同的表头字符串**做 `Duplicate table` 检测，与 TOML 规范"不可重定义父表"存在出入，属实现行为）。逃逸表：`\b \t \n \f \r \e(ESC 0x1B) \" \\ \xHH \uHHHH \UHHHHHHHH`。
 
-### 3.3 Properties（`PropertiesCfgReader`）
+### 3.3 Properties（`PropertiesCfgOldReader`）
 
 **结构规则**：底层 `java.util.Properties.load(Reader)`（UTF-8 Reader 包装），完全继承其语法：`key=value` / `key:value` / `key value` 分隔、`#`/`!` 注释、行尾 `\` 续行、键值内 `\uXXXX` 转义、空行忽略。其上层再叠加：键按 `.` 展开为嵌套对象；值形如 `[...]` 拆成列表；键/值 blank 的条目直接跳过。
 
@@ -274,7 +277,7 @@ List<String> confList(String key);
 
 | 路径 | 消息 |
 |---|---|
-| 语法/结构性错误（根非对象、尾随非空白、值位置杂散、数组分隔错误、不支持的标量首字节） | `Corrupted json configuration` |
+| 语法/结构性错误（根非对象、尾随非空白、值位置杂散、数组分隔错误、不支持的标量首字节） | `corrupted json configuration` |
 | 重复键（标量/列表/嵌套对象落库时） | `Duplicate key: <key>` |
 | 未知转义 | `invalid escape sequence: <b>` |
 | 高代理后 assume 失败 | `invalid target, assumed: 92 actual: <b>` |
@@ -287,8 +290,8 @@ List<String> confList(String key);
 
 | 路径 | 消息 |
 |---|---|
-| 行尾/表头后杂散字节、空表头、值首字节不支持 | `Corrupt toml configuration` |
-| 注释行含拒绝控制字符 | `Corrupt toml configuration` |
+| 行尾/表头后杂散字节、空表头、值首字节不支持 | `corrupt toml configuration` |
+| 注释行含拒绝控制字符 | `corrupt toml configuration` |
 | 重复键（`storeItem`/`storeList`） | `Duplicate key: <key>` |
 | 表头重复或与标量冲突 | `Duplicate table: <表头原文>` |
 | 未知转义 | `invalid escape sequence: <b>` |
@@ -299,8 +302,7 @@ List<String> confList(String key);
 | 前导零 | `invalid toml integer: leading zero: <d>` |
 | `0` 后下划线 | `invalid toml integer: misplaced underscore: <d>` |
 | 相邻下划线 / 尾下划线 / radix 错位下划线 | `invalid toml integer: adjacent underscore` / `invalid toml integer: trailing underscore` / `invalid toml integer: misplaced underscore` |
-| radix 缺数字 | `invalid toml integer: missing digits after radix prefix` |
-| 整数溢出（十进制带位数输出 / radix 带字节值 / MIN 取反） | `integer literal out of range: <digits>` / `integer literal out of range: <b>` / `integer literal out of range` |
+| radix 缺数字 / 非法 digit | `invalid toml integer: missing digits after radix prefix` |
 | 浮点小数位缺数字 / 相邻下划线 / 尾下划线 | `invalid toml float: <b>` / `invalid toml float: adjacent underscore: <b>` / `invalid toml float: trailing underscore` |
 | 浮点指数缺数字 / 指数内下划线 | `invalid toml float: <b>` / `invalid toml float: underscore in exponent` |
 | 布尔/词字面量不匹配、非法 inf/nan 词 | `invalid toml value: <b>` / `invalid toml value: <word>` |
@@ -330,14 +332,14 @@ List<String> confList(String key);
 
 **JSON**
 - 根必须为对象：顶层数组/字符串/数字/null 均拒绝。
-- `null` 值不支持（首字节 `n` → `Corrupted json configuration`）。
+- `null` 值不支持（首字节 `n` → `corrupted json configuration`）。
 - 键限制为 `[a-zA-Z0-9_-]`：非 ASCII 键、含空格/标点键、转义键（`\uXXXX` 或 `\"` 内嵌）均拒绝。
 - 数组元素仅标量：`[[]]`、`[{}]` 拒绝；尾逗号 `[1,]`、`{"a":1,}` 拒绝。
 - 数字无 `+` 号、无下划线、无十六进制/八进制/二进制、无 `NaN`/`Infinity` 字面量。
 - 宽容（非规范但接受）：字符串内裸控制字符；未配对代理的 U+FFFD 替换；非法 UTF-8 字节替换。
 
 **TOML**
-- 字符串仅双引号基本形式：单引号字面量 `'...'`、多行 `"""`/`'''` 均以 `Corrupt toml configuration` 或空串+杂散字节路径拒绝。
+- 字符串仅双引号基本形式：单引号字面量 `'...'`、多行 `"""`/`'''` 均以 `corrupt toml configuration` 或空串+杂散字节路径拒绝。
 - 无 dotted key（`a.b = 1` → `invalid key byte: 46`），嵌套仅通过 `[a.b]` 表头。
 - 无日期/时间/datetime 值类型。
 - 数组仅标量元素，无嵌套数组/对象；无尾逗号。
@@ -380,11 +382,11 @@ List<String> confList(String key);
 | 5 | **用户输入异常统一为 CfgException** | `onValueEnd`/`readCfgKey`/`readCfgNestedKey`/`Properties case 0`/空表头 → `AssertionError`（会 crash JVM） | → `CfgException`（可捕获、描述明确） | 所有非法 TOML 值/空键路径/空表头不再导致 JVM 崩溃 |
 | 6 | **maxDepth 语义统一** | JSON 用 `frames.size() >= maxDepth`（off-by-one 与 TOML/Properties 不一致）；`<=0` 未处理 | 统一为"根=第 1 层，层级 ≤ maxDepth 允许，> 拒绝；≤0 抛异常" | 配置嵌套深度约束三格式一致；边界行为明确 |
 | 7 | **空数组支持** | `[]` / `a = []` → `Corrupted json/toml configuration`（readScalarValue 遇 `]` 报错） | → `CfgList[]`（合法空列表） | 数组首元素为空的配置均可解析 |
-| 8 | **尾随垃圾拒绝** | `{"a":1}x` → `CfgObject{a: CfgItem("1")}`（静默忽略尾随内容） | → `CfgException("Corrupted json configuration")` | 严格拒绝非空白尾随字节；潜在安全改善 |
+| 8 | **尾随垃圾拒绝** | `{"a":1}x` → `CfgObject{a: CfgItem("1")}`（静默忽略尾随内容） | → `CfgException("corrupted json configuration")` | 严格拒绝非空白尾随字节；潜在安全改善 |
 | 9 | **confList 不可变拷贝** | `confList("key")` 直接返回内部 `ArrayList` 的引用（调用方可修改） | 返回 `List.copyOf()`（每次新拷贝，不可变） | 向后兼容但行为变化：调用方不可再修改返回的列表 |
 | 10 | **blank 值视为缺省** | `confAsInt("key", 5)` 遇空白值 → `NumberFormatException`（逃逸） | → 返回 `5`（blank → default，与 `conf(key, default)` 对齐） | 空白配置值不再引发转换异常 |
 | 11 | **navigate 抽取 + 消息统一** | `conf()`/`confList()` ~40 行重复；`"invalid key : "` 混用 `"invalid key: "` | 共享 `navigate()`（~20 行）；消息统一为 `"invalid key: "` | 依赖异常消息内容的调用方（如日志匹配）需适配 |
-| 12 | **构造器守卫规范化** | `CfgUtil` 私有构造 → `AssertionError` | → `UnsupportedOperationException("utility class")` | 仅反射/序列化误用场景 |
+| 12 | **构造器守卫规范化** | `CfgOldUtil` 私有构造 → `AssertionError` | → `UnsupportedOperationException("utility class")` | 仅反射/序列化误用场景 |
 | 13 | **isValidCodePoint 清理** | JSON `\u`/TOML `\x`/`\u` 分支冗余检查 | 删除恒真分支（`\U` 8 位保留） | 纯内部清理，无行为变化 |
 | 14 | **v4 method-per-state 重构** | CfgReader ~559 行巨型 switch | ~583 行 method-per-state（每状态独立方法，Frame record） | 行为等价，纯结构优化 |
 | 15 | **空 key 守卫** | `readCfgKey`/`readCfgNestedKey` 空输入 → `AssertionError` | → `CfgException("empty key")`；门面层前置检查 `conf("")` → `CfgException("invalid key: ")` | 向后兼容：原来 crash 现在异常 |

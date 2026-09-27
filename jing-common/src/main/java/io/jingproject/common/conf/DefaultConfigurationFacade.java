@@ -1,124 +1,99 @@
 package io.jingproject.common.conf;
 
 import io.jingproject.common.ConfigurationFacade;
-import io.jingproject.common.conf.Cfg.CfgItem;
-import io.jingproject.common.conf.Cfg.CfgList;
-import io.jingproject.common.conf.Cfg.CfgObject;
-import io.jingproject.common.conf.CfgReader.JsonCfgReader;
-import io.jingproject.common.conf.CfgReader.PropertiesCfgReader;
-import io.jingproject.common.conf.CfgReader.TomlCfgReader;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-// simplified error messages: EOF, duplicate, corrupted, or empty
 public final class DefaultConfigurationFacade implements ConfigurationFacade {
-    private static final int DEFAULT_MAX_DEPTH = 128;
+    private static final int DEFAULT_MAX_DEPTH = 16;
     private static final int MIN_MAX_DEPTH = 4;
-    private static final int MAX_DEPTH;
 
-    static {
-        String raw = System.getenv("JING_CONFIG_MAX_DEPTH");
-        int value = DEFAULT_MAX_DEPTH;
-        if (raw != null && !raw.isBlank()) {
-            value = Integer.parseInt(raw.trim());
-        }
-        if (value <= MIN_MAX_DEPTH) {
-            throw new ExceptionInInitializerError("max depth must be greater than " + MIN_MAX_DEPTH + ", actual: " + value);
-        }
-        MAX_DEPTH = value;
-    }
+    private final Cfg.CfgObject root = createConfiguration();
 
     // search priority: toml, then json, then properties
-    private static final List<String> SUPPORTED_FILE_EXT = List.of("toml", "json", "properties");
-
-    private static CfgObject getConfiguration() {
-        class Holder {
-            static final CfgObject INSTANCE = createConfiguration();
+    private static Cfg.CfgObject createConfiguration() {
+        int maxDepth = Integer.getInteger("jing.config.maxdepth", DEFAULT_MAX_DEPTH);
+        if(maxDepth < MIN_MAX_DEPTH) {
+            throw new CfgException("configuration depth out of range : " + maxDepth);
         }
-        return Holder.INSTANCE;
+        String fileName = System.getProperty("jing.config.file", "jing-config").trim();
+        String fileExt = System.getProperty("jing.config.ext", "").trim();
+        List<String> fileExts = fileExt.isBlank() ? List.of("toml", "json", "properties") : List.of(fileExt);
+        for (String ext : fileExts) {
+            String fullName = fileName + "." + ext;
+            try (InputStream stream = Thread.currentThread()
+                    .getContextClassLoader()
+                    .getResourceAsStream(fullName)) {
+                if(stream == null) {
+                    continue ;
+                }
+                return switch (ext) {
+                    case "toml" -> new CfgReader.TomlCfgReader().parse(stream, maxDepth);
+                    case "json" -> new CfgReader.JsonCfgReader().parse(stream, maxDepth);
+                    case "properties" -> new CfgReader.PropertiesCfgReader().parse(stream, maxDepth);
+                    default -> throw new CfgException("unknown file extension format : " + ext);
+                };
+            } catch (IOException e) {
+                throw new CfgException("failed to init root configuration", e);
+            }
+        }
+        throw new CfgException("configuration file not found for all the extension format");
     }
 
-    private static CfgObject createConfiguration() {
-        String fileName = System.getProperty("jing.config.file", "jing-config");
-        String fileExt = System.getProperty("jing.config.ext", "").trim();
-        List<String> fileExts = fileExt.isBlank() ? SUPPORTED_FILE_EXT : List.of(fileExt);
-        CfgObject r = null;
-        for (String ext : fileExts) {
-            if (!SUPPORTED_FILE_EXT.contains(ext)) {
-                throw new CfgException("unsupported configuration file extension: " + ext);
+    private Cfg nav(String key) {
+        if(key == null || key.isBlank()) {
+            throw new CfgException("empty key not supported");
+        }
+        Cfg.CfgObject current = root;
+        int index = 0;
+        for( ; ; ) {
+            int end = key.indexOf('.', index);
+            if(end < 0) {
+                break ;
             }
-            String fullName = fileName + "." + ext;
-            InputStream rawStream = Thread.currentThread()
-                    .getContextClassLoader()
-                    .getResourceAsStream(fullName);
-            if (rawStream == null) {
-                continue;
+            if (end == index) {
+                throw new CfgException("invalid consecutive delimiters");
             }
-            try (InputStream stream = new BufferedInputStream(rawStream)) {
-                r = switch (ext) {
-                    case "toml" -> new TomlCfgReader(stream).parse(MAX_DEPTH);
-                    case "json" -> new JsonCfgReader(stream).parse(MAX_DEPTH);
-                    case "properties" -> new PropertiesCfgReader(stream).parse(MAX_DEPTH);
-                    default -> throw new AssertionError();
-                };
-                break;
-            } catch (IOException e) {
-                throw new ExceptionInInitializerError(e);
+            String nestedKey = key.substring(index, end);
+            Cfg cfg = current.value().get(nestedKey);
+            if (cfg == null) {
+                return null;
+            }
+            if(cfg instanceof Cfg.CfgObject co) {
+                current = co;
+                index = end + 1;
+            } else {
+                throw new CfgException("invalid key: " + key);
             }
         }
-        if (r == null) {
-            throw new CfgException("configuration file not found, filename : " + fileName + " , exts: " + fileExts);
+        if (index == key.length()) {
+            throw new CfgException("invalid delimiters");
         }
-        return r;
+        return current.value().get(key.substring(index));
     }
 
     @Override
     public String conf(String key) {
-        Cfg cfg = navigate(key);
+        Cfg cfg = nav(key);
         if (cfg == null) {
             return null;
         }
-        if (cfg instanceof CfgItem(String value)) {
+        if (cfg instanceof Cfg.CfgItem(String value)) {
             return value;
         }
         throw new CfgException("invalid key: " + key + ", type : " + cfg.getClass().getSimpleName());
     }
 
-    private static Cfg navigate(String key) {
-        if (key.isEmpty()) {
-            throw new CfgException("invalid key: " + key);
-        }
-        CfgObject cfgObject = getConfiguration();
-        byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
-        List<String> nestedkeys = CfgUtil.readCfgNestedKey(keyBytes, 0, keyBytes.length, MAX_DEPTH);
-        CfgObject current = cfgObject;
-        for (String nestedKey : nestedkeys.subList(0, Math.subtractExact(nestedkeys.size(), 1))) {
-            Cfg cfg = current.value().get(nestedKey);
-            if (cfg == null) {
-                return null;
-            }
-            if (cfg instanceof CfgObject co) {
-                current = co;
-            } else {
-                throw new CfgException("invalid key: " + key + ", current nested key: " + nestedKey
-                        + ", type : " + cfg.getClass().getSimpleName());
-            }
-        }
-        return current.value().get(nestedkeys.getLast());
-    }
-
     @Override
     public List<String> confList(String key) {
-        Cfg cfg = navigate(key);
+        Cfg cfg = nav(key);
         if (cfg == null) {
             return null;
         }
-        if (cfg instanceof CfgList(List<String> value)) {
-            return List.copyOf(value);
+        if (cfg instanceof Cfg.CfgList(List<String> value)) {
+            return value;
         }
         throw new CfgException("invalid key: " + key + ", type : " + cfg.getClass().getSimpleName());
     }

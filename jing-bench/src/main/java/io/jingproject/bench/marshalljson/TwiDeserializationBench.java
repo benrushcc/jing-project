@@ -1,14 +1,16 @@
 package io.jingproject.bench.marshalljson;
 
+import io.helidon.json.binding.JsonBinding;
 import io.jingproject.bench.AbstractBench;
 import io.jingproject.bench.twi.Twi;
 import io.jingproject.common.HeapReadBuffer;
 import io.jingproject.common.ReadBuffer;
 import io.jingproject.marshalljson.JsonDeserializer;
 import io.jingproject.marshalljson.JsonDeserializerOption;
-import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
-import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.concurrent.TimeUnit;
@@ -21,18 +23,11 @@ import java.util.concurrent.TimeUnit;
 //        "-XX:FlightRecorderOptions:stackdepth=128"
 //})
 public class TwiDeserializationBench extends AbstractBench {
-    private byte[] bytes;
-    private ReadBuffer readBuffer;
-    private JsonMapper jsonMapper;
-    private JsonDeserializer jsonDefaultDeserializer;
-
-    @Setup(Level.Trial)
-    public void setup() {
-        bytes = Twi.asBytes();
-        readBuffer = new HeapReadBuffer(bytes);
-        jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
-        jsonDefaultDeserializer = new JsonDeserializer(JsonDeserializerOption.defaultOption());
-    }
+    private final byte[] bytes = Twi.asBytes();
+    private final ReadBuffer readBuffer = new HeapReadBuffer(bytes);
+    private final JsonMapper jsonMapper = JsonMapper.builder().build();
+    private final JsonDeserializer jsonDefaultDeserializer = new JsonDeserializer(JsonDeserializerOption.defaultOption());
+    private final JsonBinding helidonJsonBinding = JsonBinding.create();
 
     @Benchmark
     public void jacksonDeserialization(Blackhole blackhole) {
@@ -44,6 +39,12 @@ public class TwiDeserializationBench extends AbstractBench {
     public void jingDefaultDeserialization(Blackhole blackhole) {
         Twi twi = jsonDefaultDeserializer.deserializeMarshallableObject(Twi.class, readBuffer);
         readBuffer.reset();
+        blackhole.consume(twi);
+    }
+
+    @Benchmark
+    public void helidonDeserialization(Blackhole blackhole) {
+        Twi twi = helidonJsonBinding.deserialize(bytes, Twi.class);
         blackhole.consume(twi);
     }
 }

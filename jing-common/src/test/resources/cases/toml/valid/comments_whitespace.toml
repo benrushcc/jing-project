@@ -1,0 +1,11 @@
+# full line comment
+
+# comment before value
+a = 1 # trailing comment
+
+   # indented comment
+b = 2
+
+c = 3
+
+# comment at end of file

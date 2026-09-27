@@ -1,0 +1,14 @@
+{
+  "server": {
+    "host": "localhost",
+    "port": 8080,
+    "tls": {
+      "enabled": true
+    }
+  },
+  "db": {
+    "pool": {
+      "size": 10
+    }
+  }
+}

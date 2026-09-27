@@ -4,8 +4,8 @@ Status: design / not yet implemented
 Scope: `jing-common` `io.jingproject.common.conf` package only.
 Follows `doc/Configuration-v3.md` (the parsing behavior, canonical forms, scanner
 contract and error semantics described there remain authoritative). This
-document only restructures the internal shape of `JsonCfgReader` and
-`TomlCfgReader`; it changes no public API and no observable behavior.
+document only restructures the internal shape of `JsonCfgOldReader` and
+`TomlCfgOldReader`; it changes no public API and no observable behavior.
 
 ## 1. Goals
 
@@ -22,14 +22,14 @@ document only restructures the internal shape of `JsonCfgReader` and
    check + clear `key` + set trailing state" tails become two shared methods
    `storeItem` / `storeList`.
 4. **Behavior preserved**: byte-exact parsing, single `String` construction per
-   token, no per-byte allocation, no regex, no recursion. All 71 existing tests
+   token, no per-byte allocation, no regex, no recursion. All 60 existing tests
    keep passing unchanged.
 
 ## 2. Constraints
 
 - Zero third-party dependencies (`jing-common` rule).
 - No public API / signature change: `CfgReader.parse(int maxDepth)`, the four
-  `CfgUtil` scanners, `readCfgKey` / `readCfgNestedKey` keep their v3 contracts.
+  `CfgOldUtil` scanners, `readCfgKey` / `readCfgNestedKey` keep their v3 contracts.
 - Project AGENTS.md rules: no recursion, no regex, comments `//` only, 4-space
   indent, 120 columns, no `import static`, lowercase sentence starts, `record`
   preferred for plain data.
@@ -71,11 +71,11 @@ public CfgObject parse(int maxDepth) throws IOException {
   - TOML: `onValueEnd` / `onInitial` at EOF.
 - The `DONE -> throw new AssertionError()` branch exists solely to satisfy
   enum-switch-expression exhaustiveness (matches the existing `AssertionError`
-  style already used in `TomlCfgReader`).
+  style already used in `TomlCfgOldReader`).
 
 ### D2. `Frame` record replaces the parallel deques (JSON only)
 
-Today `JsonCfgReader` keeps `Deque<Map<String, Cfg>> previous` and
+Today `JsonCfgOldReader` keeps `Deque<Map<String, Cfg>> previous` and
 `Deque<String> keys` which are always pushed and popped together — an implicit
 pairing that can silently desync. Replace both with a single stack of a value
 record:
@@ -123,7 +123,7 @@ private String readScalarValue(int firstByte) throws IOException {
         out.reset();
         return bool;
     }
-    throw new CfgException("Corrupted json configuration");
+    throw new CfgException("corrupted json configuration");
 }
 ```
 
@@ -132,7 +132,7 @@ quote has already been consumed by `ignoreTillEOF`, `readJsonStrValue`
 consumes the closing quote internally, and the single `new String(...)` +
 `out.reset()` are unchanged. The TOML version differs only in routing
 (`readTomlNumber` / `readTomlWord` / `readTomlStrValue`) and the message
-`"Corrupt toml configuration"`.
+`"corrupt toml configuration"`.
 
 ### D4. "Set + fall back" collaboration after a completed value
 
@@ -156,10 +156,10 @@ whatever follows (`,` `}` `\n` `#` EOF) is handled in one method.
 |---|---|
 | `Cfg` / `CfgItem` / `CfgList` / `CfgObject` | data model untouched |
 | `CfgException` | error model untouched |
-| `CfgUtil` (all public methods incl. the 4 scanners) | v3 contract; see section 7 |
+| `CfgOldUtil` (all public methods incl. the 4 scanners) | v3 contract; see section 7 |
 | `HeapWriteBuffer` / `WriteBuffer` | buffering model untouched |
-| `DefaultConfigurationFacade` / `ConfigurationFacade` / `ConfigurationFactory` | routing only |
-| `PropertiesCfgReader` | no state machine, no buffer, already simple |
+| `DefaultOldConfigurationFacade` / `ConfigurationFacade` / `ConfigurationFactory` | routing only |
+| `PropertiesCfgOldReader` | no state machine, no buffer, already simple |
 | `readJsonStrValue` / `readTomlStrValue` | already single-responsibility escape state machines (~40 lines each); not split |
 
 ## 5. JsonCfgReader Restructure
@@ -213,7 +213,7 @@ Added: `DONE`.
 private State onInitial() throws IOException {
     int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
     if (b != '{') {
-        throw new CfgException("Corrupted json configuration");
+        throw new CfgException("corrupted json configuration");
     }
     return State.OBJ_START;
 }
@@ -234,7 +234,7 @@ private State onObjStart(int maxDepth) throws IOException {
     if (b == '"') {
         return State.KEY_READ;
     }
-    throw new CfgException("Corrupted json configuration");
+    throw new CfgException("corrupted json configuration");
 }
 
 private State onAfterValue() throws IOException {
@@ -261,7 +261,7 @@ private State onAfterValue() throws IOException {
         }
         throw new CfgException("EOF reached");
     }
-    throw new CfgException("Corrupted json configuration");
+    throw new CfgException("corrupted json configuration");
 }
 
 private State onExpectKey() throws IOException {
@@ -269,7 +269,7 @@ private State onExpectKey() throws IOException {
     if (b == '"') {
         return State.KEY_READ;
     }
-    throw new CfgException("Corrupted json configuration");
+    throw new CfgException("corrupted json configuration");
 }
 
 private State onKeyRead() throws IOException {
@@ -282,7 +282,7 @@ private State onKeyRead() throws IOException {
 private State onColon() throws IOException {
     int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
     if (b != ':') {
-        throw new CfgException("Corrupted json configuration");
+        throw new CfgException("corrupted json configuration");
     }
     return State.EXPECT_VALUE;
 }
@@ -309,7 +309,7 @@ private State onArray() throws IOException {
             break;
         }
         if (b != ',') {
-            throw new CfgException("Corrupted json configuration");
+            throw new CfgException("corrupted json configuration");
         }
     }
     storeList(list);
@@ -410,7 +410,7 @@ private State onComment() throws IOException {
     out.reset();
     commentStr.chars().forEach(c -> {
         if (Character.getType(c) == Character.CONTROL && rejectCommentControlCharacter(c)) {
-            throw new CfgException("Corrupt toml configuration");
+            throw new CfgException("corrupt toml configuration");
         }
     });
     return State.INITIAL;
@@ -462,7 +462,7 @@ private State onKeyRead() throws IOException {
     if (b != '=') {
         b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
         if (b != '=') {
-            throw new CfgException("Corrupt toml configuration");
+            throw new CfgException("corrupt toml configuration");
         }
     }
     return State.VALUE_START;
@@ -494,7 +494,7 @@ private String readScalarValue(int firstByte) throws IOException {
         out.reset();
         return word;
     }
-    throw new CfgException("Corrupt toml configuration");
+    throw new CfgException("corrupt toml configuration");
 }
 
 private State onArray() throws IOException {
@@ -507,7 +507,7 @@ private State onArray() throws IOException {
             break;
         }
         if (b != ',') {
-            throw new CfgException("Corrupt toml configuration");
+            throw new CfgException("corrupt toml configuration");
         }
     }
     storeList(list);
@@ -527,17 +527,21 @@ restructure it falls into `readScalarValue('"')` — equivalent. The
 `onValueEnd` `AssertionError` is today's unreachable branch, kept as-is. Today
 `parse` is ~147 lines; the driver loop becomes ~18.
 
-## 7. CfgUtil Scanners Stay Untouched
+## 7. CfgUtil Scanners Stay Untouched (by this restructure)
 
 The four scanners are **not** restructured and receive no `record` intermediate
-state. Rationale, scanner by scanner:
+state **as part of this v4 restructure**. Rationale, scanner by scanner.
+(Note: a later, separate feature change — number range semantics, see
+`Configuration-v3.md` §5.3 — modified the *internals* of `readTomlNumber`'s
+decimal path and `accumulateRadix`; the structural argument below is
+unaffected):
 
-1. `readTomlNumber` decimal negative accumulation: the working state
-   `(acc, overflow, lastWasUnderscore, buf)` is read/written inside one while
-   loop, never crosses a method boundary; packing it into a record adds an
-   `.acc()` / `.overflow()` accessor suffix to every site and replaces a
-   readable `acc = acc * 10` flow with fan-in of getters. Zero readability gain.
-2. `accumulateRadix`: its field set `(acc, hasDigit, lastWasUnderscore)` differs
+1. `readTomlNumber` decimal path (post-range-change): the byte-copy working
+   state `(buf, lastWasUnderscore)` is read/written inside one while loop,
+   never crosses a method boundary; packing it into a record adds an accessor
+   suffix to every site and replaces a readable copy loop with fan-in of
+   getters. Zero readability gain.
+2. `accumulateRadix`: its field set `(hasDigit, lastWasUnderscore, buf)` differs
    from the decimal path's. A shared record would have to be the union set,
    leaving half the fields idle at each use — worse.
 3. `readTomlFloatContinue`: only `lastWasUnderscore` to track; nothing to pack.
@@ -564,15 +568,15 @@ candidate only.
 | 2 | generic state-machine framework (transition tables / config-driven) | two readers, 15 states total; config-driven dispatch is over-engineering |
 | 3 | `ParseContext` aggregate object (input + out + frames) | fields belong naturally to the reader instance; single-use, no concurrency; packing merely renames `this.` |
 | 4 | `record`-packed scanner intermediate state | section 7 |
-| 5 | change the four `CfgUtil` scanner signatures / returned `String` | contract of v3 doc and of the test suite |
+| 5 | change the four `CfgOldUtil` scanner signatures / returned `String` | contract of v3 doc and of the test suite |
 | 6 | split `readJsonStrValue` / `readTomlStrValue` | already single-responsibility escape state machines; the two-state `escaping` boolean would be fragmented by splitting |
-| 7 | touch `PropertiesCfgReader` | no state machine, no buffer, already simple |
-| 8 | extract the TOML `onTableStart` tree navigation into a shared `CfgUtil` method with `PropertiesCfgReader` | ~6 similar lines, different error messages; a shared helper needs a context-name parameter for only two call sites |
+| 7 | touch `PropertiesCfgOldReader` | no state machine, no buffer, already simple |
+| 8 | extract the TOML `onTableStart` tree navigation into a shared `CfgOldUtil` method with `PropertiesCfgOldReader` | ~6 similar lines, different error messages; a shared helper needs a context-name parameter for only two call sites |
 | 9 | unify JSON/TOML `readScalarValue` via interface/lambda | dispatch branches, messages and underlying scanners all differ; unification means 4 function parameters or a strategy interface |
 | 10 | split the dual role of the `key` field (current key + "frame pending" flag) | it is the implicit protocol of the frame stack (`onObjStart` pushes iff `key != null`); an explicit boolean touches every state handler for a benefit below the risk |
 | 11 | move exception messages or throw points | tests assert only the type, but constraint "same input, same failure" requires byte-for-byte equivalence anyway |
 | 12 | split the readers into separate files (`JsonCfgReader.java` etc.) | pure file-layout change, no behavioral gain; nested sealed-interface style matches the project; an independent decision for after v4 if ever desired |
-| 13 | per-method unit tests for the new private methods | private methods are not directly testable; 71 black-box tests cover every path, a behavior-preserving restructure needs no new tests |
+| 13 | per-method unit tests for the new private methods | private methods are not directly testable; 60 black-box tests cover every path, a behavior-preserving restructure needs no new tests |
 
 ## 9. Trade-offs
 
@@ -595,7 +599,7 @@ candidate only.
 ### 9.2 Costs
 
 1. **Indirection**: one extra method call per state transition. The handlers are
-   small single-call-site methods that C2 inlines; the 71 tests are unaffected,
+   small single-call-site methods that C2 inlines; the 60 tests are unaffected,
    and for real configs the bottleneck is I/O and `HashMap` work, not dispatch.
 2. **Allocation**: the only new allocation is `Frame` (one per nesting level),
    whereas the old code already allocated one `HashMap` per level plus two
@@ -615,8 +619,10 @@ candidate only.
 | B: event/turn object driving | a "current event + result" object drives the loop | extra abstraction for two one-way readers, and per-token event-object allocation violates the no-hot-path-allocation constraint |
 | C: merged readers | one shared state table for JSON + TOML | nesting models and line semantics differ; every merged state needs a format `if` — worse than two separate classes |
 
-Conclusion: no `CfgUtil` change (section 7); the entire gain comes from the
-internal restructure of the two readers.
+Conclusion: no `CfgOldUtil` restructure (section 7); the entire gain comes from the
+internal restructure of the two readers. (`CfgOldUtil` *internals* were later
+touched by the range-semantics feature — that is a semantic change, not part of
+this restructure and not this design's concern.)
 
 ## 10. Migration and Validation
 
@@ -626,20 +632,22 @@ internal restructure of the two readers.
 1. add `Frame`, replace `previous` + `keys` with `frames`;
 2. split per section 5.4, rewrite the driver loop, rename states
    (`AFTER_VALUE` / `KEY_READ` / `COLON` / `DONE`), delete `STR_START`.
-Verify: `mvn -o test -pl jing-common -am` — all 71 tests green. If red, check
+Verify: `mvn -o test -pl jing-common -am` — all 60 tests green. If red, check
 in order: `frames.size()` vs `previous.size()` at the `maxDepth` boundary,
 `onAfterValue` keeps `ignore` (not `ignoreTillEOF`), `readScalarValue('"')`
 still consumes the closing quote.
 
 **Step 2 — TomlCfgReader restructure (one commit)**
 Split per section 6.3 + state renames + delete `STR_START`. Verify: same
-command, 71 tests green.
+command, 60 tests green.
 
 **Step 3 — behavioral equivalence review (white-box)**
 - state-by-state mapping tables (5.5 / 6.x) reviewed pairwise;
 - diff review: no `StringBuilder`, no regex, no per-char concatenation, no
-  `import static`, number of `new String` sites unchanged (still exactly one
-  per token), no `System.out`, comments all `//`, exception messages verbatim.
+  `import static`, `new String` sites limited to the terminal decodes (one per
+  token; TOML radix uses one extra transient decode for the `BigInteger`
+  conversion, per v3 D6), no `System.out`, comments all `//`, exception
+  messages verbatim.
 
 **Step 4 — documentation and change log**
 1. `doc/Configuration-v4.md` (this design);
@@ -647,12 +655,12 @@ command, 71 tests green.
 
 ### 10.2 New tests (only if gaps found — optional)
 
-All 71 existing tests cover the string/number canonicalization (incl.
+All 60 existing tests cover the string/number canonicalization (incl.
 `Long.MIN_VALUE`, radix, underscores, inf/nan), booleans, mixed arrays,
 duplicate keys, depth limit and EOF truncations. Candidate gap checks:
 
 - TOML empty input -> `root` (the `onInitial` `DONE` path) — confirm the empty
-  case exists in `TomlCfgReaderTest`, add one if missing;
+  case exists in `TomlCfgOldReaderTest`, add one if missing;
 - JSON root `}` after EOF (`onAfterValue` `DONE` branch) — usually covered by
   the normal cases; confirm only.
 
@@ -665,7 +673,7 @@ duplicate keys, depth limit and EOF truncations. Candidate gap checks:
 - Each step is an atomic commit; on failure, revert that step only (note:
   AGENTS.md forbids git operations, so rollback is done manually by the
   implementer).
-- Behavior-preserving restructure: no new tests are required; the 71 black-box
+- Behavior-preserving restructure: no new tests are required; the 60 black-box
   tests are the complete regression net.
 
 ## 11. Estimated Diff Size

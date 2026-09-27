@@ -1,0 +1,17 @@
+{
+  "str": "hello",
+  "str_unicode": "héllo",
+  "int": 42,
+  "neg": -17,
+  "float": 3.14,
+  "exp": 1.5e3,
+  "exp_upper": 1.5E3,
+  "exp_plus": 1e+5,
+  "exp_minus": 1e-5,
+  "big": 9223372036854775807,
+  "neg_zero": -0.0,
+  "one": 1.0,
+  "zero": 0,
+  "bool_true": true,
+  "bool_false": false
+}

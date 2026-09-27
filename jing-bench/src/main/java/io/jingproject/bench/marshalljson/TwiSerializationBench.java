@@ -1,11 +1,15 @@
 package io.jingproject.bench.marshalljson;
 
+import io.helidon.json.binding.JsonBinding;
 import io.jingproject.bench.AbstractBench;
 import io.jingproject.bench.twi.Twi;
 import io.jingproject.common.HeapWriteBuffer;
 import io.jingproject.marshalljson.JsonSerializer;
 import io.jingproject.marshalljson.JsonSerializerOption;
-import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
@@ -37,19 +41,10 @@ public class TwiSerializationBench extends AbstractBench {
     private static final int SIZE = 819200;
     private final JsonMapper jsonMapper = JsonMapper.builder().propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).build();
     private final JsonSerializer jsonDefaultSerializer = new JsonSerializer(JsonSerializerOption.defaultOption());
+    private final JsonBinding helidonJsonBinding = JsonBinding.create();
     private final ByteArrayOutputStream outputStream = new ByteArrayOutputStream(SIZE);
     private final HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-    private Twi twi;
-
-    @Setup(Level.Trial)
-    public void setup() {
-        twi = jsonMapper.readValue(Twi.asString(), Twi.class);
-    }
-
-    @TearDown(Level.Trial)
-    public void tearDown() {
-        twi = null;
-    }
+    private final Twi twi = jsonMapper.readValue(Twi.asString(), Twi.class);
 
     @Benchmark
     public void jacksonSerialization(Blackhole blackhole) {
@@ -73,5 +68,12 @@ public class TwiSerializationBench extends AbstractBench {
         jsonDefaultSerializer.serializeMarshallableObject(twi, writeBuffer);
         blackhole.consume(writeBuffer.intPosition());
         writeBuffer.reset();
+    }
+
+    @Benchmark
+    public void helidonJsonSerialization(Blackhole blackhole) {
+        helidonJsonBinding.serialize(outputStream, twi);
+        blackhole.consume(outputStream.size());
+        outputStream.reset();
     }
 }

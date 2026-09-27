@@ -1,6 +1,7 @@
 import io.jingproject.common.log.LoggerFacade;
 
 module jing.common {
+    requires jdk.incubator.json;
     exports io.jingproject.common.anno;
     exports io.jingproject.common;
     exports io.jingproject.common.conf to jing.commontest;

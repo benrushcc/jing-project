@@ -1,583 +1,894 @@
 package io.jingproject.common.conf;
 
-import io.jingproject.common.HeapWriteBuffer;
-import io.jingproject.common.conf.Cfg.CfgItem;
-import io.jingproject.common.conf.Cfg.CfgList;
-import io.jingproject.common.conf.Cfg.CfgObject;
+import jdk.incubator.json.*;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.function.IntUnaryOperator;
 
-public sealed interface CfgReader {
-    CfgObject parse(int maxDepth) throws IOException;
+public sealed abstract class CfgReader permits CfgReader.JsonCfgReader, CfgReader.PropertiesCfgReader, CfgReader.TomlCfgReader {
 
-    final class JsonCfgReader implements CfgReader {
-        private record Frame(Map<String, Cfg> parent, String key) {}
+    public abstract Cfg.CfgObject parse(InputStream inputStream, int maxDepth);
 
-        private final PushbackInputStream input;
-        private final HeapWriteBuffer out = new HeapWriteBuffer(64);
-        private final Deque<Frame> frames = new ArrayDeque<>();
-        private Map<String, Cfg> current = new HashMap<>();
-        private String key = null;
-
-        public JsonCfgReader(InputStream input) {
-            this.input = new PushbackInputStream(input);
+    protected static void validateKey(String key) {
+        if (key == null || key.isEmpty()) {
+            throw new CfgException("key cannot be empty");
         }
-
-        private static void readJsonStrValue(InputStream input, HeapWriteBuffer output) throws IOException {
-            boolean escaping = false;
-            int b;
-            while ((b = input.read()) != -1) {
-                if (escaping) {
-                    switch (b) {
-                        case '\"' -> output.writeByte((byte) '\"');
-                        case '\\' -> output.writeByte((byte) '\\');
-                        case '/' -> output.writeByte((byte) '/');
-                        case 'b' -> output.writeByte((byte) '\b');
-                        case 'f' -> output.writeByte((byte) '\f');
-                        case 'n' -> output.writeByte((byte) '\n');
-                        case 'r' -> output.writeByte((byte) '\r');
-                        case 't' -> output.writeByte((byte) '\t');
-                        case 'u' -> {
-                            int codePoint = CfgUtil.readUnicode(input, 4);
-                            if (codePoint instanceof char highSurrogate && Character.isHighSurrogate(highSurrogate)) {
-                                CfgUtil.assume(input, '\\');
-                                CfgUtil.assume(input, 'u');
-                                int lowSurrogateCodePoint = CfgUtil.readUnicode(input, 4);
-                                if (lowSurrogateCodePoint instanceof char lowSurrogate && Character.isLowSurrogate(lowSurrogate) && Character.isSurrogatePair(highSurrogate, lowSurrogate)) {
-                                    codePoint = Character.toCodePoint(highSurrogate, lowSurrogate);
-                                }
-                            }
-                            output.writeCodePointInUtf8(codePoint);
-                        }
-                        default -> throw new CfgException("invalid escape sequence: " + b);
-                    }
-                    escaping = false;
-                } else {
-                    if (b == '\\') {
-                        escaping = true;
-                    } else if (b == '"') {
-                        return;
-                    } else {
-                        output.writeByte((byte) b);
-                    }
+        for (int i = 0; i < key.length(); i++) {
+            char c = key.charAt(i);
+            if((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+                continue ;
+            }
+            if(c == '_' || c == '-') {
+                if(i == 0 || i == key.length() - 1) {
+                    throw new CfgException("key must not start or end with '_' or '-'");
                 }
-            }
-            throw new CfgException("EOF reached");
-        }
-
-        // the constructed reader can only parse once, further parse is undefined behavior
-        public CfgObject parse(int maxDepth) throws IOException {
-            if (maxDepth <= 0) {
-                throw new CfgException("invalid max depth: " + maxDepth);
-            }
-            State state = State.INITIAL;
-            while (state != State.DONE) {
-                state = switch (state) {
-                    case INITIAL -> onInitial();
-                    case OBJ_START -> onObjStart(maxDepth);
-                    case AFTER_VALUE -> onAfterValue();
-                    case EXPECT_KEY -> onExpectKey();
-                    case KEY_READ -> onKeyRead();
-                    case COLON -> onColon();
-                    case EXPECT_VALUE -> onExpectValue();
-                    case ARRAY -> onArray();
-                    case DONE -> throw new AssertionError();
-                };
-            }
-            int tail = CfgUtil.ignore(input, ' ', '\t', '\r', '\n');
-            if (tail != -1) {
-                throw new CfgException("Corrupted json configuration");
-            }
-            return new CfgObject(current);
-        }
-
-        private State onInitial() throws IOException {
-            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-            if (b != '{') {
-                throw new CfgException("Corrupted json configuration");
-            }
-            return State.OBJ_START;
-        }
-
-        private State onObjStart(int maxDepth) throws IOException {
-            if (key != null) {
-                if (frames.size() + 2 > maxDepth) {
-                    throw new CfgException("maximum nesting depth exceeded");
+                char before = key.charAt(i - 1);
+                char after = key.charAt(i + 1);
+                if(before == '_' || before == '-' || after == '_' || after == '-') {
+                    throw new CfgException("key must not contain consecutive '-' or '_' characters");
                 }
-                frames.addLast(new Frame(current, key));
-                current = new HashMap<>();
-                key = null;
-            }
-            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-            if (b == '}' && key == null && frames.isEmpty()) {
-                // root object closed, exit the parse loop
-                return State.DONE;
-            }
-            if (b == '}') {
-                // empty nested object, resolve the frame that was pushed above
-                if (!frames.isEmpty()) {
-                    Frame frame = frames.pollLast();
-                    if (frame.parent().putIfAbsent(frame.key(), new CfgObject(current)) != null) {
-                        throw new CfgException("Duplicate key: " + frame.key());
-                    }
-                    current = frame.parent();
-                }
-                return State.AFTER_VALUE;
-            }
-            if (b == '"') {
-                return State.KEY_READ;
-            }
-            throw new CfgException("Corrupted json configuration");
-        }
-
-        private State onAfterValue() throws IOException {
-            int b = CfgUtil.ignore(input, ' ', '\t', '\r', '\n');
-            if (b == ',') {
-                return State.EXPECT_KEY;
-            }
-            if (b == '}') {
-                Frame frame = frames.pollLast();
-                if (frame == null) {
-                    return State.DONE;
-                }
-                key = frame.key();
-                if (frame.parent().putIfAbsent(key, new CfgObject(current)) != null) {
-                    throw new CfgException("Duplicate key: " + key);
-                }
-                current = frame.parent();
-                key = null;
-                return State.AFTER_VALUE;
-            }
-            if (b == -1) {
-                throw new CfgException("EOF reached");
-            }
-            throw new CfgException("Corrupted json configuration");
-        }
-
-        private State onExpectKey() throws IOException {
-            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-            if (b == '"') {
-                return State.KEY_READ;
-            }
-            throw new CfgException("Corrupted json configuration");
-        }
-
-        private State onKeyRead() throws IOException {
-            CfgUtil.search(input, out, '"');
-            key = CfgUtil.readCfgKey(out.rawByteArray(), 0, out.intPosition());
-            out.reset();
-            return State.COLON;
-        }
-
-        private State onColon() throws IOException {
-            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-            if (b != ':') {
-                throw new CfgException("Corrupted json configuration");
-            }
-            return State.EXPECT_VALUE;
-        }
-
-        private State onExpectValue() throws IOException {
-            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-            if (b == '{') {
-                return State.OBJ_START;
-            }
-            if (b == '[') {
-                return State.ARRAY;
-            }
-            storeItem(readScalarValue(b));
-            return State.AFTER_VALUE;
-        }
-
-        private State onArray() throws IOException {
-            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-            if (b == ']') {
-                storeList(new ArrayList<>());
-                return State.AFTER_VALUE;
-            }
-            List<String> list = new ArrayList<>();
-            for (;;) {
-                list.add(readScalarValue(b));
-                b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-                if (b == ']') {
-                    break;
-                }
-                if (b != ',') {
-                    throw new CfgException("Corrupted json configuration");
-                }
-                b = CfgUtil.ignoreTillEOF(input, ' ', '\t', '\r', '\n');
-            }
-            storeList(list);
-            return State.AFTER_VALUE;
-        }
-
-        private String readScalarValue(int firstByte) throws IOException {
-            if (firstByte == '"') {
-                readJsonStrValue(input, out);
-                String str = new String(out.rawByteArray(), 0, out.intPosition(), StandardCharsets.UTF_8);
-                out.reset();
-                return str;
-            }
-            if (firstByte == '-' || (firstByte >= '0' && firstByte <= '9')) {
-                String num = CfgUtil.readJsonNumber(input, firstByte, out);
-                out.reset();
-                return num;
-            }
-            if (firstByte == 't' || firstByte == 'f') {
-                String bool = CfgUtil.readJsonBool(input, firstByte, out);
-                out.reset();
-                return bool;
-            }
-            throw new CfgException("Corrupted json configuration");
-        }
-
-        private void storeItem(String value) {
-            if (current.putIfAbsent(key, new CfgItem(value)) != null) {
-                throw new CfgException("Duplicate key: " + key);
-            }
-            key = null;
-        }
-
-        private void storeList(List<String> value) {
-            if (current.putIfAbsent(key, new CfgList(value)) != null) {
-                throw new CfgException("Duplicate key: " + key);
-            }
-            key = null;
-        }
-
-        enum State {
-            INITIAL,       // find the opening '{' of the root object
-            OBJ_START,     // entering an object: push a frame if a key is pending, expect '}' or '"'
-            AFTER_VALUE,   // a value just completed: expect ',' or '}' (root '}' -> DONE)
-            EXPECT_KEY,    // expect the opening '"' of a key
-            KEY_READ,      // reading the key content up to the closing '"'
-            COLON,         // expect the ':' separator
-            EXPECT_VALUE,  // dispatch on the first byte of a value
-            ARRAY,         // parsing array elements
-            DONE,          // root object finished, exit the loop
-        }
-    }
-
-    final class PropertiesCfgReader implements CfgReader {
-        private final InputStream input;
-
-        public PropertiesCfgReader(InputStream input) {
-            this.input = input;
-        }
-
-        private static Cfg buildCfgObject(String value) {
-            if (value.startsWith("[") && value.endsWith("]")) {
-                String arrStr = value.substring(1, Math.subtractExact(value.length(), 1));
-                List<String> arrItems = new ArrayList<>();
-                for (String item : arrStr.split(",")) {
-                    if (!item.isBlank()) {
-                        arrItems.add(item);
-                    }
-                }
-                return new CfgList(arrItems);
-            }
-            return new CfgItem(value);
-        }
-
-        public CfgObject parse(int maxDepth) throws IOException {
-            if (maxDepth <= 0) {
-                throw new CfgException("invalid max depth: " + maxDepth);
-            }
-            CfgObject r = new CfgObject(new HashMap<>());
-            CfgObject current = r;
-            Properties prop = new Properties();
-            try (Reader reader = new InputStreamReader(input, StandardCharsets.UTF_8)) {
-                prop.load(reader);
-                for (String key : prop.stringPropertyNames()) {
-                    if (key.isBlank()) {
-                        continue;
-                    }
-                    String value = prop.getProperty(key);
-                    if (value.isBlank()) {
-                        continue;
-                    }
-                    byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
-                    List<String> nestedKeys = CfgUtil.readCfgNestedKey(keyBytes, 0, keyBytes.length, maxDepth);
-                    switch (nestedKeys.size()) {
-                        case 0 -> throw new CfgException("invalid key: " + key);
-                        case 1 -> {
-                            if (current.value().putIfAbsent(nestedKeys.getLast(), buildCfgObject(value)) != null) {
-                                throw new CfgException("Duplicate key: " + key);
-                            }
-                        }
-                        default -> {
-                            for (String nestedKey : nestedKeys.subList(0, nestedKeys.size() - 1)) {
-                                Map<String, Cfg> currentMap = current.value();
-                                Cfg currentObj = currentMap.get(nestedKey);
-                                if (currentObj == null) {
-                                    CfgObject cm = new CfgObject(new HashMap<>());
-                                    currentMap.put(nestedKey, cm);
-                                    current = cm;
-                                } else if (currentObj instanceof CfgObject cm) {
-                                    current = cm;
-                                } else {
-                                    throw new CfgException("Duplicate key: " + key);
-                                }
-                            }
-                            if (current.value().putIfAbsent(nestedKeys.getLast(), buildCfgObject(value)) != null) {
-                                throw new CfgException("Duplicate key: " + key);
-                            }
-                            current = r;
-                        }
-                    }
-                }
-                return r;
+            } else {
+                throw new CfgException("illegal key : " + key);
             }
         }
     }
 
-    final class TomlCfgReader implements CfgReader {
-        private final PushbackInputStream input;
-        private final HeapWriteBuffer out = new HeapWriteBuffer(64);
-        private final CfgObject root = new CfgObject(new HashMap<>());
-        private final Set<String> tables = new HashSet<>();
-        private CfgObject current = root;
-        private String key = null;
+    public static final class JsonCfgReader extends CfgReader {
 
-        public TomlCfgReader(InputStream input) {
-            this.input = new PushbackInputStream(input);
+        @Override
+        public Cfg.CfgObject parse(InputStream inputStream, int maxDepth) {
+            String json;
+            try {
+                json = StandardCharsets.UTF_8
+                        .newDecoder()
+                        .onMalformedInput(CodingErrorAction.REPORT)
+                        .onUnmappableCharacter(CodingErrorAction.REPORT)
+                        .decode(ByteBuffer.wrap(inputStream.readAllBytes()))
+                        .toString();
+            } catch (CharacterCodingException e) {
+                throw new CfgException("invalid utf8 json configuration", e);
+            } catch (IOException e) {
+                throw new CfgException("failed to read json configuration", e);
+            }
+            JsonValue jsonValue;
+            try {
+                jsonValue = Json.parse(json);
+            } catch (RuntimeException e) {
+                throw new CfgException("failed to parse json configuration", e);
+            }
+            if(jsonValue instanceof JsonObject jsonObject) {
+                return toCfgObject(jsonObject, maxDepth);
+            }
+            throw new CfgException("not a json object");
         }
 
-        // based on https://toml.io/en/v1.1.0#comment
-        private static boolean rejectCommentControlCharacter(int b) {
-            return (b >= 0x0000 && b <= 0x0008) || (b >= 0x000A && b <= 0x001F) || b == 0x007F;
+        private value record Frame(
+                JsonObject object,
+                java.util.Iterator<Map.Entry<String, JsonValue>> iterator,
+                int depth) {
         }
 
-        private static void readTomlStrValue(InputStream input, HeapWriteBuffer output) throws IOException {
-            boolean escaping = false;
-            int b;
-            while ((b = input.read()) != -1) {
-                if (escaping) {
-                    switch (b) {
-                        case 'b' -> output.writeByte((byte) '\b');
-                        case 't' -> output.writeByte((byte) '\t');
-                        case 'n' -> output.writeByte((byte) '\n');
-                        case 'f' -> output.writeByte((byte) '\f');
-                        case 'r' -> output.writeByte((byte) '\r');
-                        case 'e' -> output.writeByte((byte) '\u001B');
-                        case '"' -> output.writeByte((byte) '\"');
-                        case '\\' -> output.writeByte((byte) '\\');
-                        case 'x' -> {
-                            int codePoint = CfgUtil.readUnicode(input, 2);
-                            if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
-                                throw new CfgException("invalid surrogate code point: " + codePoint);
-                            }
-                            output.writeCodePointInUtf8(codePoint);
+        private static List<String> toStrList(List<JsonValue> values) {
+            List<String> result = new ArrayList<>(values.size());
+            for (JsonValue value : values) {
+                switch (value) {
+                    case JsonString jsonString -> {
+                        String v = jsonString.asString();
+                        if(v == null || v.isBlank()) {
+                            throw new CfgException("empty json string value");
                         }
-                        case 'u' -> {
-                            int codePoint = CfgUtil.readUnicode(input, 4);
-                            if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
-                                throw new CfgException("invalid surrogate code point: " + codePoint);
-                            }
-                            output.writeCodePointInUtf8(codePoint);
-                        }
-                        case 'U' -> {
-                            int codePoint = CfgUtil.readUnicode(input, 8);
-                            if (!Character.isValidCodePoint(codePoint)) {
-                                throw new CfgException("invalid code point: " + codePoint);
-                            }
-                            if (codePoint instanceof char charCodePoint && Character.isSurrogate(charCodePoint)) {
-                                throw new CfgException("invalid surrogate code point: " + codePoint);
-                            }
-                            output.writeCodePointInUtf8(codePoint);
-                        }
-                        default -> throw new CfgException("invalid escape sequence: " + b);
+                        result.add(v);
                     }
-                    escaping = false;
-                } else {
-                    if (b == '\\') {
-                        escaping = true;
-                    } else if (b == '"') {
-                        return;
-                    } else {
-                        output.writeByte((byte) b);
+                    case JsonNumber jsonNumber -> {
+                        String v = jsonNumber.toString();
+                        if(v == null || v.isBlank()) {
+                            throw new CfgException("empty json number value");
+                        }
+                        result.add(v);
                     }
+                    case JsonBoolean jsonBoolean -> {
+                        String v = jsonBoolean.toString();
+                        if(v == null || v.isBlank()) {
+                            throw new CfgException("empty json boolean value");
+                        }
+                        result.add(v);
+                    }
+                    case JsonNull _ -> throw new CfgException("null not allowed in json configuration");
+                    default -> throw new CfgException("unsupported recursive array or object");
                 }
             }
-            throw new CfgException("EOF reached");
+            return result;
         }
 
-        public CfgObject parse(int maxDepth) throws IOException {
-            if (maxDepth <= 0) {
-                throw new CfgException("invalid max depth: " + maxDepth);
+        private static Cfg toCfg(String key, JsonValue value, IdentityHashMap<JsonObject, Cfg.CfgObject> result) {
+            return switch (value) {
+                case JsonString jsonString -> {
+                    String v = jsonString.asString();
+                    if(v == null || v.isBlank()) {
+                        throw new CfgException("empty json string value");
+                    }
+                    yield new Cfg.CfgItem(jsonString.asString());
+                }
+                case JsonNumber jsonNumber -> {
+                    String v = jsonNumber.toString();
+                    if(v == null || v.isBlank()) {
+                        throw new CfgException("empty json number value");
+                    }
+                    yield new Cfg.CfgItem(v);
+                }
+                case JsonBoolean jsonBoolean -> {
+                    String v = jsonBoolean.toString();
+                    if(v == null || v.isBlank()) {
+                        throw new CfgException("empty json number value");
+                    }
+                    yield new Cfg.CfgItem(jsonBoolean.toString());
+                }
+                case JsonArray jsonArray -> {
+                    List<JsonValue> v = jsonArray.asList();
+                    if(v == null || v.isEmpty()) {
+                        throw new CfgException("empty json array value");
+                    }
+                    yield new Cfg.CfgList(toStrList(v));
+                }
+                case JsonObject jsonObject -> {
+                    Cfg.CfgObject cfgObject = result.get(jsonObject);
+                    if (cfgObject == null) {
+                        throw new CfgException("child object has not been converted : " + key);
+                    }
+                    yield cfgObject;
+                }
+                case JsonNull _ -> throw new CfgException("null not allowed in json configuration");
+            };
+        }
+
+        public static Cfg.CfgObject toCfgObject(JsonObject root, int maxDepth) {
+            IdentityHashMap<JsonObject, Cfg.CfgObject> result = new IdentityHashMap<>();
+            ArrayDeque<Frame> stack = new ArrayDeque<>();
+            stack.push(new Frame(root, root.asMap().entrySet().iterator(), 1));
+            while (!stack.isEmpty()) {
+                Frame frame = stack.peek();
+                if (frame.iterator().hasNext()) {
+                    Map.Entry<String, JsonValue> entry = frame.iterator().next();
+                    JsonValue value = entry.getValue();
+                    if (value instanceof JsonObject child && !result.containsKey(child)) {
+                        int childDepth = Math.incrementExact(frame.depth());
+                        if (childDepth > maxDepth) {
+                            throw new CfgException("maximum json object nesting depth exceeded : " + maxDepth);
+                        }
+                        stack.push(new Frame(child, child.asMap().entrySet().iterator(), childDepth));
+                    }
+                    continue;
+                }
+                Map<String, Cfg> cfgMap = new LinkedHashMap<>(frame.object().asMap().size());
+                for (Map.Entry<String, JsonValue> entry : frame.object().asMap().entrySet()) {
+                    String key = entry.getKey();
+                    validateKey(key);
+                    cfgMap.put(key, toCfg(key, entry.getValue(), result));
+                }
+                result.put(frame.object(), new Cfg.CfgObject(cfgMap));
+                stack.pop();
             }
-            State state = State.INITIAL;
-            while (state != State.DONE) {
-                state = switch (state) {
-                    case INITIAL -> onInitial();
-                    case COMMENT -> onComment();
-                    case TABLE_START -> onTableStart(maxDepth);
-                    case VALUE_END -> onValueEnd();
-                    case KEY_READ -> onKeyRead();
-                    case VALUE_START -> onValueStart();
-                    case ARRAY -> onArray();
-                    case DONE -> throw new AssertionError();
-                };
+            return result.get(root);
+        }
+    }
+
+    public static final class PropertiesCfgReader extends CfgReader {
+
+        @Override
+        public Cfg.CfgObject parse(InputStream inputStream, int maxDepth) {
+            Properties properties = new Properties();
+            try (Reader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8)) {
+                properties.load(reader);
+            } catch (IOException e) {
+                throw new CfgException("failed to parse properties configuration", e);
+            }
+            Cfg.CfgObject root = new Cfg.CfgObject(new HashMap<>());
+            for (String key : properties.stringPropertyNames()) {
+                int start = 0;
+                int end;
+                while ((end = key.indexOf('.', start)) != -1) {
+                    String part = key.substring(start, end);
+                    validateKey(part);
+                    start = end + 1;
+                }
+                validateKey(key.substring(start));
+                String value = properties.getProperty(key);
+                if (value == null || value.isBlank()) {
+                    throw new CfgException("empty property value not supported, key : " + key);
+                }
+                insert(root, key, parseCfg(key, value), maxDepth);
             }
             return root;
         }
 
-        private State onInitial() throws IOException {
-            int b = CfgUtil.ignore(input, ' ', '\t', '\r', '\n');
-            if (b == -1) {
-                return State.DONE;
-            }
-            if (b == '#') {
-                return State.COMMENT;
-            }
-            if (b == '[') {
-                return State.TABLE_START;
-            }
-            out.writeByte((byte) b);
-            return State.KEY_READ;
-        }
-
-        private State onComment() throws IOException {
-            int b;
-            while ((b = input.read()) != -1 && b != '\r' && b != '\n') {
-                if (rejectCommentControlCharacter(b)) {
-                    throw new CfgException("Corrupt toml configuration");
+        private static void insert(Cfg.CfgObject root, String key, Cfg cfg, int maxDepth) {
+            Cfg.CfgObject current = root;
+            int start = 0;
+            int depth = 1;
+            for( ; ; ) {
+                int index = key.indexOf('.', start);
+                if (index < 0) {
+                    if (start == key.length()) {
+                        throw new CfgException("empty properties key segment : " + key);
+                    }
+                    String leaf = key.substring(start);
+                    if (leaf.isBlank()) {
+                        throw new CfgException("empty properties key segment : " + key);
+                    }
+                    if (current.value().putIfAbsent(leaf, cfg) != null) {
+                        throw new CfgException("duplicate properties key : " + key);
+                    }
+                    return;
                 }
-            }
-            return b == -1 ? State.DONE : State.INITIAL;
-        }
-
-        private State onTableStart(int maxDepth) throws IOException {
-            current = root;
-            CfgUtil.search(input, out, ']');
-            int nestedKeyLen = out.intPosition();
-            if (nestedKeyLen == 0) {
-                throw new CfgException("Corrupt toml configuration");
-            }
-            String nestedKeyStr = new String(out.rawByteArray(), 0, nestedKeyLen, StandardCharsets.US_ASCII);
-            if (!tables.add(nestedKeyStr)) {
-                throw new CfgException("Duplicate table: " + nestedKeyStr);
-            }
-            for (String nestedKey : CfgUtil.readCfgNestedKey(out.rawByteArray(), 0, nestedKeyLen, maxDepth)) {
-                Map<String, Cfg> currentMap = current.value();
-                Cfg currentObj = currentMap.get(nestedKey);
-                if (currentObj == null) {
-                    CfgObject cm = new CfgObject(new HashMap<>());
-                    currentMap.put(nestedKey, cm);
-                    current = cm;
-                } else if (currentObj instanceof CfgObject cm) {
-                    current = cm;
+                if (index == start) {
+                    throw new CfgException("empty properties key segment : " + key);
+                }
+                if (++depth > maxDepth) {
+                    throw new CfgException("maximum properties configuration depth exceeded : " + maxDepth);
+                }
+                String part = key.substring(start, index);
+                if (part.isBlank()) {
+                    throw new CfgException("empty properties key segment : " + key);
+                }
+                Cfg child = current.value().get(part);
+                if (child == null) {
+                    Cfg.CfgObject object = new Cfg.CfgObject(new HashMap<>());
+                    current.value().put(part, object);
+                    current = object;
+                } else if (child instanceof Cfg.CfgObject object) {
+                    current = object;
                 } else {
-                    throw new CfgException("Duplicate table: " + nestedKeyStr);
+                    throw new CfgException("conflicts properties key with existing : " + key);
                 }
+                start = index + 1;
             }
-            out.reset();
-            return State.VALUE_END;
         }
 
-        private State onValueEnd() throws IOException {
-            int b = CfgUtil.ignore(input, ' ', '\t');
-            if (b == -1) {
-                return State.DONE;
+        private static Cfg parseCfg(String key, String value) {
+            if (value.length() >= 2 && value.charAt(0) == '[' && value.charAt(value.length() - 1) == ']') {
+                return parseCfgList(key, value);
             }
-            if (b == '\r' || b == '\n') {
-                return State.INITIAL;
-            }
-            if (b == '#') {
-                return State.COMMENT;
-            }
-            throw new CfgException("Corrupt toml configuration");
+            return new Cfg.CfgItem(value);
         }
 
-        private State onKeyRead() throws IOException {
-            int b = CfgUtil.search(input, out, ' ', '\t', '=');
-            key = CfgUtil.readCfgKey(out.rawByteArray(), 0, out.intPosition());
-            out.reset();
-            if (b != '=') {
-                b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-                if (b != '=') {
-                    throw new CfgException("Corrupt toml configuration");
-                }
-            }
-            return State.VALUE_START;
-        }
-
-        private State onValueStart() throws IOException {
-            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-            if (b == '[') {
-                return State.ARRAY;
-            }
-            storeItem(readScalarValue(b));
-            return State.VALUE_END;
-        }
-
-        private State onArray() throws IOException {
-            int b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-            if (b == ']') {
-                storeList(new ArrayList<>());
-                return State.VALUE_END;
-            }
-            List<String> list = new ArrayList<>();
-            for (;;) {
-                list.add(readScalarValue(b));
-                b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
-                if (b == ']') {
+        private static Cfg.CfgList parseCfgList(String key, String value) {
+            int start = 1;
+            int end = value.length() - 1;
+            List<String> values = new ArrayList<>();
+            for( ; ; ) {
+                int comma = value.indexOf(',', start);
+                if (comma < 0 || comma >= end) {
+                    String item = value.substring(start, end);
+                    if (item.isBlank()) {
+                        throw new CfgException("empty properties list item for key : " + key);
+                    }
+                    values.add(item);
                     break;
                 }
-                if (b != ',') {
-                    throw new CfgException("Corrupt toml configuration");
+                String item = value.substring(start, comma);
+                if (item.isBlank()) {
+                    throw new CfgException("empty properties list item for key : " + key);
                 }
-                b = CfgUtil.ignoreTillEOF(input, ' ', '\t');
+                values.add(item);
+                start = comma + 1;
             }
-            storeList(list);
-            return State.VALUE_END;
+            return new Cfg.CfgList(values);
+        }
+    }
+
+    public static final class TomlCfgReader extends CfgReader {
+        @Override
+        public Cfg.CfgObject parse(InputStream inputStream, int maxDepth) {
+            byte[] src;
+            try {
+                src = inputStream.readAllBytes();
+            } catch (IOException e) {
+                throw new CfgException("failed to parse toml configuration", e);
+            }
+            return new TomlParser(src, maxDepth).parse();
         }
 
-        private String readScalarValue(int firstByte) throws IOException {
-            if (firstByte == '"') {
-                readTomlStrValue(input, out);
-                String str = new String(out.rawByteArray(), 0, out.intPosition(), StandardCharsets.UTF_8);
-                out.reset();
-                return str;
-            }
-            if (firstByte == '-' || firstByte == '+' || (firstByte >= '0' && firstByte <= '9')) {
-                String num = CfgUtil.readTomlNumber(input, firstByte, out);
-                out.reset();
-                return num;
-            }
-            if (firstByte == 't' || firstByte == 'f' || firstByte == 'i' || firstByte == 'n') {
-                String word = CfgUtil.readTomlWord(input, firstByte, out);
-                out.reset();
-                return word;
-            }
-            throw new CfgException("Corrupt toml configuration");
-        }
+        private static class TomlParser {
+            private final byte[] bytes;
+            private final int maxDepth;
+            private final Set<Cfg.CfgObject> explicitTables;
+            private final Set<Cfg.CfgObject> stdExprTables;
+            private int pos = 0;
 
-        private void storeItem(String value) {
-            if (current.value().putIfAbsent(key, new CfgItem(value)) != null) {
-                throw new CfgException("Duplicate key: " + key);
+            public TomlParser(byte[] bytes, int maxDepth) {
+                this.bytes = bytes;
+                this.maxDepth = maxDepth;
+                this.explicitTables = Collections.newSetFromMap(new IdentityHashMap<>());
+                this.stdExprTables = Collections.newSetFromMap(new IdentityHashMap<>());
             }
-            key = null;
-        }
 
-        private void storeList(List<String> value) {
-            if (current.value().putIfAbsent(key, new CfgList(value)) != null) {
-                throw new CfgException("Duplicate key: " + key);
+            public Cfg.CfgObject parse() {
+                Cfg.CfgObject root = new Cfg.CfgObject(new LinkedHashMap<>());
+                Cfg.CfgObject cur = root;
+                int curDepth = 0;
+                int value;
+                for( ; ; ) {
+                    skipWs();
+                    if(pos == bytes.length) {
+                        break ;
+                    }
+                    value = bytes[pos++] & 0xFF;
+                    if(newLine(value)) {
+                        continue ;
+                    }
+                    if(value == '#') {
+                        skipComment();
+                        if(pos == bytes.length) {
+                            break ;
+                        }
+                        continue ;
+                    }
+                    if(value == '[') {
+                        skipWs();
+                        List<String> dottedKey = parseDottedKey(']');
+                        curDepth = dottedKey.size();
+                        if(curDepth > maxDepth) {
+                            throw new CfgException("max depth exceeded : " + curDepth);
+                        }
+                        cur = defineTable(root, dottedKey);
+                    } else {
+                        pos--;
+                        List<String> dottedKey = parseDottedKey('=');
+                        int dp = Math.addExact(curDepth, dottedKey.size());
+                        if(dp > maxDepth) {
+                            throw new CfgException("max depth exceeded : " + dp);
+                        }
+                        skipWs();
+                        setValue(cur, dottedKey, parseValue());
+                    }
+                    skipWs();
+                    if(pos == bytes.length) {
+                        break ;
+                    }
+                    value = bytes[pos++] & 0xFF;
+                    if(value == '#') {
+                        skipComment();
+                        if(pos == bytes.length) {
+                            break ;
+                        }
+                        continue ;
+                    }
+                    if(!newLine(value)) {
+                        throw new CfgException("invalid line end : " + value);
+                    }
+                }
+                return root;
             }
-            key = null;
-        }
 
-        enum State {
-            INITIAL,       // skip whitespace, detect EOF / '#' / '[' / key start
-            COMMENT,       // skip to EOL, validate control characters
-            TABLE_START,   // read '[table.header]' and navigate `current`
-            VALUE_END,     // after a value: expect newline, EOF, or '#'
-            KEY_READ,      // read the key up to '='
-            VALUE_START,   // dispatch on the first byte of a value
-            ARRAY,         // parsing array elements
-            DONE,          // EOF reached, exit the loop
+            private void skipWs() {
+                while (pos < bytes.length) {
+                    int value = bytes[pos] & 0xFF;
+                    if(value != ' ' && value != '\t') {
+                        return ;
+                    }
+                    pos++;
+                }
+            }
+
+            private boolean newLine(int value) {
+                if(value == '\r') {
+                    if(pos == bytes.length || bytes[pos++] != (byte) '\n') {
+                        throw new CfgException("single CR not allowed");
+                    }
+                    return true;
+                }
+                return value == '\n';
+            }
+
+            private boolean invalidCharacter(int value) {
+                return (value < 0x20 && value != '\t') || value == 0x7f;
+            }
+
+            private void skipComment() {
+                while (pos < bytes.length) {
+                    int value = bytes[pos++] & 0xFF;
+                    if(newLine(value)) {
+                        return ;
+                    }
+                    if (invalidCharacter(value)) {
+                        throw new CfgException("control character not allowed in comment : " + value);
+                    }
+                }
+            }
+
+            private List<String> parseDottedKey(int end) {
+                List<String> r = new ArrayList<>();
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                while (pos < bytes.length) {
+                    int value = bytes[pos++] & 0xFF;
+                    if(value == '"') {
+                        parseBasicString(out);
+                    }else if (value == '\'') {
+                        parseLiteralString(out);
+                    } else if (value == '.') {
+                        if (out.size() == 0) {
+                            throw new CfgException("empty key part not allowed");
+                        }
+                        r.add(out.toString(StandardCharsets.UTF_8));
+                        out.reset();
+                    } else if (value == end) {
+                        if (out.size() == 0) {
+                            throw new CfgException("empty key part not allowed");
+                        }
+                        r.add(out.toString(StandardCharsets.UTF_8));
+                        r.forEach(CfgReader::validateKey);
+                        return r;
+                    } else if(value == ' ' || value == '\t') {
+                        while (pos < bytes.length) {
+                            value = bytes[pos] & 0xFF;
+                            if(value != ' ' && value != '\t') {
+                                break ;
+                            }
+                            pos++;
+                        }
+                        if (pos >= bytes.length || value != end) {
+                            throw new CfgException("key closure not found after identation");
+                        }
+                    } else {
+                        out.write(value);
+                    }
+                }
+                throw new CfgException("eof reached while parsing dotted key");
+            }
+
+            private void parseBasicString(ByteArrayOutputStream out) {
+                while (pos < bytes.length) {
+                    int value = bytes[pos] & 0xFF;
+                    if(value == '"') {
+                        pos++;
+                        return ;
+                    }
+                    if (value == '\\') {
+                        pos++;
+                        parseEscape(out);
+                        continue ;
+                    }
+                    if(invalidCharacter(value)) {
+                        throw new CfgException("invalid ctrl character in basic string");
+                    }
+                    out.write(value);
+                    pos++;
+                }
+                throw new CfgException("eof reached while parsing basic string");
+            }
+
+            private void parseLiteralString(ByteArrayOutputStream out) {
+                while (pos < bytes.length) {
+                    int value = bytes[pos] & 0xFF;
+                    if(value == '\'') {
+                        pos++;
+                        return ;
+                    }
+                    if(invalidCharacter(value)) {
+                        throw new CfgException("invalid ctrl character in literal string");
+                    }
+                    pos++;
+                    out.write(value);
+                }
+                throw new CfgException("eof reached while parsing literal string");
+            }
+
+            private void parseEscape(ByteArrayOutputStream out) {
+                if (pos >= bytes.length) {
+                    throw new CfgException("eof reached while parsing escaped sequence");
+                }
+                int value = bytes[pos++] & 0xFF;
+                switch (value) {
+                    case 'b'  -> out.write('\b');
+                    case 't'  -> out.write('\t');
+                    case 'n'  -> out.write('\n');
+                    case 'f'  -> out.write('\f');
+                    case 'r'  -> out.write('\r');
+                    case 'e'  -> out.write('\u001B');
+                    case '"'  -> out.write('"');
+                    case '\\' -> out.write('\\');
+                    case 'x'  -> {
+                        int v = readHexDigits(2);
+                        if (!Character.isValidCodePoint(v) || (v instanceof char c && Character.isSurrogate(c))) {
+                            throw new CfgException("invalid surrogate in \\x escape");
+                        }
+                        writeUtf8(out, v);
+                    }
+                    case 'u'  -> {
+                        int v = readHexDigits(4);
+                        if (!Character.isValidCodePoint(v) || (v instanceof char c && Character.isSurrogate(c))) {
+                            throw new CfgException("invalid surrogate in \\u escape");
+                        }
+                        writeUtf8(out, v);
+                    }
+                    case 'U' -> {
+                        int v = readHexDigits(8);
+                        if (!Character.isValidCodePoint(v) || (v instanceof char c && Character.isSurrogate(c))) {
+                            throw new CfgException("invalid surrogate in \\U escape");
+                        }
+                        writeUtf8(out, v);
+                    }
+                    default  -> throw new CfgException("invalid escape sequence : " + value);
+                }
+            }
+
+            private int readHexDigits(int n) {
+                if (pos > bytes.length - n) {
+                    throw new CfgException("eof reached while reading hex digits");
+                }
+                int v = 0;
+                for (int i = 0; i < n; i++) {
+                    int digit = hexDigit(bytes[pos++] & 0xFF);
+                    if(digit < 0) {
+                        throw new CfgException("invalid hex digit : " + digit);
+                    }
+                    v = (v << 4) | digit;
+                }
+                return v;
+            }
+
+            private static int binaryDigit(int value) {
+                if(value == '0') {
+                    return 0;
+                } else if(value == '1') {
+                    return 1;
+                } else {
+                    return -1;
+                }
+            }
+
+            private static int octalDigit(int value) {
+                if(value >= '0' && value <= '7') {
+                    return value - '0';
+                } else {
+                    return -1;
+                }
+            }
+
+            private static int hexDigit(int value) {
+                if(value >= '0' && value <= '9') {
+                    return value - '0';
+                } else if(value >= 'A' && value <= 'F') {
+                    return value - 'A' + 10;
+                } else if(value >= 'a' && value <= 'f') {
+                    return value - 'a' + 10;
+                } else {
+                    return -1;
+                }
+            }
+
+            private static void writeUtf8(ByteArrayOutputStream out, int cp) {
+                if (cp < 0x80) {
+                    out.write(cp);
+                } else if (cp < 0x800) {
+                    out.write(0xC0 | (cp >> 6));
+                    out.write(0x80 | (cp & 0x3F));
+                } else if (cp < 0x10000) {
+                    out.write(0xE0 | (cp >> 12));
+                    out.write(0x80 | ((cp >> 6) & 0x3F));
+                    out.write(0x80 | (cp & 0x3F));
+                } else {
+                    out.write(0xF0 | (cp >> 18));
+                    out.write(0x80 | ((cp >> 12) & 0x3F));
+                    out.write(0x80 | ((cp >> 6) & 0x3F));
+                    out.write(0x80 | (cp & 0x3F));
+                }
+            }
+
+            private Cfg.CfgObject defineTable(Cfg.CfgObject root, List<String> parts) {
+                Cfg.CfgObject tab = root;
+                for (int i = 0; i < parts.size() - 1; i++) {
+                    tab = findOrCreate(tab, parts.get(i), true);
+                }
+                String lastKey = parts.getLast();
+                Map<String, Cfg> m = tab.value();
+                Cfg existing = m.get(lastKey);
+                if (existing == null) {
+                    Cfg.CfgObject nt = new Cfg.CfgObject(new LinkedHashMap<>());
+                    m.put(lastKey, nt);
+                    explicitTables.add(nt);
+                    return nt;
+                }
+                if (existing instanceof Cfg.CfgObject obj) {
+                    // explicit tables and dotted-key-created tables cannot be
+                    // redefined by a header; only header-created intermediates can
+                    if (explicitTables.contains(obj) || !stdExprTables.contains(obj)) {
+                        throw new CfgException("table already defined: " + lastKey);
+                    }
+                    explicitTables.add(obj);
+                    return obj;
+                }
+                throw new CfgException("cannot locate table at key " + lastKey);
+            }
+
+            private Cfg.CfgObject findOrCreate(Cfg.CfgObject tab, String part, boolean stdExpr) {
+                Map<String, Cfg> m = tab.value();
+                Cfg v = m.get(part);
+                switch (v) {
+                    case null -> {
+                        Cfg.CfgObject nt = new Cfg.CfgObject(new LinkedHashMap<>());
+                        m.put(part, nt);
+                        if (stdExpr) {
+                            stdExprTables.add(nt);
+                        }
+                        return nt;
+                    }
+                    case Cfg.CfgObject obj -> {
+                        return obj;
+                    }
+                    case Cfg.CfgList _ -> throw new CfgException("key already defined as configuration list");
+                    case Cfg.CfgItem _ -> throw new CfgException("key already defined as configuration item");
+                }
+            }
+
+            private void setValue(Cfg.CfgObject curTab, List<String> parts, Cfg value) {
+                Cfg.CfgObject tab = curTab;
+                for (int i = 0; i < parts.size() - 1; i++) {
+                    tab = findOrCreate(tab, parts.get(i), false);
+                }
+                String lastKey = parts.getLast();
+                Map<String, Cfg> m = tab.value();
+                if (m.containsKey(lastKey)) {
+                    throw new CfgException("duplicate key: " + lastKey);
+                }
+                m.put(lastKey, value);
+            }
+
+            private List<String> parseArray() {
+                List<String> r = new ArrayList<>();
+                for( ; ; ) {
+                    skipWs();
+                    if(pos == bytes.length) {
+                        throw new CfgException("eof reached while parsing array");
+                    }
+                    int value = bytes[pos++] & 0xFF;
+                    switch (value) {
+                        case '"' -> {
+                            ByteArrayOutputStream out = new ByteArrayOutputStream();
+                            parseBasicString(out);
+                            r.add(out.toString(StandardCharsets.UTF_8));
+                        }
+                        case '\'' -> {
+                            ByteArrayOutputStream out = new ByteArrayOutputStream();
+                            parseLiteralString(out);
+                            r.add(out.toString(StandardCharsets.UTF_8));
+                        }
+                        case 't' -> r.add(parseTrue());
+                        case 'f' -> r.add(parseFalse());
+                        case ']' -> {
+                            return r;
+                        }
+                        default -> {
+                            if ((value >= '0' && value <= '9') || value == '+' || value == '-' || value == 'i' || value == 'n') {
+                                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                                parseNumber(value, out);
+                                r.add(out.toString(StandardCharsets.UTF_8));
+                            } else {
+                                throw new CfgException("invalid value");
+                            }
+                        }
+                    }
+                    skipWs();
+                    if(pos == bytes.length) {
+                        throw new CfgException("eof reached while parsing array");
+                    }
+                    value = bytes[pos++] & 0xFF;
+                    if(value == ']') {
+                        return r;
+                    } else if(value != ',') {
+                        throw new CfgException("missing comma");
+                    }
+                }
+            }
+
+            private String parseTrue() {
+                if(pos > bytes.length - 3) {
+                    throw new CfgException("eof reached while parsing 'true' value");
+                }
+                if(bytes[pos] != (byte) 'r' || bytes[pos + 1] != (byte) 'u' || bytes[pos + 2] != (byte) 'e') {
+                    throw new CfgException("invalid bool value for 'true'");
+                }
+                pos += 3;
+                return "true";
+            }
+
+            private String parseFalse() {
+                if(pos > bytes.length - 4) {
+                    throw new CfgException("eof reached while parsing 'false' value");
+                }
+                if(bytes[pos] != (byte) 'a' || bytes[pos + 1] != (byte) 'l' || bytes[pos + 2] != (byte) 's' || bytes[pos + 3] != (byte) 'e') {
+                    throw new CfgException("invalid bool value for 'false'");
+                }
+                pos += 4;
+                return "false";
+            }
+
+            private Cfg parseValue() {
+                if (pos >= bytes.length) {
+                    throw new CfgException("eof reached while parsing value");
+                }
+                int value = bytes[pos++] & 0xFF;
+                switch (value) {
+                    case '"' -> {
+                        ByteArrayOutputStream out = new ByteArrayOutputStream();
+                        parseBasicString(out);
+                        return new Cfg.CfgItem(out.toString(StandardCharsets.UTF_8));
+                    }
+                    case '\'' -> {
+                        ByteArrayOutputStream out = new ByteArrayOutputStream();
+                        parseLiteralString(out);
+                        return new Cfg.CfgItem(out.toString(StandardCharsets.UTF_8));
+                    }
+                    case '{' -> throw new CfgException("inline tables not supported");
+                    case '[' -> {
+                        return new Cfg.CfgList(parseArray());
+                    }
+                    case 't' -> {
+                        return new Cfg.CfgItem(parseTrue());
+                    }
+                    case 'f' -> {
+                        return new Cfg.CfgItem(parseFalse());
+                    }
+                    default -> {
+                        if ((value >= '0' && value <= '9') || value == '+' || value == '-' || value == 'i' || value == 'n') {
+                            ByteArrayOutputStream out = new ByteArrayOutputStream();
+                            parseNumber(value, out);
+                            return new Cfg.CfgItem(out.toString(StandardCharsets.UTF_8));
+                        }
+                        throw new CfgException("invalid value");
+                    }
+                }
+            }
+
+            private void parseInf(int sign, ByteArrayOutputStream out) {
+                if(pos > bytes.length - 2) {
+                    throw new CfgException("eof reached while parsing 'inf' value");
+                }
+                if(bytes[pos] != (byte) 'n' || bytes[pos + 1] != (byte) 'f') {
+                    throw new CfgException("invalid value for 'inf'");
+                }
+                pos += 2;
+                out.writeBytes(sign < 0 ? "-Infinity".getBytes(StandardCharsets.US_ASCII) : "Infinity".getBytes(StandardCharsets.US_ASCII));
+            }
+
+            private void parseNan(int sign, ByteArrayOutputStream out) {
+                if(pos > bytes.length - 2) {
+                    throw new CfgException("eof reached while parsing 'nan' value");
+                }
+                if(bytes[pos] != (byte) 'a' || bytes[pos + 1] != (byte) 'n') {
+                    throw new CfgException("invalid value for 'nan'");
+                }
+                pos += 2;
+                out.writeBytes(sign < 0 ? "-NaN".getBytes(StandardCharsets.US_ASCII) : "NaN".getBytes(StandardCharsets.US_ASCII));
+            }
+
+            private void parseNumber(int first, ByteArrayOutputStream out) {
+                int sign = 0;
+                if(first == '+' || first == '-') {
+                    if(pos == bytes.length) {
+                        throw new CfgException("eof reached while parsing number value");
+                    }
+                    sign = first == '-' ? -1 : 1;
+                    first = bytes[pos++] & 0xFF;
+                }
+                if(first == '0') {
+                    parseZeroOrRadix(sign, out);
+                    return ;
+                }
+                if(first == 'i') {
+                    parseInf(sign, out);
+                    return ;
+                }
+                if(first == 'n') {
+                    parseNan(sign, out);
+                    return ;
+                }
+                parseDecimal(first, sign, out);
+            }
+
+            private void parseZeroOrRadix(int sign, ByteArrayOutputStream out) {
+                if(pos == bytes.length) {
+                    out.write('0');
+                    return ;
+                }
+                int value = bytes[pos] & 0xFF;
+                int radix;
+                IntUnaryOperator op;
+                if(value == 'x') {
+                    radix = 16;
+                    op = TomlParser::hexDigit;
+                } else if(value == 'o') {
+                    radix = 8;
+                    op = TomlParser::octalDigit;
+                } else if(value == 'b') {
+                    radix = 2;
+                    op = TomlParser::binaryDigit;
+                } else if(value == '.' || value == 'e' || value == 'E') {
+                    parseDecimal('0', sign, out);
+                    return ;
+                } else {
+                    out.write('0');
+                    return ;
+                }
+                if(sign != 0) {
+                    throw new CfgException("sign not allowed for non-decimal value");
+                }
+                pos++;
+                long acc = 0L;
+                boolean expectDigit = true;
+                while (pos < bytes.length) {
+                    byte v = bytes[pos];
+                    if (v == '_') {
+                        if (expectDigit) {
+                            throw new CfgException("underscore must follow a digit");
+                        }
+                        expectDigit = true;
+                        pos++;
+                        continue ;
+                    }
+                    int digit = op.applyAsInt(v);
+                    if(digit < 0) {
+                        break ;
+                    }
+                    try {
+                        acc = Math.multiplyExact(acc, radix);
+                        acc = Math.addExact(acc, digit);
+                    } catch (ArithmeticException e) {
+                        throw new CfgException("integer overflow");
+                    }
+                    expectDigit = false;
+                    pos++;
+                }
+                if (expectDigit) {
+                    throw new CfgException("missing digit");
+                }
+                out.writeBytes(Long.toString(acc).getBytes(StandardCharsets.US_ASCII));
+            }
+
+            private void parseDecimal(int first, int sign, ByteArrayOutputStream out) {
+                if(sign == 1) {
+                    out.write('+');
+                } else if(sign == -1) {
+                    out.write('-');
+                }
+                out.write(first);
+                boolean expectDigit = false;
+                while (pos < bytes.length) {
+                    int value = bytes[pos] & 0xFF;
+                    boolean special = value == '.' || value == 'e' || value == 'E' || value == '+' || value == '-';
+                    if ((value >= '0' && value <= '9') || special) {
+                        out.write(value == 'e' ? 'E' : value);
+                        expectDigit = special;
+                        pos++;
+                    }else if(value == '_') {
+                        if (expectDigit || pos >= bytes.length - 1 || bytes[pos + 1] < '0' || bytes[pos + 1] > '9') {
+                            throw new CfgException("underscore must be surrounded by at least one digit on each side");
+                        }
+                        expectDigit = true;
+                        pos++;
+                    } else {
+                        break ;
+                    }
+                }
+                String str = out.toString(StandardCharsets.US_ASCII);
+                if (expectDigit) {
+                    throw new CfgException("corrupted toml number format : " + str);
+                }
+                try {
+                    if (str.indexOf('.') > 0 || str.indexOf('E') > 0) {
+                        double _ = Double.parseDouble(str);
+                    } else {
+                        long _ = Long.parseLong(str);
+                    }
+                } catch (NumberFormatException e) {
+                    throw new CfgException("corrupted toml number format : " + str);
+                }
+            }
         }
     }
 }

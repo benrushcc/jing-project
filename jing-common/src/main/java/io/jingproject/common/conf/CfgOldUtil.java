@@ -6,12 +6,13 @@ import io.jingproject.common.WriteBuffer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PushbackInputStream;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class CfgUtil {
-    private CfgUtil() {
+public final class CfgOldUtil {
+    private CfgOldUtil() {
         throw new UnsupportedOperationException("utility class");
     }
 
@@ -250,7 +251,7 @@ public final class CfgUtil {
                 if (hasSign) {
                     throw new CfgException("invalid toml integer: sign not allowed for radix literal");
                 }
-                return accumulateRadix(p, d);
+                return accumulateRadix(p, d, buf);
             }
             if (d >= '0' && d <= '9') {
                 throw new CfgException("invalid toml integer: leading zero: " + d);
@@ -275,11 +276,9 @@ public final class CfgUtil {
                 buf.writeByte((byte) '-');
             }
             buf.writeByte((byte) b);
-            long acc = -(b - '0');
-            boolean overflow = false;
             boolean lastWasUnderscore = false;
             int d = p.read();
-            while (d >= '0' && d <= '9' || d == '_') {
+            while ((d >= '0' && d <= '9') || d == '_') {
                 if (d == '_') {
                     if (lastWasUnderscore) {
                         throw new CfgException("invalid toml integer: adjacent underscore");
@@ -288,19 +287,6 @@ public final class CfgUtil {
                 } else {
                     lastWasUnderscore = false;
                     buf.writeByte((byte) d);
-                    if (!overflow) {
-                        int digit = d - '0';
-                        if (acc < Long.MIN_VALUE / 10) {
-                            overflow = true;
-                        } else {
-                            acc = acc * 10;
-                            if (acc < Long.MIN_VALUE + digit) {
-                                overflow = true;
-                            } else {
-                                acc = acc - digit;
-                            }
-                        }
-                    }
                 }
                 d = p.read();
             }
@@ -313,18 +299,7 @@ public final class CfgUtil {
             if (d != -1) {
                 p.unread(d);
             }
-            if (overflow) {
-                throw new CfgException("integer literal out of range: " + new String(buf.rawByteArray(), 0, buf.intPosition(), StandardCharsets.US_ASCII));
-            }
-            long value;
-            if (negative) {
-                value = acc;
-            } else if (acc == Long.MIN_VALUE) {
-                throw new CfgException("integer literal out of range");
-            } else {
-                value = -acc;
-            }
-            return Long.toString(value);
+            return new String(buf.rawByteArray(), 0, buf.intPosition(), StandardCharsets.US_ASCII);
         }
         throw new CfgException("invalid toml number: " + b);
     }
@@ -333,7 +308,7 @@ public final class CfgUtil {
         PushbackInputStream p = asPushback(input);
         buf.reset();
         if (firstByte == 't' || firstByte == 'f') {
-            String literal = firstByte == 't' ? "true" : "false";
+            String literal = Boolean.toString(firstByte == 't');
             for (int i = 1; i < literal.length(); i++) {
                 int b = p.read();
                 if (b != literal.charAt(i)) {
@@ -383,7 +358,7 @@ public final class CfgUtil {
         throw new CfgException("invalid toml value: " + word);
     }
 
-    private static String accumulateRadix(PushbackInputStream p, int prefixByte) throws IOException {
+    private static String accumulateRadix(PushbackInputStream p, int prefixByte, HeapWriteBuffer buf) throws IOException {
         int radix;
         if (prefixByte == 'x' || prefixByte == 'X') {
             radix = 16;
@@ -392,7 +367,6 @@ public final class CfgUtil {
         } else {
             radix = 2;
         }
-        long acc = 0;
         boolean hasDigit = false;
         boolean lastWasUnderscore = false;
         int b = p.read();
@@ -401,14 +375,7 @@ public final class CfgUtil {
             if (digit >= 0) {
                 hasDigit = true;
                 lastWasUnderscore = false;
-                if (acc < Long.MIN_VALUE / radix) {
-                    throw new CfgException("integer literal out of range: " + b);
-                }
-                acc = acc * radix;
-                if (acc < Long.MIN_VALUE + digit) {
-                    throw new CfgException("integer literal out of range: " + b);
-                }
-                acc = acc - digit;
+                buf.writeByte((byte) b);
             } else if (b == '_') {
                 if (lastWasUnderscore || !hasDigit) {
                     throw new CfgException("invalid toml integer: misplaced underscore");
@@ -428,10 +395,8 @@ public final class CfgUtil {
         if (b != -1) {
             p.unread(b);
         }
-        if (acc == Long.MIN_VALUE) {
-            throw new CfgException("integer literal out of range");
-        }
-        return Long.toString(-acc);
+        String digits = new String(buf.rawByteArray(), 0, buf.intPosition(), StandardCharsets.US_ASCII);
+        return new BigInteger(digits, radix).toString();
     }
 
     private static int radixDigitValue(int b, int radix) {
