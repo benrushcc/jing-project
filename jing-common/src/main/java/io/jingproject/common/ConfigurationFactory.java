@@ -1,6 +1,6 @@
 package io.jingproject.common;
 
-import io.jingproject.common.conf.DefaultOldConfigurationFacade;
+import io.jingproject.common.conf.DefaultConfigurationFacade;
 
 import java.util.List;
 import java.util.Optional;
@@ -9,7 +9,7 @@ import java.util.ServiceLoader;
 public final class ConfigurationFactory {
     private static final LazyConstant<ConfigurationFacade> FACTORY = LazyConstant.of(() -> Anchor.compute(ConfigurationFacade.class, () -> {
         Optional<ConfigurationFacade> cf = ServiceLoader.load(ConfigurationFacade.class).findFirst();
-        return cf.orElseGet(DefaultOldConfigurationFacade::new);
+        return cf.orElseGet(DefaultConfigurationFacade::new);
     }));
 
     private ConfigurationFactory() {

@@ -254,7 +254,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
 
     private static byte[] makeHexTable() {
         byte[] table = new byte[Byte.MAX_VALUE - Byte.MIN_VALUE + 1];
-        Arrays.fill(table, Byte.MIN_VALUE);
+        Arrays.fill(table, (byte) -1); // -1 has all bits set, so left-shifting it preserves the sign bit and the value remains negative.
         for(int i = '0'; i <= '9'; i++) {
             table[i] = (byte) (i - '0');
         }
@@ -877,15 +877,16 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             }
         }
 
-        private char deserializeHexFromHeap() {
+        private int deserializeHexFromHeap() {
             int i1 = HEX_TABLE[bytes[position++] & 0xFF];
             int i2 = HEX_TABLE[bytes[position++] & 0xFF];
             int i3 = HEX_TABLE[bytes[position++] & 0xFF];
             int i4 = HEX_TABLE[bytes[position++] & 0xFF];
-            if((i1 | i2 | i3 | i4) < 0) {
+            int v = (i1 << 12) | (i2 << 8) | (i3 << 4) | i4;
+            if(v < 0) {
                 throw new JsonDeserializerException("illegal escaped unicode sequence");
             }
-            return (char) ((i1 << 12) | (i2 << 8) | (i3 << 4) | i4);
+            return v;
         }
 
         private char deserializeEscapedChar() {
@@ -897,11 +898,11 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
                 if(position > bytes.length - 4) {
                     throw new JsonDeserializerException("illegal escaped unicode sequence");
                 }
-                char r = deserializeHexFromHeap();
-                if(Character.isSurrogate(r)) {
+                int v = deserializeHexFromHeap();
+                if(v >= 0xD800 && v <= 0xDFFF) {
                     throw new JsonDeserializerException("illegal escaped unicode surrogate sequence");
                 }
-                return r;
+                return (char) v;
             }
             byte b = ESCAPE_TABLE[escaped & 0xFF];
             if(b == 0) {
@@ -1018,17 +1019,17 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
                 if(position > end - 4) {
                     throw new JsonDeserializerException("illegal escaped unicode sequence");
                 }
-                char c = deserializeHexFromHeap();
-                charBuffer[index++] = c;
-                if(Character.isHighSurrogate(c)) {
+                int v = deserializeHexFromHeap();
+                charBuffer[index++] = (char) v;
+                if(v >= 0xD800 && v <= 0xDBFF) {
                     if(position > end - 6 || bytes[position++] != '\\' || bytes[position++] != 'u') {
                         throw new JsonDeserializerException("illegal escaped surrogate unicode sequence");
                     }
-                    char c2 = deserializeHexFromHeap();
-                    if(!Character.isLowSurrogate(c2)) {
+                    int v2 = deserializeHexFromHeap();
+                    if(v2 < 0xDC00 || v2 > 0xDFFF) {
                         throw new JsonDeserializerException("illegal escaped low surrogate unicode sequence");
                     }
-                    charBuffer[index++] = c2;
+                    charBuffer[index++] = (char) v2;
                 }
             } else {
                 byte escaped = ESCAPE_TABLE[i];
@@ -1046,7 +1047,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             int end = Math.min(option.maxStringBytes(), bytes.length - position) + position;
             int index = copyAscii(end);
             while (position < end) {
-                ensureCharBufferCapacity(Math.addExact(index, 2));
+                ensureCharBufferCapacity(index + 2); // safe, char capacity can never exceed bytes length
                 int i = bytes[position++] & 0xFF;
                 if(i == '"') {
                     return new String(charBuffer, 0, index);
@@ -1105,13 +1106,13 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
                 if(position > end - 4) {
                     throw new JsonDeserializerException("illegal escaped unicode sequence");
                 }
-                char c = deserializeHexFromHeap();
-                if(Character.isHighSurrogate(c)) {
+                int v = deserializeHexFromHeap();
+                if(v >= 0xD800 && v <= 0xDBFF) {
                     if(position > end - 6 || bytes[position++] != '\\' || bytes[position++] != 'u') {
                         throw new JsonDeserializerException("illegal escaped surrogate unicode sequence");
                     }
-                    char c2 = deserializeHexFromHeap();
-                    if(!Character.isLowSurrogate(c2)) {
+                    int v2 = deserializeHexFromHeap();
+                    if(v2 < 0xDC00 || v2 > 0xDFFF) {
                         throw new JsonDeserializerException("illegal escaped low surrogate unicode sequence");
                     }
                 }
@@ -1241,15 +1242,16 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             }
         }
 
-        private char deserializeHexFromSegment() {
+        private int deserializeHexFromSegment() {
             int i1 = HEX_TABLE[SegmentAccess.getByte(segment, position++) & 0xFF];
             int i2 = HEX_TABLE[SegmentAccess.getByte(segment, position++) & 0xFF];
             int i3 = HEX_TABLE[SegmentAccess.getByte(segment, position++) & 0xFF];
             int i4 = HEX_TABLE[SegmentAccess.getByte(segment, position++) & 0xFF];
-            if((i1 | i2 | i3 | i4) < 0) {
+            int v = (i1 << 12) | (i2 << 8) | (i3 << 4) | i4;
+            if(v < 0) {
                 throw new JsonDeserializerException("illegal escaped unicode sequence");
             }
-            return (char) ((i1 << 12) | (i2 << 8) | (i3 << 4) | i4);
+            return v;
         }
 
         private char deserializeEscapedChar() {
@@ -1261,11 +1263,11 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
                 if(position > segment.byteSize() - 4) {
                     throw new JsonDeserializerException("illegal escaped unicode sequence");
                 }
-                char r = deserializeHexFromSegment();
-                if(Character.isSurrogate(r)) {
+                int v = deserializeHexFromSegment();
+                if(v >= 0xD800 && v <= 0xDFFF) {
                     throw new JsonDeserializerException("illegal escaped unicode surrogate sequence");
                 }
-                return r;
+                return (char) v;
             }
             byte b = ESCAPE_TABLE[escaped & 0xFF];
             if(b == 0) {
@@ -1382,17 +1384,17 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
                 if(position > end - 4L) {
                     throw new JsonDeserializerException("illegal escaped unicode sequence");
                 }
-                char c = deserializeHexFromSegment();
-                charBuffer[index++] = c;
-                if(Character.isHighSurrogate(c)) {
+                int v = deserializeHexFromSegment();
+                charBuffer[index++] = (char) v;
+                if(v >= 0xD800 && v <= 0xDBFF) {
                     if(position > end - 6L || SegmentAccess.getByte(segment, position++) != '\\' || SegmentAccess.getByte(segment, position++) != 'u') {
                         throw new JsonDeserializerException("illegal escaped surrogate unicode sequence");
                     }
-                    char c2 = deserializeHexFromSegment();
-                    if(!Character.isLowSurrogate(c2)) {
+                    int v2 = deserializeHexFromSegment();
+                    if(v2 < 0xDC00 || v2 > 0xDFFF) {
                         throw new JsonDeserializerException("illegal escaped low surrogate unicode sequence");
                     }
-                    charBuffer[index++] = c2;
+                    charBuffer[index++] = (char) v2;
                 }
             } else {
                 byte escaped = ESCAPE_TABLE[i];
@@ -1410,7 +1412,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             long end = Math.min(option.maxStringBytes(), segment.byteSize() - position) + position;
             int index = copyAscii(end);
             while (position < end) {
-                ensureCharBufferCapacity(Math.addExact(index, 2));
+                ensureCharBufferCapacity(index + 2); // safe, char capacity can never exceed bytes length
                 int i = SegmentAccess.getByte(segment, position++) & 0xFF;
                 if(i == '"') {
                     return new String(charBuffer, 0, index);
@@ -1469,13 +1471,13 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
                 if(position > end - 4L) {
                     throw new JsonDeserializerException("illegal escaped unicode sequence");
                 }
-                char c = deserializeHexFromSegment();
-                if(Character.isHighSurrogate(c)) {
+                int v = deserializeHexFromSegment();
+                if(v >= 0xD800 && v <= 0xDBFF) {
                     if(position > end - 6L || SegmentAccess.getByte(segment, position++) != '\\' || SegmentAccess.getByte(segment, position++) != 'u') {
                         throw new JsonDeserializerException("illegal escaped surrogate unicode sequence");
                     }
-                    char c2 = deserializeHexFromSegment();
-                    if(!Character.isLowSurrogate(c2)) {
+                    int v2 = deserializeHexFromSegment();
+                    if(v2 < 0xDC00 || v2 > 0xDFFF) {
                         throw new JsonDeserializerException("illegal escaped low surrogate unicode sequence");
                     }
                 }

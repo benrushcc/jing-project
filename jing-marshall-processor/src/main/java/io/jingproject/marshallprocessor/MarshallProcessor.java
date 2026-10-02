@@ -106,6 +106,10 @@ public final class MarshallProcessor extends AbstractProcessor {
         if (t.getModifiers().contains(Modifier.ABSTRACT)) {
             throw new AnnotationProcessorException("abstract class can not be annotated with @Marshallable");
         }
+        // must be non-value class
+        if (t.getModifiers().contains(Modifier.VALUE)) {
+            throw new AnnotationProcessorException("value class can not be annotated with @Marshallable");
+        }
         // if using inheritance, must be annotated with @Marshallable in the same module
         Elements elements = processingEnv.getElementUtils();
         Types typeUtils = processingEnv.getTypeUtils();

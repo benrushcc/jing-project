@@ -24,7 +24,7 @@ public final class UtfUtil {
         } else {
             do {
                 c = (char) random.nextInt(0x800, 0x10000);
-            } while (Character.isSurrogate(c));
+            } while (c >= 0xD800 && c <= 0xDFFF);
         }
         sb.append(c);
     }

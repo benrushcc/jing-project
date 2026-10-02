@@ -494,21 +494,21 @@ public sealed abstract class CfgReader permits CfgReader.JsonCfgReader, CfgReade
                     case '\\' -> out.write('\\');
                     case 'x'  -> {
                         int v = readHexDigits(2);
-                        if (!Character.isValidCodePoint(v) || (v instanceof char c && Character.isSurrogate(c))) {
+                        if(v < 0 || v > 0x10FFFF || (v >= 0xD800 && v <= 0xDFFF)) {
                             throw new CfgException("invalid surrogate in \\x escape");
                         }
                         writeUtf8(out, v);
                     }
                     case 'u'  -> {
                         int v = readHexDigits(4);
-                        if (!Character.isValidCodePoint(v) || (v instanceof char c && Character.isSurrogate(c))) {
+                        if(v < 0 || v > 0x10FFFF || (v >= 0xD800 && v <= 0xDFFF)) {
                             throw new CfgException("invalid surrogate in \\u escape");
                         }
                         writeUtf8(out, v);
                     }
                     case 'U' -> {
                         int v = readHexDigits(8);
-                        if (!Character.isValidCodePoint(v) || (v instanceof char c && Character.isSurrogate(c))) {
+                        if(v < 0 || v > 0x10FFFF || (v >= 0xD800 && v <= 0xDFFF)) {
                             throw new CfgException("invalid surrogate in \\U escape");
                         }
                         writeUtf8(out, v);

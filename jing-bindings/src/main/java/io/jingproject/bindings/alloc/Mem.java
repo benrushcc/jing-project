@@ -77,6 +77,7 @@ public final class Mem {
 
     // corresponds to C's memset()
     public static long memset(long src, byte ch, long count) {
-        return VM_BINDINGS.memset(src, Byte.toUnsignedInt(ch), count);
+        int i = ch & 0xFF;
+        return VM_BINDINGS.memset(src, i, count);
     }
 }

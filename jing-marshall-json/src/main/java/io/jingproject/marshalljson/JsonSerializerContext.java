@@ -652,7 +652,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
 
         @Override
         public void serializeChar(char value) {
-            if(Character.isSurrogate(value)) {
+            if(value >= 0xD800 && value <= 0xDFFF) {
                 throw new JsonSerializerException("surrogate not supported as single char : " + value);
             }
             ensureCapacity(8);
@@ -944,7 +944,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
         }
 
         private static int serializeCharToHeap4(char highSurrogate, char lowSurrogate, byte[] bytes, int position) {
-            int cp = Character.toCodePoint(highSurrogate, lowSurrogate);
+            int cp = ((highSurrogate - 0xD800) << 10) + (lowSurrogate - 0xDC00) + 0x10000;
             bytes[position++] = (byte) (0xF0 | (cp >> 18));
             bytes[position++] = (byte) (0x80 | ((cp >> 12) & 0x3F));
             bytes[position++] = (byte) (0x80 | ((cp >> 6) & 0x3F));
@@ -1025,7 +1025,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
 
         @Override
         public void serializeChar(char value) {
-            if(Character.isSurrogate(value)) {
+            if(value >= 0xD800 && value <= 0xDFFF) {
                 throw new JsonSerializerException("surrogate not supported as single char : " + value);
             }
             ensureCapacity(8L);
@@ -1317,7 +1317,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
         }
 
         private static long serializeCharToSegment4(char highSurrogate, char lowSurrogate, MemorySegment segment, long position) {
-            int cp = Character.toCodePoint(highSurrogate, lowSurrogate);
+            int cp = ((highSurrogate - 0xD800) << 10) + (lowSurrogate - 0xDC00) + 0x10000;
             SegmentAccess.setByte(segment, position++, (byte) (0xF0 | (cp >> 18)));
             SegmentAccess.setByte(segment, position++, (byte) (0x80 | ((cp >> 12) & 0x3F)));
             SegmentAccess.setByte(segment, position++, (byte) (0x80 | ((cp >> 6) & 0x3F)));
