@@ -2,6 +2,7 @@ package io.jingproject.marshallcbortest;
 
 import io.jingproject.common.HeapReadBuffer;
 import io.jingproject.common.HeapWriteBuffer;
+import io.jingproject.common.SegmentWriteBuffer;
 import io.jingproject.marshallcbor.CborDeserializer;
 import io.jingproject.marshallcbor.CborDeserializerOption;
 import io.jingproject.marshallcbor.CborSerializer;
@@ -9,6 +10,7 @@ import io.jingproject.marshallcbor.CborSerializerOption;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.foreign.Arena;
 import java.nio.charset.StandardCharsets;
 
 // text string (major 3) and byte string (major 2) tests with exact head byte
@@ -68,6 +70,41 @@ public class CborStringSerializationTest {
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
         SERIALIZER.serializeArray(arr, writeBuffer);
         Assertions.assertArrayEquals(hex("826060"), writeBuffer.toByteArray());
+    }
+
+    @Test
+    public void testSerializeStringWithAsciiEnds() {
+        String[] arr = {"a中b"};
+        HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
+        SERIALIZER.serializeArray(arr, writeBuffer);
+        Assertions.assertArrayEquals(hex("816561e4b8ad62"), writeBuffer.toByteArray());
+    }
+
+    @Test
+    public void testSerializeStringHeadGrowth() {
+        String[] oneByteHead = {"a".repeat(22) + "中"};
+        HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
+        SERIALIZER.serializeArray(oneByteHead, writeBuffer);
+        Assertions.assertArrayEquals(hex("817819" + "61".repeat(22) + "e4b8ad"),
+                writeBuffer.toByteArray());
+
+        String[] twoByteHead = {"a".repeat(253) + "中"};
+        writeBuffer = new HeapWriteBuffer(SIZE);
+        SERIALIZER.serializeArray(twoByteHead, writeBuffer);
+        Assertions.assertArrayEquals(hex("81790100" + "61".repeat(253) + "e4b8ad"),
+                writeBuffer.toByteArray());
+    }
+
+    @Test
+    public void testSerializeStringArraySegment() {
+        String[] arr = {"a".repeat(65), "中", "b"};
+        HeapWriteBuffer expectedBuffer = new HeapWriteBuffer(SIZE);
+        SERIALIZER.serializeArray(arr, expectedBuffer);
+        try (Arena arena = Arena.ofConfined()) {
+            SegmentWriteBuffer actualBuffer = new SegmentWriteBuffer(arena, SIZE);
+            SERIALIZER.serializeArray(arr, actualBuffer);
+            Assertions.assertArrayEquals(expectedBuffer.toByteArray(), actualBuffer.toByteArray());
+        }
     }
 
     @Test

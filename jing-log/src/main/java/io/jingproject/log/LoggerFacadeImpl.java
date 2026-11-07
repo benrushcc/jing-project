@@ -9,11 +9,7 @@ import io.jingproject.common.log.LogLevel;
 import io.jingproject.common.log.Logger;
 import io.jingproject.common.log.LoggerFacade;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.ServiceLoader;
+import java.util.*;
 import java.util.concurrent.locks.LockSupport;
 
 // the logging facade implementation: owns the mpsc queue, the single consumer

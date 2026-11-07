@@ -31,11 +31,9 @@ public final class UtfUtil {
 
     public static void appendSurrogate(StringBuilder sb) {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        int cp = random.nextInt(0x10000, 0x110000);
-        char[] chars = Character.toChars(cp);
-        for (char c : chars) {
-            sb.append(c);
-        }
+        int v = random.nextInt(0x100000);
+        sb.append((char) (0xD800 + (v >>> 10)))
+                .append((char) (0xDC00 + (v & 0x3FF)));
     }
 
     public static String randTypedString(String type, int size) {

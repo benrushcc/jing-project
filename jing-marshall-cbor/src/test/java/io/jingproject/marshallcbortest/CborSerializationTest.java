@@ -22,12 +22,11 @@ public class CborSerializationTest {
     private static final CborSerializer SERIALIZER = new CborSerializer(CborSerializerOption.defaultOption());
     private static final CborSerializer NULL_SERIALIZER = new CborSerializer(
             CborSerializerOption.builder().setSerializeNullInObjOrMap(true).build());
-    // round trips use deterministic encoding because the deserializer currently
-    // swallows the first key of an indefinite-length container head
-    private static final CborSerializer DETERMINISTIC_SERIALIZER = new CborSerializer(
-            CborSerializerOption.builder().setTransformerClasses(BigDecimalTransformer.class)
-                    .setDeterministicEncoding(true).build());
-    private static final CborDeserializer DETERMINISTIC_DESERIALIZER = new CborDeserializer(
+    // default encoding streams objects and maps with indefinite-length heads, so the
+    // round trip also exercises indefinite-length container decoding
+    private static final CborSerializer ROUND_TRIP_SERIALIZER = new CborSerializer(
+            CborSerializerOption.builder().setTransformerClasses(BigDecimalTransformer.class).build());
+    private static final CborDeserializer ROUND_TRIP_DESERIALIZER = new CborDeserializer(
             CborDeserializerOption.builder().setTransformerClasses(BigDecimalTransformer.class).build());
     private static final int SIZE = 1024;
 
@@ -42,26 +41,6 @@ public class CborSerializationTest {
         return r;
     }
 
-    private static byte[] floatBytes(float... values) {
-        ByteBuffer buffer = ByteBuffer.allocate(1 + values.length * 5);
-        buffer.put((byte) (0x80 | values.length));
-        for (float value : values) {
-            buffer.put((byte) 0xFA);
-            buffer.putInt(Float.floatToRawIntBits(value));
-        }
-        return buffer.array();
-    }
-
-    private static byte[] doubleBytes(double... values) {
-        ByteBuffer buffer = ByteBuffer.allocate(1 + values.length * 9);
-        buffer.put((byte) (0x80 | values.length));
-        for (double value : values) {
-            buffer.put((byte) 0xFB);
-            buffer.putLong(Double.doubleToRawLongBits(value));
-        }
-        return buffer.array();
-    }
-
     private static BeanEntity createBeanEntity() {
         BeanEntity entity = new BeanEntity();
         entity.setIntValue(42);
@@ -69,11 +48,11 @@ public class CborSerializationTest {
         entity.setStringValue("jing");
         entity.setEnumValue(EnumEntity.ENUM_ENTITY3);
         entity.setStringArray(new String[]{"hello", "world", "test"});
-        List<CborPrimitiveType> primitiveTypes = new ArrayList<>();
-        primitiveTypes.add(new CborBoolType(true));
-        primitiveTypes.add(new CborStrType("jing"));
-        primitiveTypes.add(new CborNumberType(42L));
-        entity.setCborPrimitiveTypeList(primitiveTypes);
+        List<CborValue> values = new ArrayList<>();
+        values.add(new CborBool(true));
+        values.add(new CborText("jing"));
+        values.add(new CborInteger(42L));
+        entity.setCborValueList(values);
         Map<String, BeanEntity> innerMap = new LinkedHashMap<>();
         BeanEntity k1 = new BeanEntity();
         k1.setIntValue(1);
@@ -88,8 +67,8 @@ public class CborSerializationTest {
 
     private static BeanEntity roundTripBeanEntity(BeanEntity entity) {
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        DETERMINISTIC_SERIALIZER.serializeMarshallableObject(entity, writeBuffer);
-        return DETERMINISTIC_DESERIALIZER.deserializeMarshallableObject(
+        ROUND_TRIP_SERIALIZER.serializeMarshallableObject(entity, writeBuffer);
+        return ROUND_TRIP_DESERIALIZER.deserializeMarshallableObject(
                 BeanEntity.class, new HeapReadBuffer(writeBuffer.toByteArray()));
     }
 
@@ -202,7 +181,13 @@ public class CborSerializationTest {
         float[] arr = {1.1f, 2.2f, 3.3f};
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
         SERIALIZER.serializeFloatArray(arr, writeBuffer);
-        Assertions.assertArrayEquals(floatBytes(arr), writeBuffer.toByteArray());
+        ByteBuffer expectedFloat = ByteBuffer.allocate(1 + arr.length * 5);
+        expectedFloat.put((byte) (0x80 | arr.length));
+        for (float value : arr) {
+            expectedFloat.put((byte) 0xFA);
+            expectedFloat.putInt(Float.floatToRawIntBits(value));
+        }
+        Assertions.assertArrayEquals(expectedFloat.array(), writeBuffer.toByteArray());
 
         writeBuffer = new HeapWriteBuffer(SIZE);
         SERIALIZER.serializeFloatArray(new float[0], writeBuffer);
@@ -214,7 +199,13 @@ public class CborSerializationTest {
         double[] arr = {1.11, 2.22, 3.33};
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
         SERIALIZER.serializeDoubleArray(arr, writeBuffer);
-        Assertions.assertArrayEquals(doubleBytes(arr), writeBuffer.toByteArray());
+        ByteBuffer expectedDouble = ByteBuffer.allocate(1 + arr.length * 9);
+        expectedDouble.put((byte) (0x80 | arr.length));
+        for (double value : arr) {
+            expectedDouble.put((byte) 0xFB);
+            expectedDouble.putLong(Double.doubleToRawLongBits(value));
+        }
+        Assertions.assertArrayEquals(expectedDouble.array(), writeBuffer.toByteArray());
 
         writeBuffer = new HeapWriteBuffer(SIZE);
         SERIALIZER.serializeDoubleArray(new double[0], writeBuffer);
@@ -240,12 +231,12 @@ public class CborSerializationTest {
                 "jing",
                 EnumEntity.ENUM_ENTITY3,
                 new String[]{"hello", "world", "test"},
-                new ArrayList<>(List.of(new CborBoolType(true), new CborStrType("jing"), new CborNumberType(42L))),
+                new ArrayList<>(List.of(new CborBool(true), new CborText("jing"), new CborInteger(42L))),
                 innerMap
         );
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        DETERMINISTIC_SERIALIZER.serializeMarshallableObject(entity, writeBuffer);
-        RecordEntity roundTripped = DETERMINISTIC_DESERIALIZER.deserializeMarshallableObject(
+        ROUND_TRIP_SERIALIZER.serializeMarshallableObject(entity, writeBuffer);
+        RecordEntity roundTripped = ROUND_TRIP_DESERIALIZER.deserializeMarshallableObject(
                 RecordEntity.class, new HeapReadBuffer(writeBuffer.toByteArray()));
         Assertions.assertEquals(entity, roundTripped);
     }
@@ -304,6 +295,63 @@ public class CborSerializationTest {
     }
 
     @Test
+    public void testCborValueRoundTrip() {
+        CborValue value = new CborArray(List.of(
+                new CborBool(true),
+                new CborInteger(-7),
+                CborFloat.ofDouble(1.5, CborFloatWidth.DOUBLE),
+                new CborText("中文"),
+                new CborBytesType(new byte[]{0, -1}),
+                new CborNull(),
+                new CborTaggedType(1000, new CborText("tagged")),
+                new CborMap(List.of(new CborMapEntry(new CborText("k"), new CborInteger(1))))
+        ));
+        HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
+        SERIALIZER.serializeCborValue(value, writeBuffer);
+        CborValue actual = ROUND_TRIP_DESERIALIZER.deserializeCborValue(
+                new HeapReadBuffer(writeBuffer.toByteArray()));
+        Assertions.assertEquals(value, actual);
+    }
+
+    @Test
+    public void testCborValueFloatPrecision() {
+        IllegalArgumentException ex = Assertions.assertThrows(IllegalArgumentException.class,
+                () -> CborFloat.ofDouble(0.1, CborFloatWidth.SINGLE));
+        Assertions.assertEquals("value not exactly representable as single : 0.1", ex.getMessage());
+
+        // a double NaN is allowed only when its payload is exactly representable
+        ex = Assertions.assertThrows(IllegalArgumentException.class,
+                () -> CborFloat.ofDouble(Double.longBitsToDouble(0x7FF8000000000001L), CborFloatWidth.SINGLE));
+        Assertions.assertEquals("value not exactly representable as single : NaN", ex.getMessage());
+
+        HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
+        CborFloat half = CborFloat.ofDouble(1.5, CborFloatWidth.HALF);
+        SERIALIZER.serializeCborValue(half, writeBuffer);
+        Assertions.assertEquals(half,
+                ROUND_TRIP_DESERIALIZER.deserializeCborValue(new HeapReadBuffer(writeBuffer.toByteArray())));
+
+        // canonical NaN and infinity are exactly representable in every width
+        CborFloat canonicalNaN = CborFloat.ofDouble(Double.NaN, CborFloatWidth.SINGLE);
+        writeBuffer = new HeapWriteBuffer(SIZE);
+        SERIALIZER.serializeCborValue(canonicalNaN, writeBuffer);
+        Assertions.assertEquals(canonicalNaN,
+                ROUND_TRIP_DESERIALIZER.deserializeCborValue(new HeapReadBuffer(writeBuffer.toByteArray())));
+
+        CborFloat infinity = CborFloat.ofDouble(Double.POSITIVE_INFINITY, CborFloatWidth.HALF);
+        writeBuffer = new HeapWriteBuffer(SIZE);
+        SERIALIZER.serializeCborValue(infinity, writeBuffer);
+        Assertions.assertEquals(infinity,
+                ROUND_TRIP_DESERIALIZER.deserializeCborValue(new HeapReadBuffer(writeBuffer.toByteArray())));
+
+        // a decoded nan payload is kept bit-for-bit, even when it is not canonical
+        CborFloat payloadNaN = new CborFloat(0x7FA00001L, CborFloatWidth.SINGLE);
+        writeBuffer = new HeapWriteBuffer(SIZE);
+        SERIALIZER.serializeCborValue(payloadNaN, writeBuffer);
+        Assertions.assertEquals(payloadNaN,
+                ROUND_TRIP_DESERIALIZER.deserializeCborValue(new HeapReadBuffer(writeBuffer.toByteArray())));
+    }
+
+    @Test
     public void testSerializeCollection() {
         List<Integer> list = new ArrayList<>(List.of(1, 2, 3));
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
@@ -314,14 +362,18 @@ public class CborSerializationTest {
         writeBuffer = new HeapWriteBuffer(SIZE);
         SERIALIZER.serializeCollection(set, Integer.class, writeBuffer);
         Assertions.assertArrayEquals(hex("9f010203ff"), writeBuffer.toByteArray());
+
+        writeBuffer = new HeapWriteBuffer(SIZE);
+        SERIALIZER.serializeCollection(new LinkedHashSet<Integer>(), Integer.class, writeBuffer);
+        Assertions.assertArrayEquals(hex("9fff"), writeBuffer.toByteArray());
     }
 
     @Test
     public void testSerializeRecursiveObject() {
         RecursiveEntity recursiveEntity = RecursiveEntity.createRecursiveEntity(3);
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        DETERMINISTIC_SERIALIZER.serializeMarshallableObject(recursiveEntity, writeBuffer);
-        RecursiveEntity roundTripped = DETERMINISTIC_DESERIALIZER.deserializeMarshallableObject(
+        ROUND_TRIP_SERIALIZER.serializeMarshallableObject(recursiveEntity, writeBuffer);
+        RecursiveEntity roundTripped = ROUND_TRIP_DESERIALIZER.deserializeMarshallableObject(
                 RecursiveEntity.class, new HeapReadBuffer(writeBuffer.toByteArray()));
         Assertions.assertEquals(recursiveEntity, roundTripped);
     }

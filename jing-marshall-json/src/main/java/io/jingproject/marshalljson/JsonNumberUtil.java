@@ -17,8 +17,7 @@ import java.util.Arrays;
 public final class JsonNumberUtil {
     public static final byte[] MIN_INT_BYTES = String.valueOf(Integer.MIN_VALUE).getBytes(StandardCharsets.US_ASCII);
     public static final byte[] MIN_LONG_BYTES = String.valueOf(Long.MIN_VALUE).getBytes(StandardCharsets.US_ASCII);
-    private static final int[] LEN_TABLE = makeLenTable();
-    private static final long[] POW_TABLE = makePowTable();
+    private static final long[] LZ_TABLE = makeLzTable();
     private static final short[] ITOA_LUT_TABLE = makeItoaLutTable();
 
     private static final FpSpec FLOAT_SPEC = new FpSpec(23, 8, -127, -189, 38, -45);
@@ -75,23 +74,21 @@ public final class JsonNumberUtil {
         throw new UnsupportedOperationException("utility class");
     }
 
-    // no overflow
-    private static int[] makeLenTable() {
-        int[] r = new int[64];
-        for (int i = 1; i <= 63; i++) {
-            long maxNum = -1L >>> i;
-            r[i] = String.valueOf(maxNum).getBytes(StandardCharsets.US_ASCII).length;
+    private static long[] makeLzTable() {
+        long[] table = new long[65];
+        table[0] = Long.MAX_VALUE; // not reachable, kept as a safety guard
+        table[64] = Long.MIN_VALUE; // not reachable, kept as a safety guard
+        for (int lz = 1; lz < 64; lz++) {
+            int e = (lz * 5) >>> 4;
+            long threshold;
+            try {
+                threshold = Math.powExact(10L, 19 - e) - 1L;
+            } catch (ArithmeticException ex) {
+                threshold = Long.MAX_VALUE;
+            }
+            table[lz] = threshold;
         }
-        return r;
-    }
-
-    // no overflow
-    private static long[] makePowTable() {
-        long[] r = new long[20];
-        for (int i = 2; i <= 19; i++) {
-            r[i] = Math.powExact(10L, i - 1);
-        }
-        return r;
+        return table;
     }
 
     // no overflow
@@ -158,22 +155,10 @@ public final class JsonNumberUtil {
         return num.divideAndRemainder(den);
     }
 
-    private static int digitCount(int n) {
-        int leadingZeros = Integer.numberOfLeadingZeros(n);
-        int count = LEN_TABLE[leadingZeros + Long.SIZE - Integer.SIZE];
-        if (n < POW_TABLE[count]) {
-            return count - 1;
-        }
-        return count;
-    }
-
-    private static int digitCount(long n) {
-        int leadingZeros = Long.numberOfLeadingZeros(n);
-        int count = LEN_TABLE[leadingZeros];
-        if (n < POW_TABLE[count]) {
-            return count - 1;
-        }
-        return count;
+    public static int digitCount(long n) {
+        int lz = Long.numberOfLeadingZeros(n);
+        int e  = (lz * 5) >>> 4;
+        return 20 - e - (n <= LZ_TABLE[lz] ? 1 : 0);
     }
 
     public static void writeInt(int value, WriteBuffer writeBuffer) {
@@ -862,19 +847,6 @@ public final class JsonNumberUtil {
             position++;
         }
         return new Nfi(d, position);
-//        final int origin = position;
-//        while(position < end) {
-//            int v = bytes[position] - '0';
-//            if(v < 0 || v > 9) {
-//                break ;
-//            }
-//            d = d * 10L + v;
-//            position++;
-//        }
-//        if(origin == position) {
-//            throw new JsonDeserializerException("leading period with no digits");
-//        }
-//        return new Nfi(d, position);
     }
 
     private static Npi readNpFromHeap(byte[] bytes, int position, int end) {
@@ -991,18 +963,6 @@ public final class JsonNumberUtil {
             position++;
         }
         return new Nfl(d, position);
-//        if(position >= end) {
-//            throw new JsonDeserializerException("leading period with no digits");
-//        }
-//        while(position < end) {
-//            int v = SegmentAccess.getByte(segment, position) - '0';
-//            if(v < 0 || v > 9) {
-//                break ;
-//            }
-//            d = d * 10L + v;
-//            position++;
-//        }
-//        return new Nfl(d, position);
     }
 
     private static Npl readNpFromSegment(MemorySegment segment, long position, long end) {

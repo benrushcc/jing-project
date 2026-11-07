@@ -2,11 +2,7 @@ package io.jingproject.logtest;
 
 import io.jingproject.common.log.LogLevel;
 import io.jingproject.log.FileLogEventHandler;
-import io.jingproject.log.FileLogEventHandler.FileSettings;
-import io.jingproject.log.FileLogEventHandler.FlushMode;
-import io.jingproject.log.FileLogEventHandler.Format;
-import io.jingproject.log.FileLogEventHandler.Period;
-import io.jingproject.log.FileLogEventHandler.Rotation;
+import io.jingproject.log.FileLogEventHandler.*;
 import io.jingproject.log.FormatPattern;
 import io.jingproject.log.LogEvent;
 import org.junit.jupiter.api.Assertions;
@@ -14,9 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.attribute.FileTime;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;

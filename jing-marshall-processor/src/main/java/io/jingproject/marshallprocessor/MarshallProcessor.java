@@ -252,7 +252,8 @@ public final class MarshallProcessor extends AbstractProcessor {
             case ENUM -> ElementKind.ENUM_CONSTANT;
             default -> throw new AssertionError();
         };
-        for (int typeIndex = 0; typeIndex < typeElements.size(); typeIndex++) {
+        final int range = typeElements.size();
+        for (int typeIndex = 0; typeIndex < range; typeIndex++) {
             TypeElement te = typeElements.get(typeIndex);
             for (Element e : te.getEnclosedElements()) {
                 if (e.getKind() == targetKind) {
@@ -352,7 +353,8 @@ public final class MarshallProcessor extends AbstractProcessor {
                 .addLine(methodHandlesClassName + ".Lookup lookup = " +
                         methodHandlesClassName + ".lookup();");
             List<TypeElement> ts = info.typeElements();
-            for (int typeIndex = 0; typeIndex < ts.size(); typeIndex++) {
+            final int range = ts.size();
+            for (int typeIndex = 0; typeIndex < range; typeIndex++) {
                 TypeElement te = ts.get(typeIndex);
                 String teClassName = facadeSource.register(te);
                 b.addLine(methodHandlesClassName + ".Lookup lookup"

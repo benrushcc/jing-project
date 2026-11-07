@@ -1,7 +1,7 @@
 package io.jingproject.marshallcbortest.entity;
 
 import io.jingproject.marshall.Marshallable;
-import io.jingproject.marshallcbor.CborPrimitiveType;
+import io.jingproject.marshallcbor.CborValue;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -16,7 +16,7 @@ public final class BeanEntity {
     private String stringValue;
     private EnumEntity enumValue;
     private String[] stringArray;
-    private List<CborPrimitiveType> cborPrimitiveTypeList;
+    private List<CborValue> cborValueList;
     private Map<String, BeanEntity> beanEntityMap;
     private BigDecimal decimalValue;
 
@@ -60,12 +60,12 @@ public final class BeanEntity {
         this.stringArray = stringArray;
     }
 
-    public List<CborPrimitiveType> cborPrimitiveTypeList() {
-        return cborPrimitiveTypeList;
+    public List<CborValue> cborValueList() {
+        return cborValueList;
     }
 
-    public void setCborPrimitiveTypeList(List<CborPrimitiveType> cborPrimitiveTypeList) {
-        this.cborPrimitiveTypeList = cborPrimitiveTypeList;
+    public void setCborValueList(List<CborValue> cborValueList) {
+        this.cborValueList = cborValueList;
     }
 
     public Map<String, BeanEntity> beanEntityMap() {
@@ -92,12 +92,14 @@ public final class BeanEntity {
                 Objects.equals(stringValue, that.stringValue) &&
                 enumValue == that.enumValue &&
                 Arrays.equals(stringArray, that.stringArray) &&
-                Objects.equals(cborPrimitiveTypeList, that.cborPrimitiveTypeList) &&
-                Objects.equals(beanEntityMap, that.beanEntityMap);
+                Objects.equals(cborValueList, that.cborValueList) &&
+                Objects.equals(beanEntityMap, that.beanEntityMap) &&
+                Objects.equals(decimalValue, that.decimalValue);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(intValue, longValue, stringValue, enumValue, Arrays.hashCode(stringArray), cborPrimitiveTypeList, beanEntityMap);
+        return Objects.hash(intValue, longValue, stringValue, enumValue,
+                Arrays.hashCode(stringArray), cborValueList, beanEntityMap, decimalValue);
     }
 }

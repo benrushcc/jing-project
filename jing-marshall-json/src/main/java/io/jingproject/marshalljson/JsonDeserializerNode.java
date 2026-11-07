@@ -371,10 +371,11 @@ public final class JsonDeserializerNode {
     }
 
     private void setObjValue(JsonDeserializerContext c) {
-        int required = c.option().ensureAllFieldsPresent() ? fc.totalElements() : fc.primitiveElements();
+        int total = fc.totalElements();
+        int required = c.option().ensureAllFieldsPresent() ? total : fc.primitiveElements();
         if(index != required) {
             List<MarshallInfo> marshallInfos = fc.marshallInfos();
-            for(int i = 0; i < fc.totalElements(); i++) {
+            for(int i = 0; i < total; i++) {
                 MarshallInfo inf = marshallInfos.get(i);
                 if(!assignBitmap(i) && (c.option().ensureAllFieldsPresent() || inf.rawType().isPrimitive())) {
                     throw new JsonDeserializerException("missing field : " + inf.fieldName());
@@ -483,9 +484,9 @@ public final class JsonDeserializerNode {
         arr[index++] = value;
     }
 
+    @SuppressWarnings("SuspiciousSystemArraycopy")
     private void setArrValue(JsonDeserializerContext c) {
         Object r = Array.newInstance(componentType, index);
-        //noinspection SuspiciousSystemArraycopy
         System.arraycopy(arr, 0, r, 0, index);
         c.setObj(r);
     }

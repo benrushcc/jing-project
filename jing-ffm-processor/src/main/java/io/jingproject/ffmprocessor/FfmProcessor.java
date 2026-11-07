@@ -62,6 +62,7 @@ public final class FfmProcessor extends AbstractProcessor {
                 facadeSource.addBlock(targetMethodBlock(facadeSource, ffmProcessorInfo));
                 facadeSource.addBlock(supportedOSMethodBlock(facadeSource, ffmProcessorInfo));
                 facadeSource.addBlock(libNameMethodBlock(facadeSource, ffmProcessorInfo));
+                facadeSource.addBlock(dependsOnMethodBlock(facadeSource, ffmProcessorInfo));
                 facadeSource.addBlock(methodNamesMethodBlock(facadeSource, ffmProcessorInfo));
                 facadeSource.addBlock(implMethodBlock(facadeSource));
                 facadeSource.addBlocks(implClassBlocks(facadeSource, ffmProcessorInfo));
@@ -84,6 +85,7 @@ public final class FfmProcessor extends AbstractProcessor {
             throw new AnnotationProcessorException("only non-sealed interface can be annotated with @FFM");
         }
         // check downcall information
+        boolean noDowncall = true;
         for (Element el : t.getEnclosedElements()) {
             if (el.getKind() == ElementKind.METHOD) {
                 ExecutableElement ex = AnnoUtil.castExecutableElement(el);
@@ -109,7 +111,11 @@ public final class FfmProcessor extends AbstractProcessor {
                 if (!ex.getTypeParameters().isEmpty()) {
                     throw new AnnotationProcessorException("Only non-type parameters method can be annotated with @Downcall");
                 }
+                noDowncall = false;
             }
+        }
+        if (noDowncall) {
+            throw new AnnotationProcessorException("downcall method not found");
         }
     }
 
@@ -135,7 +141,7 @@ public final class FfmProcessor extends AbstractProcessor {
                 index = Math.incrementExact(index);
             }
         }
-        return new FfmProcessorInfo(t, ffm.libraryName(), ffm.supportedOS(), ffmDowncallInfos);
+        return new FfmProcessorInfo(t, ffm.libraryName(), Arrays.stream(ffm.dependsOn()).toList(), ffm.supportedOS(), ffmDowncallInfos);
     }
 
     private GeneratorBlock headBlock(GeneratorSource facadeSource) {
@@ -210,6 +216,28 @@ public final class FfmProcessor extends AbstractProcessor {
                 .newLine();
     }
 
+    private GeneratorBlock dependsOnMethodBlock(GeneratorSource facadeSource, FfmProcessorInfo ffmProcessorInfo) {
+        String overrideClassName = facadeSource.register(Override.class);
+        String listClassName = facadeSource.register(List.class);
+        String stringClassName = facadeSource.register(String.class);
+        GeneratorBlock b = new GeneratorBlock()
+                .addLine("@" + overrideClassName)
+                .addLine("public " + listClassName + "<" + stringClassName + "> dependsOn() {")
+                .indent()
+                .addLine("return " + listClassName + ".of(")
+                .indent();
+        ffmProcessorInfo.dependsOn().stream()
+                .map(AnnoUtil::escapeJavaStringLiteral)
+                .collect(Collectors.joining(",\n"))
+                .lines()
+                .forEach(b::addLine);
+        return b.unindent()
+                .addLine(");")
+                .unindent()
+                .addLine("}")
+                .newLine();
+    }
+
     private GeneratorBlock methodNamesMethodBlock(GeneratorSource facadeSource, FfmProcessorInfo ffmProcessorInfo) {
         String overrideClassName = facadeSource.register(Override.class);
         String listClassName = facadeSource.register(List.class);
@@ -220,15 +248,11 @@ public final class FfmProcessor extends AbstractProcessor {
                 .indent()
                 .addLine("return " + listClassName + ".of(")
                 .indent();
-        List<FfmDowncallInfo> infos = ffmProcessorInfo.ffmDowncallInfos();
-        for (int i = 0; i < infos.size(); i++) {
-            String literal = AnnoUtil.escapeJavaStringLiteral(infos.get(i).methodName());
-            if (i < infos.size() - 1) {
-                b.addLine(literal + ",");
-            } else {
-                b.addLine(literal);
-            }
-        }
+        ffmProcessorInfo.ffmDowncallInfos().stream()
+                .map(info -> AnnoUtil.escapeJavaStringLiteral(info.methodName()))
+                .collect(Collectors.joining(",\n"))
+                .lines()
+                .forEach(b::addLine);
         return b.unindent()
                 .addLine(");")
                 .unindent()

@@ -236,7 +236,7 @@ public final class RegionOut extends OutputStream implements Appendable {
     }
 
     private void putByte(byte b) {
-        NativeSegmentAccess.setByte(region, pos, b);
+        NativeSegmentAccess.setByte(region.address(), pos, b);
         pos++;
     }
 

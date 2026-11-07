@@ -1,7 +1,6 @@
 package io.jingproject.marshallcbortest;
 
 import io.jingproject.common.HeapWriteBuffer;
-import io.jingproject.marshallcbor.CborNumberUtil;
 import io.jingproject.marshallcbor.CborSerializer;
 import io.jingproject.marshallcbor.CborSerializerOption;
 import org.junit.jupiter.api.Assertions;
@@ -20,54 +19,6 @@ public class CborWriteIntegerTest {
             r[i] = (byte) ((hi << 4) | lo);
         }
         return r;
-    }
-
-    // write a head (initial byte + argument payload) into a fresh buffer
-    private static byte[] headBytes(int majorType, long argument) {
-        HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        CborNumberUtil.writeHead(majorType, argument, writeBuffer);
-        return writeBuffer.toByteArray();
-    }
-
-    // negative integers encode the argument as -1 - value
-    private static byte[] negativeHeadBytes(long value) {
-        return headBytes(CborNumberUtil.TYPE_NEGATIVE, -1L - value);
-    }
-
-    private static void assertUnsignedHead(String expected, long value) {
-        Assertions.assertArrayEquals(hex(expected), headBytes(CborNumberUtil.TYPE_UNSIGNED, value));
-    }
-
-    private static void assertNegativeHead(String expected, long value) {
-        Assertions.assertArrayEquals(hex(expected), negativeHeadBytes(value));
-    }
-
-    @Test
-    public void testWriteNonNegativeSingleValues() {
-        assertUnsignedHead("00", 0L);
-        assertUnsignedHead("17", 23L);
-        assertUnsignedHead("1818", 24L);
-        assertUnsignedHead("18ff", 255L);
-        assertUnsignedHead("190100", 256L);
-        assertUnsignedHead("19ffff", 65535L);
-        assertUnsignedHead("1a00010000", 65536L);
-        assertUnsignedHead("1affffffff", 4294967295L);
-        assertUnsignedHead("1b0000000100000000", 4294967296L);
-        assertUnsignedHead("1b7fffffffffffffff", Long.MAX_VALUE);
-    }
-
-    @Test
-    public void testWriteNegativeSingleValues() {
-        assertNegativeHead("20", -1L);
-        assertNegativeHead("37", -24L);
-        assertNegativeHead("3818", -25L);
-        assertNegativeHead("38fe", -255L);
-        assertNegativeHead("38ff", -256L);
-        assertNegativeHead("39ffff", -65536L);
-        assertNegativeHead("3a00010000", -65537L);
-        assertNegativeHead("3affffffff", -4294967296L);
-        assertNegativeHead("3b0000000100000000", -4294967297L);
-        assertNegativeHead("3b7fffffffffffffff", Long.MIN_VALUE);
     }
 
     @Test

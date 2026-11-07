@@ -129,7 +129,7 @@ final class Node<E> {
 
 // first 64-byte pad, safe under any object header size.
 @SuppressWarnings("unused")
-abstract class QueuePad0Impl<E>  {
+sealed abstract class QueuePad0Impl<E>  {
     byte b000,b001,b002,b003,b004,b005,b006,b007;
     byte b008,b009,b010,b011,b012,b013,b014,b015;
     byte b016,b017,b018,b019,b020,b021,b022,b023;
@@ -141,14 +141,14 @@ abstract class QueuePad0Impl<E>  {
 }
 
 // holds the producer tail reference.
-abstract class ProducerNodeRef<E> extends QueuePad0Impl<E> {
+sealed abstract class ProducerNodeRef<E> extends QueuePad0Impl<E> {
     // queue tail, advanced only by producers via xchg (volatile semantics via varhandle).
     Node<E> producerNode;
 }
 
 // second 64-byte pad between producerNode and consumerNode (one cache line).
 @SuppressWarnings("unused")
-abstract class QueuePad1Impl<E> extends ProducerNodeRef<E>  {
+sealed abstract class QueuePad1Impl<E> extends ProducerNodeRef<E>  {
     byte g000,g001,g002,g003,g004,g005,g006,g007;
     byte g008,g009,g010,g011,g012,g013,g014,g015;
     byte g016,g017,g018,g019,g020,g021,g022,g023;
@@ -160,14 +160,14 @@ abstract class QueuePad1Impl<E> extends ProducerNodeRef<E>  {
 }
 
 // holds the consumer head (stub) reference.
-abstract class ConsumerNodeRef<E> extends QueuePad1Impl<E> {
+sealed abstract class ConsumerNodeRef<E> extends QueuePad1Impl<E> {
     // queue head (stub), owned exclusively by the single consumer thread.
     Node<E> consumerNode;
 }
 
 // 64-byte tail pad isolating the consumerNode from an adjacent allocation.
 @SuppressWarnings("unused")
-abstract class QueuePad2Impl<E> extends ConsumerNodeRef<E>  {
+sealed abstract class QueuePad2Impl<E> extends ConsumerNodeRef<E> {
     byte p000,p001,p002,p003,p004,p005,p006,p007;
     byte p008,p009,p010,p011,p012,p013,p014,p015;
     byte p016,p017,p018,p019,p020,p021,p022,p023;

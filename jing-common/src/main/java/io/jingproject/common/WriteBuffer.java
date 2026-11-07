@@ -96,7 +96,7 @@ public sealed interface WriteBuffer permits HeapWriteBuffer, SegmentWriteBuffer 
     }
 
     default void writeCodePointInUtf8(int codePoint) {
-        if (!Character.isValidCodePoint(codePoint)) {
+        if (codePoint < 0 || codePoint > 0x10FFFF) {
             throw new IllegalArgumentException("not a valid code point: " + codePoint);
         }
         if (codePoint < 0x80) {

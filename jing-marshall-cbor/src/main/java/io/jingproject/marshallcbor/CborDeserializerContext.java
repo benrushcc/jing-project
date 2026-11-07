@@ -9,20 +9,25 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.IntFunction;
 
 // sealed context with a heap and a segment implementation, mirroring the json
 // deserializer. every read primitive consumes the CBOR binary format: integers
-// via major 0/1 heads, floats via 0xfa/0xfb plus big-endian payloads, text as
-// raw UTF-8 and byte strings via major type 2. container heads (major 4/5)
+// via major 0/1 heads, floats via 0xf9/0xfa/0xfb plus big-endian payloads, text
+// as raw UTF-8 and byte strings via major type 2. container heads (major 4/5)
 // carry a declared element count that is kept in the shared count field and
 // read by the nodes through declaredCount(); an indefinite-length container is
 // signalled by count == -1 and terminated by the 0xff break byte.
-public sealed abstract class CborDeserializerContext
-        permits CborDeserializerContext.CborDeserializerHeapContext, CborDeserializerContext.CborDeserializerSegmentContext {
+public sealed abstract class CborDeserializerContext permits
+        CborDeserializerContext.CborDeserializerHeapContext,
+        CborDeserializerContext.CborDeserializerSegmentContext {
     public static final int CHAR_BUFFER_INITIAL_SIZE = 128;
     protected static final int OBJ_ARR_INITIAL_SIZE = 8;
     protected static final Map<Class<?>, CborDeserializeFunc> BUILTIN_DESERIALIZE_OBJ_FUNC_MAP;
@@ -68,20 +73,12 @@ public sealed abstract class CborDeserializerContext
         };
         objFuncMap.put(CharSequence.class, strFunc);
         objFuncMap.put(String.class, strFunc);
-        objFuncMap.put(CborPrimitiveType.class, (b, c) -> {
-            c.setObj(c.deserializeCborPrimitiveType(b));
+        objFuncMap.put(CborValue.class, (b, c) -> {
+            c.setObj(c.deserializeCborValue(b));
             return CborDeserializeResult.Continue;
         });
-        objFuncMap.put(CborBoolType.class, (b, c) -> {
-            c.setObj(c.deserializeCborBoolType(b));
-            return CborDeserializeResult.Continue;
-        });
-        objFuncMap.put(CborNumberType.class, (b, c) -> {
-            c.setObj(c.deserializeCborNumberType(b));
-            return CborDeserializeResult.Continue;
-        });
-        objFuncMap.put(CborStrType.class, (b, c) -> {
-            c.setObj(c.deserializeCborStrType(b));
+        objFuncMap.put(CborTaggedType.class, (b, c) -> {
+            c.setObj(c.deserializeCborTaggedType(b));
             return CborDeserializeResult.Continue;
         });
         objFuncMap.put(CborBytesType.class, (b, c) -> {
@@ -163,26 +160,7 @@ public sealed abstract class CborDeserializerContext
         };
         arrFuncMap.put(CharSequence[].class, strArrayFunc);
         arrFuncMap.put(String[].class, strArrayFunc);
-        arrFuncMap.put(CborPrimitiveType[].class, (b, c) -> {
-            c.setObj(c.deserializeCborPrimitiveTypeArray(b));
-            return CborDeserializeResult.Continue;
-        });
-        arrFuncMap.put(CborBoolType[].class, (b, c) -> {
-            c.setObj(c.deserializeCborBoolTypeArray(b));
-            return CborDeserializeResult.Continue;
-        });
-        arrFuncMap.put(CborNumberType[].class, (b, c) -> {
-            c.setObj(c.deserializeCborNumberTypeArray(b));
-            return CborDeserializeResult.Continue;
-        });
-        arrFuncMap.put(CborStrType[].class, (b, c) -> {
-            c.setObj(c.deserializeCborStrTypeArray(b));
-            return CborDeserializeResult.Continue;
-        });
-        arrFuncMap.put(CborBytesType[].class, (b, c) -> {
-            c.setObj(c.deserializeCborBytesTypeArray(b));
-            return CborDeserializeResult.Continue;
-        });
+
         BUILTIN_DESERIALIZE_ARRAY_FUNC_MAP = Map.copyOf(arrFuncMap);
     }
 
@@ -199,6 +177,7 @@ public sealed abstract class CborDeserializerContext
     protected Object obj;
     protected Class<?> type;
     protected Object[] arr;
+    protected char[] charBuffer;
 
     protected CborDeserializerContext(CborDeserializerOption option) {
         this.option = option;
@@ -232,13 +211,14 @@ public sealed abstract class CborDeserializerContext
 
     public abstract void rewind();
 
-    public abstract long remaining();
-
     public abstract void advance(long length);
 
     public abstract byte[] copyBytes(int length);
 
     public abstract String decodeUtf8(int length);
+
+    // validates the utf-8 bytes of the next text payload without consuming them
+    public abstract boolean validateUtf8(int length);
 
     public abstract MarshallInfo lookupMappedName(MarshallFacade fc, int length);
 
@@ -271,16 +251,36 @@ public sealed abstract class CborDeserializerContext
         throw new CborDeserializerException("unsupported or illegal initial byte");
     }
 
-    // read a length head: like readArgument but ai 31 (indefinite) returns -1
+    // read a length head: like readArgument but ai 31 (indefinite) returns -1.
+    // a 64-bit argument with the sign bit set cannot be represented as a java
+    // length and is rejected instead of being mistaken for the indefinite marker.
     private long readLength(int ai) {
         if (ai == 31) {
             return -1L;
         }
-        return readArgument(ai);
+        long length = readArgument(ai);
+        if (length < 0L) {
+            throw new CborDeserializerException("length exceeds limit : " + Long.toUnsignedString(length));
+        }
+        return length;
+    }
+
+    // the format does not model tags, and ai 24 in major type 7 carries a
+    // one-byte simple value; reject both consistently instead of reporting a
+    // type mismatch whose message depends on the expected java type
+    private static void checkInitialByte(byte b) {
+        int major = CborNumberUtil.majorOf(b);
+        if (major == CborNumberUtil.TYPE_TAG) {
+            throw new CborDeserializerException("tag not supported");
+        }
+        if (major == CborNumberUtil.TYPE_SIMPLE && CborNumberUtil.aiOf(b) == 24) {
+            throw new CborDeserializerException("unsupported or illegal initial byte");
+        }
     }
 
     // a definite array head must stay within maxArrayElements; indefinite is accepted
     public final void checkArrayStart(byte b) {
+        checkInitialByte(b);
         if (CborNumberUtil.majorOf(b) != CborNumberUtil.TYPE_ARRAY) {
             throw new CborDeserializerException("not an array start : " + b);
         }
@@ -293,6 +293,7 @@ public sealed abstract class CborDeserializerContext
 
     // a definite map head must stay within maxMapElements; indefinite is accepted
     public final void checkObjStart(byte b) {
+        checkInitialByte(b);
         if (CborNumberUtil.majorOf(b) != CborNumberUtil.TYPE_MAP) {
             throw new CborDeserializerException("not an object start : " + b);
         }
@@ -312,6 +313,7 @@ public sealed abstract class CborDeserializerContext
     }
 
     public final boolean deserializeBoolean(byte firstByte) {
+        checkInitialByte(firstByte);
         if (firstByte == (byte) 0xF5) {
             return true;
         }
@@ -346,6 +348,7 @@ public sealed abstract class CborDeserializerContext
     }
 
     public final long deserializeLong(byte firstByte) {
+        checkInitialByte(firstByte);
         int major = CborNumberUtil.majorOf(firstByte);
         if (major == CborNumberUtil.TYPE_UNSIGNED) {
             long arg = readArgument(CborNumberUtil.aiOf(firstByte));
@@ -364,8 +367,10 @@ public sealed abstract class CborDeserializerContext
         throw new CborDeserializerException("not an integer : " + firstByte);
     }
 
-    // float16/float32 are widened to float; float64 must fit into float precision
+    // float16/float32 are widened to float; float64 may be narrowed only when
+    // the value is exactly representable as a float, so no precision is lost
     public final float deserializeFloat(byte firstByte) {
+        checkInitialByte(firstByte);
         if (CborNumberUtil.majorOf(firstByte) != CborNumberUtil.TYPE_SIMPLE) {
             throw new CborDeserializerException("not a float value : " + firstByte);
         }
@@ -377,17 +382,18 @@ public sealed abstract class CborDeserializerContext
             return Float.intBitsToFloat(readIntRaw());
         }
         if (ai == 27) {
-            double v = Double.longBitsToDouble(readLongRaw());
-            float r = (float) v;
-            if (Float.isInfinite(r) && !Double.isInfinite(v)) {
-                throw new CborDeserializerException("float value overflow : " + v);
+            double value = Double.longBitsToDouble(readLongRaw());
+            float result = (float) value;
+            if (Double.doubleToRawLongBits((double) result) != Double.doubleToRawLongBits(value)) {
+                throw new CborDeserializerException("float value loses precision : " + value);
             }
-            return r;
+            return result;
         }
         throw new CborDeserializerException("not a float value : " + firstByte);
     }
 
     public final double deserializeDouble(byte firstByte) {
+        checkInitialByte(firstByte);
         if (CborNumberUtil.majorOf(firstByte) != CborNumberUtil.TYPE_SIMPLE) {
             throw new CborDeserializerException("not a double value : " + firstByte);
         }
@@ -405,6 +411,7 @@ public sealed abstract class CborDeserializerContext
     }
 
     public final String deserializeString(byte firstByte) {
+        checkInitialByte(firstByte);
         if (CborNumberUtil.majorOf(firstByte) != CborNumberUtil.TYPE_TEXT) {
             throw new CborDeserializerException("not a string start : " + firstByte);
         }
@@ -420,6 +427,7 @@ public sealed abstract class CborDeserializerContext
 
     // a byte string (major type 2) with a length head and raw bytes
     public final byte[] deserializeBytes(byte firstByte) {
+        checkInitialByte(firstByte);
         if (CborNumberUtil.majorOf(firstByte) != CborNumberUtil.TYPE_BYTES) {
             throw new CborDeserializerException("not a byte string start : " + firstByte);
         }
@@ -723,64 +731,245 @@ public sealed abstract class CborDeserializerContext
         return deserializeObjArray(CborDeserializerContext::deserializeString, String[]::new);
     }
 
-    public final CborPrimitiveType deserializeCborPrimitiveType(byte firstByte) {
-        return switch (CborNumberUtil.majorOf(firstByte)) {
-            case CborNumberUtil.TYPE_TEXT -> deserializeCborStrType(firstByte);
-            case CborNumberUtil.TYPE_BYTES -> deserializeCborBytesType(firstByte);
-            case CborNumberUtil.TYPE_SIMPLE -> {
-                int ai = CborNumberUtil.aiOf(firstByte);
-                if (ai == 20 || ai == 21) {
-                    yield deserializeCborBoolType(firstByte);
-                }
-                throw new CborDeserializerException("unknown cbor primitive type : " + firstByte);
-            }
-            default -> deserializeCborNumberType(firstByte);
-        };
-    }
-
-    public final CborPrimitiveType[] deserializeCborPrimitiveTypeArray(byte firstByte) {
-        checkArrayStart(firstByte);
-        return deserializeObjArray(CborDeserializerContext::deserializeCborPrimitiveType, CborPrimitiveType[]::new);
-    }
-
-    public final CborBoolType deserializeCborBoolType(byte firstByte) {
-        return new CborBoolType(deserializeBoolean(firstByte));
-    }
-
-    public final CborBoolType[] deserializeCborBoolTypeArray(byte firstByte) {
-        checkArrayStart(firstByte);
-        return deserializeObjArray(CborDeserializerContext::deserializeCborBoolType, CborBoolType[]::new);
-    }
-
-    // CborNumberType carries integer semantics only, matching the serializer lane
-    public final CborNumberType deserializeCborNumberType(byte firstByte) {
-        return new CborNumberType(deserializeLong(firstByte));
-    }
-
-    public final CborNumberType[] deserializeCborNumberTypeArray(byte firstByte) {
-        checkArrayStart(firstByte);
-        return deserializeObjArray(CborDeserializerContext::deserializeCborNumberType, CborNumberType[]::new);
-    }
-
-    public final CborStrType deserializeCborStrType(byte firstByte) {
-        return new CborStrType(deserializeString(firstByte));
-    }
-
-    public final CborStrType[] deserializeCborStrTypeArray(byte firstByte) {
-        checkArrayStart(firstByte);
-        return deserializeObjArray(CborDeserializerContext::deserializeCborStrType, CborStrType[]::new);
-    }
-
     public final CborBytesType deserializeCborBytesType(byte firstByte) {
         return new CborBytesType(deserializeBytes(firstByte));
     }
 
-    public final CborBytesType[] deserializeCborBytesTypeArray(byte firstByte) {
-        checkArrayStart(firstByte);
-        return deserializeObjArray(CborDeserializerContext::deserializeCborBytesType, CborBytesType[]::new);
+    public final CborTaggedType deserializeCborTaggedType(byte firstByte) {
+        CborValue value = deserializeCborValue(firstByte);
+        if (value instanceof CborTaggedType taggedType) {
+            return taggedType;
+        }
+        throw new CborDeserializerException("not a tagged type : " + firstByte);
+    }
+
+    // decodes a complete value tree without recursion: every container pushes a
+    // frame, and a completed child bubbles up until a parent frame is satisfied
+    public final CborValue deserializeCborValue(byte firstByte) {
+        Deque<CborValueFrame> frames = new ArrayDeque<>();
+        CborValue value = startCborValue(firstByte, frames);
+        for (; ; ) {
+            if (value != null) {
+                for (; ; ) {
+                    if (frames.isEmpty()) {
+                        return value;
+                    }
+                    CborValueFrame frame = frames.peek();
+                    CborValue completed = frame.accept(value);
+                    if (completed == null) {
+                        break;
+                    }
+                    frames.pop();
+                    value = completed;
+                }
+            }
+            CborValueFrame frame = frames.peek();
+            if (frame.indefinite() && frame.atElementStart()) {
+                byte b = getByte();
+                if (b == (byte) 0xFF) {
+                    frames.pop();
+                    value = frame.finish();
+                    continue;
+                }
+                rewind();
+            }
+            byte b = getByte();
+            value = startCborValue(b, frames);
+        }
+    }
+
+    private CborValue startCborValue(byte firstByte, Deque<CborValueFrame> frames) {
+        int major = CborNumberUtil.majorOf(firstByte);
+        if (major == CborNumberUtil.TYPE_UNSIGNED || major == CborNumberUtil.TYPE_NEGATIVE) {
+            return new CborInteger(deserializeLong(firstByte));
+        }
+        if (major == CborNumberUtil.TYPE_BYTES) {
+            return deserializeCborBytesType(firstByte);
+        }
+        if (major == CborNumberUtil.TYPE_TEXT) {
+            return new CborText(deserializeString(firstByte));
+        }
+        if (major == CborNumberUtil.TYPE_ARRAY) {
+            checkArrayStart(firstByte);
+            int arrayCount = count;
+            if (arrayCount == 0) {
+                return new CborArray(List.of());
+            }
+            pushFrame(frames, new CborArrayFrame(arrayCount, option.maxArrayElements()));
+            return null;
+        }
+        if (major == CborNumberUtil.TYPE_MAP) {
+            checkObjStart(firstByte);
+            int mapCount = count;
+            if (mapCount == 0) {
+                return new CborMap(List.of());
+            }
+            pushFrame(frames, new CborMapFrame(mapCount, option.maxMapElements()));
+            return null;
+        }
+        if (major == CborNumberUtil.TYPE_TAG) {
+            pushFrame(frames, new CborTagFrame(readArgument(CborNumberUtil.aiOf(firstByte))));
+            return null;
+        }
+        if (major == CborNumberUtil.TYPE_SIMPLE) {
+            int ai = CborNumberUtil.aiOf(firstByte);
+            if (ai == 20 || ai == 21) {
+                return new CborBool(ai == 21);
+            }
+            if (ai == 22) {
+                return new CborNull();
+            }
+            if (ai == 25) {
+                return new CborFloat(readShortRaw() & 0xFFFFL, CborFloatWidth.HALF);
+            }
+            if (ai == 26) {
+                return new CborFloat(readIntRaw() & 0xFFFFFFFFL, CborFloatWidth.SINGLE);
+            }
+            if (ai == 27) {
+                return new CborFloat(readLongRaw(), CborFloatWidth.DOUBLE);
+            }
+        }
+        throw new CborDeserializerException("unsupported or illegal initial byte");
+    }
+
+    private void pushFrame(Deque<CborValueFrame> frames, CborValueFrame frame) {
+        if (frames.size() >= option.maxNestedSize()) {
+            throw new CborDeserializerException("exceeded maximum nested size : " + option.maxNestedSize());
+        }
+        frames.push(frame);
+    }
+
+    private abstract static class CborValueFrame {
+        abstract boolean indefinite();
+
+        abstract boolean atElementStart();
+
+        abstract CborValue accept(CborValue value);
+
+        abstract CborValue finish();
+    }
+
+    private static final class CborArrayFrame extends CborValueFrame {
+        private final List<CborValue> elements = new ArrayList<>();
+        private final int maxElements;
+        private int remaining;
+
+        CborArrayFrame(int remaining, int maxElements) {
+            this.remaining = remaining;
+            this.maxElements = maxElements;
+        }
+
+        @Override
+        boolean indefinite() {
+            return remaining < 0;
+        }
+
+        @Override
+        boolean atElementStart() {
+            return true;
+        }
+
+        @Override
+        CborValue accept(CborValue value) {
+            elements.add(value);
+            if (elements.size() > maxElements) {
+                throw new CborDeserializerException("too many array elements : " + elements.size());
+            }
+            if (remaining > 0) {
+                remaining--;
+                if (remaining == 0) {
+                    return new CborArray(elements);
+                }
+            }
+            return null;
+        }
+
+        @Override
+        CborValue finish() {
+            return new CborArray(elements);
+        }
+    }
+
+    private static final class CborMapFrame extends CborValueFrame {
+        private final List<CborMapEntry> entries = new ArrayList<>();
+        private final int maxEntries;
+        private int remaining;
+        private CborValue key;
+        private boolean expectingKey = true;
+
+        CborMapFrame(int remaining, int maxEntries) {
+            this.remaining = remaining;
+            this.maxEntries = maxEntries;
+        }
+
+        @Override
+        boolean indefinite() {
+            return remaining < 0;
+        }
+
+        @Override
+        boolean atElementStart() {
+            return expectingKey;
+        }
+
+        @Override
+        CborValue accept(CborValue value) {
+            if (expectingKey) {
+                key = value;
+                expectingKey = false;
+                return null;
+            }
+            entries.add(new CborMapEntry(key, value));
+            key = null;
+            expectingKey = true;
+            if (entries.size() > maxEntries) {
+                throw new CborDeserializerException("too many map elements : " + entries.size());
+            }
+            if (remaining > 0) {
+                remaining--;
+                if (remaining == 0) {
+                    return new CborMap(entries);
+                }
+            }
+            return null;
+        }
+
+        @Override
+        CborValue finish() {
+            return new CborMap(entries);
+        }
+    }
+
+    private static final class CborTagFrame extends CborValueFrame {
+        private final long tag;
+
+        CborTagFrame(long tag) {
+            this.tag = tag;
+        }
+
+        @Override
+        boolean indefinite() {
+            return false;
+        }
+
+        @Override
+        boolean atElementStart() {
+            return true;
+        }
+
+        @Override
+        CborValue accept(CborValue value) {
+            return new CborTaggedType(tag, value);
+        }
+
+        @Override
+        CborValue finish() {
+            throw new AssertionError();
+        }
     }
 
     public final void skipNumber(byte firstByte) {
+        checkInitialByte(firstByte);
         int major = CborNumberUtil.majorOf(firstByte);
         if (major == CborNumberUtil.TYPE_UNSIGNED || major == CborNumberUtil.TYPE_NEGATIVE) {
             readArgument(CborNumberUtil.aiOf(firstByte));
@@ -788,11 +977,14 @@ public sealed abstract class CborDeserializerContext
         }
         if (major == CborNumberUtil.TYPE_SIMPLE) {
             int ai = CborNumberUtil.aiOf(firstByte);
-            if (ai == 24) {
-                getByte();
-            } else if (ai == 25 || ai == 26 || ai == 27) {
-                advance(1L << (ai - 25));
+            if (ai == 25) {
+                advance(2L);
+            } else if (ai == 26) {
+                advance(4L);
+            } else if (ai == 27) {
+                advance(8L);
             } else {
+                // ai 0-24 are simple values, not numbers; ai 28-31 are reserved
                 throw new CborDeserializerException("not a number : " + firstByte);
             }
             return;
@@ -801,6 +993,7 @@ public sealed abstract class CborDeserializerContext
     }
 
     public final void skipString(byte firstByte) {
+        checkInitialByte(firstByte);
         if (CborNumberUtil.majorOf(firstByte) != CborNumberUtil.TYPE_TEXT) {
             throw new CborDeserializerException("not a string start : " + firstByte);
         }
@@ -811,10 +1004,15 @@ public sealed abstract class CborDeserializerContext
         if (length > option.maxStringBytes()) {
             throw new CborDeserializerException("string length exceeds limit : " + length);
         }
-        advance(length);
+        int intLength = Math.toIntExact(length);
+        if (!validateUtf8(intLength)) {
+            throw new CborDeserializerException("not valid utf-8 content");
+        }
+        advance(intLength);
     }
 
     public final void skipBytes(byte firstByte) {
+        checkInitialByte(firstByte);
         if (CborNumberUtil.majorOf(firstByte) != CborNumberUtil.TYPE_BYTES) {
             throw new CborDeserializerException("not a byte string start : " + firstByte);
         }
@@ -828,9 +1026,11 @@ public sealed abstract class CborDeserializerContext
         advance(length);
     }
 
-    // a mapped name is hashed and compared against the raw bytes directly; the
-    // result is cached by the facade, so no UTF-8 validation is performed here
+    // a mapped name is hashed and compared against the raw bytes directly, so
+    // the lookup itself allocates nothing; the implementation validates UTF-8
+    // only when the bytes do not match a known mapped name
     public final MarshallInfo deserializeMarshallInfo(MarshallFacade fc, byte firstByte) {
+        checkInitialByte(firstByte);
         if (CborNumberUtil.majorOf(firstByte) != CborNumberUtil.TYPE_TEXT) {
             throw new CborDeserializerException("not a string start : " + firstByte);
         }
@@ -885,10 +1085,6 @@ public sealed abstract class CborDeserializerContext
             CborDeserializeFunc builtinDeserializeArrFunc = builtinDeserializeArrayFunc(rawType);
             if (builtinDeserializeArrFunc != null) {
                 return builtinDeserializeArrFunc;
-            }
-            CborDeserializeFunc customArrFunc = option.customArrFunc(rawType);
-            if (customArrFunc != null) {
-                return customArrFunc;
             }
             Class<?> componentType = rawType.componentType();
             if (componentType.isEnum()) {
@@ -955,11 +1151,6 @@ public sealed abstract class CborDeserializerContext
         }
 
         @Override
-        public long remaining() {
-            return bytes.length - position;
-        }
-
-        @Override
         public void advance(long length) {
             int advanceLength = Math.toIntExact(length);
             checkLength(advanceLength);
@@ -977,6 +1168,9 @@ public sealed abstract class CborDeserializerContext
         @Override
         public String decodeUtf8(int length) {
             checkLength(length);
+            if (length == 0) {
+                return "";
+            }
             if (!CborUtf8Validator.validateHeap(bytes, position, position + length)) {
                 throw new CborDeserializerException("not valid utf-8 content");
             }
@@ -986,9 +1180,18 @@ public sealed abstract class CborDeserializerContext
         }
 
         @Override
+        public boolean validateUtf8(int length) {
+            checkLength(length);
+            return CborUtf8Validator.validateHeap(bytes, position, position + length);
+        }
+
+        @Override
         public MarshallInfo lookupMappedName(MarshallFacade fc, int length) {
             checkLength(length);
             MarshallInfo r = fc.marshallInfoByMappedName(bytes, position, position + length);
+            if (r == null && !CborUtf8Validator.validateHeap(bytes, position, position + length)) {
+                throw new CborDeserializerException("not valid utf-8 content");
+            }
             position += length;
             return r;
         }
@@ -1055,11 +1258,6 @@ public sealed abstract class CborDeserializerContext
         }
 
         @Override
-        public long remaining() {
-            return segment.byteSize() - position;
-        }
-
-        @Override
         public void advance(long length) {
             if (length < 0L || position > segment.byteSize() - length) {
                 throw new CborDeserializerException("unexpected end of input");
@@ -1078,18 +1276,55 @@ public sealed abstract class CborDeserializerContext
         @Override
         public String decodeUtf8(int length) {
             checkLength(length);
-            byte[] bytes = segment.asSlice(position, length).toArray(ValueLayout.JAVA_BYTE);
-            if (!CborUtf8Validator.validateHeap(bytes, 0, length)) {
+            if (length == 0) {
+                return "";
+            }
+            if (!CborUtf8Validator.validateSegment(segment, position, position + length)) {
                 throw new CborDeserializerException("not valid utf-8 content");
             }
-            position += length;
-            return new String(bytes, StandardCharsets.UTF_8);
+            if (charBuffer == null) {
+                charBuffer = new char[Math.max(length, option.charBufferSize())];
+            } else if (length > charBuffer.length) {
+                charBuffer = new char[Math.max(length, Math.addExact(charBuffer.length, charBuffer.length))];
+            }
+            int charCount = 0;
+            long end = position + length;
+            while (position < end) {
+                int b0 = SegmentAccess.getByte(segment, position++) & 0xFF;
+                if (b0 < 0x80) {
+                    charBuffer[charCount++] = (char) b0;
+                } else if (b0 < 0xE0) {
+                    int b1 = SegmentAccess.getByte(segment, position++) & 0x3F;
+                    charBuffer[charCount++] = (char) (((b0 & 0x1F) << 6) | b1);
+                } else if (b0 < 0xF0) {
+                    int b1 = SegmentAccess.getByte(segment, position++) & 0x3F;
+                    int b2 = SegmentAccess.getByte(segment, position++) & 0x3F;
+                    charBuffer[charCount++] = (char) (((b0 & 0x0F) << 12) | (b1 << 6) | b2);
+                } else {
+                    int b1 = SegmentAccess.getByte(segment, position++) & 0x3F;
+                    int b2 = SegmentAccess.getByte(segment, position++) & 0x3F;
+                    int b3 = SegmentAccess.getByte(segment, position++) & 0x3F;
+                    int codePoint = (((b0 & 0x07) << 18) | (b1 << 12) | (b2 << 6) | b3) - 0x10000;
+                    charBuffer[charCount++] = (char) (0xD800 | (codePoint >> 10));
+                    charBuffer[charCount++] = (char) (0xDC00 | (codePoint & 0x3FF));
+                }
+            }
+            return new String(charBuffer, 0, charCount);
+        }
+
+        @Override
+        public boolean validateUtf8(int length) {
+            checkLength(length);
+            return CborUtf8Validator.validateSegment(segment, position, position + length);
         }
 
         @Override
         public MarshallInfo lookupMappedName(MarshallFacade fc, int length) {
             checkLength(length);
             MarshallInfo r = fc.marshallInfoByMappedName(segment, position, position + length);
+            if (r == null && !CborUtf8Validator.validateSegment(segment, position, position + length)) {
+                throw new CborDeserializerException("not valid utf-8 content");
+            }
             position += length;
             return r;
         }

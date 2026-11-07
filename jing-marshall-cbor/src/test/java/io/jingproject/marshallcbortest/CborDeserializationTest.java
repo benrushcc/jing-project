@@ -17,10 +17,9 @@ import java.util.*;
 
 public class CborDeserializationTest {
     private static final CborDeserializer DESERIALIZER = new CborDeserializer(CborDeserializerOption.defaultOption());
-    private static final CborSerializer DETERMINISTIC_SERIALIZER = new CborSerializer(
-            CborSerializerOption.builder().setTransformerClasses(BigDecimalTransformer.class)
-                    .setDeterministicEncoding(true).build());
-    private static final CborDeserializer DETERMINISTIC_DESERIALIZER = new CborDeserializer(
+    private static final CborSerializer ROUND_TRIP_SERIALIZER = new CborSerializer(
+            CborSerializerOption.builder().setTransformerClasses(BigDecimalTransformer.class).build());
+    private static final CborDeserializer ROUND_TRIP_DESERIALIZER = new CborDeserializer(
             CborDeserializerOption.builder().setTransformerClasses(BigDecimalTransformer.class).build());
     private static final int SIZE = 1024;
 
@@ -42,11 +41,11 @@ public class CborDeserializationTest {
         entity.setStringValue("jing");
         entity.setEnumValue(EnumEntity.ENUM_ENTITY3);
         entity.setStringArray(new String[]{"hello", "world", "test"});
-        List<io.jingproject.marshallcbor.CborPrimitiveType> primitiveTypes = new ArrayList<>();
-        primitiveTypes.add(new CborBoolType(true));
-        primitiveTypes.add(new CborStrType("jing"));
-        primitiveTypes.add(new CborNumberType(42L));
-        entity.setCborPrimitiveTypeList(primitiveTypes);
+        List<CborValue> values = new ArrayList<>();
+        values.add(new CborBool(true));
+        values.add(new CborText("jing"));
+        values.add(new CborInteger(42L));
+        entity.setCborValueList(values);
         Map<String, BeanEntity> innerMap = new LinkedHashMap<>();
         BeanEntity k1 = new BeanEntity();
         k1.setIntValue(1);
@@ -61,8 +60,8 @@ public class CborDeserializationTest {
 
     private static BeanEntity roundTripBeanEntity(BeanEntity entity) {
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        DETERMINISTIC_SERIALIZER.serializeMarshallableObject(entity, writeBuffer);
-        return DETERMINISTIC_DESERIALIZER.deserializeMarshallableObject(
+        ROUND_TRIP_SERIALIZER.serializeMarshallableObject(entity, writeBuffer);
+        return ROUND_TRIP_DESERIALIZER.deserializeMarshallableObject(
                 BeanEntity.class, new HeapReadBuffer(writeBuffer.toByteArray()));
     }
 
@@ -177,8 +176,9 @@ public class CborDeserializationTest {
     public void testDeserializeEnumArray() {
         EnumEntity[] expected = {EnumEntity.ENUM_ENTITY3, EnumEntity.ENUM_ENTITY1, EnumEntity.ENUM_ENTITY4};
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        DETERMINISTIC_SERIALIZER.serializeArray(expected, writeBuffer);
-        EnumEntity[] actual = DESERIALIZER.deserializeArray(EnumEntity.class, new HeapReadBuffer(writeBuffer.toByteArray()));
+        ROUND_TRIP_SERIALIZER.serializeArray(expected, writeBuffer);
+        EnumEntity[] actual = DESERIALIZER.deserializeArray(EnumEntity.class,
+                new HeapReadBuffer(writeBuffer.toByteArray()));
         Assertions.assertArrayEquals(expected, actual);
     }
 
@@ -193,7 +193,7 @@ public class CborDeserializationTest {
         BeanEntity actual = DESERIALIZER.deserializeMarshallableObject(BeanEntity.class,
                 new HeapReadBuffer(hex("a868696e7456616c75650069656e756d56616c7565f6696c6f6e6756616c7565f6" +
                         "6b737472696e674172726179f66b737472696e6756616c7565f66c646563696d616c56616c7565f6" +
-                        "6d6265616e456e746974794d6170f67563626f725072696d6974697665547970654c697374f6")));
+                        "6d6265616e456e746974794d6170f66d63626f7256616c75654c697374f6")));
         Assertions.assertEquals(new BeanEntity(), actual);
     }
 
@@ -257,14 +257,23 @@ public class CborDeserializationTest {
         CborDeserializerException ex = Assertions.assertThrows(CborDeserializerException.class,
                 () -> DESERIALIZER.deserializeMarshallableObject(BeanEntity.class, new HeapReadBuffer(hex("a0"))));
         Assertions.assertEquals("missing field : intValue", ex.getMessage());
+
+        // the default option only requires primitive fields; the strict option
+        // also requires every non-skipped reference field to be present
+        CborDeserializer strictDeserializer = new CborDeserializer(
+                CborDeserializerOption.builder().setEnsureAllFieldsPresent(true).build());
+        ex = Assertions.assertThrows(CborDeserializerException.class,
+                () -> strictDeserializer.deserializeMarshallableObject(BeanEntity.class,
+                        new HeapReadBuffer(hex("a168696e7456616c756501"))));
+        Assertions.assertEquals("missing field : longValue", ex.getMessage());
     }
 
     @Test
     public void testDeserializeRecursiveObject() {
         RecursiveEntity recursiveEntity = RecursiveEntity.createRecursiveEntity(3);
         HeapWriteBuffer writeBuffer = new HeapWriteBuffer(SIZE);
-        DETERMINISTIC_SERIALIZER.serializeMarshallableObject(recursiveEntity, writeBuffer);
-        RecursiveEntity roundTripped = DETERMINISTIC_DESERIALIZER.deserializeMarshallableObject(
+        ROUND_TRIP_SERIALIZER.serializeMarshallableObject(recursiveEntity, writeBuffer);
+        RecursiveEntity roundTripped = ROUND_TRIP_DESERIALIZER.deserializeMarshallableObject(
                 RecursiveEntity.class, new HeapReadBuffer(writeBuffer.toByteArray()));
         Assertions.assertEquals(recursiveEntity, roundTripped);
     }

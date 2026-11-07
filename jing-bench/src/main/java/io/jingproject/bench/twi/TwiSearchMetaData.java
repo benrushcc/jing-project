@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.helidon.json.binding.Json;
 import io.jingproject.marshall.MarshallAttr;
 import io.jingproject.marshall.Marshallable;
-import io.jingproject.marshall.NamingConvention;
 
 @Marshallable
 @Json.Entity

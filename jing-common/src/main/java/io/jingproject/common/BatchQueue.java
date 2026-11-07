@@ -1,83 +1,66 @@
 package io.jingproject.common;
 
-import java.util.Objects;
-import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Stream;
 
-/**
- * BatchQueue acts like a MPSC queue, it uses lock internally, but optimized for batch consuming
- * the consumer could just fetch all the elements at once without busy polling mechanism
- */
 public final class BatchQueue<T> {
-    private static final int DEFAULT_BATCH_SIZE = Integer.getInteger("jing.common.defaultbatchsize", 256);
-    private final Lock lock = new ReentrantLock();
-    private final int batchSize;
-    private Batch<T> head;
-    private Batch<T> tail;
+    private final Object[] items;
+    private final ReentrantLock lock;
+    private final Condition notEmpty;
+    private final Condition notFull;
+    private int pIndex;
+    private int cIndex;
 
-    public BatchQueue(int batchSize) {
-        this.batchSize = batchSize;
-        this.head = this.tail = new Batch<>(batchSize);
+    public BatchQueue(int size) {
+        this.items = new Object[size];
+        this.lock = new ReentrantLock();
+        this.notEmpty = lock.newCondition();
+        this.notFull = lock.newCondition();
     }
 
-    public BatchQueue() {
-        this(DEFAULT_BATCH_SIZE);
-    }
-
-    private static final class Batch<T> {
-        private final Object[] elements;
-        private int index = 0;
-        private Batch<T> next = null;
-
-        Batch(int batchSize) {
-            this.elements = new Object[batchSize];
-        }
-    }
-
-    public static int defaultBatchSize() {
-        return DEFAULT_BATCH_SIZE;
-    }
-
-    public void offer(T element) {
+    public void produce(T t) {
         lock.lock();
         try {
-            Batch<T> t = tail;
-            int index = t.index;
-            if (index == batchSize) {
-                Batch<T> next = new Batch<>(batchSize);
-                t.next = next;
-                t = next;
-                tail = t;
+            while (pIndex == items.length) {
+                notFull.awaitUninterruptibly();
             }
-            t.elements[index] = element;
-            t.index = Math.incrementExact(index);
+            items[pIndex++] = t;
+            notEmpty.signal();
         } finally {
             lock.unlock();
         }
     }
 
-    public Stream<T> stream() {
-        Batch<T> first;
+    @SuppressWarnings("SuspiciousSystemArraycopy")
+    public int consume(T[] data, int batch) {
         lock.lock();
         try {
-            if (head == tail && head.index == 0) {
-                return Stream.empty();
+            while (cIndex == pIndex) {
+                notEmpty.awaitUninterruptibly();
             }
-            first = head;
-            Batch<T> b = new Batch<>(batchSize);
-            head = b;
-            tail = b;
-        } finally {
+            int count = pIndex - cIndex;
+            boolean full = pIndex == items.length;
+            if(count <= batch) {
+                System.arraycopy(items, cIndex, data, 0, count);
+                cIndex = pIndex = 0;
+                if(full) {
+                    notFull.signalAll();
+                }
+                return count;
+            }
+            System.arraycopy(items, cIndex, data, 0, batch);
+            if(full) {
+                int remaining = count - batch;
+                System.arraycopy(items, cIndex + batch, items, 0, remaining);
+                cIndex = 0;
+                pIndex = remaining;
+                notFull.signalAll();
+            } else {
+                cIndex += batch;
+            }
+            return batch;
+        }  finally {
             lock.unlock();
         }
-        return Stream.iterate(first, Objects::nonNull, batch -> batch.next)
-                .mapMulti((batch, consumer) -> {
-                    for (int i = 0; i < batch.index; i++) {
-                        @SuppressWarnings("unchecked")
-                        T element = (T) batch.elements[i];
-                        consumer.accept(element);
-                    }
-                });
     }
 }

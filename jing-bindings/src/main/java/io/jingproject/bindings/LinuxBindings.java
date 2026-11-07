@@ -12,8 +12,14 @@ public interface LinuxBindings {
     @Downcall(methodName = "jing_linux_epoll_out", constant = true, critical = true)
     int epollOut();
 
-    @Downcall(methodName = "jing_linux_epoll_default", constant = true, critical = true)
-    int epollDefault();
+    @Downcall(methodName = "jing_linux_epoll_rdhup", constant = true, critical = true)
+    int epollRdhup();
+
+    @Downcall(methodName = "jing_linux_epoll_err", constant = true, critical = true)
+    int epollErr();
+
+    @Downcall(methodName = "jing_linux_epoll_hup", constant = true, critical = true)
+    int epollHup();
 
     @Downcall(methodName = "jing_linux_epoll_ctl_add", constant = true, critical = true)
     int epollAdd();
@@ -32,4 +38,22 @@ public interface LinuxBindings {
 
     @Downcall(methodName = "jing_linux_epoll_ctl", critical = true)
     int epollCtl(int epfd, int socket, int op, int eventTypes, int data);
+
+    @Downcall(methodName = "jing_linux_epoll_wait")
+    int epollWait(int epfd, long events, int maxevnets, int timeout);
+
+    @Downcall(methodName = "jing_linux_efd_cloexec", constant = true, critical = true)
+    int efdCloexec();
+
+    @Downcall(methodName = "jing_linux_efd_nonblock", constant = true, critical = true)
+    int efdNonblock();
+
+    @Downcall(methodName = "jing_linux_eventfd", critical = true)
+    int eventfd(int flags);
+
+    @Downcall(methodName = "jing_linux_read_efd", critical = true)
+    int readEfd(int efd);
+
+    @Downcall(methodName = "jing_linux_write_efd", critical = true)
+    int writeEfd(int efd, int value);
 }

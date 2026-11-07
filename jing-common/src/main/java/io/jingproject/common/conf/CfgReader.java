@@ -18,13 +18,14 @@ public sealed abstract class CfgReader permits CfgReader.JsonCfgReader, CfgReade
         if (key == null || key.isEmpty()) {
             throw new CfgException("key cannot be empty");
         }
-        for (int i = 0; i < key.length(); i++) {
+        final int len = key.length();
+        for (int i = 0; i < len; i++) {
             char c = key.charAt(i);
             if((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
                 continue ;
             }
             if(c == '_' || c == '-') {
-                if(i == 0 || i == key.length() - 1) {
+                if(i == 0 || i == len - 1) {
                     throw new CfgException("key must not start or end with '_' or '-'");
                 }
                 char before = key.charAt(i - 1);
@@ -582,7 +583,8 @@ public sealed abstract class CfgReader permits CfgReader.JsonCfgReader, CfgReade
 
             private Cfg.CfgObject defineTable(Cfg.CfgObject root, List<String> parts) {
                 Cfg.CfgObject tab = root;
-                for (int i = 0; i < parts.size() - 1; i++) {
+                final int range = parts.size() - 1;
+                for (int i = 0; i < range; i++) {
                     tab = findOrCreate(tab, parts.get(i), true);
                 }
                 String lastKey = parts.getLast();
@@ -628,7 +630,8 @@ public sealed abstract class CfgReader permits CfgReader.JsonCfgReader, CfgReade
 
             private void setValue(Cfg.CfgObject curTab, List<String> parts, Cfg value) {
                 Cfg.CfgObject tab = curTab;
-                for (int i = 0; i < parts.size() - 1; i++) {
+                final int range = parts.size() - 1;
+                for (int i = 0; i < range; i++) {
                     tab = findOrCreate(tab, parts.get(i), false);
                 }
                 String lastKey = parts.getLast();

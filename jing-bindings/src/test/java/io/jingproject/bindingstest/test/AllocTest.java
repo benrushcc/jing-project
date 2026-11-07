@@ -27,16 +27,16 @@ public class AllocTest {
             MemorySegment segment = allocator.allocate(32L, 8L);
             Assertions.assertNotEquals(0L, segment.address());
             Assertions.assertEquals(32L, segment.byteSize());
-            NativeSegmentAccess.setLong(segment, 0L, 0x0123456789abcdefL);
-            Assertions.assertEquals(0x0123456789abcdefL, NativeSegmentAccess.getLong(segment, 0L));
-            NativeSegmentAccess.setInt(segment, 24L, 42);
-            Assertions.assertEquals(42, NativeSegmentAccess.getInt(segment, 24L));
+            NativeSegmentAccess.setLong(segment.address(), 0L, 0x0123456789abcdefL);
+            Assertions.assertEquals(0x0123456789abcdefL, NativeSegmentAccess.getLong(segment.address(), 0L));
+            NativeSegmentAccess.setInt(segment.address(), 24L, 42);
+            Assertions.assertEquals(42, NativeSegmentAccess.getInt(segment.address(), 24L));
         }
         try (Allocator allocator = MallocAllocator.newInstance()) {
             MemorySegment segment = allocator.allocate(4096L, 4096L);
             Assertions.assertEquals(0L, segment.address() % 4096L);
-            NativeSegmentAccess.setLong(segment, 4096L - 8L, 0x0123456789abcdefL);
-            Assertions.assertEquals(0x0123456789abcdefL, NativeSegmentAccess.getLong(segment, 4096L - 8L));
+            NativeSegmentAccess.setLong(segment.address(), 4096L - 8L, 0x0123456789abcdefL);
+            Assertions.assertEquals(0x0123456789abcdefL, NativeSegmentAccess.getLong(segment.address(), 4096L - 8L));
         }
         try (Allocator allocator = MallocAllocator.newInstance()) {
             for(int i = 0; i < 1000; i++) {
@@ -105,11 +105,11 @@ public class AllocTest {
                     MemorySegment segment = allocator.allocate(64L * 1024L, 8L);
                     // writing into the tail of each block exercises the
                     // lazily grown committed region of the arena
-                    NativeSegmentAccess.setLong(segment, 64L * 1024L - 8L, i);
+                    NativeSegmentAccess.setLong(segment.address(), 64L * 1024L - 8L, i);
                     segments[i] = segment;
                 }
                 for (int i = 0; i < count; i++) {
-                    Assertions.assertEquals(i, NativeSegmentAccess.getLong(segments[i], 64L * 1024L - 8L));
+                    Assertions.assertEquals(i, NativeSegmentAccess.getLong(segments[i].address(), 64L * 1024L - 8L));
                 }
             }
         }

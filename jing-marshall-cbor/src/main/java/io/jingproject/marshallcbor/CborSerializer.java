@@ -20,15 +20,21 @@ public final class CborSerializer {
         this.option = option;
     }
 
+    public void serializeCborValue(CborValue value, WriteBuffer writeBuffer) {
+        if (value == null) {
+            throw new CborSerializerException("value must not be null");
+        }
+        CborSerializerContext context = newContext(writeBuffer);
+        context.serializeCborValue(value);
+        context.commit();
+    }
+
     // byte[] is a CBOR byte string (major 2), not an expanded numeric array
     public void serializeByteArray(byte[] arr, WriteBuffer writeBuffer) {
         if (arr == null) {
             throw new CborSerializerException("arr must not be null");
         }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
-        }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         context.serializeBytes(arr);
         context.commit();
     }
@@ -37,10 +43,7 @@ public final class CborSerializer {
         if (arr == null) {
             throw new CborSerializerException("arr must not be null");
         }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
-        }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         context.serializeBooleanArray(arr);
         context.commit();
     }
@@ -49,10 +52,7 @@ public final class CborSerializer {
         if (arr == null) {
             throw new CborSerializerException("arr must not be null");
         }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
-        }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         context.serializeShortArray(arr);
         context.commit();
     }
@@ -61,10 +61,7 @@ public final class CborSerializer {
         if (arr == null) {
             throw new CborSerializerException("arr must not be null");
         }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
-        }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         context.serializeCharArray(arr);
         context.commit();
     }
@@ -73,10 +70,7 @@ public final class CborSerializer {
         if (arr == null) {
             throw new CborSerializerException("arr must not be null");
         }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
-        }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         context.serializeIntArray(arr);
         context.commit();
     }
@@ -85,10 +79,7 @@ public final class CborSerializer {
         if (arr == null) {
             throw new CborSerializerException("arr must not be null");
         }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
-        }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         context.serializeLongArray(arr);
         context.commit();
     }
@@ -97,10 +88,7 @@ public final class CborSerializer {
         if (arr == null) {
             throw new CborSerializerException("arr must not be null");
         }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
-        }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         context.serializeFloatArray(arr);
         context.commit();
     }
@@ -109,10 +97,7 @@ public final class CborSerializer {
         if (arr == null) {
             throw new CborSerializerException("arr must not be null");
         }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
-        }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         context.serializeDoubleArray(arr);
         context.commit();
     }
@@ -120,9 +105,6 @@ public final class CborSerializer {
     public void serializeMarshallableObject(Object marshallable, WriteBuffer writeBuffer) {
         if (marshallable == null) {
             throw new CborSerializerException("marshallable object must not be null");
-        }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
         }
         Class<?> marshallableType = marshallable.getClass();
         if (marshallableType.isEnum()) {
@@ -132,7 +114,7 @@ public final class CborSerializer {
         if (fc == null) {
             throw new CborSerializerException("type not marshallable : " + marshallableType.getName());
         }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         CborSerializerNode root = new CborSerializerNode();
         root.initObj(fc, marshallable);
         process(root, context);
@@ -142,13 +124,11 @@ public final class CborSerializer {
         if (arr == null) {
             throw new CborSerializerException("arr must not be null");
         }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
-        }
         Class<? extends Object[]> arrType = arr.getClass();
         Class<?> componentType = arrType.getComponentType();
         if (componentType.isPrimitive()) {
-            throw new CborSerializerException("primitive type shouldn't be used as parameters : " + componentType.getName());
+            throw new CborSerializerException(
+                    "primitive type shouldn't be used as parameters : " + componentType.getName());
         }
         if (componentType.isArray()) {
             throw new CborSerializerException("multi dimensional array not supported : " + componentType.getName());
@@ -156,7 +136,7 @@ public final class CborSerializer {
         if (componentType.getTypeParameters().length > 0) {
             throw new CborSerializerException("generic component type not supported : " + componentType.getName());
         }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         CborSerializeFunc builtinSerializeArrFunc = CborSerializerContext.builtinSerializeArrayFunc(arrType);
         if (builtinSerializeArrFunc != null) {
             builtinSerializeArrFunc.serialize(arr, context);
@@ -176,11 +156,9 @@ public final class CborSerializer {
         if (elementType == null) {
             throw new CborSerializerException("elementType must not be null");
         }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
-        }
         if (elementType.isPrimitive()) {
-            throw new CborSerializerException("primitive type shouldn't be used as parameters : " + elementType.getName());
+            throw new CborSerializerException(
+                    "primitive type shouldn't be used as parameters : " + elementType.getName());
         }
         if (elementType.isArray() && elementType.getComponentType().isArray()) {
             throw new CborSerializerException("multi dimensional array not supported : " + elementType.getName());
@@ -188,13 +166,13 @@ public final class CborSerializer {
         if (elementType.getTypeParameters().length > 0) {
             throw new CborSerializerException("generic element type not supported : " + elementType.getName());
         }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         CborSerializerNode root = new CborSerializerNode();
         CborSerializeFunc fn = context.valueSerializeFunc(elementType);
         if (collection instanceof List<T> list) {
             root.initList(list, fn);
         } else {
-            root.initCol(collection.iterator(), fn);
+            root.initCol(collection, fn);
         }
         process(root, context);
     }
@@ -209,14 +187,12 @@ public final class CborSerializer {
         if (valueType == null) {
             throw new CborSerializerException("valueType must not be null");
         }
-        if (writeBuffer == null) {
-            throw new CborSerializerException("writeBuffer must not be null");
-        }
         if (keyType != CharSequence.class && keyType != String.class) {
             throw new CborSerializerException("key type not supported : " + keyType.getName());
         }
         if (valueType.isPrimitive()) {
-            throw new CborSerializerException("primitive type shouldn't be used as parameters : " + valueType.getName());
+            throw new CborSerializerException(
+                    "primitive type shouldn't be used as parameters : " + valueType.getName());
         }
         if (valueType.isArray() && valueType.getComponentType().isArray()) {
             throw new CborSerializerException("multi dimensional array not supported : " + valueType.getName());
@@ -224,11 +200,18 @@ public final class CborSerializer {
         if (valueType.getTypeParameters().length > 0) {
             throw new CborSerializerException("generic value type not supported : " + valueType.getName());
         }
-        CborSerializerContext context = CborSerializerContext.newCtx(option, writeBuffer);
+        CborSerializerContext context = newContext(writeBuffer);
         CborSerializerNode root = new CborSerializerNode();
         CborSerializeFunc fn = context.valueSerializeFunc(valueType);
-        root.initMap(map.entrySet().iterator(), fn);
+        root.initMap(map, fn);
         process(root, context);
+    }
+
+    private CborSerializerContext newContext(WriteBuffer writeBuffer) {
+        if (writeBuffer == null) {
+            throw new CborSerializerException("writeBuffer must not be null");
+        }
+        return CborSerializerContext.newCtx(option, writeBuffer);
     }
 
     private void process(CborSerializerNode root, CborSerializerContext context) {
@@ -262,7 +245,8 @@ public final class CborSerializer {
         }
     }
 
-    private static CborSerializerNode nextNode(CborSerializerNode current, CborSerializerNode given, CborSerializerContext context) {
+    private static CborSerializerNode nextNode(CborSerializerNode current, CborSerializerNode given,
+                                               CborSerializerContext context) {
         return switch (current.process(context)) {
             case Finished -> null;
             case NewMarshallable -> {
@@ -291,7 +275,7 @@ public final class CborSerializer {
                 if (col instanceof List<?> list) {
                     r.initList(list, fn);
                 } else {
-                    r.initCol(col.iterator(), fn);
+                    r.initCol(col, fn);
                 }
                 yield r;
             }
@@ -300,7 +284,7 @@ public final class CborSerializer {
                 Class<?> valueType = context.type();
                 CborSerializeFunc fn = context.valueSerializeFunc(valueType);
                 CborSerializerNode r = given == null ? new CborSerializerNode() : given;
-                r.initMap(map.entrySet().iterator(), fn);
+                r.initMap(map, fn);
                 yield r;
             }
             default -> throw new AssertionError();

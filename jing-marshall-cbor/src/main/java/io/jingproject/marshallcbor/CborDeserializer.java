@@ -20,77 +20,55 @@ public final class CborDeserializer {
         this.option = option;
     }
 
+    public CborValue deserializeCborValue(ReadBuffer readBuffer) {
+        CborDeserializerContext context = newContext(readBuffer);
+        return commit(context, context.deserializeCborValue(context.getByte()));
+    }
+
     public byte[] deserializeByteArray(ReadBuffer readBuffer) {
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
-        }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
-        return context.deserializeByteArray(context.getByte());
+        CborDeserializerContext context = newContext(readBuffer);
+        return commit(context, context.deserializeByteArray(context.getByte()));
     }
 
     public boolean[] deserializeBooleanArray(ReadBuffer readBuffer) {
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
-        }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
-        return context.deserializeBooleanArray(context.getByte());
+        CborDeserializerContext context = newContext(readBuffer);
+        return commit(context, context.deserializeBooleanArray(context.getByte()));
     }
 
     public short[] deserializeShortArray(ReadBuffer readBuffer) {
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
-        }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
-        return context.deserializeShortArray(context.getByte());
+        CborDeserializerContext context = newContext(readBuffer);
+        return commit(context, context.deserializeShortArray(context.getByte()));
     }
 
     public char[] deserializeCharArray(ReadBuffer readBuffer) {
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
-        }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
-        return context.deserializeCharArray(context.getByte());
+        CborDeserializerContext context = newContext(readBuffer);
+        return commit(context, context.deserializeCharArray(context.getByte()));
     }
 
     public int[] deserializeIntArray(ReadBuffer readBuffer) {
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
-        }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
-        return context.deserializeIntArray(context.getByte());
+        CborDeserializerContext context = newContext(readBuffer);
+        return commit(context, context.deserializeIntArray(context.getByte()));
     }
 
     public long[] deserializeLongArray(ReadBuffer readBuffer) {
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
-        }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
-        return context.deserializeLongArray(context.getByte());
+        CborDeserializerContext context = newContext(readBuffer);
+        return commit(context, context.deserializeLongArray(context.getByte()));
     }
 
     public float[] deserializeFloatArray(ReadBuffer readBuffer) {
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
-        }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
-        return context.deserializeFloatArray(context.getByte());
+        CborDeserializerContext context = newContext(readBuffer);
+        return commit(context, context.deserializeFloatArray(context.getByte()));
     }
 
     public double[] deserializeDoubleArray(ReadBuffer readBuffer) {
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
-        }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
-        return context.deserializeDoubleArray(context.getByte());
+        CborDeserializerContext context = newContext(readBuffer);
+        return commit(context, context.deserializeDoubleArray(context.getByte()));
     }
 
     @SuppressWarnings("unchecked")
     public <T> T deserializeMarshallableObject(Class<T> marshallableType, ReadBuffer readBuffer) {
         if (marshallableType == null) {
             throw new CborDeserializerException("marshallable type must not be null");
-        }
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
         }
         if (marshallableType.isEnum()) {
             throw new CborDeserializerException("enum cannot be directly deserialized");
@@ -99,7 +77,7 @@ public final class CborDeserializer {
         if (fc == null) {
             throw new CborDeserializerException("type not marshallable : " + marshallableType.getName());
         }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
+        CborDeserializerContext context = newContext(readBuffer);
         context.checkObjStart(context.getByte());
         CborDeserializerNode root = new CborDeserializerNode();
         root.initObj(fc, context.declaredCount());
@@ -111,11 +89,9 @@ public final class CborDeserializer {
         if (componentType == null) {
             throw new CborDeserializerException("component type must not be null");
         }
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
-        }
         if (componentType.isPrimitive()) {
-            throw new CborDeserializerException("primitive array shouldn't be used as parameters : " + componentType.getName());
+            throw new CborDeserializerException(
+                    "primitive array shouldn't be used as parameters : " + componentType.getName());
         }
         if (componentType.isArray()) {
             throw new CborDeserializerException("multi dimensional array not supported : " + componentType.getName());
@@ -123,12 +99,13 @@ public final class CborDeserializer {
         if (componentType.getTypeParameters().length > 0) {
             throw new CborDeserializerException("generic component type not supported : " + componentType.getName());
         }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
+        CborDeserializerContext context = newContext(readBuffer);
         byte firstByte = context.getByte();
-        CborDeserializeFunc builtinDeserializeArrayFunc = CborDeserializerContext.builtinDeserializeArrayFunc(componentType.arrayType());
+        CborDeserializeFunc builtinDeserializeArrayFunc =
+                CborDeserializerContext.builtinDeserializeArrayFunc(componentType.arrayType());
         if (builtinDeserializeArrayFunc != null) {
             CborDeserializeResult _ = builtinDeserializeArrayFunc.deserialize(firstByte, context);
-            return (T[]) context.obj();
+            return commit(context, (T[]) context.obj());
         }
         context.checkArrayStart(firstByte);
         CborDeserializerNode root = new CborDeserializerNode();
@@ -138,18 +115,17 @@ public final class CborDeserializer {
     }
 
     @SuppressWarnings("unchecked")
-    public <T> Collection<T> deserializeCol(Class<T> elementType, ReadBuffer readBuffer, Supplier<Collection<T>> supplier) {
+    public <T> Collection<T> deserializeCol(Class<T> elementType, ReadBuffer readBuffer,
+                                            Supplier<Collection<T>> supplier) {
         if (elementType == null) {
             throw new CborDeserializerException("element type must not be null");
-        }
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
         }
         if (supplier == null) {
             throw new CborDeserializerException("supplier must not be null");
         }
         if (elementType.isPrimitive()) {
-            throw new CborDeserializerException("primitive type shouldn't be used as parameters : " + elementType.getName());
+            throw new CborDeserializerException(
+                    "primitive type shouldn't be used as parameters : " + elementType.getName());
         }
         if (elementType.isArray() && elementType.getComponentType().isArray()) {
             throw new CborDeserializerException("multi dimensional array not supported : " + elementType.getName());
@@ -161,24 +137,22 @@ public final class CborDeserializer {
         if (col == null) {
             throw new CborDeserializerException("supplied collection must not be null");
         }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
+        CborDeserializerContext context = newContext(readBuffer);
         context.checkArrayStart(context.getByte());
         CborDeserializeFunc func = context.valueDeserializeFunc(elementType);
         CborDeserializerNode root = new CborDeserializerNode();
-        root.initCol(col, func, context.declaredCount());
+        root.initCol(col, elementType, func, context.declaredCount());
         return (Collection<T>) process(root, context);
     }
 
     @SuppressWarnings("unchecked")
-    public <K, V> Map<K, V> deserializeMap(Class<K> keyType, Class<V> valueType, ReadBuffer readBuffer, Supplier<Map<K, V>> supplier) {
+    public <K, V> Map<K, V> deserializeMap(Class<K> keyType, Class<V> valueType, ReadBuffer readBuffer,
+                                           Supplier<Map<K, V>> supplier) {
         if (keyType == null) {
             throw new CborDeserializerException("key type must not be null");
         }
         if (valueType == null) {
             throw new CborDeserializerException("value type must not be null");
-        }
-        if (readBuffer == null) {
-            throw new CborDeserializerException("readBuffer must not be null");
         }
         if (supplier == null) {
             throw new CborDeserializerException("supplier must not be null");
@@ -187,7 +161,8 @@ public final class CborDeserializer {
             throw new CborDeserializerException("key type not supported : " + keyType.getName());
         }
         if (valueType.isPrimitive()) {
-            throw new CborDeserializerException("primitive type shouldn't be used as parameters : " + valueType.getName());
+            throw new CborDeserializerException(
+                    "primitive type shouldn't be used as parameters : " + valueType.getName());
         }
         if (valueType.getTypeParameters().length > 0) {
             throw new CborDeserializerException("generic value type are not supported : " + valueType.getName());
@@ -196,12 +171,26 @@ public final class CborDeserializer {
         if (map == null) {
             throw new CborDeserializerException("supplied map must not be null");
         }
-        CborDeserializerContext context = CborDeserializerContext.newContext(option, readBuffer);
+        CborDeserializerContext context = newContext(readBuffer);
         context.checkObjStart(context.getByte());
         CborDeserializeFunc func = context.valueDeserializeFunc(valueType);
         CborDeserializerNode root = new CborDeserializerNode();
-        root.initMap(map, func, context.declaredCount());
+        root.initMap(map, valueType, func, context.declaredCount());
         return (Map<K, V>) process(root, context);
+    }
+
+    private CborDeserializerContext newContext(ReadBuffer readBuffer) {
+        if (readBuffer == null) {
+            throw new CborDeserializerException("readBuffer must not be null");
+        }
+        return CborDeserializerContext.newContext(option, readBuffer);
+    }
+
+    // commits the advanced read position before returning a top-level value,
+    // so the caller can continue reading from the same buffer
+    private static <T> T commit(CborDeserializerContext context, T value) {
+        context.commit();
+        return value;
     }
 
     private Object process(CborDeserializerNode root, CborDeserializerContext context) {
@@ -237,7 +226,8 @@ public final class CborDeserializer {
         }
     }
 
-    private static CborDeserializerNode nextNode(CborDeserializerNode current, CborDeserializerNode given, boolean hasValue, CborDeserializerContext context) {
+    private static CborDeserializerNode nextNode(CborDeserializerNode current, CborDeserializerNode given,
+                                                 boolean hasValue, CborDeserializerContext context) {
         return switch(current.process(hasValue, context)) {
             case Finish -> null;
             case NewMarshallable -> {
@@ -262,7 +252,7 @@ public final class CborDeserializer {
                 Class<?> elementType = context.type();
                 CborDeserializeFunc func = context.valueDeserializeFunc(elementType);
                 CborDeserializerNode r = given == null ? new CborDeserializerNode() : given;
-                r.initCol(col, func, context.declaredCount());
+                r.initCol(col, elementType, func, context.declaredCount());
                 yield r;
             }
             case NewMap -> {
@@ -270,7 +260,7 @@ public final class CborDeserializer {
                 Class<?> valueType = context.type();
                 CborDeserializeFunc func = context.valueDeserializeFunc(valueType);
                 CborDeserializerNode r = given == null ? new CborDeserializerNode() : given;
-                r.initMap(map, func, context.declaredCount());
+                r.initMap(map, valueType, func, context.declaredCount());
                 yield r;
             }
             case NewDummyObj -> {

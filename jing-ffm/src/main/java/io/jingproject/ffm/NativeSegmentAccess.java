@@ -77,195 +77,179 @@ public final class NativeSegmentAccess {
         throw new UnsupportedOperationException("utility class");
     }
 
-    public static byte getByte(MemorySegment segment, long offset) {
-
-        return ZERO.get(ValueLayout.JAVA_BYTE, Math.addExact(segment.address(), offset));
+    public static byte getByte(long addr, long offset) {
+        return ZERO.get(ValueLayout.JAVA_BYTE, addr + offset);
     }
 
-    public static void setByte(MemorySegment segment, long offset, byte b) {
-
-        ZERO.set(ValueLayout.JAVA_BYTE, Math.addExact(segment.address(), offset), b);
+    public static void setByte(long addr, long offset, byte b) {
+        ZERO.set(ValueLayout.JAVA_BYTE, addr + offset, b);
     }
 
-    public static short getShort(MemorySegment segment, long offset) {
-        return getShort(segment, offset, ByteOrder.nativeOrder());
+    public static short getShort(long addr, long offset) {
+        return getShort(addr, offset, ByteOrder.nativeOrder());
     }
 
-    public static void setShort(MemorySegment segment, long offset, short s) {
-        setShort(segment, offset, s, ByteOrder.nativeOrder());
+    public static void setShort(long addr, long offset, short s) {
+        setShort(addr, offset, s, ByteOrder.nativeOrder());
     }
 
-    public static short getShort(MemorySegment segment, long offset, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static short getShort(long addr, long offset, ByteOrder order) {
+        long address = addr + offset;
         return switch (order) {
             case BIG_ENDIAN -> ZERO.get(SegmentAccess.SHORT_UNALIGNED_BE, address);
             case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.SHORT_UNALIGNED_LE, address);
         };
     }
 
-    public static void setShort(MemorySegment segment, long offset, short s, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static void setShort(long addr, long offset, short s, ByteOrder order) {
+        long address = addr + offset;
         switch (order) {
             case BIG_ENDIAN -> ZERO.set(SegmentAccess.SHORT_UNALIGNED_BE, address, s);
             case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.SHORT_UNALIGNED_LE, address, s);
         }
     }
 
-    public static char getChar(MemorySegment segment, long offset) {
-        return getChar(segment, offset, ByteOrder.nativeOrder());
+    public static char getChar(long addr, long offset) {
+        return getChar(addr, offset, ByteOrder.nativeOrder());
     }
 
-    public static void setChar(MemorySegment segment, long offset, char c) {
-        setChar(segment, offset, c, ByteOrder.nativeOrder());
+    public static void setChar(long addr, long offset, char c) {
+        setChar(addr, offset, c, ByteOrder.nativeOrder());
     }
 
-    public static char getChar(MemorySegment segment, long offset, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static char getChar(long addr, long offset, ByteOrder order) {
+        long address = addr + offset;
         return switch (order) {
             case BIG_ENDIAN -> ZERO.get(SegmentAccess.CHAR_UNALIGNED_BE, address);
             case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.CHAR_UNALIGNED_LE, address);
         };
     }
 
-    public static void setChar(MemorySegment segment, long offset, char c, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static void setChar(long addr, long offset, char c, ByteOrder order) {
+        long address = addr + offset;
         switch (order) {
             case BIG_ENDIAN -> ZERO.set(SegmentAccess.CHAR_UNALIGNED_BE, address, c);
             case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.CHAR_UNALIGNED_LE, address, c);
         }
     }
 
-    public static int getInt(MemorySegment segment, long offset) {
-        return getInt(segment, offset, ByteOrder.nativeOrder());
+    public static int getInt(long addr, long offset) {
+        return getInt(addr, offset, ByteOrder.nativeOrder());
     }
 
-    public static void setInt(MemorySegment segment, long offset, int i) {
-        setInt(segment, offset, i, ByteOrder.nativeOrder());
+    public static void setInt(long addr, long offset, int i) {
+        setInt(addr, offset, i, ByteOrder.nativeOrder());
     }
 
-    public static int getInt(MemorySegment segment, long offset, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static int getInt(long addr, long offset, ByteOrder order) {
+        long address = addr + offset;
         return switch (order) {
             case BIG_ENDIAN -> ZERO.get(SegmentAccess.INT_UNALIGNED_BE, address);
             case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.INT_UNALIGNED_LE, address);
         };
     }
 
-    public static void setInt(MemorySegment segment, long offset, int i, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static void setInt(long addr, long offset, int i, ByteOrder order) {
+        long address = addr + offset;
         switch (order) {
             case BIG_ENDIAN -> ZERO.set(SegmentAccess.INT_UNALIGNED_BE, address, i);
             case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.INT_UNALIGNED_LE, address, i);
         }
     }
 
-    public static long getLong(MemorySegment segment, long offset) {
-        return getLong(segment, offset, ByteOrder.nativeOrder());
+    public static long getLong(long addr, long offset) {
+        return getLong(addr, offset, ByteOrder.nativeOrder());
     }
 
-    public static void setLong(MemorySegment segment, long offset, long l) {
-        setLong(segment, offset, l, ByteOrder.nativeOrder());
+    public static void setLong(long addr, long offset, long l) {
+        setLong(addr, offset, l, ByteOrder.nativeOrder());
     }
 
-    public static long getLong(MemorySegment segment, long offset, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static long getLong(long addr, long offset, ByteOrder order) {
+        long address = addr + offset;
         return switch (order) {
             case BIG_ENDIAN -> ZERO.get(SegmentAccess.LONG_UNALIGNED_BE, address);
             case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.LONG_UNALIGNED_LE, address);
         };
     }
 
-    public static void setLong(MemorySegment segment, long offset, long l, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static void setLong(long addr, long offset, long l, ByteOrder order) {
+        long address = addr + offset;
         switch (order) {
             case BIG_ENDIAN -> ZERO.set(SegmentAccess.LONG_UNALIGNED_BE, address, l);
             case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.LONG_UNALIGNED_LE, address, l);
         }
     }
 
-    public static float getFloat(MemorySegment segment, long offset) {
-        return getFloat(segment, offset, ByteOrder.nativeOrder());
+    public static float getFloat(long addr, long offset) {
+        return getFloat(addr, offset, ByteOrder.nativeOrder());
     }
 
-    public static void setFloat(MemorySegment segment, long offset, float f) {
-        setFloat(segment, offset, f, ByteOrder.nativeOrder());
+    public static void setFloat(long addr, long offset, float f) {
+        setFloat(addr, offset, f, ByteOrder.nativeOrder());
     }
 
-    public static float getFloat(MemorySegment segment, long offset, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static float getFloat(long addr, long offset, ByteOrder order) {
+        long address = addr + offset;
         return switch (order) {
             case BIG_ENDIAN -> ZERO.get(SegmentAccess.FLOAT_UNALIGNED_BE, address);
             case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.FLOAT_UNALIGNED_LE, address);
         };
     }
 
-    public static void setFloat(MemorySegment segment, long offset, float f, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static void setFloat(long addr, long offset, float f, ByteOrder order) {
+        long address = addr + offset;
         switch (order) {
             case BIG_ENDIAN -> ZERO.set(SegmentAccess.FLOAT_UNALIGNED_BE, address, f);
             case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.FLOAT_UNALIGNED_LE, address, f);
         }
     }
 
-    public static double getDouble(MemorySegment segment, long offset) {
-        return getDouble(segment, offset, ByteOrder.nativeOrder());
+    public static double getDouble(long addr, long offset) {
+        return getDouble(addr, offset, ByteOrder.nativeOrder());
     }
 
-    public static void setDouble(MemorySegment segment, long offset, double d) {
-        setDouble(segment, offset, d, ByteOrder.nativeOrder());
+    public static void setDouble(long addr, long offset, double d) {
+        setDouble(addr, offset, d, ByteOrder.nativeOrder());
     }
 
-    public static double getDouble(MemorySegment segment, long offset, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static double getDouble(long addr, long offset, ByteOrder order) {
+        long address = addr + offset;
         return switch (order) {
             case BIG_ENDIAN -> ZERO.get(SegmentAccess.DOUBLE_UNALIGNED_BE, address);
             case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.DOUBLE_UNALIGNED_LE, address);
         };
     }
 
-    public static void setDouble(MemorySegment segment, long offset, double d, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static void setDouble(long addr, long offset, double d, ByteOrder order) {
+        long address = addr + offset;
         switch (order) {
             case BIG_ENDIAN -> ZERO.set(SegmentAccess.DOUBLE_UNALIGNED_BE, address, d);
             case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.DOUBLE_UNALIGNED_LE, address, d);
         }
     }
 
-    public static MemorySegment getAddress(MemorySegment segment, long offset) {
-        return getAddress(segment, offset, ByteOrder.nativeOrder());
+    public static MemorySegment getAddress(long addr, long offset) {
+        return getAddress(addr, offset, ByteOrder.nativeOrder());
     }
 
-    public static void setAddress(MemorySegment segment, long offset, MemorySegment addr) {
-        setAddress(segment, offset, addr, ByteOrder.nativeOrder());
+    public static void setAddress(long addr, long offset, MemorySegment value) {
+        setAddress(addr, offset, value, ByteOrder.nativeOrder());
     }
 
-    public static MemorySegment getAddress(MemorySegment segment, long offset, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static MemorySegment getAddress(long addr, long offset, ByteOrder order) {
+        long address = addr + offset;
         return switch (order) {
             case BIG_ENDIAN -> ZERO.get(SegmentAccess.ADDRESS_UNALIGNED_BE, address);
             case LITTLE_ENDIAN -> ZERO.get(SegmentAccess.ADDRESS_UNALIGNED_LE, address);
         };
     }
 
-    public static void setAddress(MemorySegment segment, long offset, MemorySegment addr, ByteOrder order) {
-
-        long address = Math.addExact(segment.address(), offset);
+    public static void setAddress(long addr, long offset, MemorySegment value, ByteOrder order) {
+        long address = addr + offset;
         switch (order) {
-            case BIG_ENDIAN -> ZERO.set(SegmentAccess.ADDRESS_UNALIGNED_BE, address, addr);
-            case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.ADDRESS_UNALIGNED_LE, address, addr);
+            case BIG_ENDIAN -> ZERO.set(SegmentAccess.ADDRESS_UNALIGNED_BE, address, value);
+            case LITTLE_ENDIAN -> ZERO.set(SegmentAccess.ADDRESS_UNALIGNED_LE, address, value);
         }
     }
 
@@ -273,60 +257,52 @@ public final class NativeSegmentAccess {
         return JING_RESULT_LAYOUT;
     }
 
-    public static byte rByte(MemorySegment r) {
+    public static byte rByte(long r) {
         return getByte(r, JING_DATA_OFFSET + JING_DATA_BYTE_VAL_OFFSET);
     }
 
-    public static short rShort(MemorySegment r) {
+    public static short rShort(long r) {
         return getShort(r, JING_DATA_OFFSET + JING_DATA_SHORT_VAL_OFFSET);
     }
 
-    public static char rChar(MemorySegment r) {
+    public static char rChar(long r) {
         return getChar(r, JING_DATA_OFFSET + JING_DATA_CHAR_VAL_OFFSET);
     }
 
-    public static int rInt(MemorySegment r) {
+    public static int rInt(long r) {
         return getInt(r, JING_DATA_OFFSET + JING_DATA_INT_VAL_OFFSET);
     }
 
-    public static long rLong(MemorySegment r) {
+    public static long rLong(long r) {
         return getLong(r, JING_DATA_OFFSET + JING_DATA_LONG_VAL_OFFSET);
     }
 
-    public static float rFloat(MemorySegment r) {
+    public static float rFloat(long r) {
         return getFloat(r, JING_DATA_OFFSET + JING_DATA_FLOAT_VAL_OFFSET);
     }
 
-    public static double rDouble(MemorySegment r) {
+    public static double rDouble(long r) {
         return getDouble(r, JING_DATA_OFFSET + JING_DATA_DOUBLE_VAL_OFFSET);
     }
 
-    public static MemorySegment rAddress(MemorySegment r) {
+    public static MemorySegment rAddress(long r) {
         return getAddress(r, JING_DATA_OFFSET + JING_DATA_PTR_VAL_OFFSET);
     }
 
-    public static long rLen(MemorySegment r) {
+    public static long rLen(long r) {
         return getLong(r, JING_LEN_OFFSET);
     }
 
-    public static int rErrCode(MemorySegment r) {
+    public static int rErrCode(long r) {
         return getInt(r, JING_DATA_OFFSET + JING_DATA_ERR_VAL_OFFSET + JING_ERR_CODE_OFFSET);
     }
 
-    public static int rErrFlag(MemorySegment r) {
+    public static int rErrFlag(long r) {
         return getInt(r, JING_DATA_OFFSET + JING_DATA_ERR_VAL_OFFSET + JING_ERR_FLAG_OFFSET);
-    }
-
-    public static boolean isErrPtr(MemorySegment seg) {
-        return (seg.address() & JING_POINTER_ERR_FLAG) != 0;
     }
 
     public static boolean isErrPtr(long addr) {
         return (addr & JING_POINTER_ERR_FLAG) != 0;
-    }
-
-    public static int errCode(MemorySegment seg) {
-        return (int) seg.address();
     }
 
     public static int errCode(long addr) {

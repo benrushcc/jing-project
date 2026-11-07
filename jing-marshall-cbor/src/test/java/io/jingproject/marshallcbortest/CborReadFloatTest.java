@@ -133,11 +133,11 @@ public class CborReadFloatTest {
         // float64 values too large for float32 must be rejected by the strict path
         CborDeserializerException ex = Assertions.assertThrows(CborDeserializerException.class,
                 () -> DESERIALIZER.deserializeFloatArray(new HeapReadBuffer(hex("81fb7fefffffffffffff"))));
-        Assertions.assertEquals("float value overflow : 1.7976931348623157E308", ex.getMessage());
+        Assertions.assertEquals("float value loses precision : 1.7976931348623157E308", ex.getMessage());
 
         ex = Assertions.assertThrows(CborDeserializerException.class,
                 () -> DESERIALIZER.deserializeFloatArray(new HeapReadBuffer(hex("81fb47f0000000000000"))));
-        Assertions.assertEquals("float value overflow : 3.402823669209385E38", ex.getMessage());
+        Assertions.assertEquals("float value loses precision : 3.402823669209385E38", ex.getMessage());
     }
 
     @Test
@@ -146,5 +146,44 @@ public class CborReadFloatTest {
         float[] actual = DESERIALIZER.deserializeFloatArray(
                 new HeapReadBuffer(hex("81fb47efffffe0000000")));
         Assertions.assertEquals(0x7F7FFFFF, Float.floatToRawIntBits(actual[0]));
+    }
+
+    @Test
+    public void testReadFloatExactNarrowing() {
+        // 1.5 and -0.0 are exactly representable as float32
+        float[] actual = DESERIALIZER.deserializeFloatArray(
+                new HeapReadBuffer(hex("82fb3ff8000000000000fb8000000000000000")));
+        assertFloatBits(new float[]{1.5f, -0.0f}, actual);
+    }
+
+    @Test
+    public void testReadFloatLossyNarrowingRejected() {
+        CborDeserializerException ex = Assertions.assertThrows(CborDeserializerException.class,
+                () -> DESERIALIZER.deserializeFloatArray(
+                        new HeapReadBuffer(hex("81fb3fb999999999999a"))));
+        Assertions.assertEquals("float value loses precision : 0.1", ex.getMessage());
+    }
+
+    @Test
+    public void testReadFloatNaNStaysNaN() {
+        // a double NaN whose payload is exactly representable as float32
+        float[] actual = DESERIALIZER.deserializeFloatArray(
+                new HeapReadBuffer(hex("81fb7ff8000000000000")));
+        Assertions.assertTrue(Float.isNaN(actual[0]));
+    }
+
+    @Test
+    public void testReadFloatNaNPayloadLossRejected() {
+        CborDeserializerException ex = Assertions.assertThrows(CborDeserializerException.class,
+                () -> DESERIALIZER.deserializeFloatArray(
+                        new HeapReadBuffer(hex("81fb7ff8000000000001"))));
+        Assertions.assertEquals("float value loses precision : NaN", ex.getMessage());
+    }
+
+    @Test
+    public void testReadFloatInfinities() {
+        float[] actual = DESERIALIZER.deserializeFloatArray(
+                new HeapReadBuffer(hex("82fb7ff0000000000000fbfff0000000000000")));
+        assertFloatBits(new float[]{Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY}, actual);
     }
 }

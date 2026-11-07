@@ -8,5 +8,4 @@ module jing.common {
     exports io.jingproject.common.log;
     uses LoggerFacade;
     uses io.jingproject.common.ConfigurationFacade;
-    uses io.jingproject.common.NetFacade;
 }

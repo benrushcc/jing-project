@@ -52,6 +52,16 @@ public final class Libs {
                 }
                 LibDescriptor desc = libMappings.get(target);
                 if (desc == null) {
+                    for (String dep : facade.dependsOn()) {
+                        String depMappedName = System.mapLibraryName(dep);
+                        Path depPath = searchLibrary(depMappedName);
+                        if(depPath == null) {
+                            continue ;
+                        }
+                        // the lookup is deliberately discarded: loading the dependency is only meant to
+                        // satisfy the OS loader when the main library is loaded below, not to expose its symbols.
+                        SymbolLookup _ = SymbolLookup.libraryLookup(depPath, Arena.global());
+                    }
                     String mappedName = System.mapLibraryName(libName);
                     Path libPath = searchLibrary(mappedName);
                     if (libPath == null) {
@@ -217,17 +227,17 @@ public final class Libs {
     }
 
     private static FunctionDescriptor castFunctionDescriptor(List<Class<?>> types) {
-        MemoryLayout[] layouts = new MemoryLayout[types.size() - 1];
-        for (int i = 1; i < types.size(); i++) {
+        final int size = types.size();
+        MemoryLayout[] layouts = new MemoryLayout[size - 1];
+        for (int i = 1; i < size; i++) {
             layouts[i - 1] = castMemoryLayout(types.get(i));
         }
         Class<?> firstType = types.getFirst();
         if (firstType == void.class) {
             return FunctionDescriptor.ofVoid(layouts);
-        } else {
-            MemoryLayout resLayout = castMemoryLayout(firstType);
-            return FunctionDescriptor.of(resLayout, layouts);
         }
+        MemoryLayout resLayout = castMemoryLayout(firstType);
+        return FunctionDescriptor.of(resLayout, layouts);
     }
 
     private static MemoryLayout castMemoryLayout(Class<?> type) {

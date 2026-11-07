@@ -26,7 +26,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
             Boolean.parseBoolean(System.getProperty("jing.marshalljson.filtersurr", "true"));
     protected static final VectorSpecies<Short> SHORT_SPECIES;
     protected static final VectorSpecies<Byte> BYTE_SPECIES;
-    protected static final int VEC_MASK;
+    protected static final int SHORT_SPECIES_LEN;
     protected static final byte[] ESCAPE_TABLE = makeEscapeTable();
     protected static final byte[] HEX_BYTES = "0123456789abcdef".getBytes(StandardCharsets.US_ASCII);
     private static final Map<Class<?>, JsonSerializeFunc> BUILTIN_SERIALIZE_OBJ_FUNC_MAP;
@@ -57,7 +57,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
             }
             default -> throw new UnsupportedOperationException("unknown vector size : " + vecSize);
         }
-        VEC_MASK = SHORT_SPECIES.length() - 1;
+        SHORT_SPECIES_LEN = SHORT_SPECIES.length();
     }
 
     static {
@@ -782,7 +782,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
             ensureCapacity(Math.addExact(Math.multiplyExact(str.length(), 6), 2));
             bytes[position++] = (byte) '"';
             if(!str.isEmpty()) {
-                if(str.length() < SHORT_SPECIES.length()) {
+                if(str.length() < SHORT_SPECIES_LEN) {
                     position = serializeStrToHeap(str, bytes, position);
                 }else {
                     position = serializeLongStrToHeap(str, bytes, position);
@@ -824,11 +824,11 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
 
         private int serializeLongStrToHeap(String str, byte[] bytes, int position) {
             final int len = str.length();
-            final int alignedLen = Math.addExact(len, VEC_MASK) & (~VEC_MASK);
+            final int alignedLen = Math.addExact(len, SHORT_SPECIES_LEN - 1) & (-SHORT_SPECIES_LEN);
             final char[] buf = alignedBuf(alignedLen);
             str.getChars(0, len, buf, 0);
             int index = 0;
-            for( ; index < alignedLen; index += SHORT_SPECIES.length()) {
+            for( ; index < alignedLen; index += SHORT_SPECIES_LEN) {
                 ShortVector shortVector = ShortVector.fromCharArray(SHORT_SPECIES, buf, index);
                 ByteVector byteVector = (ByteVector) shortVector.convertShape(VectorOperators.S2B, BYTE_SPECIES, 0);
                 byteVector.intoArray(bytes, position + index);
@@ -840,7 +840,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
                     mask = mask.or(shortVector.compare(VectorOperators.EQ, (short) 0x2F));
                 }
                 int asciiCount = mask.firstTrue();
-                if(asciiCount != SHORT_SPECIES.length()) {
+                if(asciiCount != SHORT_SPECIES_LEN) {
                     index += asciiCount;
                     break;
                 }
@@ -849,12 +849,12 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
                 return position + len;
             }
             if(FILTER_SURR) {
-                int sIndex = index & (~VEC_MASK);
-                for( ; sIndex < alignedLen; sIndex += SHORT_SPECIES.length()) {
+                int sIndex = index & (-SHORT_SPECIES_LEN);
+                for( ; sIndex < alignedLen; sIndex += SHORT_SPECIES_LEN) {
                     VectorMask<Short> mask = ShortVector.fromCharArray(SHORT_SPECIES, buf, sIndex).lanewise(VectorOperators.AND, (short) 0xF800)
                             .compare(VectorOperators.EQ, (short) 0xD800);
                     int nonSurrCount = mask.firstTrue();
-                    if(nonSurrCount != SHORT_SPECIES.length()) {
+                    if(nonSurrCount != SHORT_SPECIES_LEN) {
                         sIndex += nonSurrCount;
                         break;
                     }
@@ -1155,7 +1155,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
             ensureCapacity(Math.addExact(Math.multiplyExact(str.length(), 6), 2));
             SegmentAccess.setByte(segment, position++, (byte) '"');
             if(!str.isEmpty()) {
-                if(str.length() < SHORT_SPECIES.length()) {
+                if(str.length() < SHORT_SPECIES_LEN) {
                     position = serializeStrToSegment(str, segment, position);
                 }else {
                     position = serializeLongStrToSegment(str, segment, position);
@@ -1197,11 +1197,11 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
 
         private long serializeLongStrToSegment(String str, MemorySegment segment, long position) {
             final int len = str.length();
-            final int alignedLen = Math.addExact(len, VEC_MASK) & (~VEC_MASK);
+            final int alignedLen = Math.addExact(len, SHORT_SPECIES_LEN - 1) & (-SHORT_SPECIES_LEN);
             final char[] buf = alignedBuf(alignedLen);
             str.getChars(0, len, buf, 0);
             int index = 0;
-            for( ; index < alignedLen; index += SHORT_SPECIES.length()) {
+            for( ; index < alignedLen; index += SHORT_SPECIES_LEN) {
                 ShortVector shortVector = ShortVector.fromCharArray(SHORT_SPECIES, buf, index);
                 ByteVector byteVector = (ByteVector) shortVector.convertShape(VectorOperators.S2B, BYTE_SPECIES, 0);
                 byteVector.intoMemorySegment(segment, position + index, ByteOrder.nativeOrder()); // byteOrder will be ignored
@@ -1213,7 +1213,7 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
                     mask = mask.or(shortVector.compare(VectorOperators.EQ, (short) 0x2F));
                 }
                 int asciiCount = mask.firstTrue();
-                if(asciiCount != SHORT_SPECIES.length()) {
+                if(asciiCount != SHORT_SPECIES_LEN) {
                     index += asciiCount;
                     break ;
                 }
@@ -1222,12 +1222,12 @@ public sealed abstract class JsonSerializerContext permits JsonSerializerContext
                 return position + len;
             }
             if(FILTER_SURR) {
-                int sIndex = index & (~VEC_MASK);
-                for( ; sIndex < alignedLen; sIndex += SHORT_SPECIES.length()) {
+                int sIndex = index & (-SHORT_SPECIES_LEN);
+                for( ; sIndex < alignedLen; sIndex += SHORT_SPECIES_LEN) {
                     VectorMask<Short> mask = ShortVector.fromCharArray(SHORT_SPECIES, buf, sIndex).lanewise(VectorOperators.AND, (short) 0xF800)
                             .compare(VectorOperators.EQ, (short) 0xD800);
                     int nonSurrCount = mask.firstTrue();
-                    if(nonSurrCount != SHORT_SPECIES.length()) {
+                    if(nonSurrCount != SHORT_SPECIES_LEN) {
                         sIndex += nonSurrCount;
                         break ;
                     }

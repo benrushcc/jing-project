@@ -12,13 +12,17 @@ import java.util.Map;
 
 public final class CborDeserializerOption {
     private static final int MIN_STRING_SIZE = 64;
-    private static final int MAX_STRING_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshallcbor.maxstringsize", "65535")), 1024 * 1024 * 64);
+    private static final int MAX_STRING_SIZE = Math.min(
+            Integer.parseInt(System.getProperty("jing.marshallcbor.maxstringsize", "65535")), 1024 * 1024 * 64);
     private static final int MIN_BYTES_SIZE = 64;
-    private static final int MAX_BYTES_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshallcbor.maxbytesbytes", "65535")), 1024 * 1024 * 64);
+    private static final int MAX_BYTES_SIZE = Math.min(
+            Integer.parseInt(System.getProperty("jing.marshallcbor.maxbytesbytes", "65535")), 1024 * 1024 * 64);
     private static final int MIN_ARRAY_SIZE = 100;
-    private static final int MAX_ARRAY_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshallcbor.maxarraysize", "1000")), 65535);
+    private static final int MAX_ARRAY_SIZE = Math.min(
+            Integer.parseInt(System.getProperty("jing.marshallcbor.maxarraysize", "1000")), 65535);
     private static final int MIN_MAP_SIZE = 20;
-    private static final int MAX_MAP_SIZE = Math.min(Integer.parseInt(System.getProperty("jing.marshallcbor.maxmapsize", "200")), 65535);
+    private static final int MAX_MAP_SIZE = Math.min(
+            Integer.parseInt(System.getProperty("jing.marshallcbor.maxmapsize", "200")), 65535);
     private static final CborDeserializerOption DEFAULT_OPTION = CborDeserializerOption.builder().build();
 
     static {
@@ -37,7 +41,6 @@ public final class CborDeserializerOption {
     }
 
     private final Map<Class<?>, CborDeserializeFunc> customFuncMap;
-    private final Map<Class<?>, CborDeserializeFunc> customArrFuncMap;
     private final boolean ensureAllFieldsPresent;
     private final int maxStringBytes;
     private final int maxBytesBytes;
@@ -47,11 +50,11 @@ public final class CborDeserializerOption {
     private final int maxNestedSize;
     private final int charBufferSize;
 
-    private CborDeserializerOption(Map<Class<?>, CborDeserializeFunc> customFuncMap, Map<Class<?>, CborDeserializeFunc> customArrFuncMap,
-                                   boolean ensureAllFieldsPresent, int maxStringBytes, int maxBytesBytes, int maxArrayElements,
-                                   int maxMapElements, int maxDummyElements, int maxNestedSize, int charBufferSize) {
+    private CborDeserializerOption(Map<Class<?>, CborDeserializeFunc> customFuncMap,
+                                   boolean ensureAllFieldsPresent, int maxStringBytes, int maxBytesBytes,
+                                   int maxArrayElements, int maxMapElements, int maxDummyElements,
+                                   int maxNestedSize, int charBufferSize) {
         this.customFuncMap = customFuncMap;
-        this.customArrFuncMap = customArrFuncMap;
         this.ensureAllFieldsPresent = ensureAllFieldsPresent;
         this.maxStringBytes = maxStringBytes;
         this.maxBytesBytes = maxBytesBytes;
@@ -72,10 +75,6 @@ public final class CborDeserializerOption {
 
     public CborDeserializeFunc customFunc(Class<?> clazz) {
         return customFuncMap.get(clazz);
-    }
-
-    public CborDeserializeFunc customArrFunc(Class<?> clazz) {
-        return customArrFuncMap.get(clazz);
     }
 
     public boolean ensureAllFieldsPresent() {
@@ -139,18 +138,20 @@ public final class CborDeserializerOption {
                         throw new IllegalArgumentException("custom type already exists : " + customType.getName());
                     }
                 }
-                // primitive types are not supported in generics, array types are not supported in transformers, so we don't need to double-check them
-                if (CborDeserializerContext.builtinDeserializeObjFunc(customType) != null) {
+                // builtin mappings always win; a transformer may not override them
+                if (CborDeserializerContext.builtinDeserializeObjFunc(customType) != null
+                        || CborDeserializerContext.builtinDeserializeArrayFunc(customType) != null) {
                     throw new IllegalArgumentException("cannot override builtin type : " + customType.getName());
                 }
-                // custom type has value semantics, which is feasible for enums, but absolutely not for marshallable beans
+                // custom types have value semantics, which is feasible for enums,
+                // but not for marshallable beans
                 if (Marshalls.beanMarshallFacade(customType) != null) {
                     throw new IllegalArgumentException("custom type can not be marshallable : " + customType.getName());
                 }
-                // builtin type must be an implementation class of CborPrimitiveType
-                Class<?> builtinType = tfc.builtinType();
-                if (!CborPrimitiveType.class.isAssignableFrom(builtinType)) {
-                    throw new IllegalArgumentException("builtinType not implementing CborPrimitiveType interface : " + builtinType.getName());
+                // a transformer must map to the single tagged-type builtin
+                if (tfc.builtinType() != CborTaggedType.class) {
+                    throw new IllegalArgumentException(
+                            "builtinType must be CborTaggedType : " + tfc.builtinType().getName());
                 }
                 tfcs.add(tfc);
             }
@@ -195,6 +196,9 @@ public final class CborDeserializerOption {
         }
 
         public Builder setMaxDummyElements(int maxDummyElements) {
+            if (maxDummyElements < 0) {
+                throw new IllegalArgumentException("maxDummyElements out of range : " + maxDummyElements);
+            }
             this.maxDummyElements = maxDummyElements;
             return this;
         }
@@ -215,81 +219,17 @@ public final class CborDeserializerOption {
             return this;
         }
 
-        private static CborDeserializeFunc customObjDeserializeFunc(MarshallTransformerFacade tfc) {
-            Class<?> builtinType = tfc.builtinType();
-            if (builtinType == CborPrimitiveType.class) {
-                return (b, c) -> {
-                    c.setObj(tfc.toCustom(c.deserializeCborPrimitiveType(b))); // self guarded
-                    return CborDeserializeResult.Continue;
-                };
-            } else if (builtinType == CborBoolType.class) {
-                return (b, c) -> {
-                    c.setObj(tfc.toCustom(c.deserializeCborBoolType(b)));
-                    return CborDeserializeResult.Continue;
-                };
-            } else if (builtinType == CborNumberType.class) {
-                return (b, c) -> {
-                    c.setObj(tfc.toCustom(c.deserializeCborNumberType(b)));
-                    return CborDeserializeResult.Continue;
-                };
-            } else if (builtinType == CborStrType.class) {
-                return (b, c) -> {
-                    c.setObj(tfc.toCustom(c.deserializeCborStrType(b)));
-                    return CborDeserializeResult.Continue;
-                };
-            } else if (builtinType == CborBytesType.class) {
-                return (b, c) -> {
-                    c.setObj(tfc.toCustom(c.deserializeCborBytesType(b)));
-                    return CborDeserializeResult.Continue;
-                };
-            } else {
-                throw new AssertionError("unknown builtin type : " + builtinType.getName());
-            }
-        }
-
-        private static CborDeserializeFunc customArrDeserializeFunc(MarshallTransformerFacade tfc) {
-            Class<?> builtinType = tfc.builtinType();
-            if (builtinType == CborPrimitiveType.class) {
-                return (b, c) -> {
-                    c.setObj(tfc.toCustomArray(c.deserializeCborPrimitiveTypeArray(b)));
-                    return CborDeserializeResult.Continue;
-                };
-            } else if (builtinType == CborBoolType.class) {
-                return (b, c) -> {
-                    c.setObj(tfc.toCustomArray(c.deserializeCborBoolTypeArray(b)));
-                    return CborDeserializeResult.Continue;
-                };
-            } else if (builtinType == CborNumberType.class) {
-                return (b, c) -> {
-                    c.setObj(tfc.toCustomArray(c.deserializeCborNumberTypeArray(b)));
-                    return CborDeserializeResult.Continue;
-                };
-            } else if (builtinType == CborStrType.class) {
-                return (b, c) -> {
-                    c.setObj(tfc.toCustomArray(c.deserializeCborStrTypeArray(b)));
-                    return CborDeserializeResult.Continue;
-                };
-            } else if (builtinType == CborBytesType.class) {
-                return (b, c) -> {
-                    c.setObj(tfc.toCustomArray(c.deserializeCborBytesTypeArray(b)));
-                    return CborDeserializeResult.Continue;
-                };
-            } else {
-                throw new AssertionError("unknown builtin type : " + builtinType.getName());
-            }
-        }
-
         public CborDeserializerOption build() {
             Map<Class<?>, CborDeserializeFunc> customFuncMap = new HashMap<>();
-            Map<Class<?>, CborDeserializeFunc> customArrFuncMap = new HashMap<>();
             for (MarshallTransformerFacade tfc : tfcs) {
-                Class<?> customType = tfc.customType();
-                customFuncMap.put(customType, customObjDeserializeFunc(tfc));
-                customArrFuncMap.put(customType, customArrDeserializeFunc(tfc));
+                customFuncMap.put(tfc.customType(), (b, c) -> {
+                    c.setObj(tfc.toCustom(c.deserializeCborTaggedType(b)));
+                    return CborDeserializeResult.Continue;
+                });
             }
-            return new CborDeserializerOption(Map.copyOf(customFuncMap), Map.copyOf(customArrFuncMap),
-                    ensureAllFieldsPresent, maxStringBytes, maxBytesBytes, maxArrayElements,
-                    maxMapElements, maxDummyElements, maxNestedSize, charBufferSize);
+            return new CborDeserializerOption(Map.copyOf(customFuncMap), ensureAllFieldsPresent,
+                    maxStringBytes, maxBytesBytes, maxArrayElements, maxMapElements,
+                    maxDummyElements, maxNestedSize, charBufferSize);
         }
     }
 }

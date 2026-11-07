@@ -1,5 +1,21 @@
 # Changes
 
+## 2026-10-18T20:55:46+08:00
+- Simplified jing-marshall-cbor/CborSerializer/CborDeserializer: 统一 newContext 入口并删除逐方法重复的 writeBuffer/readBuffer 判空, 保留原有参数校验顺序与 API 行为
+- Simplified jing-marshall-cbor/CborSerializerContext/CborDeserializerContext: 内联 utf8Buffer/asciiBuffer/encodeUtf8ToBuffer/isExactSingle/readTag/ensureCharBufferCapacity 等一次性小方法, 去掉重复的 UTF-8 编码循环与临时头回退辅助方法
+- Simplified jing-marshall-cbor/CborSerializerNode/CborDeserializerNode: 内联 initBitmap/setArrValue/serializeMarshallPrimitiveValue 及 direct helper, 删除不再需要的辅助方法
+- Simplified jing-marshall-cbor/CborNumberUtil/CborFloat: 删除仅测试使用且与 context 重复的 writeHead, 删除未使用的 ofFloat/doubleValue/floatValue; 整数/浮点 wire 行为不变
+- Simplified jing-marshall-cbor 测试: 删除 CborNumberUtil.writeHead 的独立 head 用例(整数数组边界测试保留), 内联 CborSerializationTest 的 floatBytes/doubleBytes 及 bench 的一次性 verify 方法; 当前 108 个测试全绿
+- Added jing-bench/marshallcbor/CborBenchData: 合并 MapSerializationBench/MapDeserializationBench 重复的 integerMap 构造, 并内联 Integer/StringBean bench 的一次性 verify
+- Added doc/Marshall-Cbor.md: 以当前实现重写完整文档, 覆盖公开 API、CBOR/Java 类型映射、每类值的序列化/反序列化策略、选项与限制、UTF-8/浮点策略、Jackson CBOR 对照及最新基准结果
+
+## 2026-10-18T17:18:00+08:00
+- Modified jing-bench/pom.xml: 新增 jing-marshall-cbor 依赖,供 CBOR 与 Jackson 的 JMH 对比基准使用
+- Added jing-bench/src/main/java/io/jingproject/bench/marshallcbor: 新增与 marshalljson 同层级的 CBOR 基准包,包含 Integer/Map/StringArray/StringBean/Twi 的序列化与反序列化共 10 个 Bench 类; 复用 bench.twi 数据结构和 bench.entity, 写法对齐 marshalljson; 各 Bench 在 Setup 中做 CBOR(反)序列化环回校验, Map 反序列化显式放宽 maxMapElements 到 1000
+- Updated jing-bench/marshallcbor: Jackson 侧改为 CBORMapper(3.2.2), 反序列化双方共用同一份由 Jackson 生成的 CBOR 字节, 基准从 JSON-vs-CBOR 改为 CBOR-vs-CBOR; 结果保存于 jing-bench/target/cbor-cbor-*.txt
+- Optimized jing-marshall-cbor/CborSerializerContext: 文本字符串改为 JSON 风格的「假定 ASCII + 向量 S2B 直写」路径——按字符数先写最短临时头, 用 ShortVector/ByteVector 直接写入目标; 向量检测到非 ASCII 后从该 lane 开始标量编码后缀并覆写尾部, 保留已写入的向量前缀; 最终字节数增加时按 head 宽度差 memmove 右移数据, 再写正式头; 首字符非 ASCII 直接走 utf8Scratch 标量后缀; 新增 String[] 专用 serializeStrArray 重载; StringArray/Twi/StringBean 的 CBOR 序列化已追平或超过 Jackson CBORMapper
+- Added jing-marshall-cbor/CborStringSerializationTest.testSerializeStringArraySegment/testSerializeStringWithAsciiEnds: 覆盖 SegmentWriteBuffer 的向量化 ASCII 写入路径, 以及 ASCII 首尾但中间非 ASCII 时回退并重置位置的路径
+
 <<<<<<< Updated upstream
 ## 2026-09-13T23:51:24+0800
 - Modified jing-common/conf/CfgReader.java: 注释规范化——JsonCfgReader 中 10 处中文注释(parse 方法上的"构建出来的Reader只能parse一次"与 enum State 各状态说明)全部改为纯英文双斜杠注释,符合项目注释规范(纯英文、// 形式、小写开头)
@@ -120,7 +136,7 @@
 - Modified pom.xml: 将 surefire 的 excludedGroups 参数化为 ${surefire.excludedGroups} 属性(默认值不变),使 require-native-library 标签的测试可通过 -Dsurefire.excludedGroups= 在命令行运行
 
 ## 2026-09-13T13:37:11+08:00
-- Fixed jing-bindings/src/main/native: 补齐 jing_posix.c 缺失的 <unistd.h>/<fcntl.h>/<sys/mman.h> 头文件,修复 jing_common.c 缺失的 <stdlib.h>/<stdalign.h>,jing_linux.h 补充 <sys/epoll.h> 并将 epoll_create/ctl/wait 声明与实现统一为 int 返回,修复 jing_posix.c 中 write 循环 total 累加变量错误,修复 jing_demo.c 的 PRId64 格式化警告,使 native 项目可在 Linux 上无警告构建
+- Fixed jing-bindings/src/main/native: 补齐 jing_posix.c 缺失的 <unistd.h>/<fcntl.h>/<sys/mman.h> 头文件,修复 jing_common.c 缺失的 <stdlib.h>/<stdalign.h>,jing_linux.h 补充 <sys/epoll.h> 并将 epoll_create/ctlArgs/wait 声明与实现统一为 int 返回,修复 jing_posix.c 中 write 循环 total 累加变量错误,修复 jing_demo.c 的 PRId64 格式化警告,使 native 项目可在 Linux 上无警告构建
 
 ## 2026-09-10
 - Created AGENTS.md: added project guidelines for AI agents

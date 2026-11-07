@@ -24,6 +24,8 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
     public static final int BYTE_BUFFER_INITIAL_SIZE = 16;
     protected static final VectorSpecies<Short> SHORT_SPECIES;
     protected static final VectorSpecies<Byte> BYTE_SPECIES;
+    protected static final int SHORT_SPECIES_LEN;
+    protected static final int BYTE_SPECIES_LEN;
     protected static final int COMPACT_TRUE = Utils.compact(Utils.compact((byte) 't', (byte) 'r'), Utils.compact((byte) 'u', (byte) 'e'));
     protected static final int COMPACT_ALSE = Utils.compact(Utils.compact((byte) 'a', (byte) 'l'), Utils.compact((byte) 's', (byte) 'e')); // 'f' should be handled by firstByte
     protected static final int COMPACT_NULL = Utils.compact(Utils.compact((byte) 'n', (byte) 'u'), Utils.compact((byte) 'l', (byte) 'l'));
@@ -62,6 +64,8 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             }
             default -> throw new UnsupportedOperationException("unknown vector size : " + vecSize);
         }
+        SHORT_SPECIES_LEN = SHORT_SPECIES.length();
+        BYTE_SPECIES_LEN = BYTE_SPECIES.length();
     }
 
     static {
@@ -577,6 +581,7 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
         throw new JsonDeserializerException("too many array elements, exceeded limit : " + maxArrayElements);
     }
 
+    @SuppressWarnings("SuspiciousSystemArraycopy")
     protected final <T> T[] deserializeObjArray(ElementDeserializer<T> deserializer, IntFunction<T[]> arrayFactory) {
         byte b = nextValuableByte();
         if(b == (byte) ']') {
@@ -601,7 +606,6 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
             b = nextValuableByte();
             if(b == (byte) ']') {
                 T[] r = arrayFactory.apply(i);
-                //noinspection SuspiciousSystemArraycopy
                 System.arraycopy(arr, 0, r, 0, i);
                 return r;
             } else if(b == (byte) ',') {
@@ -992,16 +996,16 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
         private int copyAscii(int end) {
             final int avail = Math.min(charBuffer.length, end - position);
             int copied = 0;
-            for( ; copied <= avail - BYTE_SPECIES.length(); copied += BYTE_SPECIES.length()) {
+            for( ; copied <= avail - BYTE_SPECIES_LEN; copied += BYTE_SPECIES_LEN) {
                 ByteVector byteVector = ByteVector.fromArray(BYTE_SPECIES, bytes, position + copied);
                 ShortVector part0 = (ShortVector) byteVector.convertShape(VectorOperators.B2S, SHORT_SPECIES, 0);
                 ShortVector part1 = (ShortVector) byteVector.convertShape(VectorOperators.B2S, SHORT_SPECIES, 1);
                 part0.intoCharArray(charBuffer, copied);
-                part1.intoCharArray(charBuffer, copied + SHORT_SPECIES.length());
+                part1.intoCharArray(charBuffer, copied + SHORT_SPECIES_LEN);
                 int matched = byteVector.lt((byte) 0x20)
                         .or(byteVector.eq((byte) '\\'))
                         .or(byteVector.eq((byte) '"')).firstTrue();
-                if(matched != BYTE_SPECIES.length()) {
+                if(matched != BYTE_SPECIES_LEN) {
                     copied += matched;
                     break ;
                 }
@@ -1085,12 +1089,12 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
         }
 
         private void skipAscii(int end, boolean allowUtf) {
-            for( ; position <= end - BYTE_SPECIES.length(); position += BYTE_SPECIES.length()) {
+            for( ; position <= end - BYTE_SPECIES_LEN; position += BYTE_SPECIES_LEN) {
                 ByteVector byteVector = ByteVector.fromArray(BYTE_SPECIES, bytes, position);
                 int matched = byteVector.compare(allowUtf ? VectorOperators.ULT : VectorOperators.LT, (byte) 0x20)
                         .or(byteVector.eq((byte) '\\'))
                         .or(byteVector.eq((byte) '"')).firstTrue();
-                if(matched != BYTE_SPECIES.length()) {
+                if(matched != BYTE_SPECIES_LEN) {
                     position += matched;
                     return ;
                 }
@@ -1357,16 +1361,16 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
         private int copyAscii(long end) {
             final int avail = Math.min(charBuffer.length, Math.toIntExact(end - position));
             int copied = 0;
-            for( ; copied <= avail - BYTE_SPECIES.length(); copied += BYTE_SPECIES.length()) {
+            for( ; copied <= avail - BYTE_SPECIES_LEN; copied += BYTE_SPECIES_LEN) {
                 ByteVector byteVector = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, position + copied, ByteOrder.nativeOrder()); // byteOrder will be ignored
                 ShortVector part0 = (ShortVector) byteVector.convertShape(VectorOperators.B2S, SHORT_SPECIES, 0);
                 ShortVector part1 = (ShortVector) byteVector.convertShape(VectorOperators.B2S, SHORT_SPECIES, 1);
                 part0.intoCharArray(charBuffer, copied);
-                part1.intoCharArray(charBuffer, copied + SHORT_SPECIES.length());
+                part1.intoCharArray(charBuffer, copied + SHORT_SPECIES_LEN);
                 int matched = byteVector.lt((byte) 0x20)
                         .or(byteVector.eq((byte) '\\'))
                         .or(byteVector.eq((byte) '"')).firstTrue();
-                if(matched != BYTE_SPECIES.length()) {
+                if(matched != BYTE_SPECIES_LEN) {
                     copied += matched;
                     break ;
                 }
@@ -1450,12 +1454,12 @@ public sealed abstract class JsonDeserializerContext permits JsonDeserializerCon
         }
 
         private void skipAscii(long end, boolean allowUtf) {
-            for( ; position <= end - BYTE_SPECIES.length(); position += BYTE_SPECIES.length()) {
+            for( ; position <= end - BYTE_SPECIES_LEN; position += BYTE_SPECIES_LEN) {
                 ByteVector byteVector = ByteVector.fromMemorySegment(BYTE_SPECIES, segment, position, ByteOrder.nativeOrder()); // byteOrder will be ignored
                 int matched = byteVector.compare(allowUtf ? VectorOperators.ULT : VectorOperators.LT, (byte) 0x20)
                         .or(byteVector.eq((byte) '\\'))
                         .or(byteVector.eq((byte) '"')).firstTrue();
-                if(matched != BYTE_SPECIES.length()) {
+                if(matched != BYTE_SPECIES_LEN) {
                     position += matched;
                     return ;
                 }

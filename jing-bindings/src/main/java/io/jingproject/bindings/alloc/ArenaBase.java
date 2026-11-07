@@ -103,7 +103,7 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
         }
         if(previousPos == addr) {
             if(++cnt >= count) {
-                long mid = (Math.addExact(committed, addr) / 2L) & -pageSize; // safe align down
+                long mid = ((committed & addr) + ((committed ^ addr) >> 1)) & -pageSize; // calculate the average and safely align it down to a pageSize boundary
                 if(peak <= mid) {
                     uncommit(mid, committed - mid);
                     committed = mid;

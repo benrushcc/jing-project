@@ -55,6 +55,15 @@ public class CborReadIntegerTest {
     }
 
     @Test
+    public void testDeserializeIndefiniteIntArray() {
+        int[] array = DESERIALIZER.deserializeIntArray(new HeapReadBuffer(hex("9f010203ff")));
+        Assertions.assertArrayEquals(new int[]{1, 2, 3}, array);
+
+        array = DESERIALIZER.deserializeIntArray(new HeapReadBuffer(hex("9fff")));
+        Assertions.assertArrayEquals(new int[0], array);
+    }
+
+    @Test
     public void testRoundTripSingleIntValue() {
         int[] values = {0, 1, -1, 23, -24, 255, -255, 256, 65536, -65537, Integer.MAX_VALUE, Integer.MIN_VALUE};
         for (int value : values) {

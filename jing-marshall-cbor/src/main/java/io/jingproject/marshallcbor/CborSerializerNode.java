@@ -4,16 +4,18 @@ import io.jingproject.marshall.MarshallFacade;
 import io.jingproject.marshall.MarshallInfo;
 import io.jingproject.marshall.MarshallUtil;
 
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
-// explicit-stack node of the serialization state machine, mirroring the json
-// serializer. OBJ/ARR/LIST/MAP write definite-length container heads while COL
-// (a non-List Collection) streams an indefinite array (0x9f ... 0xff). OBJ and
-// MAP fall back to indefinite forms in the default null-omitting mode because
-// the actual entry count is then not known up front; with
-// deterministicEncoding or serializeNullInObjOrMap they are definite and, in
-// deterministic mode, keys are sorted by UTF-8 byte length then bytewise order.
+// explicit-stack node of the serialization state machine, mirroring the json serializer.
+// object and map heads are definite when null entries are written, otherwise they are
+// indefinite because the final entry count is not known without a first pass. a list or
+// array is always definite; a non-list collection is streamed as an indefinite array.
 public final class CborSerializerNode {
     private static final byte OBJ = (byte) 0;
     private static final byte ARR = (byte) 1;
@@ -25,20 +27,12 @@ public final class CborSerializerNode {
 
     static {
         Map<Class<?>, CborSerializerObjFunc> r = new HashMap<>();
-        r.put(CborPrimitiveType.class, (o, _, c) -> {
-            c.serializeCborPrimitiveType((CborPrimitiveType) o);
+        r.put(CborValue.class, (o, _, c) -> {
+            c.serializeCborValue((CborValue) o);
             return CborSerializeResult.Continue;
         });
-        r.put(CborBoolType.class, (o, _, c) -> {
-            c.serializeCborBoolType((CborBoolType) o);
-            return CborSerializeResult.Continue;
-        });
-        r.put(CborNumberType.class, (o, _, c) -> {
-            c.serializeCborNumberType((CborNumberType) o);
-            return CborSerializeResult.Continue;
-        });
-        r.put(CborStrType.class, (o, _, c) -> {
-            c.serializeCborStrType((CborStrType) o);
+        r.put(CborTaggedType.class, (o, _, c) -> {
+            c.serializeCborTaggedType((CborTaggedType) o);
             return CborSerializeResult.Continue;
         });
         r.put(CborBytesType.class, (o, _, c) -> {
@@ -51,26 +45,6 @@ public final class CborSerializerNode {
         });
         r.put(String[].class, (o, _, c) -> {
             c.serializeStrArray((String[]) o);
-            return CborSerializeResult.Continue;
-        });
-        r.put(CborPrimitiveType[].class, (o, _, c) -> {
-            c.serializeCborPrimitiveTypeArray((CborPrimitiveType[]) o);
-            return CborSerializeResult.Continue;
-        });
-        r.put(CborBoolType[].class, (o, _, c) -> {
-            c.serializeCborBoolTypeArray((CborBoolType[]) o);
-            return CborSerializeResult.Continue;
-        });
-        r.put(CborNumberType[].class, (o, _, c) -> {
-            c.serializeCborNumberTypeArray((CborNumberType[]) o);
-            return CborSerializeResult.Continue;
-        });
-        r.put(CborStrType[].class, (o, _, c) -> {
-            c.serializeCborStrTypeArray((CborStrType[]) o);
-            return CborSerializeResult.Continue;
-        });
-        r.put(CborBytesType[].class, (o, _, c) -> {
-            c.serializeCborBytesTypeArray((CborBytesType[]) o);
             return CborSerializeResult.Continue;
         });
         DIRECT_SERIALIZABLE_FUNC_MAP = Map.copyOf(r);
@@ -228,11 +202,13 @@ public final class CborSerializerNode {
             return CborSerializeResult.Continue;
         };
         // collection type
-        FUNC_TABLE[MarshallUtil.COLLECTION_INTERFACE_TYPE] = FUNC_TABLE[MarshallUtil.COLLECTION_IMPL_TYPE] = (o, inf, c) -> {
+        CborSerializerObjFunc collectionFunc = (o, inf, c) -> {
             c.setObj(o);
             c.setType(inf.firstGenericType());
             return CborSerializeResult.NewCollection;
         };
+        FUNC_TABLE[MarshallUtil.COLLECTION_INTERFACE_TYPE] = collectionFunc;
+        FUNC_TABLE[MarshallUtil.COLLECTION_IMPL_TYPE] = collectionFunc;
         // map type
         FUNC_TABLE[MarshallUtil.MAP_INTERFACE_TYPE] = FUNC_TABLE[MarshallUtil.MAP_IMPL_TYPE] = (o, inf, c) -> {
             Class<?> keyType = inf.firstGenericType();
@@ -249,13 +225,16 @@ public final class CborSerializerNode {
     private boolean written;
     private boolean indefinite;
     private int index;
+    private int size;
     private MarshallFacade fc;
     private Object marshallable;
     private Object[] arr;
     private List<?> list;
+    private Collection<?> col;
     private Iterator<?> colIter;
+    private Map<?, ?> map;
     private Iterator<? extends Map.Entry<?, ?>> mapIter;
-    private MarshallInfo[] infos;
+    private List<MarshallInfo> infos;
     private Map.Entry<?, ?>[] mapEntries;
     private CborSerializeFunc func;
 
@@ -263,21 +242,7 @@ public final class CborSerializerNode {
         c.serializeUtf8BytesAsStr(inf.mappedNameUtf8Bytes());
     }
 
-    private void serializeMarshallPrimitiveValue(MarshallInfo inf, CborSerializerContext c) {
-        switch (inf.type() & MarshallUtil.TYPE_MASK) {
-            case MarshallUtil.BYTE_TYPE -> c.serializeByte(fc.readByte(marshallable, inf.index()));
-            case MarshallUtil.BOOLEAN_TYPE -> c.serializeBoolean(fc.readBoolean(marshallable, inf.index()));
-            case MarshallUtil.SHORT_TYPE -> c.serializeShort(fc.readShort(marshallable, inf.index()));
-            case MarshallUtil.CHAR_TYPE -> c.serializeChar(fc.readChar(marshallable, inf.index()));
-            case MarshallUtil.INT_TYPE -> c.serializeInt(fc.readInt(marshallable, inf.index()));
-            case MarshallUtil.LONG_TYPE -> c.serializeLong(fc.readLong(marshallable, inf.index()));
-            case MarshallUtil.FLOAT_TYPE -> c.serializeFloat(fc.readFloat(marshallable, inf.index()));
-            case MarshallUtil.DOUBLE_TYPE -> c.serializeDouble(fc.readDouble(marshallable, inf.index()));
-            default -> throw new AssertionError();
-        }
-    }
-
-    private void serializeMapKey(Object key, CborSerializerContext c) {
+    private static void serializeMapKey(Object key, CborSerializerContext c) {
         if (key instanceof String str) {
             c.serializeStr(str);
         } else if (key instanceof CharSequence charSequence) {
@@ -289,38 +254,6 @@ public final class CborSerializerNode {
 
     private static CborSerializerObjFunc directSerializableFunc(Class<?> rawType) {
         return DIRECT_SERIALIZABLE_FUNC_MAP.get(rawType);
-    }
-
-    // deterministic ordering: shorter UTF-8 byte length first, then bytewise
-    // unsigned lexicographic order, matching RFC 8949 core deterministic rules
-    private static int compareMappedNameUtf8Bytes(MarshallInfo mi1, MarshallInfo mi2) {
-        byte[] b1 = mi1.mappedNameUtf8Bytes();
-        byte[] b2 = mi2.mappedNameUtf8Bytes();
-        int lengthComparison = Integer.compare(b1.length, b2.length);
-        if (lengthComparison != 0) {
-            return lengthComparison;
-        }
-        return Arrays.compareUnsigned(b1, b2);
-    }
-
-    private static int compareMapKeyUtf8Bytes(Map.Entry<?, ?> e1, Map.Entry<?, ?> e2) {
-        byte[] b1 = mapKeyUtf8Bytes(e1.getKey());
-        byte[] b2 = mapKeyUtf8Bytes(e2.getKey());
-        int lengthComparison = Integer.compare(b1.length, b2.length);
-        if (lengthComparison != 0) {
-            return lengthComparison;
-        }
-        return Arrays.compareUnsigned(b1, b2);
-    }
-
-    private static byte[] mapKeyUtf8Bytes(Object key) {
-        if (key instanceof String str) {
-            return str.getBytes(StandardCharsets.UTF_8);
-        }
-        if (key instanceof CharSequence charSequence) {
-            return charSequence.toString().getBytes(StandardCharsets.UTF_8);
-        }
-        throw new AssertionError();
     }
 
     public void initObj(MarshallFacade marshallFacade, Object marshallable) {
@@ -338,15 +271,18 @@ public final class CborSerializerNode {
         this.written = false;
         this.indefinite = false;
         this.index = 0;
+        this.size = arr.length;
         this.arr = arr;
         this.func = fn;
     }
 
-    public void initCol(Iterator<?> iter, CborSerializeFunc fn) {
+    public void initCol(Collection<?> col, CborSerializeFunc fn) {
         this.type = COL;
         this.written = false;
         this.indefinite = false;
-        this.colIter = iter;
+        this.index = 0;
+        this.col = col;
+        this.colIter = col.iterator();
         this.func = fn;
     }
 
@@ -355,18 +291,20 @@ public final class CborSerializerNode {
         this.written = false;
         this.indefinite = false;
         this.index = 0;
+        this.size = list.size();
         this.list = list;
         this.func = fn;
     }
 
-    public void initMap(Iterator<? extends Map.Entry<?, ?>> iter, CborSerializeFunc fn) {
+    public void initMap(Map<?, ?> map, CborSerializeFunc fn) {
         this.type = MAP;
         this.written = false;
         this.indefinite = false;
         this.index = 0;
-        this.mapIter = iter;
-        this.func = fn;
+        this.map = map;
+        this.mapIter = null;
         this.mapEntries = null;
+        this.func = fn;
     }
 
     public CborSerializeResult process(CborSerializerContext c) {
@@ -382,14 +320,11 @@ public final class CborSerializerNode {
 
     private CborSerializeResult processObj(CborSerializerContext c) {
         if (infos == null) {
-            infos = fc.marshallInfos().toArray(new MarshallInfo[0]);
-            if (c.option().deterministicEncoding()) {
-                Arrays.sort(infos, CborSerializerNode::compareMappedNameUtf8Bytes);
-            }
+            infos = fc.marshallInfos();
         }
         if (!written) {
             written = true;
-            if (c.option().effectiveSerializeNullInObjOrMap()) {
+            if (c.option().serializeNullInObjOrMap()) {
                 int fieldCount = 0;
                 for (MarshallInfo inf : infos) {
                     if (!inf.skipSerializing()) {
@@ -404,31 +339,37 @@ public final class CborSerializerNode {
                 c.writeIndefiniteMapStart();
             }
         }
-        while (index < infos.length) {
-            MarshallInfo inf = infos[index];
+        while (index < infos.size()) {
+            MarshallInfo inf = infos.get(index++);
             if (inf.skipSerializing()) {
-                index++;
                 continue;
             }
             int type = inf.type() & MarshallUtil.TYPE_MASK;
             if (type <= MarshallUtil.DOUBLE_TYPE) {
                 serializeMarshallKey(inf, c);
-                serializeMarshallPrimitiveValue(inf, c);
-                index++;
+                switch (type) {
+                    case MarshallUtil.BYTE_TYPE -> c.serializeByte(fc.readByte(marshallable, inf.index()));
+                    case MarshallUtil.BOOLEAN_TYPE -> c.serializeBoolean(fc.readBoolean(marshallable, inf.index()));
+                    case MarshallUtil.SHORT_TYPE -> c.serializeShort(fc.readShort(marshallable, inf.index()));
+                    case MarshallUtil.CHAR_TYPE -> c.serializeChar(fc.readChar(marshallable, inf.index()));
+                    case MarshallUtil.INT_TYPE -> c.serializeInt(fc.readInt(marshallable, inf.index()));
+                    case MarshallUtil.LONG_TYPE -> c.serializeLong(fc.readLong(marshallable, inf.index()));
+                    case MarshallUtil.FLOAT_TYPE -> c.serializeFloat(fc.readFloat(marshallable, inf.index()));
+                    case MarshallUtil.DOUBLE_TYPE -> c.serializeDouble(fc.readDouble(marshallable, inf.index()));
+                    default -> throw new AssertionError();
+                }
                 continue;
             }
             Object fieldValue = fc.readObject(marshallable, inf.index());
             if (fieldValue == null) {
-                if (c.option().effectiveSerializeNullInObjOrMap()) {
+                if (c.option().serializeNullInObjOrMap()) {
                     serializeMarshallKey(inf, c);
                     c.serializeNull();
                 }
-                index++;
                 continue;
             }
             serializeMarshallKey(inf, c);
             CborSerializeResult r = FUNC_TABLE[type].serialize(fieldValue, inf, c);
-            index++;
             if (r != CborSerializeResult.Continue) {
                 return r;
             }
@@ -442,9 +383,9 @@ public final class CborSerializerNode {
     private CborSerializeResult processArr(CborSerializerContext c) {
         if (!written) {
             written = true;
-            c.writeArrayHead(arr.length);
+            c.writeArrayHead(size);
         }
-        while (index < arr.length) {
+        while (index < size) {
             Object instance = arr[index++];
             if (instance == null) {
                 c.serializeNull();
@@ -461,7 +402,6 @@ public final class CborSerializerNode {
     private CborSerializeResult processCol(CborSerializerContext c) {
         if (!written) {
             written = true;
-            indefinite = true;
             c.writeIndefiniteArrayStart();
         }
         while (colIter.hasNext()) {
@@ -482,9 +422,9 @@ public final class CborSerializerNode {
     private CborSerializeResult processList(CborSerializerContext c) {
         if (!written) {
             written = true;
-            c.writeArrayHead(list.size());
+            c.writeArrayHead(size);
         }
-        while (index < list.size()) {
+        while (index < size) {
             Object instance = list.get(index++);
             if (instance == null) {
                 c.serializeNull();
@@ -499,53 +439,60 @@ public final class CborSerializerNode {
     }
 
     private CborSerializeResult processMap(CborSerializerContext c) {
-        if (mapEntries == null) {
-            List<Map.Entry<?, ?>> entryList = new ArrayList<>();
-            while (mapIter.hasNext()) {
-                Map.Entry<?, ?> entry = mapIter.next();
-                // null keys are skipped entirely, mirroring the json parser
-                if (entry.getKey() == null) {
+        if (c.option().serializeNullInObjOrMap()) {
+            if (mapEntries == null) {
+                List<Map.Entry<?, ?>> entries = new ArrayList<>(map.size());
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    // null keys are skipped entirely, mirroring the json serializer
+                    if (entry.getKey() != null) {
+                        entries.add(entry);
+                    }
+                }
+                mapEntries = entries.toArray(new Map.Entry<?, ?>[0]);
+            }
+            if (!written) {
+                written = true;
+                c.writeMapHead(mapEntries.length);
+            }
+            while (index < mapEntries.length) {
+                Map.Entry<?, ?> entry = mapEntries[index++];
+                serializeMapKey(entry.getKey(), c);
+                Object value = entry.getValue();
+                if (value == null) {
+                    c.serializeNull();
                     continue;
                 }
-                entryList.add(entry);
+                CborSerializeResult r = func.serialize(value, c);
+                if (r != CborSerializeResult.Continue) {
+                    return r;
+                }
             }
-            mapEntries = entryList.toArray(new Map.Entry<?, ?>[0]);
-            if (c.option().deterministicEncoding()) {
-                Arrays.sort(mapEntries, CborSerializerNode::compareMapKeyUtf8Bytes);
-            }
+            return CborSerializeResult.Finished;
         }
         if (!written) {
             written = true;
-            if (c.option().effectiveSerializeNullInObjOrMap()) {
-                c.writeMapHead(mapEntries.length);
-            } else {
-                // null values are omitted, so the effective entry count is
-                // unknown and an indefinite map is required
-                indefinite = true;
-                c.writeIndefiniteMapStart();
-            }
+            indefinite = true;
+            mapIter = map.entrySet().iterator();
+            c.writeIndefiniteMapStart();
         }
-        while (index < mapEntries.length) {
-            Map.Entry<?, ?> entry = mapEntries[index];
-            Object value = entry.getValue();
-            if (value == null) {
-                if (c.option().effectiveSerializeNullInObjOrMap()) {
-                    serializeMapKey(entry.getKey(), c);
-                    c.serializeNull();
-                }
-                index++;
+        while (mapIter.hasNext()) {
+            Map.Entry<?, ?> entry = mapIter.next();
+            Object key = entry.getKey();
+            if (key == null) {
                 continue;
             }
-            serializeMapKey(entry.getKey(), c);
+            Object value = entry.getValue();
+            // null values are omitted in the default mode, hence the indefinite head
+            if (value == null) {
+                continue;
+            }
+            serializeMapKey(key, c);
             CborSerializeResult r = func.serialize(value, c);
-            index++;
             if (r != CborSerializeResult.Continue) {
                 return r;
             }
         }
-        if (indefinite) {
-            c.writeBreak();
-        }
+        c.writeBreak();
         return CborSerializeResult.Finished;
     }
 

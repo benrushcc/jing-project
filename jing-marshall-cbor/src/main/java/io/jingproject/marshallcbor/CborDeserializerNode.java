@@ -6,12 +6,15 @@ import io.jingproject.marshall.MarshallInfo;
 import io.jingproject.marshall.MarshallUtil;
 
 import java.lang.reflect.Array;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-// explicit-stack node that processes one container or object at a time,
-// mirroring the json deserializer node. a definite-length container keeps its
-// declared element count and decrements it once per completed entry; an
-// indefinite-length container (count == -1) peeks the next byte and rewinds
+// explicit-stack node that processes one container or object at a time, mirroring the json
+// deserializer node. a definite-length container keeps the number of entries that are still
+// expected, while an indefinite-length container (count == -1) peeks the next byte and rewinds
 // unless a 0xff break terminates the container.
 @SuppressWarnings({"unchecked", "rawtypes"})
 public final class CborDeserializerNode {
@@ -28,20 +31,12 @@ public final class CborDeserializerNode {
 
     static {
         Map<Class<?>, CborDeserializerObjFunc> r = new HashMap<>();
-        r.put(CborPrimitiveType.class, (b, _, c) -> {
-            c.setObj(c.deserializeCborPrimitiveType(b));
+        r.put(CborValue.class, (b, _, c) -> {
+            c.setObj(c.deserializeCborValue(b));
             return CborDeserializeResult.Continue;
         });
-        r.put(CborBoolType.class, (b, _, c) -> {
-            c.setObj(c.deserializeCborBoolType(b));
-            return CborDeserializeResult.Continue;
-        });
-        r.put(CborNumberType.class, (b, _, c) -> {
-            c.setObj(c.deserializeCborNumberType(b));
-            return CborDeserializeResult.Continue;
-        });
-        r.put(CborStrType.class, (b, _, c) -> {
-            c.setObj(c.deserializeCborStrType(b));
+        r.put(CborTaggedType.class, (b, _, c) -> {
+            c.setObj(c.deserializeCborTaggedType(b));
             return CborDeserializeResult.Continue;
         });
         r.put(CborBytesType.class, (b, _, c) -> {
@@ -54,26 +49,7 @@ public final class CborDeserializerNode {
         };
         r.put(CharSequence[].class, strArrFunc);
         r.put(String[].class, strArrFunc);
-        r.put(CborPrimitiveType[].class, (b, _, c) -> {
-            c.setObj(c.deserializeCborPrimitiveTypeArray(b));
-            return CborDeserializeResult.Continue;
-        });
-        r.put(CborBoolType[].class, (b, _, c) -> {
-            c.setObj(c.deserializeCborBoolTypeArray(b));
-            return CborDeserializeResult.Continue;
-        });
-        r.put(CborNumberType[].class, (b, _, c) -> {
-            c.setObj(c.deserializeCborNumberTypeArray(b));
-            return CborDeserializeResult.Continue;
-        });
-        r.put(CborStrType[].class, (b, _, c) -> {
-            c.setObj(c.deserializeCborStrTypeArray(b));
-            return CborDeserializeResult.Continue;
-        });
-        r.put(CborBytesType[].class, (b, _, c) -> {
-            c.setObj(c.deserializeCborBytesTypeArray(b));
-            return CborDeserializeResult.Continue;
-        });
+
         DIRECT_DESERIALIZABLE_FUNC_MAP = Map.copyOf(r);
     }
 
@@ -216,10 +192,6 @@ public final class CborDeserializerNode {
             if (directDeserializableFunc != null) {
                 return directDeserializableFunc.deserialize(b, inf, c);
             }
-            CborDeserializeFunc customArrFunc = c.option().customArrFunc(arrType);
-            if (customArrFunc != null) {
-                return customArrFunc.deserialize(b, c);
-            }
             Class<?> componentType = arrType.componentType();
             if (componentType.isEnum()) {
                 c.setObj(c.deserializeEnumArray(componentType, b));
@@ -278,8 +250,11 @@ public final class CborDeserializerNode {
     private int index;
     private int marshallIndex;
     private int dummyIndex;
+    private boolean pendingValueSkipped;
     private Object[] arr;
-    private Class componentType;
+    private Class<?> componentType;
+    private Class<?> elementType;
+    private Class<?> valueType;
     private Collection col;
     private Map map;
     private String key;
@@ -293,7 +268,13 @@ public final class CborDeserializerNode {
         this.index = 0;
         this.marshallIndex = 0;
         this.dummyIndex = 0;
-        initBitmap(fc);
+        this.pendingValueSkipped = false;
+        int requiredBytes = (fc.totalElements() + 7) >> 3;
+        if (bitmap == null || bitmap.length < requiredBytes) {
+            bitmap = new byte[Math.max(BITMAP_INITIAL_SIZE, requiredBytes)];
+        } else {
+            Arrays.fill(bitmap, 0, requiredBytes, (byte) 0);
+        }
     }
 
     public void initArr(Class<?> componentType, CborDeserializeFunc func, int count) {
@@ -309,17 +290,19 @@ public final class CborDeserializerNode {
         }
     }
 
-    public void initCol(Collection<?> col, CborDeserializeFunc func, int count) {
+    public void initCol(Collection<?> col, Class<?> elementType, CborDeserializeFunc func, int count) {
         this.type = COL;
         this.count = count;
         this.col = col;
+        this.elementType = elementType;
         this.func = func;
     }
 
-    public void initMap(Map<?, ?> map, CborDeserializeFunc func, int count) {
+    public void initMap(Map<?, ?> map, Class<?> valueType, CborDeserializeFunc func, int count) {
         this.type = MAP;
         this.count = count;
         this.map = map;
+        this.valueType = valueType;
         this.func = func;
     }
 
@@ -347,15 +330,6 @@ public final class CborDeserializerNode {
         };
     }
 
-    private void initBitmap(MarshallFacade fc) {
-        int requiredBytes = (fc.totalElements() + 7) >> 3; // no overflow
-        if(bitmap == null || bitmap.length < requiredBytes) {
-            bitmap = new byte[Math.max(BITMAP_INITIAL_SIZE, requiredBytes)];
-        } else {
-            Arrays.fill(bitmap, 0, requiredBytes, (byte) 0);
-        }
-    }
-
     private boolean assignBitmap(int marshallIndex) {
         int byteOffset = marshallIndex >> 3;
         int bitOffset = marshallIndex & 0x7;
@@ -363,6 +337,33 @@ public final class CborDeserializerNode {
         byte val = bitmap[byteOffset];
         bitmap[byteOffset] = (byte) (val | mask);
         return (val & mask) != 0;
+    }
+
+    // a definite-length container is exhausted when no entry is left; an
+    // indefinite-length container is exhausted when its next byte is the break
+    private boolean prepareNext(CborDeserializerContext c) {
+        if (count >= 0) {
+            return count != 0;
+        }
+        byte b = c.getByte();
+        if (b == (byte) 0xFF) {
+            return false;
+        }
+        c.rewind();
+        return true;
+    }
+
+    private void consumeEntry() {
+        if (count > 0) {
+            count--;
+        }
+    }
+
+    private void incrementDummyIndex(String message, CborDeserializerContext c) {
+        if (dummyIndex >= c.option().maxDummyElements()) {
+            throw new CborDeserializerException(message + dummyIndex);
+        }
+        dummyIndex++;
     }
 
     private CborDeserializeResult dummyResult(byte firstByte, CborDeserializerContext c) {
@@ -381,21 +382,22 @@ public final class CborDeserializerNode {
             case CborNumberUtil.TYPE_TAG -> throw new CborDeserializerException("tag not supported");
             case CborNumberUtil.TYPE_SIMPLE -> {
                 int ai = CborNumberUtil.aiOf(firstByte);
-                if (ai == 24) {
-                    c.getByte();
-                } else if (ai == 25 || ai == 26 || ai == 27) {
-                    c.advance(1L << (ai - 25));
-                } else if (ai == 31) {
+                if (ai == 25) {
+                    c.advance(2L);
+                } else if (ai == 26) {
+                    c.advance(4L);
+                } else if (ai == 27) {
+                    c.advance(8L);
+                } else if (ai == 24 || ai >= 28) {
+                    // ai 24 is a simple value with a payload, ai 28-30 are
+                    // reserved and ai 31 is the break byte; none are supported
                     throw new CborDeserializerException("unsupported or illegal initial byte");
                 }
                 // ai 0-23 simple values (incl. bool/null/undefined) carry no payload
             }
             default -> throw new CborDeserializerException("unsupported or illegal initial byte");
         }
-        if (dummyIndex == c.option().maxDummyElements()) {
-            throw new CborDeserializerException("exceeded max dummy elements limit : " + dummyIndex);
-        }
-        dummyIndex++;
+        incrementDummyIndex("exceeded max dummy elements limit : ", c);
         return CborDeserializeResult.Continue;
     }
 
@@ -423,63 +425,31 @@ public final class CborDeserializerNode {
         c.setObj(fc.construct(builder));
     }
 
-    private CborDeserializeResult objRoundResult(boolean hasValue, CborDeserializerContext c) {
+    private CborDeserializeResult processObj(boolean hasValue, CborDeserializerContext c) {
         if (hasValue) {
             Object lastValue = c.obj();
-            if (lastValue != null) {
+            if (pendingValueSkipped) {
+                pendingValueSkipped = false;
+            } else if (lastValue != null) {
                 appendObjValue(lastValue);
             } else {
-                if (dummyIndex == c.option().maxDummyElements()) {
-                    throw new CborDeserializerException("too many dummy obj elements : " + dummyIndex);
-                }
-                dummyIndex++;
+                incrementDummyIndex("too many dummy obj elements : ", c);
             }
         }
-        if (count == 0) {
-            setObjValue(c);
-            return CborDeserializeResult.Finish;
-        }
-        if (count > 0) {
-            if (hasValue) {
-                count--;
-                if (count == 0) {
-                    setObjValue(c);
-                    return CborDeserializeResult.Finish;
-                }
-            }
-            return CborDeserializeResult.Continue;
-        }
-        byte b = c.getByte();
-        if (b == (byte) 0xFF) {
-            setObjValue(c);
-            return CborDeserializeResult.Finish;
-        }
-        if (hasValue) {
-            c.rewind();
-        }
-        return CborDeserializeResult.Continue;
-    }
-
-    private CborDeserializeResult objSepResult(CborDeserializerContext c) {
-        if (count == 0) {
-            setObjValue(c);
-            return CborDeserializeResult.Finish;
-        }
-        if (count > 0) {
-            count--;
-            if (count == 0) {
+        for (; ; ) {
+            if (!prepareNext(c)) {
                 setObjValue(c);
                 return CborDeserializeResult.Finish;
             }
-            return CborDeserializeResult.Continue;
+            byte firstByte = c.getByte();
+            MarshallInfo inf = c.deserializeMarshallInfo(fc, firstByte);
+            firstByte = c.getByte();
+            CborDeserializeResult r = inf == null ? dummyResult(firstByte, c) : objValueResult(firstByte, inf, c);
+            consumeEntry();
+            if (r != CborDeserializeResult.Continue) {
+                return r;
+            }
         }
-        byte b = c.getByte();
-        if (b == (byte) 0xFF) {
-            setObjValue(c);
-            return CborDeserializeResult.Finish;
-        }
-        c.rewind();
-        return CborDeserializeResult.Continue;
     }
 
     private CborDeserializeResult objValueResult(byte firstByte, MarshallInfo inf, CborDeserializerContext c) {
@@ -498,7 +468,7 @@ public final class CborDeserializerNode {
             }
             return CborDeserializeResult.Continue;
         }
-        if (firstByte == (byte) 0xF6) {
+        if (firstByte == (byte) 0xF6 && inf.rawType() != CborValue.class) {
             if (c.option().ensureAllFieldsPresent() && !skip) {
                 index++;
             }
@@ -508,30 +478,14 @@ public final class CborDeserializerNode {
         if (c.option().ensureAllFieldsPresent() && !skip) {
             index++;
         }
-        if (r == CborDeserializeResult.Continue && !skip) {
-            appendObjValue(c.obj());
+        if (r == CborDeserializeResult.Continue) {
+            if (!skip) {
+                appendObjValue(c.obj());
+            }
+        } else {
+            pendingValueSkipped = skip;
         }
         return r;
-    }
-
-    private CborDeserializeResult processObj(boolean hasValue, CborDeserializerContext c) {
-        CborDeserializeResult r = objRoundResult(hasValue, c);
-        if (r != CborDeserializeResult.Continue) {
-            return r;
-        }
-        for ( ; ; ) {
-            byte firstByte = c.getByte();
-            MarshallInfo inf = c.deserializeMarshallInfo(fc, firstByte);
-            firstByte = c.getByte();
-            r = inf == null ? dummyResult(firstByte, c) : objValueResult(firstByte, inf, c);
-            if (r != CborDeserializeResult.Continue) {
-                return r;
-            }
-            r = objSepResult(c);
-            if (r != CborDeserializeResult.Continue) {
-                return r;
-            }
-        }
     }
 
     private void appendArrValue(Object value, CborDeserializerContext c) {
@@ -546,317 +500,112 @@ public final class CborDeserializerNode {
         arr[index++] = value;
     }
 
-    private void setArrValue(CborDeserializerContext c) {
-        Object r = Array.newInstance(componentType, index);
-        //noinspection SuspiciousSystemArraycopy
-        System.arraycopy(arr, 0, r, 0, index);
-        c.setObj(r);
-    }
-
-    private CborDeserializeResult arrRoundResult(boolean hasValue, CborDeserializerContext c) {
+    private CborDeserializeResult processArr(boolean hasValue, CborDeserializerContext c) {
         if (hasValue) {
-            Object lastValue = c.obj();
-            if (lastValue != null) {
-                appendArrValue(lastValue, c);
-            }
+            appendArrValue(c.obj(), c);
         }
-        if (count == 0) {
-            setArrValue(c);
-            return CborDeserializeResult.Finish;
-        }
-        if (count > 0) {
-            if (hasValue) {
-                count--;
-                if (count == 0) {
-                    setArrValue(c);
-                    return CborDeserializeResult.Finish;
-                }
-            }
-            return CborDeserializeResult.Continue;
-        }
-        byte b = c.getByte();
-        if (b == (byte) 0xFF) {
-            setArrValue(c);
-            return CborDeserializeResult.Finish;
-        }
-        if (hasValue) {
-            c.rewind();
-        }
-        return CborDeserializeResult.Continue;
-    }
-
-    private CborDeserializeResult arrSepResult(CborDeserializerContext c) {
-        if (count == 0) {
-            setArrValue(c);
-            return CborDeserializeResult.Finish;
-        }
-        if (count > 0) {
-            count--;
-            if (count == 0) {
-                setArrValue(c);
+        for (; ; ) {
+            if (!prepareNext(c)) {
+                Object result = Array.newInstance(componentType, index);
+                //noinspection SuspiciousSystemArraycopy
+                System.arraycopy(arr, 0, result, 0, index);
+                c.setObj(result);
                 return CborDeserializeResult.Finish;
             }
-            return CborDeserializeResult.Continue;
-        }
-        byte b = c.getByte();
-        if (b == (byte) 0xFF) {
-            setArrValue(c);
-            return CborDeserializeResult.Finish;
-        }
-        c.rewind();
-        return CborDeserializeResult.Continue;
-    }
-
-    private CborDeserializeResult processArr(boolean hasValue, CborDeserializerContext c) {
-        CborDeserializeResult r = arrRoundResult(hasValue, c);
-        if (r != CborDeserializeResult.Continue) {
-            return r;
-        }
-        for ( ; ; ) {
             byte firstByte = c.getByte();
-            r = func.deserialize(firstByte, c);
-            if (r != CborDeserializeResult.Continue) {
-                return r;
+            if (firstByte == (byte) 0xF6 && componentType != CborValue.class) {
+                appendArrValue(null, c);
+                consumeEntry();
+                continue;
             }
-            Object value = c.obj();
-            appendArrValue(value, c);
-            r = arrSepResult(c);
-            if (r != CborDeserializeResult.Continue) {
+            CborDeserializeResult r = func.deserialize(firstByte, c);
+            consumeEntry();
+            if (r == CborDeserializeResult.Continue) {
+                appendArrValue(c.obj(), c);
+            } else {
                 return r;
             }
         }
     }
 
     private void appendColValue(Object value, CborDeserializerContext c) {
-        if (col.size() == c.option().maxArrayElements()) {
+        if (col.size() >= c.option().maxArrayElements()) {
             throw new CborDeserializerException("too many array elements : " + col.size());
         }
         col.add(value);
     }
 
-    private CborDeserializeResult colRoundResult(boolean hasValue, CborDeserializerContext c) {
+    private CborDeserializeResult processCol(boolean hasValue, CborDeserializerContext c) {
         if (hasValue) {
-            Object lastValue = c.obj();
-            if (lastValue != null) {
-                appendColValue(lastValue, c);
-            }
+            appendColValue(c.obj(), c);
         }
-        if (count == 0) {
-            c.setObj(col);
-            return CborDeserializeResult.Finish;
-        }
-        if (count > 0) {
-            if (hasValue) {
-                count--;
-                if (count == 0) {
-                    c.setObj(col);
-                    return CborDeserializeResult.Finish;
-                }
-            }
-            return CborDeserializeResult.Continue;
-        }
-        byte b = c.getByte();
-        if (b == (byte) 0xFF) {
-            c.setObj(col);
-            return CborDeserializeResult.Finish;
-        }
-        if (hasValue) {
-            c.rewind();
-        }
-        return CborDeserializeResult.Continue;
-    }
-
-    private CborDeserializeResult colSepResult(CborDeserializerContext c) {
-        if (count == 0) {
-            c.setObj(col);
-            return CborDeserializeResult.Finish;
-        }
-        if (count > 0) {
-            count--;
-            if (count == 0) {
+        for (; ; ) {
+            if (!prepareNext(c)) {
                 c.setObj(col);
                 return CborDeserializeResult.Finish;
             }
-            return CborDeserializeResult.Continue;
-        }
-        byte b = c.getByte();
-        if (b == (byte) 0xFF) {
-            c.setObj(col);
-            return CborDeserializeResult.Finish;
-        }
-        c.rewind();
-        return CborDeserializeResult.Continue;
-    }
-
-    private CborDeserializeResult processCol(boolean hasValue, CborDeserializerContext c) {
-        CborDeserializeResult r = colRoundResult(hasValue, c);
-        if (r != CborDeserializeResult.Continue) {
-            return r;
-        }
-        for ( ; ; ) {
             byte firstByte = c.getByte();
-            r = func.deserialize(firstByte, c);
-            if (r != CborDeserializeResult.Continue) {
-                return r;
+            if (firstByte == (byte) 0xF6 && elementType != CborValue.class) {
+                appendColValue(null, c);
+                consumeEntry();
+                continue;
             }
-            appendColValue(c.obj(), c);
-            r = colSepResult(c);
-            if (r != CborDeserializeResult.Continue) {
+            CborDeserializeResult r = func.deserialize(firstByte, c);
+            consumeEntry();
+            if (r == CborDeserializeResult.Continue) {
+                appendColValue(c.obj(), c);
+            } else {
                 return r;
             }
         }
     }
 
     private void appendMapValue(Object value, CborDeserializerContext c) {
-        if (map.size() == c.option().maxMapElements()) {
+        if (map.size() >= c.option().maxMapElements()) {
             throw new CborDeserializerException("too many map elements : " + map.size());
         }
         map.put(key, value);
     }
 
-    private CborDeserializeResult mapRoundResult(boolean hasValue, CborDeserializerContext c) {
+    private CborDeserializeResult processMap(boolean hasValue, CborDeserializerContext c) {
         if (hasValue) {
-            Object lastValue = c.obj();
-            if (lastValue != null) {
-                appendMapValue(lastValue, c);
-            }
+            appendMapValue(c.obj(), c);
         }
-        if (count == 0) {
-            c.setObj(map);
-            return CborDeserializeResult.Finish;
-        }
-        if (count > 0) {
-            if (hasValue) {
-                count--;
-                if (count == 0) {
-                    c.setObj(map);
-                    return CborDeserializeResult.Finish;
-                }
-            }
-            return CborDeserializeResult.Continue;
-        }
-        byte b = c.getByte();
-        if (b == (byte) 0xFF) {
-            c.setObj(map);
-            return CborDeserializeResult.Finish;
-        }
-        if (hasValue) {
-            c.rewind();
-        }
-        return CborDeserializeResult.Continue;
-    }
-
-    private CborDeserializeResult mapSepResult(CborDeserializerContext c) {
-        if (count == 0) {
-            c.setObj(map);
-            return CborDeserializeResult.Finish;
-        }
-        if (count > 0) {
-            count--;
-            if (count == 0) {
+        for (; ; ) {
+            if (!prepareNext(c)) {
                 c.setObj(map);
                 return CborDeserializeResult.Finish;
             }
-            return CborDeserializeResult.Continue;
-        }
-        byte b = c.getByte();
-        if (b == (byte) 0xFF) {
-            c.setObj(map);
-            return CborDeserializeResult.Finish;
-        }
-        c.rewind();
-        return CborDeserializeResult.Continue;
-    }
-
-    private CborDeserializeResult processMap(boolean hasValue, CborDeserializerContext c) {
-        CborDeserializeResult r = mapRoundResult(hasValue, c);
-        if (r != CborDeserializeResult.Continue) {
-            return r;
-        }
-        for ( ; ; ) {
+            key = c.deserializeString(c.getByte());
             byte firstByte = c.getByte();
-            key = c.deserializeString(firstByte);
-            firstByte = c.getByte();
-            r = func.deserialize(firstByte, c);
-            if (r != CborDeserializeResult.Continue) {
+            if (firstByte == (byte) 0xF6 && valueType != CborValue.class) {
+                appendMapValue(null, c);
+                consumeEntry();
+                continue;
+            }
+            CborDeserializeResult r = func.deserialize(firstByte, c);
+            consumeEntry();
+            if (r == CborDeserializeResult.Continue) {
+                appendMapValue(c.obj(), c);
+            } else {
                 return r;
             }
-            appendMapValue(c.obj(), c);
-            r = mapSepResult(c);
-            if (r != CborDeserializeResult.Continue) {
-                return r;
-            }
         }
-    }
-
-    private CborDeserializeResult dummyRoundResult(boolean hasValue, CborDeserializerContext c) {
-        if (hasValue) {
-            if (dummyIndex == c.option().maxDummyElements()) {
-                throw new CborDeserializerException("too many dummy obj elements : " + dummyIndex);
-            }
-            dummyIndex++;
-        }
-        if (count == 0) {
-            c.setObj(null);
-            return CborDeserializeResult.Finish;
-        }
-        if (count > 0) {
-            if (hasValue) {
-                count--;
-                if (count == 0) {
-                    c.setObj(null);
-                    return CborDeserializeResult.Finish;
-                }
-            }
-            return CborDeserializeResult.Continue;
-        }
-        byte b = c.getByte();
-        if (b == (byte) 0xFF) {
-            c.setObj(null);
-            return CborDeserializeResult.Finish;
-        }
-        if (hasValue) {
-            c.rewind();
-        }
-        return CborDeserializeResult.Continue;
-    }
-
-    private CborDeserializeResult dummySepResult(CborDeserializerContext c) {
-        if (count == 0) {
-            c.setObj(null);
-            return CborDeserializeResult.Finish;
-        }
-        if (count > 0) {
-            count--;
-            if (count == 0) {
-                c.setObj(null);
-                return CborDeserializeResult.Finish;
-            }
-            return CborDeserializeResult.Continue;
-        }
-        byte b = c.getByte();
-        if (b == (byte) 0xFF) {
-            c.setObj(null);
-            return CborDeserializeResult.Finish;
-        }
-        c.rewind();
-        return CborDeserializeResult.Continue;
     }
 
     private CborDeserializeResult processDummyObj(boolean hasValue, CborDeserializerContext c) {
-        CborDeserializeResult r = dummyRoundResult(hasValue, c);
-        if (r != CborDeserializeResult.Continue) {
-            return r;
+        if (hasValue) {
+            incrementDummyIndex("too many dummy obj elements : ", c);
         }
-        for ( ; ; ) {
-            byte firstByte = c.getByte();
-            c.skipString(firstByte);
-            firstByte = c.getByte();
-            r = dummyResult(firstByte, c);
-            if (r != CborDeserializeResult.Continue) {
-                return r;
+        for (; ; ) {
+            if (!prepareNext(c)) {
+                c.setObj(null);
+                return CborDeserializeResult.Finish;
             }
-            r = dummySepResult(c);
+            c.skipString(c.getByte());
+            byte firstByte = c.getByte();
+            CborDeserializeResult r = dummyResult(firstByte, c);
+            consumeEntry();
             if (r != CborDeserializeResult.Continue) {
                 return r;
             }
@@ -864,17 +613,16 @@ public final class CborDeserializerNode {
     }
 
     private CborDeserializeResult processDummyCol(boolean hasValue, CborDeserializerContext c) {
-        CborDeserializeResult r = dummyRoundResult(hasValue, c);
-        if (r != CborDeserializeResult.Continue) {
-            return r;
+        if (hasValue) {
+            incrementDummyIndex("too many dummy col elements : ", c);
         }
-        for ( ; ; ) {
-            byte firstByte = c.getByte();
-            r = dummyResult(firstByte, c);
-            if (r != CborDeserializeResult.Continue) {
-                return r;
+        for (; ; ) {
+            if (!prepareNext(c)) {
+                c.setObj(null);
+                return CborDeserializeResult.Finish;
             }
-            r = dummySepResult(c);
+            CborDeserializeResult r = dummyResult(c.getByte(), c);
+            consumeEntry();
             if (r != CborDeserializeResult.Continue) {
                 return r;
             }
@@ -900,7 +648,8 @@ public final class CborDeserializerNode {
     private void skipPrimitiveValue(byte firstByte, int type, CborDeserializerContext c) {
         switch (type) {
             case MarshallUtil.BYTE_TYPE, MarshallUtil.SHORT_TYPE, MarshallUtil.INT_TYPE,
-                    MarshallUtil.LONG_TYPE, MarshallUtil.FLOAT_TYPE, MarshallUtil.DOUBLE_TYPE -> c.skipNumber(firstByte);
+                    MarshallUtil.LONG_TYPE, MarshallUtil.FLOAT_TYPE, MarshallUtil.DOUBLE_TYPE ->
+                    c.skipNumber(firstByte);
             case MarshallUtil.BOOLEAN_TYPE -> c.deserializeBoolean(firstByte);
             case MarshallUtil.CHAR_TYPE -> c.skipString(firstByte);
             default -> throw new AssertionError();

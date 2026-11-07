@@ -21,7 +21,8 @@ public final class AnnoUtil {
 
     public static String escapeJavaStringLiteral(String str) {
         StringBuilder builder = new StringBuilder("\"");
-        for (int i = 0; i < str.length(); i++) {
+        final int len = str.length();
+        for (int i = 0; i < len; i++) {
             char c = str.charAt(i);
             switch (c) {
                 case '"' -> builder.append("\\\"");

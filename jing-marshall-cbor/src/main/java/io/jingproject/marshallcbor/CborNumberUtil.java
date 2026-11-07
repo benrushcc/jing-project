@@ -1,15 +1,7 @@
 package io.jingproject.marshallcbor;
 
-import io.jingproject.common.ReadBuffer;
-import io.jingproject.common.WriteBuffer;
-
-import java.nio.ByteOrder;
-
-// CBOR (RFC 8949) number encoding utilities: major-type/ai decomposition,
-// head (initial byte + argument) construction and parsing, simple values,
-// and half-precision floating-point conversion.
-// the argument of a head is treated as an unsigned 64-bit value; callers must
-// guarantee that it is non-negative.
+// CBOR (RFC 8949) number utilities: major-type/ai decomposition and
+// half-precision floating-point conversion.
 public final class CborNumberUtil {
 
     // major type of an unsigned integer (major 0)
@@ -48,57 +40,6 @@ public final class CborNumberUtil {
     // extract the 5-bit additional information from an initial byte
     public static int aiOf(byte initialByte) {
         return initialByte & 0x1F;
-    }
-
-    // write a head (initial byte + argument payload) using preferred
-    // serialization: ai 0-23 is written inline, otherwise 24/25/26/27 selects
-    // a 1/2/4/8-byte unsigned big-endian argument with no redundant zeros.
-    public static void writeHead(int majorType, long argument, WriteBuffer writeBuffer) {
-        int head = (majorType << 5) & 0xE0;
-        if (Long.compareUnsigned(argument, 24L) < 0) {
-            writeBuffer.writeByte((byte) (head | (int) argument));
-            return;
-        }
-        if (Long.compareUnsigned(argument, 0x100L) < 0) {
-            writeBuffer.writeBytes((byte) (head | 24), (byte) argument);
-            return;
-        }
-        if (Long.compareUnsigned(argument, 0x10000L) < 0) {
-            writeBuffer.writeByte((byte) (head | 25));
-            writeBuffer.writeShort((short) argument, ByteOrder.BIG_ENDIAN);
-            return;
-        }
-        if (Long.compareUnsigned(argument, 0x100000000L) < 0) {
-            writeBuffer.writeByte((byte) (head | 26));
-            writeBuffer.writeInt((int) argument, ByteOrder.BIG_ENDIAN);
-            return;
-        }
-        writeBuffer.writeByte((byte) (head | 27));
-        writeBuffer.writeLong(argument, ByteOrder.BIG_ENDIAN);
-    }
-
-    // write a major 7 simple value (bool/null/undefined) as a single byte;
-    // simpleValue must be in [0, 31]. the caller is responsible for passing a
-    // valid simple value.
-    public static void writeSimple(int simpleValue, WriteBuffer writeBuffer) {
-        writeBuffer.writeByte((byte) (0xE0 | simpleValue));
-    }
-
-    // read the argument payload selected by the additional information:
-    // ai 0-23 returns the ai itself; ai 24/25/26/27 reads 1/2/4/8 unsigned
-    // big-endian bytes; ai 28-31 (including the indefinite-length ai 31,
-    // handled by the caller in container contexts) is rejected.
-    public static long readArgument(int ai, ReadBuffer readBuffer) {
-        if (ai < 24) {
-            return ai;
-        }
-        return switch (ai) {
-            case 24 -> readBuffer.readByte() & 0xFFL;
-            case 25 -> readBuffer.readShort(ByteOrder.BIG_ENDIAN) & 0xFFFFL;
-            case 26 -> readBuffer.readInt(ByteOrder.BIG_ENDIAN) & 0xFFFFFFFFL;
-            case 27 -> readBuffer.readLong(ByteOrder.BIG_ENDIAN);
-            default -> throw new CborDeserializerException("unsupported or illegal initial byte");
-        };
     }
 
     // convert a half-precision bit pattern (IEEE 754 binary16) to a float.

@@ -12,17 +12,13 @@ public final class CborSerializerOption {
     private static final CborSerializerOption DEFAULT_OPTION = CborSerializerOption.builder().build();
 
     private final Map<Class<?>, CborSerializeFunc> customFuncMap;
-    private final Map<Class<?>, CborSerializeFunc> customArrFuncMap;
     private final boolean serializeNullInObjOrMap;
-    private final boolean deterministicEncoding;
     private final int maxNestedSize;
 
-    private CborSerializerOption(Map<Class<?>, CborSerializeFunc> customFuncMap, Map<Class<?>, CborSerializeFunc> customArrFuncMap,
-                                 boolean serializeNullInObjOrMap, boolean deterministicEncoding, int maxNestedSize) {
+    private CborSerializerOption(Map<Class<?>, CborSerializeFunc> customFuncMap,
+                                 boolean serializeNullInObjOrMap, int maxNestedSize) {
         this.customFuncMap = customFuncMap;
-        this.customArrFuncMap = customArrFuncMap;
         this.serializeNullInObjOrMap = serializeNullInObjOrMap;
-        this.deterministicEncoding = deterministicEncoding;
         this.maxNestedSize = maxNestedSize;
     }
 
@@ -38,33 +34,17 @@ public final class CborSerializerOption {
         return customFuncMap.get(clazz);
     }
 
-    public CborSerializeFunc customArrFunc(Class<?> clazz) {
-        return customArrFuncMap.get(clazz);
-    }
-
     public boolean serializeNullInObjOrMap() {
         return serializeNullInObjOrMap;
-    }
-
-    public boolean deterministicEncoding() {
-        return deterministicEncoding;
     }
 
     public int maxNestedSize() {
         return maxNestedSize;
     }
 
-    // deterministic encoding requires definite-length containers, which in turn
-    // forces null entries to be written; an explicit setSerializeNullInObjOrMap
-    // (false) is ignored in deterministic mode
-    public boolean effectiveSerializeNullInObjOrMap() {
-        return deterministicEncoding || serializeNullInObjOrMap;
-    }
-
     public static class Builder {
         private final List<MarshallTransformerFacade> tfcs = new ArrayList<>();
         private boolean serializeNullInObjOrMap = false;
-        private boolean deterministicEncoding = false;
         private int maxNestedSize = 64;
 
         public Builder setTransformerClasses(Class<?>... transformerClasses) {
@@ -85,20 +65,20 @@ public final class CborSerializerOption {
                         throw new IllegalArgumentException("custom type already exists : " + customType.getName());
                     }
                 }
-                // primitive types are not supported in generics, array types are not
-                // supported in transformers, so we don't need to double-check them
-                if (CborSerializerContext.builtinSerializeObjFunc(customType) != null) {
+                // builtin mappings always win; a transformer may not override them
+                if (CborSerializerContext.builtinSerializeObjFunc(customType) != null
+                        || CborSerializerContext.builtinSerializeArrayFunc(customType) != null) {
                     throw new IllegalArgumentException("cannot override builtin type : " + customType.getName());
                 }
-                // custom type has value semantics, which is feasible for enums, but
-                // absolutely not for marshallable beans
+                // custom types have value semantics, which is feasible for enums,
+                // but not for marshallable beans
                 if (Marshalls.beanMarshallFacade(customType) != null) {
                     throw new IllegalArgumentException("custom type can not be marshallable : " + customType.getName());
                 }
-                // builtin type must be an implementation class of CborPrimitiveType
-                Class<?> builtinType = tfc.builtinType();
-                if (!CborPrimitiveType.class.isAssignableFrom(builtinType)) {
-                    throw new IllegalArgumentException("builtinType not implementing CborPrimitiveType interface : " + builtinType.getName());
+                // a transformer must map to the single tagged-type builtin
+                if (tfc.builtinType() != CborTaggedType.class) {
+                    throw new IllegalArgumentException(
+                            "builtinType must be CborTaggedType : " + tfc.builtinType().getName());
                 }
                 tfcs.add(tfc);
             }
@@ -110,11 +90,6 @@ public final class CborSerializerOption {
             return this;
         }
 
-        public Builder setDeterministicEncoding(boolean deterministicEncoding) {
-            this.deterministicEncoding = deterministicEncoding;
-            return this;
-        }
-
         public Builder setMaxNestedSize(int maxNestedSize) {
             if (maxNestedSize < CborSerializer.INITIAL_SIZE || maxNestedSize > CborSerializer.MAX_SIZE) {
                 throw new IllegalArgumentException("maxNestedSize out of range : " + maxNestedSize);
@@ -123,80 +98,15 @@ public final class CborSerializerOption {
             return this;
         }
 
-        private static CborSerializeFunc customObjSerializeFunc(MarshallTransformerFacade tfc) {
-            Class<?> builtinType = tfc.builtinType();
-            if (builtinType == CborPrimitiveType.class) {
-                return (o, c) -> {
-                    c.serializeCborPrimitiveType((CborPrimitiveType) tfc.toBuiltin(o));
-                    return CborSerializeResult.Continue;
-                };
-            } else if (builtinType == CborBoolType.class) {
-                return (o, c) -> {
-                    c.serializeCborBoolType((CborBoolType) tfc.toBuiltin(o));
-                    return CborSerializeResult.Continue;
-                };
-            } else if (builtinType == CborNumberType.class) {
-                return (o, c) -> {
-                    c.serializeCborNumberType((CborNumberType) tfc.toBuiltin(o));
-                    return CborSerializeResult.Continue;
-                };
-            } else if (builtinType == CborStrType.class) {
-                return (o, c) -> {
-                    c.serializeCborStrType((CborStrType) tfc.toBuiltin(o));
-                    return CborSerializeResult.Continue;
-                };
-            } else if (builtinType == CborBytesType.class) {
-                return (o, c) -> {
-                    c.serializeCborBytesType((CborBytesType) tfc.toBuiltin(o));
-                    return CborSerializeResult.Continue;
-                };
-            } else {
-                throw new AssertionError("unknown builtin type : " + builtinType.getName());
-            }
-        }
-
-        private static CborSerializeFunc customArrSerializeFunc(MarshallTransformerFacade tfc) {
-            Class<?> builtinType = tfc.builtinType();
-            if (builtinType == CborPrimitiveType.class) {
-                return (o, c) -> {
-                    c.serializeCborPrimitiveTypeArray((CborPrimitiveType[]) tfc.toBuiltinArray((Object[]) o));
-                    return CborSerializeResult.Continue;
-                };
-            } else if (builtinType == CborBoolType.class) {
-                return (o, c) -> {
-                    c.serializeCborBoolTypeArray((CborBoolType[]) tfc.toBuiltinArray((Object[]) o));
-                    return CborSerializeResult.Continue;
-                };
-            } else if (builtinType == CborNumberType.class) {
-                return (o, c) -> {
-                    c.serializeCborNumberTypeArray((CborNumberType[]) tfc.toBuiltinArray((Object[]) o));
-                    return CborSerializeResult.Continue;
-                };
-            } else if (builtinType == CborStrType.class) {
-                return (o, c) -> {
-                    c.serializeCborStrTypeArray((CborStrType[]) tfc.toBuiltinArray((Object[]) o));
-                    return CborSerializeResult.Continue;
-                };
-            } else if (builtinType == CborBytesType.class) {
-                return (o, c) -> {
-                    c.serializeCborBytesTypeArray((CborBytesType[]) tfc.toBuiltinArray((Object[]) o));
-                    return CborSerializeResult.Continue;
-                };
-            } else {
-                throw new AssertionError("unknown builtin type : " + builtinType.getName());
-            }
-        }
-
         public CborSerializerOption build() {
             Map<Class<?>, CborSerializeFunc> customFuncMap = new HashMap<>();
-            Map<Class<?>, CborSerializeFunc> customArrFuncMap = new HashMap<>();
             for (MarshallTransformerFacade tfc : tfcs) {
-                Class<?> customType = tfc.customType();
-                customFuncMap.put(customType, customObjSerializeFunc(tfc));
-                customArrFuncMap.put(customType, customArrSerializeFunc(tfc));
+                customFuncMap.put(tfc.customType(), (o, c) -> {
+                    c.serializeCborTaggedType((CborTaggedType) tfc.toBuiltin(o));
+                    return CborSerializeResult.Continue;
+                });
             }
-            return new CborSerializerOption(Map.copyOf(customFuncMap), Map.copyOf(customArrFuncMap),
-                    serializeNullInObjOrMap, deterministicEncoding, maxNestedSize);
+            return new CborSerializerOption(Map.copyOf(customFuncMap), serializeNullInObjOrMap, maxNestedSize);
         }
     }
 }

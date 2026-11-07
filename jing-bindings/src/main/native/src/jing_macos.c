@@ -7,26 +7,29 @@
 #include <sys/time.h>
 #include <errno.h>
 
-int jing_macos_kqueue_in(void) {
+int16_t jing_macos_evfilt_read(void) {
 	return EVFILT_READ;
 }
 
-int jing_macos_kqueue_out(void) {
+int16_t jing_macos_evfilt_write(void) {
 	return EVFILT_WRITE;
 }
 
 int jing_macos_kqueue(void) {
-	int v = kqueue();
-	if (JING_UNLIKELY(v == -1)) {
+	int r = kqueue();
+	if (JING_UNLIKELY(r == -1)) {
 		int err = errno;
 		return -err;
-	} else {
-		return v;
-	}
+	} 
+	return r;
 }
 
 int jing_macos_kevent_ctl(int kqfd, int socket, int mod_read, int mod_write,
-                          void* udata) {
+                          int data) {
+	if(JING_UNLIKELY(data < 0)) {
+		return -ERANGE;
+	}
+	void* udata = (void *)(uintptr_t) data;
 	struct kevent events[2];
 	memset(events, 0, sizeof(events));
 	int n = 0;
@@ -40,14 +43,15 @@ int jing_macos_kevent_ctl(int kqfd, int socket, int mod_read, int mod_write,
 		       (mod_write > 0 ? EV_ADD : EV_DELETE), 0, 0, udata);
 		n++;
 	}
-	if (n == 0) {
-		return 0;
+	if (JING_UNLIKELY(n == 0)) {
+		return 0; // no modification needed
 	}
-	if (kevent(kqfd, events, n, NULL, 0, NULL) == -1) {
+	int r = kevent(kqfd, events, n, NULL, 0, NULL);
+	if (JING_UNLIKELY(r == -1)) {
 		int err = errno;
-		return err;
+		return -err;
 	}
-	return 0;
+	return r;
 }
 
 int jing_macos_kevent_wait(int kqfd, struct kevent* events, int nevents,
@@ -60,11 +64,11 @@ int jing_macos_kevent_wait(int kqfd, struct kevent* events, int nevents,
 		t.tv_nsec = (timeout % 1000) * 1000000;
 		tp        = &t;
 	}
-	int v = kevent(kqfd, NULL, 0, events, nevents, tp);
-	if (v == -1) {
+	int r = kevent(kqfd, NULL, 0, events, nevents, tp);
+	if (JING_UNLIKELY(r == -1)) {
 		int err = errno;
 		return -err;
 	}
-	return v;
+	return r;
 }
 #endif

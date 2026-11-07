@@ -58,14 +58,6 @@ param(
 $ErrorActionPreference = 'Stop'
 $dotSourced = $MyInvocation.InvocationName -eq '.'
 
-function Exit-Script {
-    param([int]$Code)
-    if ($dotSourced) {
-        return
-    }
-    exit $Code
-}
-
 function Get-VsDevCmdPath {
     if ($VsDevCmd) {
         if (Test-Path -LiteralPath $VsDevCmd) { return $VsDevCmd }
@@ -131,6 +123,8 @@ function Import-EnvLines {
     }
 }
 
+$env:VSLANG = 1033
+
 $batPath = Get-VsDevCmdPath
 
 $envLines = Invoke-EnvDump -Bat $batPath -TargetArch $Arch -HostArchValue $HostArch
@@ -151,7 +145,8 @@ if ($Info) {
     Write-Host "  MSVC version : $($env:VCToolsVersion)"
     Write-Host "  Windows SDK  : $($env:WindowsSDKVersion)"
     Write-Host "  cl.exe       : $((Get-Command cl.exe -ErrorAction SilentlyContinue).Source)"
-    Exit-Script 0
+    if ($dotSourced) { return }
+    exit 0
 }
 
 if ($Command) {
@@ -159,5 +154,5 @@ if ($Command) {
         throw '-Command cannot be used when dot-sourcing this script. Run it as a file, or dot-source it and run your command in the caller.'
     }
     pwsh -NoProfile -NonInteractive -Command $Command
-    Exit-Script $LASTEXITCODE
+    exit $LASTEXITCODE
 }

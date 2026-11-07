@@ -44,39 +44,7 @@ public interface WinBindings {
     @Downcall(methodName = "jing_win_virtual_free", critical = true)
     int winVirtualFree(long addr, long size, int type);
 
-    @Downcall(methodName = "jing_win_connect_blocked_errcode", constant = true, critical = true)
-    int connectBlockErrCode();
-
-    @Downcall(methodName = "jing_win_send_blocked_errcode", constant = true, critical = true)
-    int sendBlockErrCode();
-
-    @Downcall(methodName = "jing_win_interrupt_errcode", constant = true, critical = true)
-    int interruptErrCode();
-
-    @Downcall(methodName = "jing_win_af_inet_code", constant = true, critical = true)
-    int afInetCode();
-
-    @Downcall(methodName = "jing_win_af_inet6_code", constant = true, critical = true)
-    int afInet6Code();
-
-    @Downcall(methodName = "jing_win_af_unix_code", constant = true, critical = true)
-    int afUnixCode();
-
-    @Downcall(methodName = "jing_win_tcp_type_code", constant = true, critical = true)
-    int tcpTypeCode();
-
-    @Downcall(methodName = "jing_win_udp_type_code", constant = true, critical = true)
-    int udpTypeCode();
-
-    @Downcall(methodName = "jing_win_tcp_protocol_code", constant = true, critical = true)
-    int tcpProtocolCode();
-
-    @Downcall(methodName = "jing_win_udp_protocol_code", constant = true, critical = true)
-    int udpProtocolCode();
-
-    @Downcall(methodName = "jing_win_socket", critical = true)
-    long createSocket(int af, int type, int protocol);
-
+    // log related
     @Downcall(methodName = "jing_win_ansi_support", constant = true, critical = true)
     int winAnsiSupport();
 
@@ -98,12 +66,109 @@ public interface WinBindings {
     @Downcall(methodName = "jing_flush_file")
     void flushFile(MemorySegment handle, MemorySegment jingResult);
 
+    // network related
+    @Downcall(methodName = "jing_win_wsa_startup", critical = true)
+    int wsaStartup();
+
+    @Downcall(methodName = "jing_win_connect_block_code", constant = true, critical = true)
+    int connectBlockCode();
+
+    @Downcall(methodName = "jing_win_send_block_code", constant = true, critical = true)
+    int sendBlockCode();
+
+    @Downcall(methodName = "jing_win_af_inet_code", constant = true, critical = true)
+    int afInetCode();
+
+    @Downcall(methodName = "jing_win_af_inet6_code", constant = true, critical = true)
+    int afInet6Code();
+
+    @Downcall(methodName = "jing_win_af_unix_code", constant = true, critical = true)
+    int afUnixCode();
+
+    @Downcall(methodName = "jing_win_sol_socket", constant = true, critical = true)
+    int solSocket();
+
+    @Downcall(methodName = "jing_win_sock_stream_code", constant = true, critical = true)
+    int sockStreamCode();
+
+    @Downcall(methodName = "jing_win_sock_dgram_code", constant = true, critical = true)
+    int sockDgramCode();
+
+    @Downcall(methodName = "jing_win_ipproto_tcp_code", constant = true, critical = true)
+    int ipprotoTcpCode();
+
+    @Downcall(methodName = "jing_win_ipproto_udp_code", constant = true, critical = true)
+    int ipprotoUdpCode();
+
+    @Downcall(methodName = "jing_win_ipproto_ipv6_code", constant = true, critical = true)
+    int ipprotoIpv6Code();
+
+    @Downcall(methodName = "jing_win_so_reuseaddr", constant = true, critical = true)
+    int soReuseaddr();
+
+    @Downcall(methodName = "jing_win_tcp_nodelay", constant = true, critical = true)
+    int tcpNodelay();
+
+    @Downcall(methodName = "jing_win_ipv6_v6only", constant = true, critical = true)
+    int ipv6V6only();
+
+    @Downcall(methodName = "jing_win_socket", critical = true)
+    int socket(int domain, int type, int protocol);
+
+    @Downcall(methodName = "jing_win_closesocket", critical = true)
+    int closeSocket(int socket);
+
+    @Downcall(methodName = "jing_win_set_sock_opt", critical = true)
+    int setSockOpt(int socket, int level, int opt, long val, int len);
+
+    @Downcall(methodName = "jing_win_get_err_opt", critical = true)
+    int getErrOpt(int socket);
+
+    @Downcall(methodName = "jing_win_set_nonblocking", critical = true)
+    int setNonblocking(int socket);
+
+    @Downcall(methodName = "jing_win_bind", critical = true)
+    int bind(int socket, int type, long addr, int port);
+
+    @Downcall(methodName = "jing_win_listen", critical = true)
+    int listen(int socket, int backlog);
+
+    @Downcall(methodName = "jing_win_accept", critical = true)
+    int accept(int socket, long buf);
+
+    @Downcall(methodName = "jing_win_connect", critical = true)
+    int connect(int socket, int type, long addr, int port);
+
+    @Downcall(methodName = "jing_win_recv", critical = true)
+    int recv(int socket, long buf, int len);
+
+    @Downcall(methodName = "jing_win_send", critical = true)
+    int send(int socket, long buf, int len);
+
+    @Downcall(methodName = "jing_win_read_int", critical = true)
+    int readInt(int socket);
+
+    @Downcall(methodName = "jing_win_write_int", critical = true)
+    int writeInt(int socket, int value);
+
+    @Downcall(methodName = "jing_win_uds_bind")
+    int udsBind(int socket, long addr, long len);
+
+    @Downcall(methodName = "jing_win_uds_connect")
+    int udsConnect(int socket, long addr, long len);
+
+    @Downcall(methodName = "jing_win_uds_accept")
+    int udsAccept(int socket);
+
     // wepoll related functions
     @Downcall(methodName = "jing_win_wepoll_in", constant = true, critical = true)
     int wepollIn();
 
     @Downcall(methodName = "jing_win_wepoll_out", constant = true, critical = true)
     int wepollOut();
+
+    @Downcall(methodName = "jing_win_wepoll_rdhup", constant = true, critical = true)
+    int wepollRdhup();
 
     @Downcall(methodName = "jing_win_wepoll_err", constant = true, critical = true)
     int wepollErr();
@@ -121,14 +186,14 @@ public interface WinBindings {
     int wepollDel();
 
     @Downcall(methodName = "jing_win_wepoll_create", critical = true)
-    MemorySegment wepollCreate();
+    long wepollCreate();
 
     @Downcall(methodName = "jing_win_wepoll_ctl")
-    int wepollCtl(MemorySegment epfd, long socket, int op, int eventTypes, int data);
+    int wepollCtl(long epfd, int socket, int op, int eventTypes, int data);
 
     @Downcall(methodName = "jing_win_wepoll_wait")
-    int wepollWait(MemorySegment epfd, MemorySegment events, int maxEvents, int timeout);
+    int wepollWait(long epfd, long events, int maxEvents, int timeout);
 
     @Downcall(methodName = "jing_win_wepoll_close", critical = true)
-    int wepollClose(MemorySegment epfd);
+    int wepollClose(long epfd);
 }

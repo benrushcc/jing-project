@@ -19,7 +19,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -486,7 +485,7 @@ public final class FileLogEventHandler implements LogEventHandler, AutoCloseable
         byte[] encoded = s.getBytes(StandardCharsets.UTF_8);
         MemorySegment seg = alloc.allocate(encoded.length + 1L);
         MemorySegment.copy(encoded, 0, seg, ValueLayout.JAVA_BYTE, 0, encoded.length);
-        NativeSegmentAccess.setByte(seg, encoded.length, (byte) 0);
+        NativeSegmentAccess.setByte(seg.address(), encoded.length, (byte) 0);
         return seg;
     }
 

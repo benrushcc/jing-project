@@ -75,7 +75,7 @@ public abstract sealed class MallocAllocator implements Allocator permits Malloc
             addr = newAddr;
         }
         Alloc alloc = doAllocate(byteSize, byteAlignment);
-        NativeSegmentAccess.setLong(MemorySegment.ofAddress(addr), index, alloc.stored());
+        NativeSegmentAccess.setLong(addr, index, alloc.stored());
         index += Long.BYTES;
         return NativeSegmentAccess.reinterpret(MemorySegment.ofAddress(alloc.actual()), byteSize);
     }
