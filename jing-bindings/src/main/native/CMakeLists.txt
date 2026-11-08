@@ -50,7 +50,6 @@ function(jing_configure target)
         )
         target_compile_options(${target} PRIVATE
             /W4
-            /DWIN32_LEAN_AND_MEAN
             /utf-8
             /nologo
         )
@@ -58,14 +57,30 @@ function(jing_configure target)
             /machine:x64
             /DEBUG:NONE
         )
-    elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        set_target_properties(${target} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS OFF)
+    elseif(APPLE)
         target_compile_options(${target} PRIVATE
             -Wall 
             -Wextra
             -g0
-            -march=native
             -fvisibility=hidden
         )
+        set(export_file
+            "${CMAKE_CURRENT_BINARY_DIR}/${target}_exports.txt"
+        )
+        file(GENERATE
+            OUTPUT "${export_file}"
+            CONTENT "_jing_*\n"
+        )
+        target_link_options(${target} PRIVATE "LINKER:-exported_symbols_list,${export_file}")
+    elseif(UNIX)
+        target_compile_options(${target} PRIVATE
+            -Wall 
+            -Wextra
+            -g0
+            -fvisibility=hidden
+        )
+        target_link_options(${target} PRIVATE "-Wl,--exclude-libs,ALL")
     endif()
 endfunction()
 
@@ -73,21 +88,9 @@ endfunction()
 project(jing_bindings_project VERSION 0.0.1 LANGUAGES C)
 
 # provided options
-option(JING_BUILD_DEMO   "build jing_demo dynamic library for testing purpose"        ON)
 option(JING_USE_WEPOLL   "provide wepoll related functions in jing_bindings library"  ON)
 option(JING_USE_AWS_LC   "provide aws-lc related functions in jing_bindings library"  ON)
 option(JING_USE_ZLIB_NG  "provide zlib-ng related functions in jing_bindings library" ON)
-
-if(JING_BUILD_DEMO) 
-    add_library(jing_demo SHARED)
-    set_target_properties(jing_demo PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-    )
-    target_sources(jing_demo PRIVATE src/jing_demo.c)
-    jing_configure(jing_demo)
-endif()
 
 set(JING_WEPOLL_VERSION    "v1.5.8"       CACHE STRING "wepoll library version"    FORCE)
 set(JING_AWS_LC_VERSION    "v5.13.0"      CACHE STRING "aws-lc library version"    FORCE)
@@ -108,7 +111,7 @@ elseif(APPLE)
 else()
     target_sources(jing_bindings PRIVATE src/jing_posix.c src/jing_linux.c)
 endif()
-jing_configure(jing_demo)
+jing_configure(jing_bindings)
 install(
     TARGETS jing_bindings
     RUNTIME DESTINATION "${JING_LIBRARY_PATH}"

@@ -20,16 +20,16 @@ int jing_macos_kqueue(void) {
 	if (JING_UNLIKELY(r == -1)) {
 		int err = errno;
 		return -err;
-	} 
+	}
 	return r;
 }
 
 int jing_macos_kevent_ctl(int kqfd, int socket, int mod_read, int mod_write,
                           int data) {
-	if(JING_UNLIKELY(data < 0)) {
+	if (JING_UNLIKELY(data < 0)) {
 		return -ERANGE;
 	}
-	void* udata = (void *)(uintptr_t) data;
+	void* udata = (void*) (uintptr_t) data;
 	struct kevent events[2];
 	memset(events, 0, sizeof(events));
 	int n = 0;
@@ -44,7 +44,7 @@ int jing_macos_kevent_ctl(int kqfd, int socket, int mod_read, int mod_write,
 		n++;
 	}
 	if (JING_UNLIKELY(n == 0)) {
-		return 0; // no modification needed
+		return 0;   // no modification needed
 	}
 	int r = kevent(kqfd, events, n, NULL, 0, NULL);
 	if (JING_UNLIKELY(r == -1)) {

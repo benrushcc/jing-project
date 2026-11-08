@@ -50,37 +50,35 @@ SSL* jing_ssl_new(SSL_CTX* ctx) {
 }
 
 // bio related
-BIO_METHOD *jing_ssl_bio_meth_new(int type, const char *name) {
-    return BIO_meth_new(type, name);
+BIO_METHOD* jing_ssl_bio_meth_new(int type, const char* name) {
+	return BIO_meth_new(type, name);
 }
 
-int jing_ssl_bio_meth_set_write(BIO_METHOD *biom,
-                                int (*write)(BIO *, const char *, int)) {
-    return BIO_meth_set_write(biom, write);
+int jing_ssl_bio_meth_set_write(BIO_METHOD* biom,
+                                int (*write)(BIO*, const char*, int)) {
+	return BIO_meth_set_write(biom, write);
 }
 
-int jing_ssl_bio_meth_set_read(BIO_METHOD *biom,
-                               int (*read)(BIO *, char *, int)) {
-    return BIO_meth_set_read(biom, read);
+int jing_ssl_bio_meth_set_read(BIO_METHOD* biom,
+                               int (*read)(BIO*, char*, int)) {
+	return BIO_meth_set_read(biom, read);
 }
 
-int jing_ssl_bio_meth_set_puts(BIO_METHOD *biom,
-                               int (*puts)(BIO *, const char *)) {
-    return BIO_meth_set_puts(biom, puts);
+int jing_ssl_bio_meth_set_puts(BIO_METHOD* biom,
+                               int (*puts)(BIO*, const char*)) {
+	return BIO_meth_set_puts(biom, puts);
 }
 
-int jing_ssl_bio_meth_set_ctrl(BIO_METHOD *biom,
-                               long (*ctrl)(BIO *, int, long, void *)) {
-    return BIO_meth_set_ctrl(biom, ctrl);
+int jing_ssl_bio_meth_set_ctrl(BIO_METHOD* biom,
+                               long (*ctrl)(BIO*, int, long, void*)) {
+	return BIO_meth_set_ctrl(biom, ctrl);
 }
 
-int jing_ssl_bio_meth_set_create(BIO_METHOD *biom,
-                                 int (*create)(BIO *)) {
-    return BIO_meth_set_create(biom, create);
+int jing_ssl_bio_meth_set_create(BIO_METHOD* biom, int (*create)(BIO*)) {
+	return BIO_meth_set_create(biom, create);
 }
 
-int jing_ssl_bio_meth_set_destroy(BIO_METHOD *biom,
-                                  int (*destroy)(BIO *)) {
-    return BIO_meth_set_destroy(biom, destroy);
+int jing_ssl_bio_meth_set_destroy(BIO_METHOD* biom, int (*destroy)(BIO*)) {
+	return BIO_meth_set_destroy(biom, destroy);
 }
 #endif

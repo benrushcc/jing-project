@@ -82,7 +82,7 @@ void* jing_win_virtual_alloc(void* addr, size_t size, DWORD type, DWORD prot) {
 	if (JING_UNLIKELY(r == NULL)) {
 		int err = GetLastError();
 		return jing_make_error_ptr(err);
-	} 
+	}
 	return r;
 }
 
@@ -91,7 +91,7 @@ int jing_win_virtual_free(void* addr, size_t size, DWORD type) {
 	if (JING_UNLIKELY(v == 0)) {
 		int err = GetLastError();
 		return -err;
-	} 
+	}
 	return 0;
 }
 
@@ -270,7 +270,7 @@ int jing_log_win_close(void* handle) {
 int jing_win_wsa_startup(void) {
 	WSADATA wsa_data;
 	int r = WSAStartup(MAKEWORD(2, 2), &wsa_data);
-	if(r > 0) {
+	if (r > 0) {
 		return -r;
 	}
 	return r;
@@ -337,22 +337,23 @@ int jing_win_socket(int domain, int type, int protocol) {
 	if (JING_UNLIKELY(r == INVALID_SOCKET)) {
 		int err = WSAGetLastError();
 		return -err;
-	} 
+	}
 	return (int) r;
 }
 
 int jing_win_closesocket(int socket) {
 	int r = closesocket((SOCKET) socket);
-	if(JING_UNLIKELY(r == SOCKET_ERROR)) {
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
 		return -err;
 	}
 	return r;
 }
 
-int jing_win_set_sock_opt(int socket, int level, int opt, const char* val, int len) {
+int jing_win_set_sock_opt(int socket, int level, int opt, const char* val,
+                          int len) {
 	int r = setsockopt((SOCKET) socket, level, opt, val, len);
-	if(JING_UNLIKELY(r == SOCKET_ERROR)) {
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
 		return -err;
 	}
@@ -360,10 +361,10 @@ int jing_win_set_sock_opt(int socket, int level, int opt, const char* val, int l
 }
 
 int jing_win_get_err_opt(int socket) {
-	int v = 0;
+	int v   = 0;
 	int len = sizeof(int);
 	int r = getsockopt((SOCKET) socket, SOL_SOCKET, SO_ERROR, (char*) &v, &len);
-	if(JING_UNLIKELY(r == SOCKET_ERROR)) {
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
 		return -err;
 	}
@@ -372,65 +373,65 @@ int jing_win_get_err_opt(int socket) {
 
 int jing_win_set_nonblocking(int socket) {
 	u_long yes = 1;
-	int r = ioctlsocket((SOCKET) socket, FIONBIO, &yes);
-    if (JING_UNLIKELY(r == SOCKET_ERROR)) {
+	int r      = ioctlsocket((SOCKET) socket, FIONBIO, &yes);
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
-        return -err;
-    }
-    return r;
+		return -err;
+	}
+	return r;
 }
 
 int jing_win_bind(int socket, int type, const char* addr, int port) {
 	struct sockaddr_storage ss = {0};
-    int ss_len;
-    if (type == AF_INET) {
-        struct sockaddr_in* ipv4 = (struct sockaddr_in*) &ss;
-        ipv4->sin_family = AF_INET;
-        ipv4->sin_port   = htons((u_short) port);
-        if (addr == NULL) {
-            ipv4->sin_addr.s_addr = htonl(INADDR_ANY);
-        } else {
-            int r = inet_pton(AF_INET, addr, &ipv4->sin_addr);
-            if (JING_UNLIKELY(r == -1)) {
+	int ss_len;
+	if (type == AF_INET) {
+		struct sockaddr_in* ipv4 = (struct sockaddr_in*) &ss;
+		ipv4->sin_family         = AF_INET;
+		ipv4->sin_port           = htons((u_short) port);
+		if (addr == NULL) {
+			ipv4->sin_addr.s_addr = htonl(INADDR_ANY);
+		} else {
+			int r = inet_pton(AF_INET, addr, &ipv4->sin_addr);
+			if (JING_UNLIKELY(r == -1)) {
 				int err = WSAGetLastError();
-                return -err;
-            }
-            if (JING_UNLIKELY(r == 0)) {
-                return -WSAEINVAL;
-            }
-        }
-        ss_len = sizeof(*ipv4);
-    } else if (type == AF_INET6) {
-        struct sockaddr_in6* ipv6 = (struct sockaddr_in6*) &ss;
-        ipv6->sin6_family = AF_INET6;
-        ipv6->sin6_port   = htons((u_short) port);
-        if (addr == NULL) {
-            ipv6->sin6_addr = in6addr_any;
-        } else {
-            int r = inet_pton(AF_INET6, addr, &ipv6->sin6_addr);
-            if (JING_UNLIKELY(r == -1)) {
+				return -err;
+			}
+			if (JING_UNLIKELY(r == 0)) {
+				return -WSAEINVAL;
+			}
+		}
+		ss_len = sizeof(*ipv4);
+	} else if (type == AF_INET6) {
+		struct sockaddr_in6* ipv6 = (struct sockaddr_in6*) &ss;
+		ipv6->sin6_family         = AF_INET6;
+		ipv6->sin6_port           = htons((u_short) port);
+		if (addr == NULL) {
+			ipv6->sin6_addr = in6addr_any;
+		} else {
+			int r = inet_pton(AF_INET6, addr, &ipv6->sin6_addr);
+			if (JING_UNLIKELY(r == -1)) {
 				int err = WSAGetLastError();
-                return -err;
-            }
-            if (JING_UNLIKELY(r == 0)) {
-                return -WSAEINVAL;
-            }
-        }
-        ss_len = sizeof(*ipv6);
-    } else {
-        return -WSAEAFNOSUPPORT;
-    }
-    int r = bind((SOCKET) socket, (const struct sockaddr*) &ss, ss_len);
-    if (JING_UNLIKELY(r == SOCKET_ERROR)) {
+				return -err;
+			}
+			if (JING_UNLIKELY(r == 0)) {
+				return -WSAEINVAL;
+			}
+		}
+		ss_len = sizeof(*ipv6);
+	} else {
+		return -WSAEAFNOSUPPORT;
+	}
+	int r = bind((SOCKET) socket, (const struct sockaddr*) &ss, ss_len);
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
-        return -err;
-    }
-    return r;
+		return -err;
+	}
+	return r;
 }
 
 int jing_win_listen(int socket, int backlog) {
 	int r = listen((SOCKET) socket, backlog);
-	if(JING_UNLIKELY(r == SOCKET_ERROR)) {
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
 		return -err;
 	}
@@ -439,87 +440,90 @@ int jing_win_listen(int socket, int backlog) {
 
 int jing_win_accept(int socket, char* buf) {
 	struct sockaddr_storage ss = {0};
-    int ss_len = sizeof(ss);
+	int ss_len                 = sizeof(ss);
 	SOCKET conn = accept(socket, (struct sockaddr*) &ss, &ss_len);
-	if(JING_UNLIKELY(conn == INVALID_SOCKET)) {
+	if (JING_UNLIKELY(conn == INVALID_SOCKET)) {
 		int err = WSAGetLastError();
-        return -err;
+		return -err;
 	}
 	int type = AF_UNSPEC;
-	if(ss.ss_family == AF_INET) {
+	if (ss.ss_family == AF_INET) {
 		const struct sockaddr_in* ipv4 = (const struct sockaddr_in*) &ss;
 		memset(buf, 0, INET_ADDRSTRLEN + 2 * sizeof(int));
-        if (inet_ntop(AF_INET, &ipv4->sin_addr, buf + 2 * sizeof(int), INET_ADDRSTRLEN) != NULL) {
-            int port = (int) ntohs(ipv4->sin_port);
-            memcpy(buf + sizeof(int), &port, sizeof(int));
-        }
+		if (inet_ntop(AF_INET, &ipv4->sin_addr, buf + 2 * sizeof(int),
+		              INET_ADDRSTRLEN) != NULL) {
+			int port = (int) ntohs(ipv4->sin_port);
+			memcpy(buf + sizeof(int), &port, sizeof(int));
+		}
 		type = AF_INET;
-	} else if(ss.ss_family == AF_INET6) {
+	} else if (ss.ss_family == AF_INET6) {
 		const struct sockaddr_in6* ipv6 = (const struct sockaddr_in6*) &ss;
 		if (IN6_IS_ADDR_V4MAPPED(&ipv6->sin6_addr)) {
 			memset(buf, 0, INET_ADDRSTRLEN + 2 * sizeof(int));
 			struct in_addr v4;
-            memcpy(&v4, &ipv6->sin6_addr.s6_addr[12], 4);
-            if (inet_ntop(AF_INET, &v4, buf + 2 * sizeof(int), INET_ADDRSTRLEN) != NULL) {
+			memcpy(&v4, &ipv6->sin6_addr.s6_addr[12], 4);
+			if (inet_ntop(AF_INET, &v4, buf + 2 * sizeof(int),
+			              INET_ADDRSTRLEN) != NULL) {
 				int port = (int) ntohs(ipv6->sin6_port);
 				memcpy(buf + sizeof(int), &port, sizeof(int));
 			}
-            type = AF_INET;
+			type = AF_INET;
 		} else {
 			memset(buf, 0, INET6_ADDRSTRLEN + 2 * sizeof(int));
-			if (inet_ntop(AF_INET6, &ipv6->sin6_addr, buf + 2 * sizeof(int), INET6_ADDRSTRLEN) != NULL) {
+			if (inet_ntop(AF_INET6, &ipv6->sin6_addr, buf + 2 * sizeof(int),
+			              INET6_ADDRSTRLEN) != NULL) {
 				int port = (int) ntohs(ipv6->sin6_port);
 				memcpy(buf + sizeof(int), &port, sizeof(int));
 			}
-            type = AF_INET6;
+			type = AF_INET6;
 		}
-	} 
+	}
 	memcpy(buf, &type, sizeof(int));
 	return (int) conn;
 }
 
 int jing_win_connect(int socket, int type, const char* addr, int port) {
 	struct sockaddr_storage ss = {0};
-    int ss_len;
-	if(type == AF_INET) {
-		struct sockaddr_in* ipv4 = (struct sockaddr_in *) &ss;
-		ipv4->sin_family = AF_INET;
-    	ipv4->sin_port = htons((u_short) port);
-		int r = inet_pton(AF_INET, addr, &(ipv4->sin_addr));
-		if(JING_UNLIKELY(r == -1)) {
+	int ss_len;
+	if (type == AF_INET) {
+		struct sockaddr_in* ipv4 = (struct sockaddr_in*) &ss;
+		ipv4->sin_family         = AF_INET;
+		ipv4->sin_port           = htons((u_short) port);
+		int r                    = inet_pton(AF_INET, addr, &(ipv4->sin_addr));
+		if (JING_UNLIKELY(r == -1)) {
 			int err = WSAGetLastError();
 			return -err;
 		}
-		if(JING_UNLIKELY(r == 0)) {
+		if (JING_UNLIKELY(r == 0)) {
 			return -WSAEINVAL;
 		}
-        ss_len = sizeof(*ipv4);
-	} else if(type == AF_INET6) {
-		struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) &ss;
-        ipv6->sin6_family = AF_INET6;
-        ipv6->sin6_port = htons((uint16_t)port);
-        int r = inet_pton(AF_INET6, addr, &ipv6->sin6_addr);
+		ss_len = sizeof(*ipv4);
+	} else if (type == AF_INET6) {
+		struct sockaddr_in6* ipv6 = (struct sockaddr_in6*) &ss;
+		ipv6->sin6_family         = AF_INET6;
+		ipv6->sin6_port           = htons((uint16_t) port);
+		int r                     = inet_pton(AF_INET6, addr, &ipv6->sin6_addr);
 		if (JING_UNLIKELY(r == -1)) {
 			return -WSAGetLastError();
 		}
 		if (JING_UNLIKELY(r == 0)) {
 			return -WSAEINVAL;
 		}
-        ss_len = sizeof(*ipv6);
+		ss_len = sizeof(*ipv6);
 	} else {
 		return -WSAEAFNOSUPPORT;
 	}
 	int r = connect((SOCKET) socket, (const struct sockaddr*) &ss, ss_len);
-    if (r == SOCKET_ERROR) {
+	if (r == SOCKET_ERROR) {
 		int err = WSAGetLastError();
-        return -err;
-    }
-    return r;
+		return -err;
+	}
+	return r;
 }
 
-int jing_win_recv(int socket, char *buf, int len) {
+int jing_win_recv(int socket, char* buf, int len) {
 	int r = recv((SOCKET) socket, buf, len, 0);
-	if(JING_UNLIKELY(r == SOCKET_ERROR)) {
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
 		return -err;
 	}
@@ -528,7 +532,7 @@ int jing_win_recv(int socket, char *buf, int len) {
 
 int jing_win_send(int socket, const char* buf, int len) {
 	int r = send((SOCKET) socket, buf, len, 0);
-	if(JING_UNLIKELY(r == SOCKET_ERROR)) {
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
 		return -err;
 	}
@@ -537,96 +541,99 @@ int jing_win_send(int socket, const char* buf, int len) {
 
 int jing_win_recvfrom(int socket, char* data, int len, char* buf) {
 	struct sockaddr_storage ss = {0};
-    int ss_len = sizeof(ss);
-    int r = recvfrom((SOCKET) socket, data, len, 0,
-                     (struct sockaddr*) &ss, &ss_len);
-    if (JING_UNLIKELY(r == SOCKET_ERROR)) {
-        int err = WSAGetLastError();
-        return -err;
-    }
-    int type = AF_UNSPEC;
-    if (ss.ss_family == AF_INET) {
-        const struct sockaddr_in* ipv4 = (const struct sockaddr_in*) &ss;
-        memset(buf, 0, INET_ADDRSTRLEN + 2 * sizeof(int));
-        if (inet_ntop(AF_INET, &ipv4->sin_addr, buf + 2 * sizeof(int), INET_ADDRSTRLEN) != NULL) {
-            int port = (int) ntohs(ipv4->sin_port);
-            memcpy(buf + sizeof(int), &port, sizeof(int));
-        }
-        type = AF_INET;
-    } else if (ss.ss_family == AF_INET6) {
-        const struct sockaddr_in6* ipv6 = (const struct sockaddr_in6*) &ss;
-        if (IN6_IS_ADDR_V4MAPPED(&ipv6->sin6_addr)) {
-            memset(buf, 0, INET_ADDRSTRLEN + 2 * sizeof(int));
-            struct in_addr v4;
-            memcpy(&v4, &ipv6->sin6_addr.s6_addr[12], 4);
-            if (inet_ntop(AF_INET, &v4, buf + 2 * sizeof(int), INET_ADDRSTRLEN) != NULL) {
-                int port = (int) ntohs(ipv6->sin6_port);
-                memcpy(buf + sizeof(int), &port, sizeof(int));
-            }
-            type = AF_INET;
-        } else {
-            memset(buf, 0, INET6_ADDRSTRLEN + 2 * sizeof(int));
-            if (inet_ntop(AF_INET6, &ipv6->sin6_addr, buf + 2 * sizeof(int), INET6_ADDRSTRLEN) != NULL) {
-                int port = (int) ntohs(ipv6->sin6_port);
-                memcpy(buf + sizeof(int), &port, sizeof(int));
-            }
-            type = AF_INET6;
-        }
-    }
-    memcpy(buf, &type, sizeof(int));
-    return r;
+	int ss_len                 = sizeof(ss);
+	int r = recvfrom((SOCKET) socket, data, len, 0, (struct sockaddr*) &ss,
+	                 &ss_len);
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
+		int err = WSAGetLastError();
+		return -err;
+	}
+	int type = AF_UNSPEC;
+	if (ss.ss_family == AF_INET) {
+		const struct sockaddr_in* ipv4 = (const struct sockaddr_in*) &ss;
+		memset(buf, 0, INET_ADDRSTRLEN + 2 * sizeof(int));
+		if (inet_ntop(AF_INET, &ipv4->sin_addr, buf + 2 * sizeof(int),
+		              INET_ADDRSTRLEN) != NULL) {
+			int port = (int) ntohs(ipv4->sin_port);
+			memcpy(buf + sizeof(int), &port, sizeof(int));
+		}
+		type = AF_INET;
+	} else if (ss.ss_family == AF_INET6) {
+		const struct sockaddr_in6* ipv6 = (const struct sockaddr_in6*) &ss;
+		if (IN6_IS_ADDR_V4MAPPED(&ipv6->sin6_addr)) {
+			memset(buf, 0, INET_ADDRSTRLEN + 2 * sizeof(int));
+			struct in_addr v4;
+			memcpy(&v4, &ipv6->sin6_addr.s6_addr[12], 4);
+			if (inet_ntop(AF_INET, &v4, buf + 2 * sizeof(int),
+			              INET_ADDRSTRLEN) != NULL) {
+				int port = (int) ntohs(ipv6->sin6_port);
+				memcpy(buf + sizeof(int), &port, sizeof(int));
+			}
+			type = AF_INET;
+		} else {
+			memset(buf, 0, INET6_ADDRSTRLEN + 2 * sizeof(int));
+			if (inet_ntop(AF_INET6, &ipv6->sin6_addr, buf + 2 * sizeof(int),
+			              INET6_ADDRSTRLEN) != NULL) {
+				int port = (int) ntohs(ipv6->sin6_port);
+				memcpy(buf + sizeof(int), &port, sizeof(int));
+			}
+			type = AF_INET6;
+		}
+	}
+	memcpy(buf, &type, sizeof(int));
+	return r;
 }
 
 int jing_win_sendto(int socket, int type, const char* addr, int port,
                     const char* buf, int len) {
 	struct sockaddr_storage ss = {0};
-    int ss_len;
-    if (type == AF_INET) {
-        struct sockaddr_in* ipv4 = (struct sockaddr_in *) &ss;
-        ipv4->sin_family = AF_INET;
-        ipv4->sin_port = htons((u_short) port);
-        int r = inet_pton(AF_INET, addr, &(ipv4->sin_addr));
-        if (JING_UNLIKELY(r == -1)) {
-            int err = WSAGetLastError();
-            return -err;
-        }
-        if (JING_UNLIKELY(r == 0)) {
-            return -WSAEINVAL;
-        }
-        ss_len = sizeof(*ipv4);
-    } else if (type == AF_INET6) {
-        struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) &ss;
-        ipv6->sin6_family = AF_INET6;
-        ipv6->sin6_port = htons((uint16_t) port);
-        int r = inet_pton(AF_INET6, addr, &ipv6->sin6_addr);
-        if (JING_UNLIKELY(r == -1)) {
+	int ss_len;
+	if (type == AF_INET) {
+		struct sockaddr_in* ipv4 = (struct sockaddr_in*) &ss;
+		ipv4->sin_family         = AF_INET;
+		ipv4->sin_port           = htons((u_short) port);
+		int r                    = inet_pton(AF_INET, addr, &(ipv4->sin_addr));
+		if (JING_UNLIKELY(r == -1)) {
 			int err = WSAGetLastError();
-            return -err;
-        }
-        if (JING_UNLIKELY(r == 0)) {
-            return -WSAEINVAL;
-        }
-        ss_len = sizeof(*ipv6);
-    } else {
-        return -WSAEAFNOSUPPORT;
-    }
-    int r = sendto((SOCKET) socket, buf, len, 0,
-                   (const struct sockaddr*) &ss, ss_len);
-    if (r == SOCKET_ERROR) {
-        int err = WSAGetLastError();
-        return -err;
-    }
-    return r;
+			return -err;
+		}
+		if (JING_UNLIKELY(r == 0)) {
+			return -WSAEINVAL;
+		}
+		ss_len = sizeof(*ipv4);
+	} else if (type == AF_INET6) {
+		struct sockaddr_in6* ipv6 = (struct sockaddr_in6*) &ss;
+		ipv6->sin6_family         = AF_INET6;
+		ipv6->sin6_port           = htons((uint16_t) port);
+		int r                     = inet_pton(AF_INET6, addr, &ipv6->sin6_addr);
+		if (JING_UNLIKELY(r == -1)) {
+			int err = WSAGetLastError();
+			return -err;
+		}
+		if (JING_UNLIKELY(r == 0)) {
+			return -WSAEINVAL;
+		}
+		ss_len = sizeof(*ipv6);
+	} else {
+		return -WSAEAFNOSUPPORT;
+	}
+	int r = sendto((SOCKET) socket, buf, len, 0, (const struct sockaddr*) &ss,
+	               ss_len);
+	if (r == SOCKET_ERROR) {
+		int err = WSAGetLastError();
+		return -err;
+	}
+	return r;
 }
 
 int jing_win_read_int(int socket) {
 	int v;
-	int r = recv((SOCKET) socket, (char *) &v, (int) sizeof(int), 0);
-	if(JING_UNLIKELY(r == SOCKET_ERROR)) {
+	int r = recv((SOCKET) socket, (char*) &v, (int) sizeof(int), 0);
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
 		return -err;
 	}
-	if(JING_UNLIKELY(r != (int) sizeof(int))) {
+	if (JING_UNLIKELY(r != (int) sizeof(int))) {
 		int err = EIO;
 		return -err;
 	}
@@ -634,12 +641,12 @@ int jing_win_read_int(int socket) {
 }
 
 int jing_win_write_int(int socket, int value) {
-	int r = send((SOCKET) socket, (const char *) &value, (int) sizeof(int), 0);
-	if(JING_UNLIKELY(r == SOCKET_ERROR)) {
+	int r = send((SOCKET) socket, (const char*) &value, (int) sizeof(int), 0);
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
-        return -err;
+		return -err;
 	}
-	if(JING_UNLIKELY(r != (int) sizeof(int))) {
+	if (JING_UNLIKELY(r != (int) sizeof(int))) {
 		int err = EIO;
 		return -err;
 	}
@@ -648,7 +655,7 @@ int jing_win_write_int(int socket, int value) {
 
 int jing_win_uds_bind(int socket, const char* addr, size_t len) {
 	struct sockaddr_un un = {0};
-	if(JING_UNLIKELY(len > sizeof(un.sun_path))) {
+	if (JING_UNLIKELY(len > sizeof(un.sun_path))) {
 		int err = WSAENAMETOOLONG;
 		return -err;
 	}
@@ -656,7 +663,7 @@ int jing_win_uds_bind(int socket, const char* addr, size_t len) {
 	memcpy(un.sun_path, addr, len);
 	int addr_len = (int) (offsetof(struct sockaddr_un, sun_path) + len);
 	int r = bind((SOCKET) socket, (const struct sockaddr*) &un, addr_len);
-	if(JING_UNLIKELY(r == SOCKET_ERROR)) {
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
 		return -err;
 	}
@@ -665,7 +672,7 @@ int jing_win_uds_bind(int socket, const char* addr, size_t len) {
 
 int jing_win_uds_connect(int socket, const char* addr, size_t len) {
 	struct sockaddr_un un = {0};
-	if(JING_UNLIKELY(len > sizeof(un.sun_path))) {
+	if (JING_UNLIKELY(len > sizeof(un.sun_path))) {
 		int err = WSAENAMETOOLONG;
 		return -err;
 	}
@@ -673,7 +680,7 @@ int jing_win_uds_connect(int socket, const char* addr, size_t len) {
 	memcpy(un.sun_path, addr, len);
 	int addr_len = (int) (offsetof(struct sockaddr_un, sun_path) + len);
 	int r = connect((SOCKET) socket, (const struct sockaddr*) &un, addr_len);
-	if(JING_UNLIKELY(r == SOCKET_ERROR)) {
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
 		return -err;
 	}
@@ -682,7 +689,7 @@ int jing_win_uds_connect(int socket, const char* addr, size_t len) {
 
 int jing_win_uds_accept(int socket) {
 	int r = accept((SOCKET) socket, NULL, NULL);
-	if(JING_UNLIKELY(r == SOCKET_ERROR)) {
+	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
 		return -err;
 	}
@@ -729,25 +736,25 @@ jing_win_wepoll_create() {
 	if (JING_UNLIKELY(ptr == NULL)) {
 		int err = GetLastError();
 		return (HANDLE) jing_make_error_ptr(err);
-	} 
+	}
 	return ptr;
 }
 
-int jing_win_wepoll_ctl(HANDLE epfd, int socket, int op,
-                        uint32_t event_types, uint32_t data) {
+int jing_win_wepoll_ctl(HANDLE epfd, int socket, int op, uint32_t event_types,
+                        uint32_t data) {
 	int r;
 	if (op == EPOLL_CTL_DEL) {
 		r = epoll_ctl(epfd, op, (SOCKET) socket, NULL);
 	} else {
 		struct epoll_event event = {0};
-		event.events   = event_types;
-		event.data.u32 = data;
-		r = epoll_ctl(epfd, op, (SOCKET) socket, &event);
+		event.events             = event_types;
+		event.data.u32           = data;
+		r                        = epoll_ctl(epfd, op, (SOCKET) socket, &event);
 	}
 	if (JING_UNLIKELY(r)) {
 		int err = GetLastError();
 		return -err;
-	} 
+	}
 	return r;
 }
 
@@ -757,7 +764,7 @@ int jing_win_wepoll_wait(HANDLE epfd, struct epoll_event* events, int maxevents,
 	if (JING_UNLIKELY(r == -1)) {
 		int err = GetLastError();
 		return -err;
-	} 
+	}
 	return r;
 }
 
@@ -766,7 +773,7 @@ int jing_win_wepoll_close(HANDLE epfd) {
 	if (JING_UNLIKELY(r)) {
 		int err = GetLastError();
 		return -err;
-	} 
+	}
 	return r;
 }
 #endif

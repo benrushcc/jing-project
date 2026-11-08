@@ -35,23 +35,25 @@ JING_EXPORT_SYMBOL SSL* jing_ssl_new(SSL_CTX* ctx);
 JING_EXPORT_SYMBOL BIO_METHOD* jing_ssl_bio_meth_new(int type,
                                                      const char* name);
 
-JING_EXPORT_SYMBOL int jing_ssl_bio_meth_set_write(
-    BIO_METHOD* biom, int (*write)(BIO*, const char*, int));
+JING_EXPORT_SYMBOL int
+jing_ssl_bio_meth_set_write(BIO_METHOD* biom,
+                            int (*write)(BIO*, const char*, int));
 
-JING_EXPORT_SYMBOL int jing_ssl_bio_meth_set_read(
-    BIO_METHOD* biom, int (*read)(BIO*, char*, int));
+JING_EXPORT_SYMBOL int
+jing_ssl_bio_meth_set_read(BIO_METHOD* biom, int (*read)(BIO*, char*, int));
 
-JING_EXPORT_SYMBOL int jing_ssl_bio_meth_set_puts(
-    BIO_METHOD* biom, int (*puts)(BIO*, const char*));
+JING_EXPORT_SYMBOL int
+jing_ssl_bio_meth_set_puts(BIO_METHOD* biom, int (*puts)(BIO*, const char*));
 
-JING_EXPORT_SYMBOL int jing_ssl_bio_meth_set_ctrl(
-    BIO_METHOD* biom, long (*ctrl)(BIO*, int, long, void*));
+JING_EXPORT_SYMBOL int jing_ssl_bio_meth_set_ctrl(BIO_METHOD* biom,
+                                                  long (*ctrl)(BIO*, int, long,
+                                                               void*));
 
-JING_EXPORT_SYMBOL int jing_ssl_bio_meth_set_create(
-    BIO_METHOD* biom, int (*create)(BIO*));
+JING_EXPORT_SYMBOL int jing_ssl_bio_meth_set_create(BIO_METHOD* biom,
+                                                    int (*create)(BIO*));
 
-JING_EXPORT_SYMBOL int jing_ssl_bio_meth_set_destroy(
-    BIO_METHOD* biom, int (*destroy)(BIO*));
+JING_EXPORT_SYMBOL int jing_ssl_bio_meth_set_destroy(BIO_METHOD* biom,
+                                                     int (*destroy)(BIO*));
 
 #endif
 

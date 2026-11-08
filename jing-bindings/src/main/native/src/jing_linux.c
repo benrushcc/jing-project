@@ -2,6 +2,7 @@
 
 #if defined(JING_OS_LINUX)
 #include "jing_linux.h"
+#include <unistd.h>
 #include <errno.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
@@ -43,26 +44,26 @@ int jing_linux_epoll_create(void) {
 	if (JING_UNLIKELY(r == -1)) {
 		int err = errno;
 		return -err;
-	} 
+	}
 	return r;
 }
 
 int jing_linux_epoll_ctl(int epfd, int socket, int op, uint32_t events,
                          uint32_t data) {
 	int r;
-	if(op == EPOLL_CTL_DEL) {
+	if (op == EPOLL_CTL_DEL) {
 		r = epoll_ctl(epfd, op, socket, NULL);
 	} else {
 		struct epoll_event event;
 		memset(&event, 0, sizeof(event));
 		event.events   = events;
 		event.data.u32 = data;
-		r = epoll_ctl(epfd, op, socket, &event);
+		r              = epoll_ctl(epfd, op, socket, &event);
 	}
 	if (JING_UNLIKELY(r == -1)) {
 		int err = errno;
 		return -err;
-	} 
+	}
 	return r;
 }
 
@@ -72,7 +73,7 @@ int jing_linux_epoll_wait(int epfd, struct epoll_event* events, int maxevents,
 	if (JING_UNLIKELY(r == -1)) {
 		int err = errno;
 		return -err;
-	} 
+	}
 	return r;
 }
 
@@ -87,20 +88,20 @@ int jing_linux_efd_nonblock(void) {
 int jing_linux_eventfd(int flags) {
 	int r = eventfd(0, flags);
 	if (JING_UNLIKELY(r == -1)) {
-        int err = errno;
-        return -err;
-    }
-    return r;
+		int err = errno;
+		return -err;
+	}
+	return r;
 }
 
 int jing_linux_read_efd(int efd) {
 	uint64_t v;
 	ssize_t r = read(efd, &v, sizeof(uint64_t));
-	if(JING_UNLIKELY(r == -1)) {
+	if (JING_UNLIKELY(r == -1)) {
 		int err = errno;
-        return -err;
+		return -err;
 	}
-	if(JING_UNLIKELY(r != (ssize_t) sizeof(uint64_t))) {
+	if (JING_UNLIKELY(r != (ssize_t) sizeof(uint64_t))) {
 		int err = EIO;
 		return -err;
 	}
@@ -109,12 +110,12 @@ int jing_linux_read_efd(int efd) {
 
 int jing_linux_write_efd(int efd, int value) {
 	uint64_t v = (uint64_t) value;
-	ssize_t r = write(efd, (const char *) &v, sizeof(uint64_t));
+	ssize_t r  = write(efd, (const char*) &v, sizeof(uint64_t));
 	if (JING_UNLIKELY(r == -1)) {
-        int err = errno;
-        return -err;
-    }
-	if(JING_UNLIKELY(r != (ssize_t) sizeof(uint64_t))) {
+		int err = errno;
+		return -err;
+	}
+	if (JING_UNLIKELY(r != (ssize_t) sizeof(uint64_t))) {
 		int err = EIO;
 		return -err;
 	}
