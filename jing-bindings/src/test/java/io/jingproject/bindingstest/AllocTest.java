@@ -1,4 +1,4 @@
-package io.jingproject.bindingstest.test;
+package io.jingproject.bindingstest;
 
 import io.jingproject.bindings.alloc.Allocator;
 import io.jingproject.bindings.alloc.ArenaAllocator;

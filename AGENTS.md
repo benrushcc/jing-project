@@ -80,17 +80,6 @@ submodule.
   `new UnsupportedOperationException("utility class");` to prevent
   instantiation.
 
-## Changes Tracking
-
-After modifying code, append a Chinese description of the change reason
-to `diff.md` in the project root. Create the file if it does not exist.
-Use the following format with a timestamp:
-
-```markdown
-## YYYY-MM-DDTHH:mm:ss±HH:MM
-- Modified <module>/<class>: <reason in Chinese>
-```
-
 ## Restrictions
 
 - Do NOT perform any git operations (no commit, push, branch, etc.).

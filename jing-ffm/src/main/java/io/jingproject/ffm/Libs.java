@@ -35,21 +35,14 @@ public final class Libs {
     // to trade a little performance for stability.
     private static final boolean JING_CRITICAL = Boolean.parseBoolean(System.getProperty("jing.ffm.critical", "true"));
     private static final Map<Class<?>, LibDescriptor> LIB_MAPPINGS;
-    private static final Map<Class<?>, Object> VM_MAPPINGS;
 
     static {
         List<LibFacade> facades = ServiceLoader.load(LibFacade.class).stream().map(ServiceLoader.Provider::get).toList();
         Map<Class<?>, LibDescriptor> libMappings = new HashMap<>();
-        Map<Class<?>, Object> vmMappings = new HashMap<>();
         for (LibFacade facade : facades) {
             if (facade.supportedOS().contains(Os.current())) {
                 Class<?> target = facade.target();
                 String libName = facade.libName();
-                Object impl = facade.impl();
-                if(libName.equals(FFM.VM)) {
-                    vmMappings.put(target, impl);
-                    continue ;
-                }
                 LibDescriptor desc = libMappings.get(target);
                 if (desc == null) {
                     for (String dep : facade.dependsOn()) {
@@ -68,7 +61,7 @@ public final class Libs {
                         continue;
                     }
                     SymbolLookup lookup = SymbolLookup.libraryLookup(libPath, Arena.global());
-                    desc = new LibDescriptor(libName, mappedName, lookup, libPath, new HashMap<>(), impl);
+                    desc = new LibDescriptor(libName, mappedName, lookup, libPath, new HashMap<>(), facade.impl());
                     libMappings.put(target, desc);
                 }
                 for (String methodName : facade.methodNames()) {
@@ -88,7 +81,6 @@ public final class Libs {
                     return new LibDescriptor(desc.libName(), desc.mappedName(), desc.lookup(), desc.libPath(), immutableFunctions, desc.impl());
                 }
         ));
-        VM_MAPPINGS = Map.copyOf(vmMappings);
     }
 
     private Libs() {
@@ -135,20 +127,6 @@ public final class Libs {
         return null;
     }
 
-    public static MemorySegment addrFromVM(String methodName) {
-        if (methodName == null || methodName.isBlank()) {
-            throw new IllegalArgumentException("methodName cannot be null or blank");
-        }
-        Linker linker = Linker.nativeLinker();
-        SymbolLookup lookup = linker.defaultLookup();
-        return lookup.find(methodName).orElse(MemorySegment.NULL);
-    }
-
-    public static MethodHandle mhFromVM(String methodName, List<Class<?>> types, boolean critical, boolean constant) {
-        MemorySegment addr = addrFromVM(methodName);
-        return makeDowncallMethodHandle(methodName, addr, types, critical, constant);
-    }
-
     public static MemorySegment addrFromLib(Class<?> libType, String methodName) {
         LibDescriptor libDescriptor = LIB_MAPPINGS.get(libType);
         if (libDescriptor == null) {
@@ -189,8 +167,8 @@ public final class Libs {
 
     private static MethodHandle makeErrorMethodHandle(List<Class<?>> types, String methodName) {
         Class<?> rType = types.getFirst();
-        MethodHandle mh = MethodHandles.throwException(rType, ForeignException.class);
-        mh = mh.bindTo(new ForeignException("native method not found : " + methodName));
+        MethodHandle mh = MethodHandles.throwException(rType, ForeignException.class)
+                .bindTo(new ForeignException("native method not found : " + methodName));
         if (types.size() > 1) {
             mh = MethodHandles.dropArguments(mh, 0, types.subList(1, types.size()));
         }
@@ -202,66 +180,79 @@ public final class Libs {
             Class<?> rType = types.getFirst();
             if (rType == byte.class) {
                 return MethodHandles.constant(byte.class, (byte) mh.invokeExact());
-            } else if (rType == boolean.class) {
-                return MethodHandles.constant(boolean.class, (boolean) mh.invokeExact());
-            } else if (rType == short.class) {
-                return MethodHandles.constant(short.class, (short) mh.invokeExact());
-            } else if (rType == char.class) {
-                return MethodHandles.constant(char.class, (char) mh.invokeExact());
-            } else if (rType == int.class) {
-                return MethodHandles.constant(int.class, (int) mh.invokeExact());
-            } else if (rType == long.class) {
-                return MethodHandles.constant(long.class, (long) mh.invokeExact());
-            } else if (rType == float.class) {
-                return MethodHandles.constant(float.class, (float) mh.invokeExact());
-            } else if (rType == double.class) {
-                return MethodHandles.constant(double.class, (double) mh.invokeExact());
-            } else if (rType == MemorySegment.class) {
-                return MethodHandles.constant(MemorySegment.class, (MemorySegment) mh.invokeExact());
-            } else {
-                throw new ForeignException("unsupported constant foreign method return type: " + rType);
             }
+            if (rType == boolean.class) {
+                return MethodHandles.constant(boolean.class, (boolean) mh.invokeExact());
+            }
+            if (rType == short.class) {
+                return MethodHandles.constant(short.class, (short) mh.invokeExact());
+            }
+            if (rType == char.class) {
+                return MethodHandles.constant(char.class, (char) mh.invokeExact());
+            }
+            if (rType == int.class) {
+                return MethodHandles.constant(int.class, (int) mh.invokeExact());
+            }
+            if (rType == long.class) {
+                return MethodHandles.constant(long.class, (long) mh.invokeExact());
+            }
+            if (rType == float.class) {
+                return MethodHandles.constant(float.class, (float) mh.invokeExact());
+            }
+            if (rType == double.class) {
+                return MethodHandles.constant(double.class, (double) mh.invokeExact());
+            }
+            if (rType == MemorySegment.class) {
+                return MethodHandles.constant(MemorySegment.class, (MemorySegment) mh.invokeExact());
+            }
+            throw new ForeignException("unsupported constant foreign method return type : " + rType);
         } catch (Throwable t) {
             throw new ForeignException("failed to invoke constant foreign method", t);
         }
     }
 
     private static FunctionDescriptor castFunctionDescriptor(List<Class<?>> types) {
-        final int size = types.size();
-        MemoryLayout[] layouts = new MemoryLayout[size - 1];
-        for (int i = 1; i < size; i++) {
-            layouts[i - 1] = castMemoryLayout(types.get(i));
-        }
+        int layoutSize = types.size() - 1;
         Class<?> firstType = types.getFirst();
-        if (firstType == void.class) {
-            return FunctionDescriptor.ofVoid(layouts);
+        if(layoutSize == 0) {
+            return firstType == void.class ? FunctionDescriptor.ofVoid() : FunctionDescriptor.of(castMemoryLayout(firstType));
         }
-        MemoryLayout resLayout = castMemoryLayout(firstType);
-        return FunctionDescriptor.of(resLayout, layouts);
+        MemoryLayout[] layouts = new MemoryLayout[layoutSize];
+        for(int i = 0; i < layouts.length; i++) {
+            layouts[i] = castMemoryLayout(types.get(i + 1));
+        }
+        return firstType == void.class ? FunctionDescriptor.ofVoid(layouts) : FunctionDescriptor.of(castMemoryLayout(firstType), layouts);
     }
 
     private static MemoryLayout castMemoryLayout(Class<?> type) {
         if (type == byte.class) {
             return ValueLayout.JAVA_BYTE;
-        } else if (type == boolean.class) {
-            return ValueLayout.JAVA_BOOLEAN;
-        } else if (type == short.class) {
-            return ValueLayout.JAVA_SHORT;
-        } else if (type == char.class) {
-            return ValueLayout.JAVA_CHAR;
-        } else if (type == int.class) {
-            return ValueLayout.JAVA_INT;
-        } else if (type == long.class) {
-            return ValueLayout.JAVA_LONG;
-        } else if (type == float.class) {
-            return ValueLayout.JAVA_FLOAT;
-        } else if (type == double.class) {
-            return ValueLayout.JAVA_DOUBLE;
-        } else if (type == MemorySegment.class) {
-            return ValueLayout.ADDRESS;
-        } else {
-            throw new ForeignException("unknown type : " + type);
         }
+        if (type == boolean.class) {
+            return ValueLayout.JAVA_BOOLEAN;
+        }
+        if (type == short.class) {
+            return ValueLayout.JAVA_SHORT;
+        }
+        if (type == char.class) {
+            return ValueLayout.JAVA_CHAR;
+        }
+        if (type == int.class) {
+            return ValueLayout.JAVA_INT;
+        }
+        if (type == long.class) {
+            return ValueLayout.JAVA_LONG;
+        }
+        if (type == float.class) {
+            return ValueLayout.JAVA_FLOAT;
+        }
+        if (type == double.class) {
+            return ValueLayout.JAVA_DOUBLE;
+        }
+        if (type == MemorySegment.class) {
+            return ValueLayout.ADDRESS;
+        }
+        throw new ForeignException("unknown type : " + type);
     }
 
     // find the target libDescriptor by the given type.
@@ -281,8 +272,8 @@ public final class Libs {
     @SuppressWarnings("unchecked")
     public static <T> T impl(Class<T> type) {
         LibDescriptor libDescriptor = libDescriptor(type);
-        if (libDescriptor == null) {
-            return (T) VM_MAPPINGS.get(type);
+        if(libDescriptor == null) {
+            return null;
         }
         return (T) libDescriptor.impl();
     }

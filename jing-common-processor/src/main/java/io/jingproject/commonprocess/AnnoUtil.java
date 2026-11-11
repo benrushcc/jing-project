@@ -100,49 +100,43 @@ public final class AnnoUtil {
     public static TypeElement castTypeElement(Element element) {
         if (element instanceof TypeElement t) {
             return t;
-        } else {
-            throw new AssertionError("not a typeElement : " + element.asType());
         }
+        throw new AssertionError("not a typeElement : " + element.asType());
     }
 
     public static VariableElement castVariableElement(Element element) {
         if (element instanceof VariableElement v) {
             return v;
-        } else {
-            throw new AssertionError("not a variableElement : " + element.asType());
         }
+        throw new AssertionError("not a variableElement : " + element.asType());
     }
 
     public static RecordComponentElement castRecordComponentElement(Element element) {
         if (element instanceof RecordComponentElement r) {
             return r;
-        } else {
-            throw new AssertionError("not a recordComponentElement : " + element.asType());
         }
+        throw new AssertionError("not a recordComponentElement : " + element.asType());
     }
 
     public static ExecutableElement castExecutableElement(Element element) {
         if (element instanceof ExecutableElement e) {
             return e;
-        } else {
-            throw new AssertionError("not an executableElement : " + element.asType());
         }
+        throw new AssertionError("not an executableElement : " + element.asType());
     }
 
     public static DeclaredType castDeclaredType(TypeMirror typeMirror) {
         if (typeMirror instanceof DeclaredType d) {
             return d;
-        } else {
-            throw new AssertionError("not a declaredType : " + typeMirror);
         }
+        throw new AssertionError("not a declaredType : " + typeMirror);
     }
 
     public static ArrayType castArrayType(TypeMirror typeMirror) {
         if (typeMirror instanceof ArrayType a) {
             return a;
-        } else {
-            throw new AssertionError("not an arrayType : " + typeMirror);
         }
+        throw new AssertionError("not an arrayType : " + typeMirror);
     }
 
     public static void checkClassForRegister(Class<?> cls) {
@@ -150,16 +144,16 @@ public final class AnnoUtil {
             throw new AnnotationProcessorException("class cannot be null");
         }
         if (cls.isPrimitive()) {
-            throw new AnnotationProcessorException("primitive class cannot be registered : " + cls);
+            throw new AnnotationProcessorException("primitive class cannot be registered : " + cls.getCanonicalName());
         }
         if (cls.isAnonymousClass()) {
-            throw new AnnotationProcessorException("anonymous class cannot be registered : " + cls);
+            throw new AnnotationProcessorException("anonymous class cannot be registered : " + cls.getCanonicalName());
         }
         if (cls.isMemberClass()) {
-            throw new AnnotationProcessorException("registered class must be top-level : " + cls.getSimpleName());
+            throw new AnnotationProcessorException("registered class must be top-level : " + cls.getCanonicalName());
         }
         if (cls.isHidden()) {
-            throw new AnnotationProcessorException("hidden class cannot be registered : " + cls);
+            throw new AnnotationProcessorException("hidden class cannot be registered : " + cls.getCanonicalName());
         }
     }
 
@@ -168,16 +162,16 @@ public final class AnnoUtil {
             throw new AnnotationProcessorException("typeElement cannot be null");
         }
         if (typeElement.asType().getKind().isPrimitive()) {
-            throw new AnnotationProcessorException("typeElement cannot be primitive: " + typeElement);
+            throw new AnnotationProcessorException("typeElement cannot be primitive: " + typeElement.getQualifiedName());
         }
         if (typeElement.getNestingKind() != NestingKind.TOP_LEVEL) {
-            throw new AnnotationProcessorException("typeElement must be top-level : " + typeElement);
+            throw new AnnotationProcessorException("typeElement must be top-level : " + typeElement.getQualifiedName());
         }
         if (!typeElement.getModifiers().contains(Modifier.PUBLIC)) {
-            throw new AnnotationProcessorException("typeElement must be public : " + typeElement);
+            throw new AnnotationProcessorException("typeElement must be public : " + typeElement.getQualifiedName());
         }
         if (!typeElement.getTypeParameters().isEmpty()) {
-            throw new AnnotationProcessorException("typeElement must not have any type parameters : " + typeElement);
+            throw new AnnotationProcessorException("typeElement must not have any type parameters : " + typeElement.getQualifiedName());
         }
     }
 
@@ -205,12 +199,12 @@ public final class AnnoUtil {
             if (typeArg.getKind() == TypeKind.DECLARED) {
                 DeclaredType dt = castDeclaredType(typeArg);
                 TypeElement te = castTypeElement(dt.asElement());
-                if (!te.getTypeParameters().isEmpty()) {
-                    throw new AnnotationProcessorException("generic type args cannot have any type args : " + te);
+                if (te.getTypeParameters().isEmpty()) {
+                    continue ;
                 }
-            } else {
-                throw new AnnotationProcessorException("type arg must be declared : " + typeArg);
+                throw new AnnotationProcessorException("generic type args cannot have any type args : " + te);
             }
+            throw new AnnotationProcessorException("type arg must be declared : " + typeArg);
         }
     }
 

@@ -26,11 +26,30 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
 
     void ctl(int socket, int from, int to, int data);
 
-    int poll(long events, int maxEvents, int timeout);
-
-    MuxEvent asEvent(long events, int index);
+    int poll(long events, int maxEvents, int timeout, int[] muxEvents);
 
     void close();
+
+    static Mux newWepollMux() {
+        if(Os.current() != Os.WINDOWS) {
+            throw new UnsupportedOperationException("wepoll is only supported on windows operating system");
+        }
+        return new WepollMux();
+    }
+
+    static Mux newEpollMux() {
+        if(Os.current() != Os.LINUX) {
+            throw new UnsupportedOperationException("epoll is only supported on linux operating system");
+        }
+        return new EpollMux();
+    }
+
+    static Mux newKqueueMux() {
+        if(Os.current() != Os.MACOS) {
+            throw new UnsupportedOperationException("kqueue is only supported on macos operating system");
+        }
+        return new KqueueMux();
+    }
 
     static Mux newMux() {
         return switch (Os.current()) {
@@ -121,7 +140,7 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
         }
 
         @Override
-        public int poll(long events, int maxEvents, int timeout) {
+        public int poll(long events, int maxEvents, int timeout, int[] muxEvents) {
             int fd = epfd;
             if (fd < 0) {
                 throw new ForeignException("epoll mux state corrupted");
@@ -131,29 +150,29 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
                 int err = -r;
                 throw new ForeignException("failed to poll epoll mux, err : " + err);
             }
-            return r;
-        }
-
-        @Override
-        public MuxEvent asEvent(long events, int index) {
             int writeable = LINUX_BINDINGS.epollOut();
             int readable = LINUX_BINDINGS.epollIn() | LINUX_BINDINGS.epollRdhup() | LINUX_BINDINGS.epollHup() | LINUX_BINDINGS.epollErr();
-            long base = index * EPOLL_EVENT_LAYOUT.byteSize();
-            int event = NativeSegmentAccess.getInt(events, base + EPOLL_EVENTS_OFFSET);
-            int socket = NativeSegmentAccess.getInt(events, base + EPOLL_DATA_OFFSET);
-            int eventType = Mux.MUX_NONE_FLAG;
-            if((event & writeable) != 0) {
-               eventType |= Mux.MUX_WRITEABLE_FLAG;
-                event &= ~writeable;
+            for(int index = 0; index < r; index++) {
+                long base = index * EPOLL_EVENT_LAYOUT.byteSize();
+                int event = NativeSegmentAccess.getInt(events, base + EPOLL_EVENTS_OFFSET);
+                int data = NativeSegmentAccess.getInt(events, base + EPOLL_DATA_OFFSET);
+                int eventType = Mux.MUX_NONE_FLAG;
+                if((event & writeable) != 0) {
+                    eventType |= Mux.MUX_WRITEABLE_FLAG;
+                    event &= ~writeable;
+                }
+                if((event & readable) != 0) {
+                    eventType |= Mux.MUX_READABLE_FLAG;
+                    event &= ~readable;
+                }
+                if(event != 0) {
+                    throw new ForeignException("unsupported event type : " + event);
+                }
+                int mbase = index * 2;
+                muxEvents[mbase] = data;
+                muxEvents[mbase + 1] = eventType;
             }
-            if((event & readable) != 0) {
-                eventType |= Mux.MUX_READABLE_FLAG;
-                event &= ~readable;
-            }
-            if(event != 0) {
-                throw new ForeignException("unsupported event type : " + event);
-            }
-            return new MuxEvent(socket, eventType);
+            return r;
         }
 
         @Override
@@ -237,7 +256,7 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
         }
 
         @Override
-        public int poll(long events, int maxEvents, int timeout) {
+        public int poll(long events, int maxEvents, int timeout, int[] muxEvents) {
             int fd = kqFd;
             if(fd < 0) {
                 throw new ForeignException("kqueue mux state corrupted");
@@ -247,23 +266,25 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
                 int err = -r;
                 throw new ForeignException("failed to poll kqueue mux, err : " + err);
             }
-            return r;
-        }
-
-        @Override
-        public MuxEvent asEvent(long events, int index) {
-            long base = index * KEVENT_LAYOUT.byteSize();
-            short filter = NativeSegmentAccess.getShort(events, base + FILTER_OFFSET);
-            int socket = (int) NativeSegmentAccess.getLong(events, base + IDENT_OFFSET);
-            int eventType;
-            if(filter == MACOS_BINDINGS.evfiltWrite()) {
-                eventType = Mux.MUX_WRITEABLE_FLAG;
-            } else if(filter == MACOS_BINDINGS.evfiltRead()) {
-                eventType = Mux.MUX_READABLE_FLAG;
-            } else {
-                throw new ForeignException("unsupported kqueue filter : " + filter);
+            int evfiltWrite = MACOS_BINDINGS.evfiltWrite();
+            int evfiltRead = MACOS_BINDINGS.evfiltRead();
+            for(int index = 0; index < r; index++) {
+                long base = index * KEVENT_LAYOUT.byteSize();
+                short filter = NativeSegmentAccess.getShort(events, base + FILTER_OFFSET);
+                int data = (int) NativeSegmentAccess.getLong(events, base + IDENT_OFFSET);
+                int eventType;
+                if(filter == evfiltWrite) {
+                    eventType = Mux.MUX_WRITEABLE_FLAG;
+                } else if(filter == evfiltRead) {
+                    eventType = Mux.MUX_READABLE_FLAG;
+                } else {
+                    throw new ForeignException("unsupported kqueue filter : " + filter);
+                }
+                int mbase = index * 2;
+                muxEvents[mbase] = data;
+                muxEvents[mbase + 1] = eventType;
             }
-            return new MuxEvent(socket, eventType);
+            return r;
         }
 
         @Override
@@ -361,7 +382,7 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
         }
 
         @Override
-        public int poll(long events, int maxEvents, int timeout) {
+        public int poll(long events, int maxEvents, int timeout, int[] muxEvents) {
             long hd = handle;
             if(hd < 0L) {
                 throw new ForeignException("wepoll mux state corrupted");
@@ -371,29 +392,29 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
                 int err = -r;
                 throw new ForeignException("failed to poll wepoll mux, err : " + err);
             }
-            return r;
-        }
-
-        @Override
-        public MuxEvent asEvent(long events, int index) {
             int writeable = WIN_BINDINGS.wepollOut();
             int readable = WIN_BINDINGS.wepollIn() | WIN_BINDINGS.wepollRdhup() | WIN_BINDINGS.wepollHup() | WIN_BINDINGS.wepollErr();
-            long base = index * WEPOLL_EVENT_LAYOUT.byteSize();
-            int event = NativeSegmentAccess.getInt(events, base + WEPOLL_EVENTS_OFFSET);
-            int socket = NativeSegmentAccess.getInt(events, base + WEPOLL_DATA_OFFSET);
-            int eventType = Mux.MUX_NONE_FLAG;
-            if((event & writeable) != 0) {
-                eventType |= Mux.MUX_WRITEABLE_FLAG;
-                event &= ~writeable;
+            for(int index = 0; index < r; index++) {
+                long base = index * WEPOLL_EVENT_LAYOUT.byteSize();
+                int event = NativeSegmentAccess.getInt(events, base + WEPOLL_EVENTS_OFFSET);
+                int data = NativeSegmentAccess.getInt(events, base + WEPOLL_DATA_OFFSET);
+                int eventType = Mux.MUX_NONE_FLAG;
+                if((event & writeable) != 0) {
+                    eventType |= Mux.MUX_WRITEABLE_FLAG;
+                    event &= ~writeable;
+                }
+                if((event & readable) != 0) {
+                    eventType |= Mux.MUX_READABLE_FLAG;
+                    event &= ~readable;
+                }
+                if(event != 0) {
+                    throw new ForeignException("unsupported event type : " + event);
+                }
+                int mbase = index * 2;
+                muxEvents[mbase] = data;
+                muxEvents[mbase + 1] = eventType;
             }
-            if((event & readable) != 0) {
-                eventType |= Mux.MUX_READABLE_FLAG;
-                event &= ~readable;
-            }
-            if(event != 0) {
-                throw new ForeignException("unsupported event type : " + event);
-            }
-            return new MuxEvent(socket, eventType);
+            return r;
         }
 
         @Override

@@ -44,14 +44,15 @@ public final class MarshallTransformerProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        if(!roundEnv.processingOver()) {
-            for (Element e : roundEnv.getElementsAnnotatedWith(Transformable.class)) {
-                TypeElement t = AnnoUtil.castTypeElement(e);
-                checkMarshallTransformerElement(t);
-                MarshallTransformerInfo info = createTransformerInfo(t);
-                GeneratorSource facadeSource = new GeneratorSource(t, "MarshallTransformerFacade");
-                writeMarshallTransformerFacadeSource(facadeSource, info);
-            }
+        if(roundEnv.processingOver()) {
+            return true;
+        }
+        for (Element e : roundEnv.getElementsAnnotatedWith(Transformable.class)) {
+            TypeElement t = AnnoUtil.castTypeElement(e);
+            checkMarshallTransformerElement(t);
+            MarshallTransformerInfo info = createTransformerInfo(t);
+            GeneratorSource facadeSource = new GeneratorSource(t, "MarshallTransformerFacade");
+            writeMarshallTransformerFacadeSource(facadeSource, info);
         }
         return true;
     }

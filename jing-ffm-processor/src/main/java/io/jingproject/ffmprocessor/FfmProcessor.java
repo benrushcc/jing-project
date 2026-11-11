@@ -21,15 +21,13 @@ import javax.lang.model.type.TypeMirror;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.UndeclaredThrowableException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public final class FfmProcessor extends AbstractProcessor {
+    private static final Set<Modifier> SKIPPED_MODIFIERS = Set.of(Modifier.DEFAULT, Modifier.STATIC, Modifier.PRIVATE);
     private TypeMirror memorySegmentType;
 
     @Override
@@ -51,94 +49,113 @@ public final class FfmProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        if (!roundEnv.processingOver()) {
-            for (Element e : roundEnv.getElementsAnnotatedWith(FFM.class)) {
-                TypeElement t = AnnoUtil.castTypeElement(e);
-                checkFfmElement(t);
-                FfmProcessorInfo ffmProcessorInfo = createFfmInfo(t);
-                GeneratorSource facadeSource = new GeneratorSource(ffmProcessorInfo.element(), "LibFacade");
-                facadeSource.addBlock(headBlock(facadeSource));
-                facadeSource.addBlock(constructorBlock(facadeSource));
-                facadeSource.addBlock(targetMethodBlock(facadeSource, ffmProcessorInfo));
-                facadeSource.addBlock(supportedOSMethodBlock(facadeSource, ffmProcessorInfo));
-                facadeSource.addBlock(libNameMethodBlock(facadeSource, ffmProcessorInfo));
-                facadeSource.addBlock(dependsOnMethodBlock(facadeSource, ffmProcessorInfo));
-                facadeSource.addBlock(methodNamesMethodBlock(facadeSource, ffmProcessorInfo));
-                facadeSource.addBlock(implMethodBlock(facadeSource));
-                facadeSource.addBlocks(implClassBlocks(facadeSource, ffmProcessorInfo));
-                facadeSource.addBlock(new GeneratorBlock().unindent().addLine("}").newLine());
-                facadeSource.writeToFiler(processingEnv);
-            }
+        if (roundEnv.processingOver()) {
+            return true;
+        }
+        for (Element e : roundEnv.getElementsAnnotatedWith(FFM.class)) {
+            TypeElement t = AnnoUtil.castTypeElement(e);
+            checkFfmElement(t);
+            FfmProcessorInfo ffmProcessorInfo = createFfmInfo(t);
+            GeneratorSource facadeSource = new GeneratorSource(ffmProcessorInfo.element(), "LibFacade");
+            facadeSource.addBlock(headBlock(facadeSource));
+            facadeSource.addBlock(constructorBlock(facadeSource));
+            facadeSource.addBlock(targetMethodBlock(facadeSource, ffmProcessorInfo));
+            facadeSource.addBlock(supportedOSMethodBlock(facadeSource, ffmProcessorInfo));
+            facadeSource.addBlock(libNameMethodBlock(facadeSource, ffmProcessorInfo));
+            facadeSource.addBlock(dependsOnMethodBlock(facadeSource, ffmProcessorInfo));
+            facadeSource.addBlock(methodNamesMethodBlock(facadeSource, ffmProcessorInfo));
+            facadeSource.addBlock(implMethodBlock(facadeSource));
+            facadeSource.addBlocks(implClassBlocks(facadeSource, ffmProcessorInfo));
+            facadeSource.addBlock(new GeneratorBlock().unindent().addLine("}").newLine());
+            facadeSource.writeToFiler(processingEnv);
         }
         return true;
     }
 
+    private static void checkLibraryName(String libraryName) {
+        if(libraryName.isBlank()) {
+            throw new AnnotationProcessorException("@FFM library name must not be empty");
+        }
+        for(int i = 0; i < libraryName.length(); i++) {
+            char c = libraryName.charAt(i);
+            if(c >= 'A' && c <= 'Z') {
+                continue ;
+            }
+            if(c >= 'a' && c <= 'z') {
+                continue ;
+            }
+            if (c == '_' || c == '-') {
+                continue;
+            }
+            throw new AnnotationProcessorException("illegal library name : " + libraryName);
+        }
+    }
+
     private void checkFfmElement(TypeElement t) {
-        // check registration
+        // check registration capability
         AnnoUtil.checkTypeElementForRegister(t);
         // must be interface
         if (t.getKind() != ElementKind.INTERFACE) {
-            throw new AnnotationProcessorException("only interface element can be annotated with @FFM");
+            throw new AnnotationProcessorException("only interface elements are supported by ffm bindings : " + t.getQualifiedName());
         }
         // must be non-sealed
         if (t.getModifiers().contains(Modifier.SEALED)) {
-            throw new AnnotationProcessorException("only non-sealed interface can be annotated with @FFM");
+            throw new AnnotationProcessorException("only non-sealed interfaces are supported by ffm bindings : " + t.getQualifiedName());
         }
-        // check downcall information
+        // check ffm parameters
+        FFM ffm = Objects.requireNonNull(t.getAnnotation(FFM.class));
+        checkLibraryName(ffm.libraryName());
+        for (String dependedLibraryName : ffm.dependsOn()) {
+            checkLibraryName(dependedLibraryName);
+        }
+        if (ffm.supportedOS().length == 0) {
+            throw new AnnotationProcessorException("ffm library must have supported operating system : " + t.getQualifiedName());
+        }
+        // check downcall parameters
         boolean noDowncall = true;
         for (Element el : t.getEnclosedElements()) {
             if (el.getKind() == ElementKind.METHOD) {
                 ExecutableElement ex = AnnoUtil.castExecutableElement(el);
-                // skip default, static or private methods
-                Set<Modifier> modifiers = ex.getModifiers();
-                if (modifiers.contains(Modifier.DEFAULT) || modifiers.contains(Modifier.STATIC) || modifiers.contains(Modifier.PRIVATE)) {
+                if (!Collections.disjoint(ex.getModifiers(), SKIPPED_MODIFIERS)) {
                     continue;
                 }
-                Downcall downcall = ex.getAnnotation(Downcall.class);
                 // downcall annotation must not be null
-                if (downcall == null) {
-                    throw new AnnotationProcessorException("method must have @Downcall annotation");
+                if (ex.getAnnotation(Downcall.class) == null) {
+                    throw new AnnotationProcessorException("ffm method must be annotated with downcall information : " + ex.getSimpleName());
                 }
                 // downcall method must not be var-args
                 if (ex.isVarArgs()) {
-                    throw new AnnotationProcessorException("only non-varargs method can be annotated with @Downcall");
+                    throw new AnnotationProcessorException("only non-varargs method can be annotated with downcall information : " + ex.getSimpleName());
                 }
                 // downcall method must not throw exceptions
                 if (!ex.getThrownTypes().isEmpty()) {
-                    throw new AnnotationProcessorException("only non-thrown method can be annotated with @Downcall");
+                    throw new AnnotationProcessorException("only non-thrown method can be annotated with downcall information : " + ex.getSimpleName());
                 }
                 // downcall method cannot have type parameters
                 if (!ex.getTypeParameters().isEmpty()) {
-                    throw new AnnotationProcessorException("Only non-type parameters method can be annotated with @Downcall");
+                    throw new AnnotationProcessorException("only non-type parameters method can be annotated with downcall information : " + ex.getSimpleName());
                 }
                 noDowncall = false;
             }
         }
         if (noDowncall) {
-            throw new AnnotationProcessorException("downcall method not found");
+            throw new AnnotationProcessorException("downcall method not found in ffm bindings : " + t.getQualifiedName());
         }
     }
 
     private FfmProcessorInfo createFfmInfo(TypeElement t) {
-        FFM ffm = t.getAnnotation(FFM.class);
-        if (ffm == null) {
-            throw new AnnotationProcessorException("@FFM annotation not found");
-        }
+        FFM ffm = Objects.requireNonNull(t.getAnnotation(FFM.class));
         List<FfmDowncallInfo> ffmDowncallInfos = new ArrayList<>();
         int index = 0;
         for (Element el : t.getEnclosedElements()) {
             if (el.getKind() == ElementKind.METHOD) {
                 ExecutableElement ex = AnnoUtil.castExecutableElement(el);
-                Set<Modifier> modifiers = ex.getModifiers();
-                if (modifiers.contains(Modifier.DEFAULT) || modifiers.contains(Modifier.STATIC) || modifiers.contains(Modifier.PRIVATE)) {
+                if (!Collections.disjoint(ex.getModifiers(), SKIPPED_MODIFIERS)) {
                     continue;
                 }
-                Downcall dc = ex.getAnnotation(Downcall.class);
-                if (dc == null) {
-                    throw new AnnotationProcessorException("@Downcall annotation not found");
-                }
+                Downcall dc = Objects.requireNonNull(ex.getAnnotation(Downcall.class));
                 ffmDowncallInfos.add(new FfmDowncallInfo(index, ex, dc.methodName(), dc.constant(), dc.critical()));
-                index = Math.incrementExact(index);
+                index++; // no overflow
             }
         }
         return new FfmProcessorInfo(t, ffm.libraryName(), Arrays.stream(ffm.dependsOn()).toList(), ffm.supportedOS(), ffmDowncallInfos);
@@ -349,12 +366,16 @@ public final class FfmProcessor extends AbstractProcessor {
         String targetClassName = facadeSource.register(ffmProcessorInfo.element());
         String listClassName = facadeSource.register(List.class);
         String libsClassName = facadeSource.register(Libs.class);
-        List<String> types = castMethodTypes(facadeSource, ffmDowncallInfo.element());
-        return libsClassName +
-                (ffmProcessorInfo.libraryName().equals(FFM.VM) ? ".mhFromVM(" : ".mhFromLib(" + targetClassName + ".class, ") +
-                AnnoUtil.escapeJavaStringLiteral(ffmDowncallInfo.methodName()) + ", " + listClassName + ".of(" +
-                types.stream().map(s -> s + ".class").collect(Collectors.joining(", "))
-                + "), " + ffmDowncallInfo.critical() + ", " + ffmDowncallInfo.constant() + ");";
+        String typesArg = castMethodTypes(facadeSource, ffmDowncallInfo.element()).stream()
+                .map(type -> type + ".class")
+                .collect(Collectors.joining(", "));
+        String args = String.join(", ",
+                targetClassName + ".class",
+                AnnoUtil.escapeJavaStringLiteral(ffmDowncallInfo.methodName()),
+                listClassName + ".of(" + typesArg + ")",
+                String.valueOf(ffmDowncallInfo.critical()),
+                String.valueOf(ffmDowncallInfo.constant()));
+        return libsClassName + ".mhFromLib(" + args + ");";
     }
 
     private List<String> castMethodTypes(GeneratorSource source, ExecutableElement ex) {

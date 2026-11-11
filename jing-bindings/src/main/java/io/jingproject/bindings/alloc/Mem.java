@@ -1,17 +1,17 @@
 package io.jingproject.bindings.alloc;
 
-import io.jingproject.bindings.VmBindings;
+import io.jingproject.bindings.StdBinding;
 import io.jingproject.common.anno.Fragile;
 import io.jingproject.ffm.Libs;
 
 // provides wrappers around C standard library memory functions.
 @Fragile
 public final class Mem {
-    private static final VmBindings VM_BINDINGS = Libs.impl(VmBindings.class);
+    private static final StdBinding VM_BINDINGS = Libs.impl(StdBinding.class);
     // function pointer for C's malloc()
-    private static final long MALLOC_FUNC_ADDR = Libs.addrFromVM("malloc").address();
+    private static final long MALLOC_FUNC_ADDR = Libs.addrFromLib(StdBinding.class, "jing_malloc").address();
     // function pointer for C's free()
-    private static final long FREE_FUNC_ADDR = Libs.addrFromVM("free").address();
+    private static final long FREE_FUNC_ADDR = Libs.addrFromLib(StdBinding.class, "jing_free").address();
 
     static {
         if (VM_BINDINGS == null) {

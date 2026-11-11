@@ -58,34 +58,35 @@ public final class MarshallProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        if (!roundEnv.processingOver()) {
-            for (Element e : roundEnv.getElementsAnnotatedWith(Marshallable.class)) {
-                TypeElement t = AnnoUtil.castTypeElement(e);
-                checkMarshallableElement(t);
-                MarshallProcessorInfo info = createMarshallProcessorInfo(t);
-                GeneratorSource facadeSource = new GeneratorSource(t, "MarshallFacade");
-                facadeSource.addBlock(headBlock(facadeSource, info));
-                facadeSource.addBlock(new GeneratorBlock().addLine("static {").indent());
-                facadeSource.addBlock(vhInitializationBlock(facadeSource, info));
-                facadeSource.addBlock(facadeInfoInitializationBlock(facadeSource, info));
-                facadeSource.addBlock(new GeneratorBlock().unindent().addLine("}").newLine());
-                facadeSource.addBlock(constructorBlock(facadeSource));
-                facadeSource.addBlock(marshallableTypeMethod(facadeSource, info));
-                facadeSource.addBlock(marshallInfosMethod(facadeSource));
-                facadeSource.addBlock(primitiveElementsMethod(facadeSource, info));
-                facadeSource.addBlock(marshallInfoByStringMethod(facadeSource, info, true));
-                facadeSource.addBlock(marshallInfoByBinaryMethod(facadeSource, info, true, false));
-                facadeSource.addBlock(marshallInfoByBinaryMethod(facadeSource, info, true, true));
-                facadeSource.addBlock(marshallInfoByStringMethod(facadeSource, info, false));
-                facadeSource.addBlock(marshallInfoByBinaryMethod(facadeSource, info, false, false));
-                facadeSource.addBlock(marshallInfoByBinaryMethod(facadeSource, info, false, true));
-                facadeSource.addBlocks(readerBlocks(facadeSource, info));
-                facadeSource.addBlock(newBuilderMethod(facadeSource,info));
-                facadeSource.addBlock(constructMethod(facadeSource, info));
-                facadeSource.addBlocks(builderBlocks(facadeSource, info));
-                facadeSource.addBlock(new GeneratorBlock().unindent().addLine("}").newLine());
-                facadeSource.writeToFiler(processingEnv);
-            }
+        if (roundEnv.processingOver()) {
+            return true;
+        }
+        for (Element e : roundEnv.getElementsAnnotatedWith(Marshallable.class)) {
+            TypeElement t = AnnoUtil.castTypeElement(e);
+            checkMarshallableElement(t);
+            MarshallProcessorInfo info = createMarshallProcessorInfo(t);
+            GeneratorSource facadeSource = new GeneratorSource(t, "MarshallFacade");
+            facadeSource.addBlock(headBlock(facadeSource, info));
+            facadeSource.addBlock(new GeneratorBlock().addLine("static {").indent());
+            facadeSource.addBlock(vhInitializationBlock(facadeSource, info));
+            facadeSource.addBlock(facadeInfoInitializationBlock(facadeSource, info));
+            facadeSource.addBlock(new GeneratorBlock().unindent().addLine("}").newLine());
+            facadeSource.addBlock(constructorBlock(facadeSource));
+            facadeSource.addBlock(marshallableTypeMethod(facadeSource, info));
+            facadeSource.addBlock(marshallInfosMethod(facadeSource));
+            facadeSource.addBlock(primitiveElementsMethod(facadeSource, info));
+            facadeSource.addBlock(marshallInfoByStringMethod(facadeSource, info, true));
+            facadeSource.addBlock(marshallInfoByBinaryMethod(facadeSource, info, true, false));
+            facadeSource.addBlock(marshallInfoByBinaryMethod(facadeSource, info, true, true));
+            facadeSource.addBlock(marshallInfoByStringMethod(facadeSource, info, false));
+            facadeSource.addBlock(marshallInfoByBinaryMethod(facadeSource, info, false, false));
+            facadeSource.addBlock(marshallInfoByBinaryMethod(facadeSource, info, false, true));
+            facadeSource.addBlocks(readerBlocks(facadeSource, info));
+            facadeSource.addBlock(newBuilderMethod(facadeSource,info));
+            facadeSource.addBlock(constructMethod(facadeSource, info));
+            facadeSource.addBlocks(builderBlocks(facadeSource, info));
+            facadeSource.addBlock(new GeneratorBlock().unindent().addLine("}").newLine());
+            facadeSource.writeToFiler(processingEnv);
         }
         return true;
     }

@@ -103,6 +103,7 @@ set_target_properties(jing_bindings PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )
 target_sources(jing_bindings PRIVATE src/jing_common.c src/jing_comp.c src/jing_ssl.c)
+
 if(WIN32)
     target_sources(jing_bindings PRIVATE src/jing_win.c)
     target_link_libraries(jing_bindings PRIVATE ws2_32)
@@ -117,6 +118,17 @@ install(
     RUNTIME DESTINATION "${JING_LIBRARY_PATH}"
     LIBRARY DESTINATION "${JING_LIBRARY_PATH}"
     ARCHIVE DESTINATION "${JING_LIBRARY_PATH}"
+)
+
+file(TO_CMAKE_PATH "${JING_LIBRARY_PATH}" JING_LIBRARY_PATH)
+add_custom_command(
+    TARGET jing_bindings POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${JING_LIBRARY_PATH}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:jing_bindings>"
+        "${JING_LIBRARY_PATH}/$<TARGET_FILE_NAME:jing_bindings>"
+    COMMENT "copy $<TARGET_FILE_NAME:jing_bindings> -> ${JING_LIBRARY_PATH}"
+    VERBATIM
 )
 
 # fetch content

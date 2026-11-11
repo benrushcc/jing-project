@@ -10,12 +10,14 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.TYPE)
 public @interface FFM {
-    String VM = "jvm";
-
     // specifies the shared library name.
-    // the default value is the JVM's internal lookup.
-    // you should never name your library "jvm".
-    String libraryName() default VM;
+    //
+    // Note: Shared library naming conventions differ across operating systems
+    // (e.g., libfoo.so on Linux, foo.dll on Windows, libfoo.dylib on macOS).
+    // The name provided here will be normalized via System.mapLibraryName(...)
+    // so that the platform-specific library name is resolved consistently,
+    // ensuring cross-platform compatibility.
+    String libraryName() default "";
 
     // lists the shared library names that this library depends on.
     // the loader resolves these dependencies (recursively, if they are

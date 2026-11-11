@@ -38,6 +38,24 @@ public sealed interface Waker permits Waker.UdsWaker, Waker.EfdWaker, Waker.Spai
         return UdsWaker::new;
     }
 
+    static Waker newUdsWaker() {
+        return new UdsWaker();
+    }
+
+    static Waker newEfdWaker() {
+        if(Os.current() != Os.LINUX) {
+            throw new UnsupportedOperationException("efdWaker is only supported on linux operating system");
+        }
+        return new EfdWaker();
+    }
+
+    static Waker newSpairWaker() {
+        if(Os.current() != Os.LINUX && Os.current() != Os.MACOS) {
+            throw new UnsupportedOperationException("spairWaker is only supported on linux or macos operating system");
+        }
+        return new SpairWaker();
+    }
+
     static Waker newWaker() {
         return WAKER_SUPPLIER.get();
     }

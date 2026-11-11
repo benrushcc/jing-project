@@ -688,12 +688,12 @@ int jing_win_uds_connect(int socket, const char* addr, size_t len) {
 }
 
 int jing_win_uds_accept(int socket) {
-	int r = accept((SOCKET) socket, NULL, NULL);
+	SOCKET r = accept((SOCKET) socket, NULL, NULL);
 	if (JING_UNLIKELY(r == SOCKET_ERROR)) {
 		int err = WSAGetLastError();
 		return -err;
 	}
-	return r;
+	return (int) r;
 }
 
 #ifdef JING_USE_WEPOLL

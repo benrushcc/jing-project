@@ -1,9 +1,9 @@
 package io.jingproject.net;
 
-public interface ChannelHandler {
+public interface ChannelHandler<T extends NetEvent> {
     void initialize();
 
-    void onEvent(Object event);
+    void onEvent(T event);
 
     void destroy();
 }

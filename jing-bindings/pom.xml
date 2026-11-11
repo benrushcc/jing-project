@@ -74,33 +74,6 @@
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
-                <executions>
-                    <execution>
-                        <id>default-testCompile</id>
-                        <phase>test-compile</phase>
-                        <goals>
-                            <goal>testCompile</goal>
-                        </goals>
-                        <configuration>
-                            <release>${java.version}</release>
-                            <encoding>UTF-8</encoding>
-                            <enablePreview>true</enablePreview>
-                            <proc>full</proc>
-                            <annotationProcessorPaths>
-                                <path>
-                                    <groupId>io.jingproject</groupId>
-                                    <artifactId>jing-common-processor</artifactId>
-                                    <version>${revision}</version>
-                                </path>
-                                <path>
-                                    <groupId>io.jingproject</groupId>
-                                    <artifactId>jing-ffm-processor</artifactId>
-                                    <version>${revision}</version>
-                                </path>
-                            </annotationProcessorPaths>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
 
             <plugin>
@@ -123,16 +96,6 @@
                         <goals>
                             <goal>process-jing-providers</goal>
                         </goals>
-                    </execution>
-                    <execution>
-                        <id>process-test-providers</id>
-                        <phase>process-test-classes</phase>
-                        <goals>
-                            <goal>process-jing-providers</goal>
-                        </goals>
-                        <configuration>
-                            <scope>test</scope>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
