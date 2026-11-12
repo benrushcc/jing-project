@@ -32,7 +32,7 @@ import java.util.stream.Stream;
 // three flavours: off (single growing file), size (archives base.N.ext, shifted
 // by an iterative loop), time (the active file carries the current period key,
 // so a roll is just flush+close+open of the next period file). the json format
-// is hand-built UTF-8 json with a fixed schema, zero dependencies.
+// is hand-built UTF-8 json with a fixed schema, zero depLookups.
 public final class FileLogEventHandler implements LogEventHandler, AutoCloseable {
     private static final long REGION_SIZE = 1024 * 1024;
     private static final String DEFAULT_PATH = "logs/jing.log";

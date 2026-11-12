@@ -24,7 +24,7 @@ public interface LibFacade {
     // each entry follows the same naming convention as libName(), that is,
     // OS-specific prefixes and file extensions are resolved at best effort
     // and should not be specified manually.
-    // the loader resolves these dependencies (recursively, if they are
+    // the loader resolves these depLookups (recursively, if they are
     // themselves represented by a LibFacade) before loading this library,
     // so that dependent libraries are loaded in the correct order.
     // an empty list means no explicit dependency, in which case the loader

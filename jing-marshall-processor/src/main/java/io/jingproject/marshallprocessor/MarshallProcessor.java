@@ -367,7 +367,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                 String fieldRawClassName = facadeSource.registerRawFieldElement(fieldInfo.fieldElement());
                 b.addLine(varhandleClassName + " vh" + fieldInfo.marshallIndex() +
                         " = lookup" + fieldInfo.typeIndex() + ".findVarHandle(" + teClassName +
-                        ".class, " + AnnoUtil.escapeJavaStringLiteral(fieldInfo.fieldName()) + ", " + fieldRawClassName + ".class);");
+                        ".class, " + AnnoUtil.escapeStrLiteral(fieldInfo.fieldName()) + ", " + fieldRawClassName + ".class);");
             }
             b.addLine("VHS = " + listClassName + ".of(" +
                             IntStream.range(0, info.fieldInfos().size()).mapToObj(i -> "vh" + i)
@@ -428,8 +428,8 @@ public final class MarshallProcessor extends AbstractProcessor {
                     !genericTypeLiterals.isEmpty() ? genericTypeLiterals.get(0) + ".class" : "null",
                     genericTypeLiterals.size() > 1 ? genericTypeLiterals.get(1) + ".class" : "null",
                     String.valueOf(fieldInfo.marshallIndex()),
-                    AnnoUtil.escapeJavaStringLiteral(fieldInfo.fieldName()),
-                    AnnoUtil.escapeJavaStringLiteral(fieldInfo.mappedName()),
+                    AnnoUtil.escapeStrLiteral(fieldInfo.fieldName()),
+                    AnnoUtil.escapeStrLiteral(fieldInfo.mappedName()),
                     String.valueOf(fieldInfo.skipSerializing()),
                     String.valueOf(fieldInfo.skipDeserializing())
             );
@@ -504,7 +504,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                 .addLine("return switch (" + argName + ") {")
                 .indent();
         for (MarshallFieldInfo fieldInfo : info.fieldInfos()) {
-            b.addLine("case " + AnnoUtil.escapeJavaStringLiteral(f ? fieldInfo.fieldName() : fieldInfo.mappedName()) +
+            b.addLine("case " + AnnoUtil.escapeStrLiteral(f ? fieldInfo.fieldName() : fieldInfo.mappedName()) +
                     " -> MARSHALL_INFOS.get(" + fieldInfo.marshallIndex() + ");");
         }
         return b.addLine("default -> null;")
@@ -607,7 +607,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                     .newLine();
             if (marked) {
                 String suppressWarningsClassName = facadeSource.register(SuppressWarnings.class);
-                b.prependLine("@" + suppressWarningsClassName + "(" + AnnoUtil.javaStringLiteral("unchecked") + ")");
+                b.prependLine("@" + suppressWarningsClassName + "(" + AnnoUtil.strLiteral("unchecked") + ")");
             }
             r.add(b);
         }
@@ -660,7 +660,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                             .addLine("}");
             default -> throw new AssertionError();
         }
-        return b.addLine("throw new " + illegalArgumentExceptionClassName + "(" + AnnoUtil.javaStringLiteral("wrong writer : ") + " + writer.getClass().getName());")
+        return b.addLine("throw new " + illegalArgumentExceptionClassName + "(" + AnnoUtil.strLiteral("wrong writer : ") + " + writer.getClass().getName());")
                 .unindent()
                 .addLine("}")
                 .newLine();
@@ -728,7 +728,7 @@ public final class MarshallProcessor extends AbstractProcessor {
                     .newLine();
             if (marked) {
                 String suppressWarningsClassName = facadeSource.register(SuppressWarnings.class);
-                b.prependLine("@" + suppressWarningsClassName + "(" + AnnoUtil.javaStringLiteral("unchecked") + ")");
+                b.prependLine("@" + suppressWarningsClassName + "(" + AnnoUtil.strLiteral("unchecked") + ")");
             }
             r.add(b);
         }

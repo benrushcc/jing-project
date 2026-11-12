@@ -108,17 +108,17 @@ public final class MarshallTransformerProcessor extends AbstractProcessor {
         if(!foundNoArgConstructor) {
             throw new AnnotationProcessorException("no-arg constructor not found");
         }
-        // must implement MarshallTransformer interface
+        // must implement transformer interface
         TypeMirror marshallTransformerTm = asMarshallTransformerTm(t);
         if(marshallTransformerTm == null) {
             throw new AnnotationProcessorException("target element must implement MarshallTransformer interface");
         }
-        // validate MarshallTransformer typeArgs
+        // validate transformer typeArgs
         List<? extends TypeMirror> typeArgs = AnnoUtil.castDeclaredType(marshallTransformerTm).getTypeArguments();
         if(typeArgs.size() != 2) {
             throw new AssertionError();
         }
-        AnnoUtil.validateTypeArgs(typeArgs);
+        AnnoUtil.checkTypeArgs(typeArgs);
         // already filtered, could not have generics or be array types, safe to compare
         if(processingEnv.getTypeUtils().isSameType(typeArgs.getFirst(), typeArgs.getLast())) {
             throw new AnnotationProcessorException("transformer must be supplied with different types");

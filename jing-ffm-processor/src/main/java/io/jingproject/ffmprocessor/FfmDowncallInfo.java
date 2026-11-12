@@ -6,7 +6,6 @@ public record FfmDowncallInfo(
         int index,
         ExecutableElement element,
         String methodName,
-        boolean constant,
         boolean critical
 ) {
 }

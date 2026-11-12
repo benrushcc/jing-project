@@ -143,22 +143,22 @@ public final class FfmProcessor extends AbstractProcessor {
         }
     }
 
-    private FfmProcessorInfo createFfmInfo(TypeElement t) {
-        FFM ffm = Objects.requireNonNull(t.getAnnotation(FFM.class));
+    private FfmProcessorInfo createFfmInfo(TypeElement typeElement) {
+        FFM ffm = Objects.requireNonNull(typeElement.getAnnotation(FFM.class));
         List<FfmDowncallInfo> ffmDowncallInfos = new ArrayList<>();
         int index = 0;
-        for (Element el : t.getEnclosedElements()) {
+        for (Element el : typeElement.getEnclosedElements()) {
             if (el.getKind() == ElementKind.METHOD) {
-                ExecutableElement ex = AnnoUtil.castExecutableElement(el);
-                if (!Collections.disjoint(ex.getModifiers(), SKIPPED_MODIFIERS)) {
+                ExecutableElement executableElement = AnnoUtil.castExecutableElement(el);
+                if (!Collections.disjoint(executableElement.getModifiers(), SKIPPED_MODIFIERS)) {
                     continue;
                 }
-                Downcall dc = Objects.requireNonNull(ex.getAnnotation(Downcall.class));
-                ffmDowncallInfos.add(new FfmDowncallInfo(index, ex, dc.methodName(), dc.constant(), dc.critical()));
+                Downcall dc = Objects.requireNonNull(executableElement.getAnnotation(Downcall.class));
+                ffmDowncallInfos.add(new FfmDowncallInfo(index, executableElement, dc.methodName(), dc.critical()));
                 index++; // no overflow
             }
         }
-        return new FfmProcessorInfo(t, ffm.libraryName(), Arrays.stream(ffm.dependsOn()).toList(), ffm.supportedOS(), ffmDowncallInfos);
+        return new FfmProcessorInfo(typeElement, ffm.libraryName(), List.of(ffm.dependsOn()), List.of(ffm.supportedOS()), List.copyOf(ffmDowncallInfos));
     }
 
     private GeneratorBlock headBlock(GeneratorSource facadeSource) {
@@ -214,7 +214,7 @@ public final class FfmProcessor extends AbstractProcessor {
                 .addLine("@" + overrideClassName)
                 .addLine("public " + listClassName + "<" + osClassName + "> supportedOS() {")
                 .indent()
-                .addLine("return " + listClassName + ".of(" + Arrays.stream(ffmProcessorInfo.supportedOS()).map(o -> osClassName + "." + o.name()).collect(Collectors.joining(", ")) + ");")
+                .addLine("return " + listClassName + ".of(" + ffmProcessorInfo.supportedOS().stream().map(o -> osClassName + "." + o.name()).collect(Collectors.joining(", ")) + ");")
                 .unindent()
                 .addLine("}")
                 .newLine();
@@ -227,7 +227,7 @@ public final class FfmProcessor extends AbstractProcessor {
                 .addLine("@" + overrideClassName)
                 .addLine("public " + stringClassName + " libName() {")
                 .indent()
-                .addLine("return " + AnnoUtil.escapeJavaStringLiteral(ffmProcessorInfo.libraryName()) + ";")
+                .addLine("return " + AnnoUtil.escapeStrLiteral(ffmProcessorInfo.libraryName()) + ";")
                 .unindent()
                 .addLine("}")
                 .newLine();
@@ -244,7 +244,7 @@ public final class FfmProcessor extends AbstractProcessor {
                 .addLine("return " + listClassName + ".of(")
                 .indent();
         ffmProcessorInfo.dependsOn().stream()
-                .map(AnnoUtil::escapeJavaStringLiteral)
+                .map(AnnoUtil::escapeStrLiteral)
                 .collect(Collectors.joining(",\n"))
                 .lines()
                 .forEach(b::addLine);
@@ -266,7 +266,7 @@ public final class FfmProcessor extends AbstractProcessor {
                 .addLine("return " + listClassName + ".of(")
                 .indent();
         ffmProcessorInfo.ffmDowncallInfos().stream()
-                .map(info -> AnnoUtil.escapeJavaStringLiteral(info.methodName()))
+                .map(info -> AnnoUtil.escapeStrLiteral(info.methodName()))
                 .collect(Collectors.joining(",\n"))
                 .lines()
                 .forEach(b::addLine);
@@ -371,7 +371,7 @@ public final class FfmProcessor extends AbstractProcessor {
                 .collect(Collectors.joining(", "));
         String args = String.join(", ",
                 targetClassName + ".class",
-                AnnoUtil.escapeJavaStringLiteral(ffmDowncallInfo.methodName()),
+                AnnoUtil.escapeStrLiteral(ffmDowncallInfo.methodName()),
                 listClassName + ".of(" + typesArg + ")",
                 String.valueOf(ffmDowncallInfo.critical()),
                 String.valueOf(ffmDowncallInfo.constant()));
@@ -398,13 +398,12 @@ public final class FfmProcessor extends AbstractProcessor {
             case LONG -> "long";
             case FLOAT -> "float";
             case DOUBLE -> "double";
-            case DECLARED -> {
+            default -> {
                 if (processingEnv.getTypeUtils().isSameType(tm, memorySegmentType)) {
                     yield source.register(MemorySegment.class);
                 }
-                throw new UnsupportedOperationException("unsupported declared return type: " + tm);
+                throw new AnnotationProcessorException("unsupported ffm downcall return type : " + tm);
             }
-            default -> throw new UnsupportedOperationException("unsupported return type: " + tm);
         };
     }
 

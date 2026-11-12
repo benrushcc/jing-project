@@ -16,13 +16,6 @@ public @interface Downcall {
     // a snake-case string as C function names.
     String methodName();
 
-    // whether the return value is a constant. if true, the function is initialized
-    // and first invoked at class loading time, instead of being deferred to the
-    // first call. this is for better constant folding. the returned value is
-    // cached and constant folded. this option is usually used when returning
-    // a MACRO value from native.
-    boolean constant() default false;
-
     // whether the function could return immediately without extra checking.
     // this option is dangerous because it removes the safepoint check.
     boolean critical() default false;

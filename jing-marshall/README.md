@@ -219,13 +219,13 @@ Field lookup supports both `String` and binary (`byte[]` / `MemorySegment`) inpu
 ```java
 MarshallFacade facade = Marshalls.beanMarshallFacade(User.class);
 
-// lookup by Java field name
+// libLookup by Java field name
 MarshallInfo info = facade.marshallInfoByFieldName("id");
 
-// lookup by serialized name
+// libLookup by serialized name
 MarshallInfo info2 = facade.marshallInfoByMappedName("id");
 
-// lookup from raw UTF-8 bytes (e.g., during JSON parsing)
+// libLookup from raw UTF-8 bytes (e.g., during JSON parsing)
 byte[] utf8 = "id".getBytes(StandardCharsets.UTF_8);
 MarshallInfo info3 = facade.marshallInfoByFieldName(utf8);
 ```

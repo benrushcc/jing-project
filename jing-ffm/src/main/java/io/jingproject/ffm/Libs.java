@@ -7,11 +7,11 @@ import java.io.File;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.UndeclaredThrowableException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 
 // Libs is a unified entry for managing dynamic library loading,
 // providing a standardized implementation across different operating systems.
@@ -39,48 +39,55 @@ public final class Libs {
     static {
         List<LibFacade> facades = ServiceLoader.load(LibFacade.class).stream().map(ServiceLoader.Provider::get).toList();
         Map<Class<?>, LibDescriptor> libMappings = new HashMap<>();
-        for (LibFacade facade : facades) {
-            if (facade.supportedOS().contains(Os.current())) {
-                Class<?> target = facade.target();
-                String libName = facade.libName();
-                LibDescriptor desc = libMappings.get(target);
-                if (desc == null) {
-                    for (String dep : facade.dependsOn()) {
-                        String depMappedName = System.mapLibraryName(dep);
-                        Path depPath = searchLibrary(depMappedName);
-                        if(depPath == null) {
-                            continue ;
-                        }
-                        // the lookup is deliberately discarded: loading the dependency is only meant to
-                        // satisfy the OS loader when the main library is loaded below, not to expose its symbols.
-                        SymbolLookup _ = SymbolLookup.libraryLookup(depPath, Arena.global());
-                    }
-                    String mappedName = System.mapLibraryName(libName);
-                    Path libPath = searchLibrary(mappedName);
-                    if (libPath == null) {
-                        continue;
-                    }
-                    SymbolLookup lookup = SymbolLookup.libraryLookup(libPath, Arena.global());
-                    desc = new LibDescriptor(libName, mappedName, lookup, libPath, new HashMap<>(), facade.impl());
-                    libMappings.put(target, desc);
+        outer : for (LibFacade facade : facades) {
+            if (!facade.supportedOS().contains(Os.current())) {
+                continue ;
+            }
+            Arena arena = Arena.ofShared();
+            String libName = facade.libName();
+            List<Path> depPaths = new ArrayList<>();
+            for (String dep : facade.dependsOn()) {
+                String depMappedName = System.mapLibraryName(dep);
+                Path depPath = searchLibrary(depMappedName);
+                if(depPath == null) {
+                    continue outer;
                 }
-                for (String methodName : facade.methodNames()) {
-                    if (!desc.functions().containsKey(methodName)) {
-                        MemorySegment methodAddress = desc.lookup().find(methodName).orElse(MemorySegment.NULL);
-                        desc.functions().put(methodName, methodAddress);
-                    }
+                depPaths.add(depPath);
+            }
+            List<SymbolLookup> depLookups = new ArrayList<>();
+            for (Path depPath : depPaths) {
+                try {
+                    depLookups.add(SymbolLookup.libraryLookup(depPath, arena));
+                } catch (Throwable t) {
+                    arena.close();
+                    continue outer;
                 }
             }
-        }
-        LIB_MAPPINGS = libMappings.entrySet().stream().collect(Collectors.toUnmodifiableMap(
-                Map.Entry::getKey,
-                entry -> {
-                    LibDescriptor desc = entry.getValue();
-                    Map<String, MemorySegment> immutableFunctions =
-                            Map.copyOf(desc.functions());
-                    return new LibDescriptor(desc.libName(), desc.mappedName(), desc.lookup(), desc.libPath(), immutableFunctions, desc.impl());
+            String mappedName = System.mapLibraryName(libName);
+            Path libPath = searchLibrary(mappedName);
+            if (libPath == null) {
+                arena.close();
+                continue;
+            }
+            SymbolLookup libLookup;
+            try {
+                libLookup = SymbolLookup.libraryLookup(libPath, arena);
+            } catch (Throwable t) {
+                arena.close();
+                continue;
+            }
+            Map<String, MemorySegment> functions = new HashMap<>();
+            for (String methodName : facade.methodNames()) {
+                MemorySegment addr = libLookup.find(methodName).orElse(MemorySegment.NULL);
+                if (functions.put(methodName, addr) != null) {
+                    arena.close();
+                    throw new ExceptionInInitializerError("duplicate method exposed in ffm library : " + libName);
                 }
-        ));
+            }
+            LibDescriptor libDescriptor = new LibDescriptor(arena, libName, mappedName, libLookup, List.copyOf(depLookups), libPath, List.copyOf(depPaths), Map.copyOf(functions), facade.impl());
+            libMappings.put(facade.target(), libDescriptor);
+        }
+        LIB_MAPPINGS = Map.copyOf(libMappings);
     }
 
     private Libs() {
@@ -133,7 +140,7 @@ public final class Libs {
             return MemorySegment.NULL;
         }
         MemorySegment segment = libDescriptor.functions().get(methodName);
-        if (segment == null || segment.address() == 0L) {
+        if (segment == null) {
             return MemorySegment.NULL;
         }
         return segment;
@@ -276,5 +283,16 @@ public final class Libs {
             return null;
         }
         return (T) libDescriptor.impl();
+    }
+
+    // rethrows Error/RuntimeException as-is; wraps any other Throwable as undeclared.
+    public static RuntimeException sanitize(Throwable throwable) {
+        if(throwable instanceof Error err) {
+            throw err;
+        }
+        if(throwable instanceof RuntimeException runtimeException) {
+            return runtimeException;
+        }
+        return new UndeclaredThrowableException(throwable);
     }
 }

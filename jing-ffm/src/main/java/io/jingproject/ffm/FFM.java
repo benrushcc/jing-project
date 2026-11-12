@@ -20,7 +20,7 @@ public @interface FFM {
     String libraryName() default "";
 
     // lists the shared library names that this library depends on.
-    // the loader resolves these dependencies (recursively, if they are
+    // the loader resolves these depLookups (recursively, if they are
     // themselves annotated with @FFM) before loading this library, so
     // that dependent libraries are loaded in the correct order.
     // the default value means "no explicit dependency", in which case

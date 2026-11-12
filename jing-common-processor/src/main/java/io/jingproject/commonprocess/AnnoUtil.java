@@ -11,20 +11,23 @@ import java.util.List;
 
 @ProcessorApi
 public final class AnnoUtil {
+    private static final int EXTRA_CAPACITY = 16;
+
     private AnnoUtil() {
         throw new UnsupportedOperationException("utility class");
     }
 
-    public static String javaStringLiteral(String str) {
+    public static String strLiteral(String str) {
         return "\"" + str + "\"";
     }
 
-    public static String escapeJavaStringLiteral(String str) {
-        StringBuilder builder = new StringBuilder("\"");
-        final int len = str.length();
-        for (int i = 0; i < len; i++) {
-            char c = str.charAt(i);
-            switch (c) {
+    public static String escapeStrLiteral(String str) {
+        int len = str.length();
+        StringBuilder builder = new StringBuilder(Math.addExact(len, EXTRA_CAPACITY)).append('"');
+        for (int i = 0; i < len; ) {
+            int cp = str.codePointAt(i);
+            i += Character.charCount(cp);
+            switch (cp) {
                 case '"' -> builder.append("\\\"");
                 case '\\' -> builder.append("\\\\");
                 case '\b' -> builder.append("\\b");
@@ -33,24 +36,27 @@ public final class AnnoUtil {
                 case '\r' -> builder.append("\\r");
                 case '\t' -> builder.append("\\t");
                 default -> {
-                    if (c < 0x20) {
-                        builder.append("\\u");
-                        String hex = Integer.toHexString(c);
-                        builder.repeat("0", 4 - hex.length());
-                        builder.append(hex);
+                    if (cp < 0x20) {
+                        builder.append(String.format("\\u%04x", cp));
+                    } else if(!Character.isBmpCodePoint(cp)) {
+                        builder.appendCodePoint(cp);
                     } else {
-                        builder.append(c); // safe for surrogate
+                        char c = (char) cp;
+                        if(Character.isSurrogate(c)) {
+                            throw new AnnotationProcessorException("lone surrogate not supported in string literal : U+" + Integer.toHexString(cp).toUpperCase());
+                        }
+                        builder.append(c);
                     }
                 }
             }
         }
-        return builder.append("\"").toString();
+        return builder.append('"').toString();
     }
 
     public static String packageName(String fullName) {
         int index = fullName.lastIndexOf(".");
         if (index == -1) {
-            throw new AnnotationProcessorException("empty package name not supported");
+            throw new AnnotationProcessorException("element with empty package name not supported : " + fullName);
         }
         return fullName.substring(0, index);
     }
@@ -58,11 +64,11 @@ public final class AnnoUtil {
     public static String simpleName(String fullName) {
         int index = fullName.lastIndexOf(".");
         if (index == -1) {
-            throw new AnnotationProcessorException("empty package name not supported");
+            throw new AnnotationProcessorException("element with empty package name not supported : " + fullName);
         }
-        String r = fullName.substring(Math.incrementExact(index));
+        String r = fullName.substring(index + 1); // no overflow
         if (r.isEmpty()) {
-            throw new AnnotationProcessorException("empty simple name not supported");
+            throw new AnnotationProcessorException("element with empty simple name not supported : " + fullName);
         }
         return r;
     }
@@ -94,35 +100,21 @@ public final class AnnoUtil {
         if (typeName == null || typeName.isBlank()) {
             throw new AnnotationProcessorException("typeName is illegal");
         }
-        return typeName.contains("<") && typeName.contains(">");
+        return typeName.indexOf('<') >= 0 && typeName.indexOf('>') >= 0;
     }
 
     public static TypeElement castTypeElement(Element element) {
         if (element instanceof TypeElement t) {
             return t;
         }
-        throw new AssertionError("not a typeElement : " + element.asType());
-    }
-
-    public static VariableElement castVariableElement(Element element) {
-        if (element instanceof VariableElement v) {
-            return v;
-        }
-        throw new AssertionError("not a variableElement : " + element.asType());
-    }
-
-    public static RecordComponentElement castRecordComponentElement(Element element) {
-        if (element instanceof RecordComponentElement r) {
-            return r;
-        }
-        throw new AssertionError("not a recordComponentElement : " + element.asType());
+        throw new AssertionError("not a typeElement : " + element);
     }
 
     public static ExecutableElement castExecutableElement(Element element) {
         if (element instanceof ExecutableElement e) {
             return e;
         }
-        throw new AssertionError("not an executableElement : " + element.asType());
+        throw new AssertionError("not an executableElement : " + element);
     }
 
     public static DeclaredType castDeclaredType(TypeMirror typeMirror) {
@@ -176,25 +168,28 @@ public final class AnnoUtil {
     }
 
     public static void checkFieldElementForRegister(Element element) {
-        if (!(element instanceof VariableElement) && !(element instanceof RecordComponentElement)) {
-            throw new AnnotationProcessorException("element must be of type variableElement or recordComponentElement : " + element);
+        if (element instanceof VariableElement || element instanceof RecordComponentElement) {
+            checkFieldElementRecursively(element.asType(), element);
+            return ;
         }
-        checkFieldElementRecursively(element.asType(), 0, element);
+        throw new AnnotationProcessorException("element must be of type variableElement or recordComponentElement : " + element);
     }
 
-    private static void checkFieldElementRecursively(TypeMirror tm, int arrayDepth, Element source) {
-        switch (tm.getKind()) {
+    private static void checkFieldElementRecursively(TypeMirror tm, Element source) {
+        TypeKind typeKind = tm.getKind();
+        switch (typeKind) {
             case ERROR -> throw new AnnotationProcessorException("unresolved type not supported for field element registration : " + source.getSimpleName());
             case ARRAY -> {
-                if(arrayDepth >= 1) {
-                    throw new AnnotationProcessorException("multi dimension array not supported for field element registration : " + source.getSimpleName());
-                }
                 ArrayType at = castArrayType(tm);
                 TypeMirror componentType = at.getComponentType();
-                if (componentType.getKind() == TypeKind.DECLARED && !castDeclaredType(componentType).getTypeArguments().isEmpty()) {
+                TypeKind componentTypeKind = componentType.getKind();
+                if(componentTypeKind == TypeKind.ARRAY) {
+                    throw new AnnotationProcessorException("multi dimension array not supported for field element registration : " + source.getSimpleName());
+                }
+                if (componentTypeKind == TypeKind.DECLARED && !castDeclaredType(componentType).getTypeArguments().isEmpty()) {
                     throw new AnnotationProcessorException("generic array not supported for field element registration : " + source.getSimpleName());
                 }
-                checkFieldElementRecursively(componentType, arrayDepth + 1, source); // no overflow
+                checkFieldElementRecursively(componentType, source);
             }
             case WILDCARD -> throw new AnnotationProcessorException("wildcard type not supported for field element registration : " + source.getSimpleName());
             case DECLARED -> {
@@ -204,14 +199,21 @@ public final class AnnoUtil {
                     throw new AnnotationProcessorException("field element must be top-level class : " + source.getSimpleName());
                 }
                 for (TypeMirror typeArgument : dt.getTypeArguments()) {
-                    checkFieldElementRecursively(typeArgument, 0, source);
+                    if (typeArgument.getKind() == TypeKind.DECLARED && !castDeclaredType(typeArgument).getTypeArguments().isEmpty()) {
+                        throw new AnnotationProcessorException("nested generic type not supported for field element registration : " + source.getSimpleName());
+                    }
+                    checkFieldElementRecursively(typeArgument, source);
                 }
             }
-            default -> {} // skipped
+            default -> {
+                if(!typeKind.isPrimitive()) {
+                    throw new AnnotationProcessorException("unsupported field element type kind : " + typeKind + ", source : " + source.getSimpleName());
+                }
+            }
         }
     }
 
-    public static void validateTypeArgs(List<? extends TypeMirror> typeArgs) {
+    public static void checkTypeArgs(List<? extends TypeMirror> typeArgs) {
         for (TypeMirror typeArg : typeArgs) {
             if (typeArg.getKind() == TypeKind.DECLARED) {
                 DeclaredType dt = castDeclaredType(typeArg);
