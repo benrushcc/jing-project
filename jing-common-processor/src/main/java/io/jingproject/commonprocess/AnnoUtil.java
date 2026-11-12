@@ -179,18 +179,35 @@ public final class AnnoUtil {
         if (!(element instanceof VariableElement) && !(element instanceof RecordComponentElement)) {
             throw new AnnotationProcessorException("element must be of type variableElement or recordComponentElement : " + element);
         }
-        checkTypeElementForRegister(castTypeElement(element.getEnclosingElement()));
-        TypeMirror tm = element.asType();
-        if (tm.getKind() == TypeKind.ARRAY) {
-            validateArray(castArrayType(tm));
-        } else if (tm.getKind() == TypeKind.DECLARED) {
-            validateTypeArgs(castDeclaredType(tm).getTypeArguments());
-        }
-        String qualifiedName = element.toString();
-        if (qualifiedName.contains("extends") || qualifiedName.contains("super")) {
-            // supporting 'super' and 'extends' currently brings no benefits to the program
-            // but significantly increases complexity, therefore they are not considered
-            throw new AnnotationProcessorException("super and extends are not supported for registration");
+        checkFieldElementRecursively(element.asType(), 0, element);
+    }
+
+    private static void checkFieldElementRecursively(TypeMirror tm, int arrayDepth, Element source) {
+        switch (tm.getKind()) {
+            case ERROR -> throw new AnnotationProcessorException("unresolved type not supported for field element registration : " + source.getSimpleName());
+            case ARRAY -> {
+                if(arrayDepth >= 1) {
+                    throw new AnnotationProcessorException("multi dimension array not supported for field element registration : " + source.getSimpleName());
+                }
+                ArrayType at = castArrayType(tm);
+                TypeMirror componentType = at.getComponentType();
+                if (componentType.getKind() == TypeKind.DECLARED && !castDeclaredType(componentType).getTypeArguments().isEmpty()) {
+                    throw new AnnotationProcessorException("generic array not supported for field element registration : " + source.getSimpleName());
+                }
+                checkFieldElementRecursively(componentType, arrayDepth + 1, source); // no overflow
+            }
+            case WILDCARD -> throw new AnnotationProcessorException("wildcard type not supported for field element registration : " + source.getSimpleName());
+            case DECLARED -> {
+                DeclaredType dt = castDeclaredType(tm);
+                TypeElement te = castTypeElement(dt.asElement());
+                if(te.getNestingKind() != NestingKind.TOP_LEVEL) {
+                    throw new AnnotationProcessorException("field element must be top-level class : " + source.getSimpleName());
+                }
+                for (TypeMirror typeArgument : dt.getTypeArguments()) {
+                    checkFieldElementRecursively(typeArgument, 0, source);
+                }
+            }
+            default -> {} // skipped
         }
     }
 
@@ -205,22 +222,6 @@ public final class AnnoUtil {
                 throw new AnnotationProcessorException("generic type args cannot have any type args : " + te);
             }
             throw new AnnotationProcessorException("type arg must be declared : " + typeArg);
-        }
-    }
-
-    public static void validateArray(ArrayType arrayType) {
-        TypeMirror tm = arrayType.getComponentType();
-        TypeKind tmKind = tm.getKind();
-        if (tmKind == TypeKind.DECLARED) {
-            DeclaredType componentDeclaredType = AnnoUtil.castDeclaredType(tm);
-            TypeElement componentTypeElement = AnnoUtil.castTypeElement(componentDeclaredType.asElement());
-            if (!componentTypeElement.getTypeParameters().isEmpty()) {
-                throw new AnnotationProcessorException("generic array not supported : " + componentTypeElement);
-            }
-        } else if (tmKind == TypeKind.ARRAY) {
-            throw new AnnotationProcessorException("multi dimension array not supported : " + tm);
-        } else if (!tmKind.isPrimitive()) {
-            throw new AnnotationProcessorException("unknown array type : " + tm);
         }
     }
 }
