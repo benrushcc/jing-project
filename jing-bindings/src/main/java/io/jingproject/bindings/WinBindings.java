@@ -17,25 +17,25 @@ public interface WinBindings {
     @Downcall(methodName = "jing_win_batch_free")
     void winBatchFree(long ptrs, long len, long freeAddr);
 
-    @Downcall(methodName = "jing_win_page_size", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_page_size",critical = true)
     long winPageSize();
 
-    @Downcall(methodName = "jing_win_allocate_granularity", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_allocate_granularity",critical = true)
     long winAllocateGranularity();
 
-    @Downcall(methodName = "jing_win_mem_reserve", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_mem_reserve",critical = true)
     int winMemReserve();
 
-    @Downcall(methodName = "jing_win_mem_commit", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_mem_commit",critical = true)
     int winMemCommit();
 
-    @Downcall(methodName = "jing_win_mem_decommit", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_mem_decommit",critical = true)
     int winMemDecommit();
 
-    @Downcall(methodName = "jing_win_mem_release", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_mem_release",critical = true)
     int winMemRelease();
 
-    @Downcall(methodName = "jing_win_page_read_write", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_page_read_write",critical = true)
     int winPageReadWrite();
 
     @Downcall(methodName = "jing_win_virtual_alloc", critical = true)
@@ -45,13 +45,13 @@ public interface WinBindings {
     int winVirtualFree(long addr, long size, int type);
 
     // log related
-    @Downcall(methodName = "jing_win_ansi_support", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_ansi_support",critical = true)
     int winAnsiSupport();
 
-    @Downcall(methodName = "jing_std_output_dword", constant = true, critical = true)
+    @Downcall(methodName = "jing_std_output_dword",critical = true)
     int stdOutputDword();
 
-    @Downcall(methodName = "jing_std_error_dword", constant = true, critical = true)
+    @Downcall(methodName = "jing_std_error_dword",critical = true)
     int stdErrorDword();
 
     @Downcall(methodName = "jing_get_std_handle", critical = true)
@@ -70,46 +70,46 @@ public interface WinBindings {
     @Downcall(methodName = "jing_win_wsa_startup", critical = true)
     int wsaStartup();
 
-    @Downcall(methodName = "jing_win_connect_block_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_connect_block_code",critical = true)
     int connectBlockCode();
 
-    @Downcall(methodName = "jing_win_send_block_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_send_block_code",critical = true)
     int sendBlockCode();
 
-    @Downcall(methodName = "jing_win_af_inet_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_af_inet_code",critical = true)
     int afInetCode();
 
-    @Downcall(methodName = "jing_win_af_inet6_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_af_inet6_code",critical = true)
     int afInet6Code();
 
-    @Downcall(methodName = "jing_win_af_unix_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_af_unix_code",critical = true)
     int afUnixCode();
 
-    @Downcall(methodName = "jing_win_sol_socket", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_sol_socket",critical = true)
     int solSocket();
 
-    @Downcall(methodName = "jing_win_sock_stream_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_sock_stream_code",critical = true)
     int sockStreamCode();
 
-    @Downcall(methodName = "jing_win_sock_dgram_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_sock_dgram_code",critical = true)
     int sockDgramCode();
 
-    @Downcall(methodName = "jing_win_ipproto_tcp_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_ipproto_tcp_code",critical = true)
     int ipprotoTcpCode();
 
-    @Downcall(methodName = "jing_win_ipproto_udp_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_ipproto_udp_code",critical = true)
     int ipprotoUdpCode();
 
-    @Downcall(methodName = "jing_win_ipproto_ipv6_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_ipproto_ipv6_code",critical = true)
     int ipprotoIpv6Code();
 
-    @Downcall(methodName = "jing_win_so_reuseaddr", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_so_reuseaddr",critical = true)
     int soReuseaddr();
 
-    @Downcall(methodName = "jing_win_tcp_nodelay", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_tcp_nodelay",critical = true)
     int tcpNodelay();
 
-    @Downcall(methodName = "jing_win_ipv6_v6only", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_ipv6_v6only",critical = true)
     int ipv6V6only();
 
     @Downcall(methodName = "jing_win_socket", critical = true)
@@ -161,28 +161,28 @@ public interface WinBindings {
     int udsAccept(int socket);
 
     // wepoll related functions
-    @Downcall(methodName = "jing_win_wepoll_in", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_in",critical = true)
     int wepollIn();
 
-    @Downcall(methodName = "jing_win_wepoll_out", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_out",critical = true)
     int wepollOut();
 
-    @Downcall(methodName = "jing_win_wepoll_rdhup", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_rdhup",critical = true)
     int wepollRdhup();
 
-    @Downcall(methodName = "jing_win_wepoll_err", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_err",critical = true)
     int wepollErr();
 
-    @Downcall(methodName = "jing_win_wepoll_hup", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_hup",critical = true)
     int wepollHup();
 
-    @Downcall(methodName = "jing_win_wepoll_ctl_add", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_ctl_add",critical = true)
     int wepollAdd();
 
-    @Downcall(methodName = "jing_win_wepoll_ctl_mod", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_ctl_mod",critical = true)
     int wepollMod();
 
-    @Downcall(methodName = "jing_win_wepoll_ctl_del", constant = true, critical = true)
+    @Downcall(methodName = "jing_win_wepoll_ctl_del",critical = true)
     int wepollDel();
 
     @Downcall(methodName = "jing_win_wepoll_create", critical = true)

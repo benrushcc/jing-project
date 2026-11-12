@@ -134,7 +134,7 @@ public final class Libs {
         return null;
     }
 
-    public static MemorySegment addrFromLib(Class<?> libType, String methodName) {
+    public static MemorySegment addr(Class<?> libType, String methodName) {
         LibDescriptor libDescriptor = LIB_MAPPINGS.get(libType);
         if (libDescriptor == null) {
             return MemorySegment.NULL;
@@ -146,89 +146,33 @@ public final class Libs {
         return segment;
     }
 
-    public static MethodHandle mhFromLib(Class<?> libType, String methodName, List<Class<?>> types, boolean critical, boolean constant) {
-        MemorySegment addr = addrFromLib(libType, methodName);
-        return makeDowncallMethodHandle(methodName, addr, types, critical, constant);
-    }
-
-    private static MethodHandle makeDowncallMethodHandle(String methodName, MemorySegment addr, List<Class<?>> types, boolean critical, boolean constant) {
-        if (types == null || types.isEmpty()) {
-            throw new IllegalArgumentException("types cannot be null or empty");
+    public static MethodHandle mh(Class<?> libType, String methodName, Class<?> returnType, List<Class<?>> parameterTypes, boolean critical) {
+        if(libType == null || methodName == null || methodName.isBlank() || returnType == null || parameterTypes == null || parameterTypes.isEmpty()) {
+            throw new IllegalArgumentException();
         }
-        if (constant && types.size() > 1) {
-            throw new IllegalArgumentException("constant method cannot have parameters");
+        MemorySegment addr = addr(libType, methodName);
+        if(addr.address() == 0L) {
+            MethodHandle mh = MethodHandles.throwException(returnType, ForeignException.class)
+                    .bindTo(new ForeignException("native method not found : " + methodName));
+            if (!parameterTypes.isEmpty()) {
+                mh = MethodHandles.dropArguments(mh, 0, parameterTypes);
+            }
+            return mh;
         }
-        if (addr.address() == 0L) {
-            return makeErrorMethodHandle(types, methodName);
+        FunctionDescriptor descriptor;
+        if(parameterTypes.isEmpty()) {
+            descriptor = returnType == void.class ? FunctionDescriptor.ofVoid() : FunctionDescriptor.of(castMemoryLayout(returnType));
+        } else {
+            MemoryLayout[] layouts = new MemoryLayout[parameterTypes.size()];
+            for (int i = 0; i < parameterTypes.size(); i++) {
+                layouts[i] = castMemoryLayout(parameterTypes.get(i));
+            }
+            descriptor = returnType == void.class ? FunctionDescriptor.ofVoid(layouts) : FunctionDescriptor.of(castMemoryLayout(returnType), layouts);
         }
-        FunctionDescriptor descriptor = castFunctionDescriptor(types);
         Linker linker = Linker.nativeLinker();
-        MethodHandle mh = (JING_CRITICAL && critical) ?
+        return (JING_CRITICAL && critical) ?
                 linker.downcallHandle(addr, descriptor, Linker.Option.critical(false)) :
                 linker.downcallHandle(addr, descriptor);
-        if (constant) {
-            return makeConstantMethodHandle(types, mh);
-        }
-        return mh;
-    }
-
-    private static MethodHandle makeErrorMethodHandle(List<Class<?>> types, String methodName) {
-        Class<?> rType = types.getFirst();
-        MethodHandle mh = MethodHandles.throwException(rType, ForeignException.class)
-                .bindTo(new ForeignException("native method not found : " + methodName));
-        if (types.size() > 1) {
-            mh = MethodHandles.dropArguments(mh, 0, types.subList(1, types.size()));
-        }
-        return mh;
-    }
-
-    private static MethodHandle makeConstantMethodHandle(List<Class<?>> types, MethodHandle mh) {
-        try {
-            Class<?> rType = types.getFirst();
-            if (rType == byte.class) {
-                return MethodHandles.constant(byte.class, (byte) mh.invokeExact());
-            }
-            if (rType == boolean.class) {
-                return MethodHandles.constant(boolean.class, (boolean) mh.invokeExact());
-            }
-            if (rType == short.class) {
-                return MethodHandles.constant(short.class, (short) mh.invokeExact());
-            }
-            if (rType == char.class) {
-                return MethodHandles.constant(char.class, (char) mh.invokeExact());
-            }
-            if (rType == int.class) {
-                return MethodHandles.constant(int.class, (int) mh.invokeExact());
-            }
-            if (rType == long.class) {
-                return MethodHandles.constant(long.class, (long) mh.invokeExact());
-            }
-            if (rType == float.class) {
-                return MethodHandles.constant(float.class, (float) mh.invokeExact());
-            }
-            if (rType == double.class) {
-                return MethodHandles.constant(double.class, (double) mh.invokeExact());
-            }
-            if (rType == MemorySegment.class) {
-                return MethodHandles.constant(MemorySegment.class, (MemorySegment) mh.invokeExact());
-            }
-            throw new ForeignException("unsupported constant foreign method return type : " + rType);
-        } catch (Throwable t) {
-            throw new ForeignException("failed to invoke constant foreign method", t);
-        }
-    }
-
-    private static FunctionDescriptor castFunctionDescriptor(List<Class<?>> types) {
-        int layoutSize = types.size() - 1;
-        Class<?> firstType = types.getFirst();
-        if(layoutSize == 0) {
-            return firstType == void.class ? FunctionDescriptor.ofVoid() : FunctionDescriptor.of(castMemoryLayout(firstType));
-        }
-        MemoryLayout[] layouts = new MemoryLayout[layoutSize];
-        for(int i = 0; i < layouts.length; i++) {
-            layouts[i] = castMemoryLayout(types.get(i + 1));
-        }
-        return firstType == void.class ? FunctionDescriptor.ofVoid(layouts) : FunctionDescriptor.of(castMemoryLayout(firstType), layouts);
     }
 
     private static MemoryLayout castMemoryLayout(Class<?> type) {

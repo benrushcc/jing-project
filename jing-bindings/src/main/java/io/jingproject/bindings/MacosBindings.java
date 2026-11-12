@@ -8,10 +8,10 @@ import java.lang.foreign.MemorySegment;
 
 @FFM(libraryName = "jing_bindings", supportedOS = Os.MACOS)
 public interface MacosBindings {
-    @Downcall(methodName = "jing_macos_evfilt_read", constant = true, critical = true)
+    @Downcall(methodName = "jing_macos_evfilt_read",critical = true)
     int evfiltRead();
 
-    @Downcall(methodName = "jing_macos_evfilt_write", constant = true, critical = true)
+    @Downcall(methodName = "jing_macos_evfilt_write",critical = true)
     int evfiltWrite();
 
     @Downcall(methodName = "jing_macos_kqueue", critical = true)

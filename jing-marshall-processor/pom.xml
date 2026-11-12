@@ -18,6 +18,11 @@
     <dependencies>
         <dependency>
             <groupId>io.jingproject</groupId>
+            <artifactId>jing-common</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jingproject</groupId>
             <artifactId>jing-common-processor</artifactId>
             <version>${revision}</version>
         </dependency>

@@ -6,31 +6,31 @@ import io.jingproject.ffm.FFM;
 
 @FFM(libraryName = "jing_bindings", supportedOS = {Os.LINUX})
 public interface LinuxBindings {
-    @Downcall(methodName = "jing_linux_epoll_in", constant = true, critical = true)
+    @Downcall(methodName = "jing_linux_epoll_in",critical = true)
     int epollIn();
 
-    @Downcall(methodName = "jing_linux_epoll_out", constant = true, critical = true)
+    @Downcall(methodName = "jing_linux_epoll_out",critical = true)
     int epollOut();
 
-    @Downcall(methodName = "jing_linux_epoll_rdhup", constant = true, critical = true)
+    @Downcall(methodName = "jing_linux_epoll_rdhup",critical = true)
     int epollRdhup();
 
-    @Downcall(methodName = "jing_linux_epoll_err", constant = true, critical = true)
+    @Downcall(methodName = "jing_linux_epoll_err",critical = true)
     int epollErr();
 
-    @Downcall(methodName = "jing_linux_epoll_hup", constant = true, critical = true)
+    @Downcall(methodName = "jing_linux_epoll_hup",critical = true)
     int epollHup();
 
-    @Downcall(methodName = "jing_linux_epoll_ctl_add", constant = true, critical = true)
+    @Downcall(methodName = "jing_linux_epoll_ctl_add",critical = true)
     int epollAdd();
 
-    @Downcall(methodName = "jing_linux_epoll_ctl_mod", constant = true, critical = true)
+    @Downcall(methodName = "jing_linux_epoll_ctl_mod",critical = true)
     int epollMod();
 
-    @Downcall(methodName = "jing_linux_epoll_ctl_del", constant = true, critical = true)
+    @Downcall(methodName = "jing_linux_epoll_ctl_del",critical = true)
     int epollDel();
 
-    @Downcall(methodName = "jing_linux_epoll_cloexec", constant = true, critical = true)
+    @Downcall(methodName = "jing_linux_epoll_cloexec",critical = true)
     int epollCloexec();
 
     @Downcall(methodName = "jing_linux_epoll_create", critical = true)
@@ -42,10 +42,10 @@ public interface LinuxBindings {
     @Downcall(methodName = "jing_linux_epoll_wait")
     int epollWait(int epfd, long events, int maxevnets, int timeout);
 
-    @Downcall(methodName = "jing_linux_efd_cloexec", constant = true, critical = true)
+    @Downcall(methodName = "jing_linux_efd_cloexec",critical = true)
     int efdCloexec();
 
-    @Downcall(methodName = "jing_linux_efd_nonblock", constant = true, critical = true)
+    @Downcall(methodName = "jing_linux_efd_nonblock",critical = true)
     int efdNonblock();
 
     @Downcall(methodName = "jing_linux_eventfd", critical = true)

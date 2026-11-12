@@ -9,9 +9,9 @@ import io.jingproject.ffm.Libs;
 public final class Mem {
     private static final StdBinding VM_BINDINGS = Libs.impl(StdBinding.class);
     // function pointer for C's malloc()
-    private static final long MALLOC_FUNC_ADDR = Libs.addrFromLib(StdBinding.class, "jing_malloc").address();
+    private static final long MALLOC_FUNC_ADDR = Libs.addr(StdBinding.class, "jing_malloc").address();
     // function pointer for C's free()
-    private static final long FREE_FUNC_ADDR = Libs.addrFromLib(StdBinding.class, "jing_free").address();
+    private static final long FREE_FUNC_ADDR = Libs.addr(StdBinding.class, "jing_free").address();
 
     static {
         if (VM_BINDINGS == null) {

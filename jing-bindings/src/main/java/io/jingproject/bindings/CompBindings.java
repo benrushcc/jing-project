@@ -7,6 +7,6 @@ import java.lang.foreign.MemorySegment;
 
 @FFM(libraryName = "jing_bindings")
 public interface CompBindings {
-    @Downcall(methodName = "jing_zlib_ng_version", constant = true, critical = true)
+    @Downcall(methodName = "jing_zlib_ng_version",critical = true)
     MemorySegment zlibVersion();
 }

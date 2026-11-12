@@ -8,10 +8,10 @@ import java.lang.foreign.MemorySegment;
 
 @FFM(libraryName = "jing_bindings", supportedOS = {Os.WINDOWS})
 public interface WinLogIoBindings {
-    @Downcall(methodName = "jing_log_win_stdout_handle", constant = true, critical = true)
+    @Downcall(methodName = "jing_log_win_stdout_handle",critical = true)
     long stdoutHandle();
 
-    @Downcall(methodName = "jing_log_win_stderr_handle", constant = true, critical = true)
+    @Downcall(methodName = "jing_log_win_stderr_handle",critical = true)
     long stderrHandle();
 
     @Downcall(methodName = "jing_log_win_open_append")

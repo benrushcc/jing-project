@@ -15,22 +15,22 @@ public interface PosixBindings {
     @Downcall(methodName = "jing_posix_batch_free")
     void posixBatchFree(long ptrs, long len, long freeAddr);
 
-    @Downcall(methodName = "jing_posix_page_size", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_page_size",critical = true)
     long posixPageSize();
 
-    @Downcall(methodName = "jing_posix_prot_read", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_prot_read",critical = true)
     int posixProtRead();
 
-    @Downcall(methodName = "jing_posix_prot_write", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_prot_write",critical = true)
     int posixProtWrite();
 
-    @Downcall(methodName = "jing_posix_madv_free", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_madv_free",critical = true)
     int posixMadvFree();
 
-    @Downcall(methodName = "jing_posix_map_private", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_map_private",critical = true)
     int posixMapPrivate();
 
-    @Downcall(methodName = "jing_posix_map_anonymous", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_map_anonymous",critical = true)
     int posixMapAnonymous();
 
     @Downcall(methodName = "jing_posix_mmap", critical = true)
@@ -48,46 +48,46 @@ public interface PosixBindings {
     @Downcall(methodName = "jing_posix_close", critical = true)
     int posixClose(int fd);
 
-    @Downcall(methodName = "jing_posix_connect_block_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_connect_block_code",critical = true)
     int connectBlockCode();
 
-    @Downcall(methodName = "jing_posix_send_block_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_send_block_code",critical = true)
     int sendBlockCode();
 
-    @Downcall(methodName = "jing_posix_af_inet_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_af_inet_code",critical = true)
     int afInetCode();
 
-    @Downcall(methodName = "jing_posix_af_inet6_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_af_inet6_code",critical = true)
     int afInet6Code();
 
-    @Downcall(methodName = "jing_posix_af_unix_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_af_unix_code",critical = true)
     int afUnixCode();
 
-    @Downcall(methodName = "jing_posix_sol_socket", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_sol_socket",critical = true)
     int solSocket();
 
-    @Downcall(methodName = "jing_posix_tcp_type_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_tcp_type_code",critical = true)
     int tcpTypeCode();
 
-    @Downcall(methodName = "jing_posix_udp_type_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_udp_type_code",critical = true)
     int udpTypeCode();
 
-    @Downcall(methodName = "jing_posix_tcp_protocol_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_tcp_protocol_code",critical = true)
     int tcpProtocolCode();
 
-    @Downcall(methodName = "jing_posix_udp_protocol_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_udp_protocol_code",critical = true)
     int udpProtocolCode();
 
-    @Downcall(methodName = "jing_posix_ipproto_ipv6_code", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_ipproto_ipv6_code",critical = true)
     int ipprotoIpv6Code();
 
-    @Downcall(methodName = "jing_posix_so_reuseaddr", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_so_reuseaddr",critical = true)
     int soReuseaddr();
 
-    @Downcall(methodName = "jing_posix_tcp_nodelay", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_tcp_nodelay",critical = true)
     int tcpNodelay();
 
-    @Downcall(methodName = "jing_posix_ipv6_v6only", constant = true, critical = true)
+    @Downcall(methodName = "jing_posix_ipv6_v6only",critical = true)
     int ipv6V6only();
 
     @Downcall(methodName = "jing_posix_socket", critical = true)

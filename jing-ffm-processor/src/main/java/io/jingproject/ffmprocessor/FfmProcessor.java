@@ -307,7 +307,8 @@ public final class FfmProcessor extends AbstractProcessor {
         String targetClassName = facadeSource.register(ffmProcessorInfo.element());
         String listClassName = facadeSource.register(List.class);
         String methodHandleClassName = facadeSource.register(MethodHandle.class);
-        String assertionErrorClassName = facadeSource.register(AssertionError.class);
+        String libsClassName = facadeSource.register(Libs.class);
+        String indexOutOfBoundsExceptionClassName = facadeSource.register(IndexOutOfBoundsException.class);
         GeneratorBlock b = new GeneratorBlock()
                 .addLine("private static final class Impl implements " + targetClassName + " {")
                 .indent()
@@ -318,10 +319,17 @@ public final class FfmProcessor extends AbstractProcessor {
                 .addLine("return switch (index) {")
                 .indent();
         for (FfmDowncallInfo ffmDowncallInfo : ffmProcessorInfo.ffmDowncallInfos()) {
-            b.addLine("case " + ffmDowncallInfo.index() + " -> " +
-                    methodHandleFactory(facadeSource, ffmProcessorInfo, ffmDowncallInfo));
+            ExecutableElement executableElement = ffmDowncallInfo.element();
+            String returnType = castFfmReturnType(facadeSource, executableElement.getReturnType()) + ".class";
+            String parameters = executableElement.getParameters()
+                    .stream()
+                    .map(v -> castFfmParameterType(facadeSource, v.asType()) + ".class")
+                    .collect(Collectors.joining(", "));
+            b.addLine("case " + ffmDowncallInfo.index() + " -> " + libsClassName + ".mh(" +
+                    targetClassName + ".class, " + AnnoUtil.escapeStrLiteral(ffmDowncallInfo.methodName()) +
+                    ", " + returnType + ", " + listClassName + ".of(" + parameters + "), " + ffmDowncallInfo.critical() + ");");
         }
-        return b.addLine("default -> throw new " + assertionErrorClassName + "();")
+        return b.addLine("default -> throw new " + indexOutOfBoundsExceptionClassName + "();")
                 .unindent()
                 .addLine("};")
                 .unindent()
@@ -331,51 +339,37 @@ public final class FfmProcessor extends AbstractProcessor {
 
     private GeneratorBlock downcallMethodBlock(GeneratorSource facadeSource, FfmDowncallInfo ffmDowncallInfo) {
         ExecutableElement ex = ffmDowncallInfo.element();
-        List<String> types = castMethodTypes(facadeSource, ex);
         String overrideClassName = facadeSource.register(Override.class);
-        String runtimeExceptionClassName = facadeSource.register(RuntimeException.class);
-        String errorClassName = facadeSource.register(Error.class);
         String throwableClassName = facadeSource.register(Throwable.class);
-        String undeclaredThrowableExceptionClassName = facadeSource.register(UndeclaredThrowableException.class);
+        String libsClassName = facadeSource.register(Libs.class);
+        String returnType = castFfmReturnType(facadeSource, ex.getReturnType());
+        List<String> parameterTypes = new ArrayList<>();
+        List<String> parameterNames = new ArrayList<>();
+        for (VariableElement v : ex.getParameters()) {
+            parameterTypes.add(castFfmParameterType(facadeSource, v.asType()));
+            parameterNames.add(v.getSimpleName().toString());
+        }
         return new GeneratorBlock()
                 .addLine("@" + overrideClassName)
-                .addLine("public " + types.getFirst() + " " + ex.getSimpleName() + "(" +
-                        IntStream.range(1, types.size()).mapToObj(i -> types.get(i) + " p" + i).collect(Collectors.joining(", ")) + ") {")
+                .addLine("public " + returnType + " " + ex.getSimpleName() + "(" +
+                        IntStream.range(0, parameterTypes.size())
+                                .mapToObj(i -> parameterTypes.get(i) + " " + parameterNames.get(i))
+                                .collect(Collectors.joining(", ")) + ") {")
                 .indent()
                 .addLine("try {")
                 .indent()
-                .addLine(("void".equals(types.getFirst()) ? "" : "return (" + types.getFirst() + ") ") +
+                .addLine(("void".equals(returnType) ? "" : "return (" + returnType + ") ") +
                         "MHS.get(" + ffmDowncallInfo.index() + ").invokeExact(" +
-                        IntStream.range(1, types.size()).mapToObj(i -> "p" + i).collect(Collectors.joining(", ")) + ");")
+                        String.join(", ", parameterNames) + ");")
                 .unindent()
-                .addLine("} catch (" + runtimeExceptionClassName + " | " + errorClassName + " e) {")
+                .addLine("} catch (" + throwableClassName + " e) {")
                 .indent()
-                .addLine("throw e;")
-                .unindent()
-                .addLine("} catch (" + throwableClassName + " t) {")
-                .indent()
-                .addLine("throw new " + undeclaredThrowableExceptionClassName + "(t);")
+                .addLine("throw " + libsClassName + ".sanitize(e);")
                 .unindent()
                 .addLine("}")
                 .unindent()
                 .addLine("}")
                 .newLine();
-    }
-
-    private String methodHandleFactory(GeneratorSource facadeSource, FfmProcessorInfo ffmProcessorInfo, FfmDowncallInfo ffmDowncallInfo) {
-        String targetClassName = facadeSource.register(ffmProcessorInfo.element());
-        String listClassName = facadeSource.register(List.class);
-        String libsClassName = facadeSource.register(Libs.class);
-        String typesArg = castMethodTypes(facadeSource, ffmDowncallInfo.element()).stream()
-                .map(type -> type + ".class")
-                .collect(Collectors.joining(", "));
-        String args = String.join(", ",
-                targetClassName + ".class",
-                AnnoUtil.escapeStrLiteral(ffmDowncallInfo.methodName()),
-                listClassName + ".of(" + typesArg + ")",
-                String.valueOf(ffmDowncallInfo.critical()),
-                String.valueOf(ffmDowncallInfo.constant()));
-        return libsClassName + ".mhFromLib(" + args + ");";
     }
 
     private List<String> castMethodTypes(GeneratorSource source, ExecutableElement ex) {

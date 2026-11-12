@@ -9,15 +9,15 @@ public interface CommonBinding {
         return majorVersion() + "." + minorVersion() + "." + patchVersion();
     }
 
-    @Downcall(methodName = "jing_major_version", constant = true, critical = true)
+    @Downcall(methodName = "jing_major_version",critical = true)
     int majorVersion();
 
-    @Downcall(methodName = "jing_minor_version", constant = true, critical = true)
+    @Downcall(methodName = "jing_minor_version",critical = true)
     int minorVersion();
 
-    @Downcall(methodName = "jing_patch_version", constant = true, critical = true)
+    @Downcall(methodName = "jing_patch_version",critical = true)
     int patchVersion();
 
-    @Downcall(methodName = "jing_ptr_err_flag", constant = true, critical = true)
+    @Downcall(methodName = "jing_ptr_err_flag",critical = true)
     long ptrErrFlag();
 }
