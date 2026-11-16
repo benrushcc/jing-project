@@ -2,17 +2,26 @@
 #define JING_POSIX_H
 
 #include "jing_common.h"
-#if defined(JING_OS_LINUX) || defined(JING_OS_MACOS)
+#if (defined(JING_OS_LINUX) && JING_OS_LINUX) || (defined(JING_OS_MACOS) && JING_OS_MACOS)
 #include <stdint.h>
 #include <sys/types.h>
 static_assert(sizeof(off_t) == 8, "off_t size mismatch");
 
+typedef struct {
+	void**  ptrs;
+	int  count;
+	int  capacity;
+} jing_posix_alloc_ctx;
+
+jing_posix_alloc_ctx* jing_posix_new_alloc_ctx(void);
+
 JING_EXPORT_SYMBOL size_t jing_posix_max_align(void);
 
-JING_EXPORT_SYMBOL void* jing_posix_memalign(size_t alignment, size_t size);
+JING_EXPORT_SYMBOL void* jing_posix_alloc(jing_posix_alloc_ctx* ctx, size_t size);
 
-JING_EXPORT_SYMBOL void jing_posix_batch_free(void** ptrs, size_t len,
-                                              void (*free_func_t)(void*));
+JING_EXPORT_SYMBOL void* jing_posix_memalign(jing_posix_alloc_ctx* ctx, size_t size, size_t alignment);
+
+JING_EXPORT_SYMBOL void jing_posix_dealloc(jing_posix_alloc_ctx* ctx);
 
 // mmap related
 JING_EXPORT_SYMBOL long jing_posix_page_size(void);

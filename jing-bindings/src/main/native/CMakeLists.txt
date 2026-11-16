@@ -42,7 +42,7 @@ if(APPLE)
 endif()
 
 function(jing_configure target)
-    if(MSVC)
+    if(WIN32)
         target_compile_definitions(${target} PRIVATE
             WIN32=1
             _WINDOWS=1
@@ -88,13 +88,15 @@ endfunction()
 project(jing_bindings_project VERSION 0.0.1 LANGUAGES C)
 
 # provided options
-option(JING_USE_WEPOLL   "provide wepoll related functions in jing_bindings library"  ON)
-option(JING_USE_AWS_LC   "provide aws-lc related functions in jing_bindings library"  ON)
-option(JING_USE_ZLIB_NG  "provide zlib-ng related functions in jing_bindings library" ON)
+option(JING_USE_WEPOLL   "provide wepoll related functions in jing_bindings library"    ON)
+option(JING_USE_RPMALLOC "provide rpmalloc related functions in jing_bindings library"  ON)
+option(JING_USE_AWS_LC   "provide aws-lc related functions in jing_bindings library"    ON)
+option(JING_USE_ZLIB_NG  "provide zlib-ng related functions in jing_bindings library"   ON)
 
-set(JING_WEPOLL_VERSION    "v1.5.8"       CACHE STRING "wepoll library version"    FORCE)
-set(JING_AWS_LC_VERSION    "v5.13.0"      CACHE STRING "aws-lc library version"    FORCE)
-set(JING_ZLIB_NG_VERSION   "2.3.3"        CACHE STRING "zlib-ng   library version" FORCE)
+set(JING_WEPOLL_VERSION    "v1.5.8"       CACHE STRING "wepoll library version"      FORCE)
+set(JING_RPMALLOC_VERSION  "2.0.1"        CACHE STRING "rpmalloc library version"    FORCE)
+set(JING_AWS_LC_VERSION    "v5.13.0"      CACHE STRING "aws-lc library version"      FORCE)
+set(JING_ZLIB_NG_VERSION   "2.3.3"        CACHE STRING "zlib-ng library version"     FORCE)
 
 add_library(jing_bindings SHARED)
 set_target_properties(jing_bindings PROPERTIES
@@ -160,6 +162,29 @@ if(WIN32)
         target_link_libraries(wepollstatic PUBLIC ws2_32)
         target_link_libraries(jing_bindings PRIVATE wepollstatic)
     endif()
+endif()
+
+# setup rpmalloc
+if(JING_USE_RPMALLOC)
+    FetchContent_Declare(
+        rpmallocproject
+        GIT_REPOSITORY https://github.com/mjansson/rpmalloc.git
+        GIT_TAG tags/${JING_RPMALLOC_VERSION}
+        GIT_SHALLOW TRUE
+        SOURCE_SUBDIR none_exist
+        EXCLUDE_FROM_ALL
+    )
+    message(STATUS "Configuring rpmalloc")
+    FetchContent_MakeAvailable(rpmallocproject)
+    message(STATUS "Configuring rpmalloc succeed")
+    target_sources(jing_bindings PRIVATE src/jing_rpmalloc.c)
+    target_compile_definitions(jing_bindings PRIVATE JING_USE_RPMALLOC=1)
+    add_library(rpmallocstatic STATIC ${rpmallocproject_SOURCE_DIR}/rpmalloc/rpmalloc.c)
+    if(WIN32)
+        target_compile_options(rpmallocstatic PRIVATE /experimental:c11atomics)
+    endif()
+    target_include_directories(rpmallocstatic PUBLIC ${rpmallocproject_SOURCE_DIR}/rpmalloc)
+    target_link_libraries(jing_bindings PRIVATE rpmallocstatic)
 endif()
 
 #setup aws-lc

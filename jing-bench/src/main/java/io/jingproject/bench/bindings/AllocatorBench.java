@@ -19,9 +19,6 @@ public class AllocatorBench extends AbstractBench {
     private static final int OPERATIONS = ROUNDS * ALLOCATIONS_PER_ROUND;
     private static final long ARENA_SIZE = 16L * 1024L * 1024L;
 
-    @Param({"8", "32", "1024"})
-    private long alignment;
-
     private int[] sizes;
 
     @Setup(Level.Trial)
@@ -42,10 +39,26 @@ public class AllocatorBench extends AbstractBench {
     @OperationsPerInvocation(OPERATIONS)
     public void mallocAlloc(Blackhole blackhole) {
         for (int r = 0; r < ROUNDS; r++) {
-            try (Allocator allocator = Allocator.newAlloc()) {
+            try (Allocator allocator = Allocator.newAllocator()) {
                 for (int i = 0; i < ALLOCATIONS_PER_ROUND; i++) {
-                    MemorySegment segment = allocator.allocate(sizes[i], alignment);
-                    blackhole.consume(segment.address());
+                    long addr = allocator.alloc(sizes[i]);
+                    blackhole.consume(addr);
+                }
+            }
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(OPERATIONS)
+    @Fork(value = FORK_COUNT, jvmArgsAppend = {
+            "-Djing.bindings.alloc.type=rpmalloc"
+    })
+    public void rpAlloc(Blackhole blackhole) {
+        for (int r = 0; r < ROUNDS; r++) {
+            try (Allocator allocator = Allocator.newAllocator()) {
+                for (int i = 0; i < ALLOCATIONS_PER_ROUND; i++) {
+                    long addr = allocator.alloc(sizes[i]);
+                    blackhole.consume(addr);
                 }
             }
         }
@@ -57,10 +70,10 @@ public class AllocatorBench extends AbstractBench {
         try(ArenaBase arenaBase = ArenaBase.newInstance(ARENA_SIZE, 4, 4)) {
             ScopedValue.where(Allocator.MMAP_SCOPE, arenaBase).run(() -> {
                 for (int r = 0; r < ROUNDS; r++) {
-                    try (Allocator allocator = Allocator.newAlloc()) {
+                    try (Allocator allocator = Allocator.newAllocator()) {
                         for (int i = 0; i < ALLOCATIONS_PER_ROUND; i++) {
-                            MemorySegment segment = allocator.allocate(sizes[i], alignment);
-                            blackhole.consume(segment.address());
+                            long addr = allocator.alloc(sizes[i]);
+                            blackhole.consume(addr);
                         }
                     }
                 }

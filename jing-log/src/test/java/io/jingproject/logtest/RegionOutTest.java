@@ -5,6 +5,7 @@ import io.jingproject.log.RegionOut;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 
@@ -20,8 +21,8 @@ public class RegionOutTest {
 
     @Test
     public void testWriteUtf8ReplacesLoneSurrogates() {
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(32);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(32);
             RegionOut out = new RegionOut(region);
             out.writeUtf8("\uD83D");
             out.writeUtf8("\uDE00");
@@ -33,8 +34,8 @@ public class RegionOutTest {
 
     @Test
     public void testWriteUtf8PreservesValidSurrogatePair() {
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(32);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(32);
             RegionOut out = new RegionOut(region);
             out.writeUtf8("\uD83D\uDE80");
             Assertions.assertArrayEquals(

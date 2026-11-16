@@ -1,6 +1,6 @@
 #include "jing_common.h"
 
-#if defined(JING_OS_LINUX) || defined(JING_OS_MACOS)
+#if (defined(JING_OS_LINUX) && JING_OS_LINUX) || (defined(JING_OS_MACOS) && JING_OS_MACOS)
 #include "jing_posix.h"
 #include <stdlib.h>
 #include <stdalign.h>
@@ -15,26 +15,86 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+// alloc related
+
+#define ALLOC_INITIAL_CAPACITY 8
+
+jing_posix_alloc_ctx* jing_posix_new_alloc_ctx(void) {
+	jing_posix_alloc_ctx* r = malloc(sizeof(jing_posix_alloc_ctx));
+	if(JING_UNLIKELY(r == NULL)) {
+		return NULL;
+	}
+	void** p = malloc(ALLOC_INITIAL_CAPACITY * sizeof(void*));
+	if(JING_UNLIKELY(p == NULL)) {
+		return NULL;
+	}
+	r->ptrs = p;
+	r->count = 0;
+	r->capacity = ALLOC_INITIAL_CAPACITY;
+	return r;
+}
+
 size_t jing_posix_max_align(void) {
 	return alignof(max_align_t);
 }
 
-void* jing_posix_memalign(size_t alignment, size_t size) {
-	void* p = NULL;
-	int r   = posix_memalign(&p, alignment, size);
-	if (r != 0) {
-		return jing_make_error_ptr(r);
+void* jing_posix_alloc(jing_posix_alloc_ctx* ctx, size_t size) {
+	void* r = malloc(size);
+	if(JING_UNLIKELY(r == NULL)) {
+		return NULL;
 	}
+	void** ptrs   = ctx->ptrs;
+	int  count    = ctx->count;
+	int  capacity = ctx->capacity;
+	if(count == capacity) {
+		if(JING_UNLIKELY(capacity > INT_MAX / 2)) {
+			return NULL;
+		}
+		capacity *= 2;   
+		ptrs = realloc(ptrs, capacity * sizeof(void*));
+		if(JING_UNLIKELY(ptrs == NULL)) {
+			return NULL;
+		}
+		ctx->ptrs     = ptrs;
+		ctx->capacity = capacity;
+	}
+	ptrs[count] = r;
+	ctx->count  = count + 1;
+	return r;
+}
+
+void* jing_posix_memalign(jing_posix_alloc_ctx* ctx, size_t size, size_t alignment) {
+	void* p = NULL;
+	if(JING_UNLIKELY(posix_memalign(&p, alignment, size) != 0)) {
+		return NULL;
+	}
+	void**  ptrs  = ctx->ptrs;
+	int  count    = ctx->count;
+	int  capacity = ctx->capacity;
+	if(count == capacity) {
+		if(JING_UNLIKELY(capacity > INT_MAX / 2)) {
+			return NULL;
+		}
+		capacity *= 2;   
+		ptrs = realloc(ptrs, capacity * sizeof(void*));
+		if(JING_UNLIKELY(ptrs == NULL)) {
+			return NULL;
+		}
+		ctx->ptrs     = ptrs;
+		ctx->capacity = capacity;
+	}
+	ptrs[count] = p;
+	ctx->count  = count + 1;
 	return p;
 }
 
-void jing_posix_batch_free(void** ptrs, size_t len,
-                           void (*free_func_t)(void*)) {
-	size_t count = len / sizeof(void*);
-	for (size_t i = 0; i < count; ++i) {
-		free_func_t(ptrs[i]);
+void jing_posix_dealloc(jing_posix_alloc_ctx* ctx) {
+	int count = ctx->count;
+	for(int i = 0; i < count; i++) {
+		free(ctx->ptrs[i]);
 	}
-	free_func_t(ptrs);
+	free(ctx->ptrs);
+	free(ctx);
 }
 
 // mmap related

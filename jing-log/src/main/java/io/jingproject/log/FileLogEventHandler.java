@@ -11,6 +11,7 @@ import io.jingproject.ffm.NativeSegmentAccess;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.charset.StandardCharsets;
@@ -216,10 +217,9 @@ public final class FileLogEventHandler implements LogEventHandler, AutoCloseable
     // the file past one threshold crossing; a single oversized event is still
     // written into a fresh file instead of being dropped.
     private void writeBatch(List<LogEvent> events) throws IOException {
-        Allocator alloc = Allocator.newAlloc();
-        MemorySegment region = alloc.allocate(REGION_SIZE);
-        long cursor = 0;
-        try {
+        try(Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(REGION_SIZE);
+            long cursor = 0;
             for (LogEvent e : events) {
                 long start = cursor;
                 long end = fill(region, start, e);
@@ -229,9 +229,7 @@ public final class FileLogEventHandler implements LogEventHandler, AutoCloseable
                         writeNative(region, cursor);
                         cursor = 0;
                     }
-                    alloc.close();
-                    alloc = Allocator.newAlloc();
-                    region = alloc.allocate(REGION_SIZE);
+                    region = arena.allocate(REGION_SIZE);
                     end = fill(region, 0, e);
                     if (end == -1) {
                         degrade("jing-log: dropping a file event larger than the write region");
@@ -249,9 +247,7 @@ public final class FileLogEventHandler implements LogEventHandler, AutoCloseable
                         writeNative(region, start);
                     }
                     rotate();
-                    alloc.close();
-                    alloc = Allocator.newAlloc();
-                    region = alloc.allocate(REGION_SIZE);
+                    region = arena.allocate(REGION_SIZE);
                     end = fill(region, 0, e);
                     if (end == -1) {
                         cursor = 0;
@@ -264,8 +260,6 @@ public final class FileLogEventHandler implements LogEventHandler, AutoCloseable
             if (cursor > 0) {
                 writeNative(region, cursor);
             }
-        } finally {
-            alloc.close();
         }
         flushIfNeeded();
     }
@@ -406,9 +400,8 @@ public final class FileLogEventHandler implements LogEventHandler, AutoCloseable
         if (target.getParent() != null) {
             Files.createDirectories(target.getParent());
         }
-        Allocator alloc = Allocator.newAlloc();
-        try {
-            MemorySegment nameCStr = cString(alloc, target.toString());
+        try(Arena arena = Arena.ofConfined()) {
+            MemorySegment nameCStr = arena.allocateFrom(target.toString());
             if (IS_WINDOWS) {
                 if (WIN_IO == null) {
                     throw new IllegalStateException("jing-log: WinLogIoBindings unavailable, native library"
@@ -443,8 +436,6 @@ public final class FileLogEventHandler implements LogEventHandler, AutoCloseable
                 posixFd = fd;
                 fileSize = size;
             }
-        } finally {
-            alloc.close();
         }
         opened = true;
         lastFlushMillis = clock.millis();
@@ -479,16 +470,7 @@ public final class FileLogEventHandler implements LogEventHandler, AutoCloseable
             throw new IOException("jing-log: flush failed, err=" + -rc);
         }
     }
-
-    // allocates a NUL-terminated utf-8 c string for a native open call
-    private static MemorySegment cString(Allocator alloc, String s) {
-        byte[] encoded = s.getBytes(StandardCharsets.UTF_8);
-        MemorySegment seg = alloc.allocate(encoded.length + 1L);
-        MemorySegment.copy(encoded, 0, seg, ValueLayout.JAVA_BYTE, 0, encoded.length);
-        NativeSegmentAccess.setByte(seg.address(), encoded.length, (byte) 0);
-        return seg;
-    }
-
+    
     private void writeNative(MemorySegment region, long len) throws IOException {
         if (len <= 0) {
             return;

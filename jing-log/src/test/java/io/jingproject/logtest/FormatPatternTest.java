@@ -7,6 +7,7 @@ import io.jingproject.log.LogEvent;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.charset.StandardCharsets;
@@ -30,8 +31,8 @@ public class FormatPatternTest {
 
     private static String render(String pattern, LogEvent e, String[] levelTexts) {
         FormatPattern fp = FormatPattern.compile(pattern, UTC, levelTexts);
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(16384);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(16384);
             long end = fp.fill(region, 0, e);
             Assertions.assertTrue(end >= 0, "fill must succeed, actual : " + end);
             byte[] bytes = new byte[(int) end];
@@ -171,8 +172,8 @@ public class FormatPatternTest {
         Throwable t = new RuntimeException("boom");
         LogEvent e = new LogEvent(LogLevel.INFO, NOW, "io.jingproject.logtest.Ex", "w", "m", t, Map.of());
         FormatPattern fp = FormatPattern.compile("%ex", UTC, LEVELS);
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(60);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(60);
             long end = fp.fill(region, 0, e);
             Assertions.assertTrue(end >= 0, "truncation must be tolerated");
             Assertions.assertTrue(end <= 60);
@@ -189,8 +190,8 @@ public class FormatPatternTest {
         LogEvent e = new LogEvent(LogLevel.INFO, NOW, "io.jingproject.logtest.Tiny", "w", "long message", null,
                 Map.of());
         FormatPattern fp = FormatPattern.compile("%msg%n", UTC, LEVELS);
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(8);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(8);
             Assertions.assertEquals(-1, fp.fill(region, 0, e));
         }
     }
@@ -199,8 +200,8 @@ public class FormatPatternTest {
     public void testExactFitSucceeds() {
         LogEvent e = new LogEvent(LogLevel.INFO, NOW, "io.jingproject.logtest.Tiny", "w", "hello", null, Map.of());
         FormatPattern fp = FormatPattern.compile("%msg%n", UTC, LEVELS);
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(6);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(6);
             Assertions.assertEquals(6, fp.fill(region, 0, e));
         }
     }
@@ -209,8 +210,8 @@ public class FormatPatternTest {
     public void testFillAtOffset() {
         LogEvent e = new LogEvent(LogLevel.INFO, NOW, "io.jingproject.logtest.Tiny", "w", "hello", null, Map.of());
         FormatPattern fp = FormatPattern.compile("%msg%n", UTC, LEVELS);
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(32);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(32);
             Assertions.assertEquals(12, fp.fill(region, 6, e));
             Assertions.assertEquals(18, fp.fill(region, 12, e));
         }

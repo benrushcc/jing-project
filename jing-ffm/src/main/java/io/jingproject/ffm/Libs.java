@@ -147,9 +147,6 @@ public final class Libs {
     }
 
     public static MethodHandle mh(Class<?> libType, String methodName, Class<?> returnType, List<Class<?>> parameterTypes, boolean critical) {
-        if(libType == null || methodName == null || methodName.isBlank() || returnType == null || parameterTypes == null || parameterTypes.isEmpty()) {
-            throw new IllegalArgumentException();
-        }
         MemorySegment addr = addr(libType, methodName);
         if(addr.address() == 0L) {
             MethodHandle mh = MethodHandles.throwException(returnType, ForeignException.class)

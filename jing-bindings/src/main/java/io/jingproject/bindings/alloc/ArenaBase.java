@@ -71,12 +71,9 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
         return committed - addr;
     }
 
-    public MemorySegment slice(long byteSize, long byteAlignment) {
-        if(byteSize <= 0L) {
-            throw new IllegalArgumentException("byteSize must be positive : " + byteSize);
-        }
-        long alignedPos = Utils.alignUp(pos, byteAlignment);
-        long newPos = Math.addExact(alignedPos, byteSize);
+    public long slice(long size, long alignment) {
+        long alignedPos = Utils.alignUp(pos, alignment);
+        long newPos = Math.addExact(alignedPos, size);
         if(newPos > bound) {
             throw new ForeignException("arena out of range : " + newPos);
         }
@@ -90,10 +87,10 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
             committed = newCommitted;
         }
         pos = newPos;
-        return NativeSegmentAccess.reinterpret(MemorySegment.ofAddress(alignedPos), byteSize);
+        return alignedPos;
     }
 
-    public void shrink(long previousPos) {
+    public void shrink(long previous) {
         if(pos == addr) {
             return ;
         }
@@ -101,7 +98,7 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
         if(peak < pos) {
             peak = Utils.alignUp(pos, pageSize);
         }
-        if(previousPos == addr) {
+        if(previous == addr) {
             if(++cnt >= count) {
                 long mid = ((committed & addr) + ((committed ^ addr) >> 1)) & -pageSize; // calculate the average and safely align it down to a pageSize boundary
                 if(peak <= mid) {
@@ -112,7 +109,7 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
                 cnt = 0;
             }
         }
-        pos = previousPos;
+        pos = previous;
     }
 
     protected abstract long granularity();

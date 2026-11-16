@@ -17,14 +17,13 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.*;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
-import java.lang.reflect.UndeclaredThrowableException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public final class FfmProcessor extends AbstractProcessor {
     private static final Set<Modifier> SKIPPED_MODIFIERS = Set.of(Modifier.DEFAULT, Modifier.STATIC, Modifier.PRIVATE);
@@ -74,7 +73,7 @@ public final class FfmProcessor extends AbstractProcessor {
 
     private static void checkLibraryName(String libraryName) {
         if(libraryName.isBlank()) {
-            throw new AnnotationProcessorException("@FFM library name must not be empty");
+            throw new AnnotationProcessorException("ffm library name must not be empty");
         }
         for(int i = 0; i < libraryName.length(); i++) {
             char c = libraryName.charAt(i);
@@ -84,7 +83,10 @@ public final class FfmProcessor extends AbstractProcessor {
             if(c >= 'a' && c <= 'z') {
                 continue ;
             }
-            if (c == '_' || c == '-') {
+            if(c >= '0' && c <= '9') {
+                continue;
+            }
+            if(c == '_' || c == '-') {
                 continue;
             }
             throw new AnnotationProcessorException("illegal library name : " + libraryName);
@@ -101,6 +103,10 @@ public final class FfmProcessor extends AbstractProcessor {
         // must be non-sealed
         if (t.getModifiers().contains(Modifier.SEALED)) {
             throw new AnnotationProcessorException("only non-sealed interfaces are supported by ffm bindings : " + t.getQualifiedName());
+        }
+        // must not extend other interfaces
+        if(!t.getInterfaces().isEmpty()) {
+            throw new AnnotationProcessorException("only non-inherited interfaces are supported by ffm bindings : " + t.getQualifiedName());
         }
         // check ffm parameters
         FFM ffm = Objects.requireNonNull(t.getAnnotation(FFM.class));
@@ -210,11 +216,15 @@ public final class FfmProcessor extends AbstractProcessor {
         String overrideClassName = facadeSource.register(Override.class);
         String listClassName = facadeSource.register(List.class);
         String osClassName = facadeSource.register(Os.class);
+        String osListValue = ffmProcessorInfo.supportedOS()
+                .stream()
+                .map(o -> osClassName + "." + o.name())
+                .collect(Collectors.joining(", "));
         return new GeneratorBlock()
                 .addLine("@" + overrideClassName)
                 .addLine("public " + listClassName + "<" + osClassName + "> supportedOS() {")
                 .indent()
-                .addLine("return " + listClassName + ".of(" + ffmProcessorInfo.supportedOS().stream().map(o -> osClassName + "." + o.name()).collect(Collectors.joining(", ")) + ");")
+                .addLine("return " + listClassName + ".of(" + osListValue + ");")
                 .unindent()
                 .addLine("}")
                 .newLine();
@@ -243,11 +253,11 @@ public final class FfmProcessor extends AbstractProcessor {
                 .indent()
                 .addLine("return " + listClassName + ".of(")
                 .indent();
-        ffmProcessorInfo.dependsOn().stream()
-                .map(AnnoUtil::escapeStrLiteral)
-                .collect(Collectors.joining(",\n"))
-                .lines()
-                .forEach(b::addLine);
+        List<String> values = ffmProcessorInfo.dependsOn();
+        for (int i = 0; i < values.size(); i++) {
+            String sep = i == values.size() - 1 ? "" : ",";
+            b.addLine(AnnoUtil.escapeStrLiteral(values.get(i)) + sep);
+        }
         return b.unindent()
                 .addLine(");")
                 .unindent()
@@ -265,11 +275,11 @@ public final class FfmProcessor extends AbstractProcessor {
                 .indent()
                 .addLine("return " + listClassName + ".of(")
                 .indent();
-        ffmProcessorInfo.ffmDowncallInfos().stream()
-                .map(info -> AnnoUtil.escapeStrLiteral(info.methodName()))
-                .collect(Collectors.joining(",\n"))
-                .lines()
-                .forEach(b::addLine);
+        List<FfmDowncallInfo> values = ffmProcessorInfo.ffmDowncallInfos();
+        for (int i = 0; i < values.size(); i++) {
+            String sep = i == values.size() - 1 ? "" : ",";
+            b.addLine(AnnoUtil.escapeStrLiteral(values.get(i).methodName()) + sep);
+        }
         return b.unindent()
                 .addLine(");")
                 .unindent()
@@ -312,7 +322,8 @@ public final class FfmProcessor extends AbstractProcessor {
         GeneratorBlock b = new GeneratorBlock()
                 .addLine("private static final class Impl implements " + targetClassName + " {")
                 .indent()
-                .addLine("private static final " + listClassName + "<" + methodHandleClassName + "> MHS = " + listClassName + ".ofLazy(" + ffmProcessorInfo.ffmDowncallInfos().size() + ", Impl::makeMHS);")
+                .addLine("private static final " + listClassName + "<" + methodHandleClassName + "> MHS = "
+                        + listClassName + ".ofLazy(" + ffmProcessorInfo.ffmDowncallInfos().size() + ", Impl::makeMHS);")
                 .newLine()
                 .addLine("private static " + methodHandleClassName + " makeMHS(int index) {")
                 .indent()
@@ -321,13 +332,16 @@ public final class FfmProcessor extends AbstractProcessor {
         for (FfmDowncallInfo ffmDowncallInfo : ffmProcessorInfo.ffmDowncallInfos()) {
             ExecutableElement executableElement = ffmDowncallInfo.element();
             String returnType = castFfmReturnType(facadeSource, executableElement.getReturnType()) + ".class";
-            String parameters = executableElement.getParameters()
-                    .stream()
+            String parameters = executableElement.getParameters().stream()
                     .map(v -> castFfmParameterType(facadeSource, v.asType()) + ".class")
                     .collect(Collectors.joining(", "));
-            b.addLine("case " + ffmDowncallInfo.index() + " -> " + libsClassName + ".mh(" +
-                    targetClassName + ".class, " + AnnoUtil.escapeStrLiteral(ffmDowncallInfo.methodName()) +
-                    ", " + returnType + ", " + listClassName + ".of(" + parameters + "), " + ffmDowncallInfo.critical() + ");");
+            String mhArgs = String.join(", ",
+                    targetClassName + ".class",
+                    AnnoUtil.escapeStrLiteral(ffmDowncallInfo.methodName()),
+                    returnType,
+                    listClassName + ".of(" + parameters + ")",
+                    String.valueOf(ffmDowncallInfo.critical()));
+            b.addLine("case " + ffmDowncallInfo.index() + " -> " + libsClassName + ".mh(" + mhArgs + ");");
         }
         return b.addLine("default -> throw new " + indexOutOfBoundsExceptionClassName + "();")
                 .unindent()
@@ -343,24 +357,20 @@ public final class FfmProcessor extends AbstractProcessor {
         String throwableClassName = facadeSource.register(Throwable.class);
         String libsClassName = facadeSource.register(Libs.class);
         String returnType = castFfmReturnType(facadeSource, ex.getReturnType());
-        List<String> parameterTypes = new ArrayList<>();
-        List<String> parameterNames = new ArrayList<>();
-        for (VariableElement v : ex.getParameters()) {
-            parameterTypes.add(castFfmParameterType(facadeSource, v.asType()));
-            parameterNames.add(v.getSimpleName().toString());
-        }
+        String returnStatement = ex.getReturnType().getKind() == TypeKind.VOID ? "" : "return (" + returnType + ") ";
+        String parameters = ex.getParameters().stream()
+                .map(v -> castFfmParameterType(facadeSource, v.asType()) + " " + v.getSimpleName())
+                .collect(Collectors.joining(", "));
+        String arguments = ex.getParameters().stream()
+                .map(v -> v.getSimpleName().toString())
+                .collect(Collectors.joining(", "));
         return new GeneratorBlock()
                 .addLine("@" + overrideClassName)
-                .addLine("public " + returnType + " " + ex.getSimpleName() + "(" +
-                        IntStream.range(0, parameterTypes.size())
-                                .mapToObj(i -> parameterTypes.get(i) + " " + parameterNames.get(i))
-                                .collect(Collectors.joining(", ")) + ") {")
+                .addLine("public " + returnType + " " + ex.getSimpleName() + "(" + parameters + ") {")
                 .indent()
                 .addLine("try {")
                 .indent()
-                .addLine(("void".equals(returnType) ? "" : "return (" + returnType + ") ") +
-                        "MHS.get(" + ffmDowncallInfo.index() + ").invokeExact(" +
-                        String.join(", ", parameterNames) + ");")
+                .addLine(returnStatement + "MHS.get(" + ffmDowncallInfo.index() + ").invokeExact(" + arguments + ");")
                 .unindent()
                 .addLine("} catch (" + throwableClassName + " e) {")
                 .indent()
@@ -372,52 +382,42 @@ public final class FfmProcessor extends AbstractProcessor {
                 .newLine();
     }
 
-    private List<String> castMethodTypes(GeneratorSource source, ExecutableElement ex) {
-        List<String> r = new ArrayList<>();
-        r.add(castFfmReturnType(source, ex.getReturnType()));
-        for (VariableElement v : ex.getParameters()) {
-            r.add(castFfmParameterType(source, v.asType()));
-        }
-        return r;
+    private String castFfmPrimitive(TypeMirror tm) {
+        return switch (tm.getKind()) {
+            case BOOLEAN -> "boolean";
+            case BYTE    -> "byte";
+            case CHAR    -> "char";
+            case SHORT   -> "short";
+            case INT     -> "int";
+            case LONG    -> "long";
+            case FLOAT   -> "float";
+            case DOUBLE  -> "double";
+            default -> null;
+        };
     }
 
     private String castFfmReturnType(GeneratorSource source, TypeMirror tm) {
-        return switch (tm.getKind()) {
-            case VOID -> "void";
-            case BOOLEAN -> "boolean";
-            case BYTE -> "byte";
-            case CHAR -> "char";
-            case SHORT -> "short";
-            case INT -> "int";
-            case LONG -> "long";
-            case FLOAT -> "float";
-            case DOUBLE -> "double";
-            default -> {
-                if (processingEnv.getTypeUtils().isSameType(tm, memorySegmentType)) {
-                    yield source.register(MemorySegment.class);
-                }
-                throw new AnnotationProcessorException("unsupported ffm downcall return type : " + tm);
-            }
-        };
+        if (tm.getKind() == TypeKind.VOID) {
+            return "void";
+        }
+        String primitive = castFfmPrimitive(tm);
+        if (primitive != null) {
+            return primitive;
+        }
+        if (processingEnv.getTypeUtils().isSameType(tm, memorySegmentType)) {
+            return source.register(MemorySegment.class);
+        }
+        throw new AnnotationProcessorException("unsupported ffm downcall return type : " + tm);
     }
 
     private String castFfmParameterType(GeneratorSource source, TypeMirror tm) {
-        return switch (tm.getKind()) {
-            case BOOLEAN -> "boolean";
-            case BYTE -> "byte";
-            case CHAR -> "char";
-            case SHORT -> "short";
-            case INT -> "int";
-            case LONG -> "long";
-            case FLOAT -> "float";
-            case DOUBLE -> "double";
-            case DECLARED -> {
-                if (processingEnv.getTypeUtils().isSameType(tm, memorySegmentType)) {
-                    yield source.register(MemorySegment.class);
-                }
-                throw new UnsupportedOperationException("unsupported declared parameter type: " + tm);
-            }
-            default -> throw new UnsupportedOperationException("unsupported parameter type: " + tm);
-        };
+        String primitive = castFfmPrimitive(tm);
+        if (primitive != null) {
+            return primitive;
+        }
+        if (tm.getKind() == TypeKind.DECLARED && processingEnv.getTypeUtils().isSameType(tm, memorySegmentType)) {
+            return source.register(MemorySegment.class);
+        }
+        throw new AnnotationProcessorException("unsupported ffm parameter type : " + tm);
     }
 }

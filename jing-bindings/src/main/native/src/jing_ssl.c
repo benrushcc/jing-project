@@ -1,6 +1,5 @@
 #include "jing_ssl.h"
-
-#ifdef JING_USE_SSL
+#if defined(JING_USE_SSL) && JING_USE_SSL
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>

@@ -2,7 +2,7 @@
 #define JING_LINUX_H
 
 #include "jing_common.h"
-#if defined(JING_OS_LINUX)
+#if defined(JING_OS_LINUX) && JING_OS_LINUX
 #include <sys/epoll.h>
 JING_EXPORT_SYMBOL int jing_linux_epoll_in(void);
 

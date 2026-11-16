@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 @Measurement(iterations = 3, time = 3000, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(3)
+@Fork(AbstractBench.FORK_COUNT)
 public abstract class AbstractBench {
+    protected static final int FORK_COUNT = 3;
 }

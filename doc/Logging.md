@@ -45,7 +45,7 @@ Scope: `jing-log` 模块为主，附带 `jing-bindings` 新增的日志 I/O nati
    `PosixBindings` 中的文件与控制台相关函数属实验性质，不进入正式设计。正式需要
    哪些 native 调用，见 §2 D8（核心章节）。
 3. handler 共享 Arena：通过 consumer 线程绑定的 ScopedValue（复用 jing-bindings
-   已有的 `Allocator.MMAP_SCOPE`）+ `Allocator.newAlloc()` 获取堆外写入能力。
+   已有的 `Allocator.MMAP_SCOPE`）+ `Allocator.newAllocator()` 获取堆外写入能力。
 4. 消费唤醒模型：队列为空时消费线程 `park()`，生产端每次投递后 `unpark()`。
 5. 移除 v1 中 `AbstractBatchLogEventHandler` 与可复用堆缓冲的思路：不再经堆缓冲
    中转，直接格式化进堆外；mmap 空间不足时 flush 一次即可腾出空间继续。
@@ -183,7 +183,7 @@ public interface LogEventHandler {
 
 **获取方式（通用机制）**：消费线程的整轮处理体包在
 `ScopedValue.where(Allocator.MMAP_SCOPE, arena).run(...)` 里。handler（及任何需要
-堆外内存的组件）通过 `Allocator.newAlloc()` 拿到分配器：
+堆外内存的组件）通过 `Allocator.newAllocator()` 拿到分配器：
 - ScopedValue 已绑定 → 返回 `ArenaAllocator`（bump 分配，over 共享 `ArenaBase`）；
 - 未绑定（如单元测试）→ 回退 `MallocAllocator`，行为不变。
 

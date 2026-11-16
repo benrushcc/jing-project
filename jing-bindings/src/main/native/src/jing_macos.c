@@ -1,6 +1,6 @@
 #include "jing_common.h"
 
-#if defined(JING_OS_MACOS)
+#if defined(JING_OS_MACOS) && JING_OS_MACOS
 #include "jing_macos.h"
 #include <sys/types.h>
 #include <sys/event.h>

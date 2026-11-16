@@ -2,7 +2,7 @@
 #define JING_WIN_H
 
 #include "jing_common.h"
-#if defined(JING_OS_WINDOWS)
+#if defined(JING_OS_WINDOWS) && JING_OS_WINDOWS
 
 #include <windows.h>
 #include <winsock2.h>
@@ -11,12 +11,23 @@
 static_assert(sizeof(DWORD) == 4, "DWORD size mismatch");
 static_assert(sizeof(SOCKET) == 8, "SOCKET size mismatch");
 
+typedef struct {
+	void**  ptrs;
+	int  count;
+	int  capacity;
+} jing_win_alloc_ctx;
+
+JING_EXPORT_SYMBOL HANDLE jing_win_process_heap(void);
+
+JING_EXPORT_SYMBOL jing_win_alloc_ctx* jing_win_new_alloc_ctx(HANDLE heap);
+
 JING_EXPORT_SYMBOL size_t jing_win_max_align(void);
 
-JING_EXPORT_SYMBOL void* jing_win_aligned_alloc(size_t size, size_t alignment);
+JING_EXPORT_SYMBOL void* jing_win_alloc(HANDLE heap, jing_win_alloc_ctx* ctx, size_t size);
 
-JING_EXPORT_SYMBOL void jing_win_batch_free(void** ptrs, size_t len,
-                                            void (*free_func_t)(void*));
+JING_EXPORT_SYMBOL void* jing_win_aligned_alloc(HANDLE heap, jing_win_alloc_ctx* ctx, size_t size, size_t alignment);
+
+JING_EXPORT_SYMBOL void jing_win_dealloc(HANDLE heap, jing_win_alloc_ctx* ctx);
 
 JING_EXPORT_SYMBOL size_t jing_win_page_size(void);
 
@@ -143,7 +154,7 @@ JING_EXPORT_SYMBOL int jing_win_uds_connect(int socket, const char* addr,
 
 JING_EXPORT_SYMBOL int jing_win_uds_accept(int socket);
 
-#ifdef JING_USE_WEPOLL
+#if defined(JING_USE_WEPOLL) && JING_USE_WEPOLL
 #include "wepoll.h"
 JING_EXPORT_SYMBOL int jing_win_wepoll_in(void);
 

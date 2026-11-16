@@ -1,6 +1,6 @@
 #include "jing_common.h"
 
-#if defined(JING_OS_LINUX)
+#if defined(JING_OS_LINUX) && JING_OS_LINUX
 #include "jing_linux.h"
 #include <unistd.h>
 #include <errno.h>

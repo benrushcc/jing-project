@@ -1,6 +1,6 @@
 #include "jing_common.h"
 
-#if defined(JING_OS_WINDOWS)
+#if defined(JING_OS_WINDOWS) && JING_OS_WINDOWS
 #include "jing_win.h"
 #include <windows.h>
 #include <winsock2.h>
@@ -9,37 +9,103 @@
 #include <malloc.h>
 #include <afunix.h>
 
-typedef struct {
-	long long _max_align_ll;
-	long double _max_align_ld;
-} max_align_t;
+// alloc related
 
-size_t jing_win_max_align(void) {
-	return __alignof(max_align_t);
-}
+#define ALLOC_INITIAL_CAPACITY 8
 
-void* jing_win_aligned_alloc(size_t size, size_t alignment) {
-	void* r = _aligned_malloc(size, alignment);
-	if (JING_UNLIKELY(r == NULL)) {
-		int err = errno;
+HANDLE jing_win_process_heap(void) {
+	HANDLE r = GetProcessHeap();
+	if(JING_UNLIKELY(r == NULL)) {
+		int err = GetLastError();
 		return jing_make_error_ptr(err);
 	}
 	return r;
 }
 
-void jing_win_batch_free(void** ptrs, size_t len, void (*free_func_t)(void*)) {
-	size_t count = len / sizeof(void*);
-	for (size_t i = 0; i < count; ++i) {
-		uintptr_t addr = (uintptr_t) ptrs[i];
-		if (addr & 1u) {
-			_aligned_free((void*) (addr & ~(uintptr_t) 1u));
-		} else {
-			free_func_t((void*) addr);
-		}
+jing_win_alloc_ctx* jing_win_new_alloc_ctx(HANDLE heap) {
+	jing_win_alloc_ctx* r = HeapAlloc(heap, 0, sizeof(jing_win_alloc_ctx));
+	if(JING_UNLIKELY(r == NULL)) {
+		return NULL;
 	}
-	free_func_t(ptrs);
+	void** p = HeapAlloc(heap, 0, ALLOC_INITIAL_CAPACITY * sizeof(void*));
+	if(JING_UNLIKELY(p == NULL)) {
+		return NULL;
+	}
+	r->ptrs = p;
+	r->count = 0;
+	r->capacity = ALLOC_INITIAL_CAPACITY;
+	return r;
 }
 
+size_t jing_win_max_align(void) {
+	return MEMORY_ALLOCATION_ALIGNMENT;
+}
+
+void* jing_win_alloc(HANDLE heap, jing_win_alloc_ctx* ctx, size_t size) {
+	void* r = HeapAlloc(heap, 0, size);
+	if(JING_UNLIKELY(r == NULL)) {
+		return NULL;
+	}
+	void** ptrs   = ctx->ptrs;
+	int  count    = ctx->count;
+	int  capacity = ctx->capacity;
+	if(count == capacity) {
+		if(JING_UNLIKELY(capacity > INT_MAX / 2)) {
+			return NULL;
+		}
+		capacity *= 2;   
+		ptrs = HeapReAlloc(heap, 0, ptrs, capacity * sizeof(void*));
+		if(JING_UNLIKELY(ptrs == NULL)) {
+			return NULL;
+		}
+		ctx->ptrs     = ptrs;
+		ctx->capacity = capacity;
+	}
+	ptrs[count] = r;
+	ctx->count  = count + 1;
+	return r;
+}
+
+void* jing_win_aligned_alloc(HANDLE heap, jing_win_alloc_ctx* ctx, size_t size, size_t alignment) {
+	void* p = _aligned_malloc(size, alignment);
+	if(JING_UNLIKELY(p == NULL)) {
+		return NULL;
+	}
+	void**  ptrs  = ctx->ptrs;
+	int  count    = ctx->count;
+	int  capacity = ctx->capacity;
+	if(count == capacity) {
+		if(JING_UNLIKELY(capacity > INT_MAX / 2)) {
+			return NULL;
+		}
+		capacity *= 2;   
+		ptrs = HeapReAlloc(heap, 0, ptrs, capacity * sizeof(void*));
+		if(JING_UNLIKELY(ptrs == NULL)) {
+			return NULL;
+		}
+		ctx->ptrs     = ptrs;
+		ctx->capacity = capacity;
+	}
+	ptrs[count] = (void*)((uintptr_t)p | (uintptr_t)1);
+	ctx->count  = count + 1;
+	return p;
+}
+
+void jing_win_dealloc(HANDLE heap, jing_win_alloc_ctx* ctx) {
+	int count = ctx->count;
+	for(int i = 0; i < count; i++) {
+		void* p = ctx->ptrs[i];
+		if (((uintptr_t)p & (uintptr_t)1) == (uintptr_t)0) {
+			HeapFree(heap, 0, p);
+		} else {
+			_aligned_free((void*)((uintptr_t)p & ~(uintptr_t)1));
+		}
+	}
+	HeapFree(heap, 0, ctx->ptrs);
+	HeapFree(heap, 0, ctx);
+}
+
+// mmap related
 size_t jing_win_page_size(void) {
 	SYSTEM_INFO sys_info = {0};
 	GetSystemInfo(&sys_info);
@@ -696,7 +762,7 @@ int jing_win_uds_accept(int socket) {
 	return (int) r;
 }
 
-#ifdef JING_USE_WEPOLL
+#if defined(JING_USE_WEPOLL) && JING_USE_WEPOLL
 #include "wepoll.h"
 int jing_win_wepoll_in(void) {
 	return EPOLLIN;

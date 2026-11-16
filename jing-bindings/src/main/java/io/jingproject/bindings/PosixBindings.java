@@ -6,14 +6,20 @@ import io.jingproject.ffm.FFM;
 
 @FFM(libraryName = "jing_bindings", supportedOS = {Os.LINUX, Os.MACOS})
 public interface PosixBindings {
+    @Downcall(methodName = "jing_posix_new_alloc_ctx", critical = true)
+    long posixAllocCtx();
+
     @Downcall(methodName = "jing_posix_max_align", critical = true)
     long posixMaxAlign();
 
-    @Downcall(methodName = "jing_posix_memalign", critical = true)
-    long posixMemAlign(long alignment, long size);
+    @Downcall(methodName = "jing_posix_alloc", critical = true)
+    long posixAlloc(long ctx, long size);
 
-    @Downcall(methodName = "jing_posix_batch_free")
-    void posixBatchFree(long ptrs, long len, long freeAddr);
+    @Downcall(methodName = "jing_posix_memalign", critical = true)
+    long posixMemAlign(long ctx, long size, long alignment);
+
+    @Downcall(methodName = "jing_posix_dealloc", critical = true)
+    void posixDealloc(long ctx);
 
     @Downcall(methodName = "jing_posix_page_size",critical = true)
     long posixPageSize();

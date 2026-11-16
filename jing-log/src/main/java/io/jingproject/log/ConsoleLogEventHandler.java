@@ -9,6 +9,7 @@ import io.jingproject.common.log.LogLevel;
 import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -240,24 +241,19 @@ public final class ConsoleLogEventHandler implements LogEventHandler {
         if (routed == null || routed.isEmpty()) {
             return;
         }
-        Allocator alloc = Allocator.newAlloc();
-        MemorySegment region = alloc.allocate(REGION_SIZE);
-        long cursor = 0;
-        try {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(REGION_SIZE);
+            long cursor = 0;
             for (LogEvent e : routed) {
                 long end = fpattern.fill(region, cursor, e);
                 if (end == -1) {
                     writeRegion(target, region, cursor);
-                    alloc.close();
-                    alloc = Allocator.newAlloc();
-                    region = alloc.allocate(REGION_SIZE);
+                    region = arena.allocate(REGION_SIZE);
                     end = fpattern.fill(region, 0, e);
                     if (end == -1) {
                         // a single event beyond the region: drop and report once
                         degrade("jing-log: dropping a console event larger than the write region");
-                        alloc.close();
-                        alloc = Allocator.newAlloc();
-                        region = alloc.allocate(REGION_SIZE);
+                        region = arena.allocate(REGION_SIZE);
                         cursor = 0;
                         continue;
                     }
@@ -267,8 +263,6 @@ public final class ConsoleLogEventHandler implements LogEventHandler {
             if (cursor > 0) {
                 writeRegion(target, region, cursor);
             }
-        } finally {
-            alloc.close();
         }
     }
 

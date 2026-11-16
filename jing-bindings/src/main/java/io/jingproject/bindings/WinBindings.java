@@ -8,14 +8,24 @@ import java.lang.foreign.MemorySegment;
 
 @FFM(libraryName = "jing_bindings", supportedOS = {Os.WINDOWS})
 public interface WinBindings {
+
+    @Downcall(methodName = "jing_win_process_heap", critical = true)
+    long winProcessHeap();
+
+    @Downcall(methodName = "jing_win_new_alloc_ctx", critical = true)
+    long winAllocCtx(long heap);
+
     @Downcall(methodName = "jing_win_max_align", critical = true)
     long winMaxAlign();
 
-    @Downcall(methodName = "jing_win_aligned_alloc", critical = true)
-    long winAlignedAlloc(long size, long alignment);
+    @Downcall(methodName = "jing_win_alloc", critical = true)
+    long winAlloc(long heap, long ctx, long size);
 
-    @Downcall(methodName = "jing_win_batch_free")
-    void winBatchFree(long ptrs, long len, long freeAddr);
+    @Downcall(methodName = "jing_win_aligned_alloc", critical = true)
+    long winAlignedAlloc(long heap, long ctx, long size, long alignment);
+
+    @Downcall(methodName = "jing_win_dealloc", critical = true)
+    void winDealloc(long heap, long ctx);
 
     @Downcall(methodName = "jing_win_page_size",critical = true)
     long winPageSize();

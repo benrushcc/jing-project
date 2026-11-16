@@ -8,6 +8,7 @@ import io.jingproject.log.LogEvent;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.charset.StandardCharsets;
@@ -23,8 +24,8 @@ public class JsonFormatterTest {
     private static final ZoneId UTC = ZoneId.of("UTC");
 
     private static String json(LogEvent e, ZoneId zone) {
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(65536);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(65536);
             long end = FileLogEventHandler.writeJson(region, 0, e, zone);
             Assertions.assertTrue(end >= 0, "writeJson must succeed");
             byte[] bytes = new byte[(int) end];
@@ -142,8 +143,8 @@ public class JsonFormatterTest {
     public void testOverflowReturnsMinusOne() {
         LogEvent e = new LogEvent(LogLevel.INFO, NOW, "io.jingproject.logtest.JsonFormatterTest", "main", "hi", null,
                 Map.of());
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(8);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(8);
             Assertions.assertEquals(-1, FileLogEventHandler.writeJson(region, 0, e, UTC));
         }
     }
@@ -152,8 +153,8 @@ public class JsonFormatterTest {
     public void testOffsetWrites() {
         LogEvent e = new LogEvent(LogLevel.INFO, NOW, "io.jingproject.logtest.JsonFormatterTest", "main", "hi", null,
                 Map.of());
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(8192);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(8192);
             long once = FileLogEventHandler.writeJson(region, 0, e, UTC);
             long twice = FileLogEventHandler.writeJson(region, once, e, UTC);
             Assertions.assertEquals(twice, once * 2);
@@ -166,8 +167,8 @@ public class JsonFormatterTest {
                 Map.of());
         Assertions.assertThrows(IllegalArgumentException.class,
                 () -> FileLogEventHandler.writeJson(null, 0, e, UTC));
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(64);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(64);
             Assertions.assertThrows(IllegalArgumentException.class,
                     () -> FileLogEventHandler.writeJson(region, 0, null, UTC));
             Assertions.assertThrows(IllegalArgumentException.class,
@@ -203,8 +204,8 @@ public class JsonFormatterTest {
         LogEvent e = new LogEvent(LogLevel.INFO, NOW, "io.jingproject.logtest.JsonFormatterTest", "main", "m", t,
                 Map.of());
         FormatPattern fp = FormatPattern.compile("%ex", UTC, new String[]{"TRACE", "DEBUG", "INFO", "WARN", "ERROR"});
-        try (Allocator alloc = Allocator.newAlloc()) {
-            MemorySegment region = alloc.allocate(65536);
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment region = arena.allocate(65536);
             long end = fp.fill(region, 0, e);
             Assertions.assertTrue(end >= 0, "fill must succeed, actual : " + end);
             byte[] bytes = new byte[(int) end];
