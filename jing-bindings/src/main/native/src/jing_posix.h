@@ -13,7 +13,7 @@ typedef struct {
 	int  capacity;
 } jing_posix_alloc_ctx;
 
-jing_posix_alloc_ctx* jing_posix_new_alloc_ctx(void);
+JING_EXPORT_SYMBOL jing_posix_alloc_ctx* jing_posix_new_alloc_ctx(void);
 
 JING_EXPORT_SYMBOL size_t jing_posix_max_align(void);
 
