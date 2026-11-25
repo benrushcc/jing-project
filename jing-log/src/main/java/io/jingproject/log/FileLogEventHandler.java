@@ -2,7 +2,6 @@ package io.jingproject.log;
 
 import io.jingproject.bindings.PosixLogIoBindings;
 import io.jingproject.bindings.WinLogIoBindings;
-import io.jingproject.bindings.alloc.Allocator;
 import io.jingproject.common.ConfigurationFactory;
 import io.jingproject.common.Os;
 import io.jingproject.ffm.Libs;
@@ -13,8 +12,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;

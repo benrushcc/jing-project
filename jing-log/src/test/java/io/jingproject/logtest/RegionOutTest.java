@@ -1,6 +1,5 @@
 package io.jingproject.logtest;
 
-import io.jingproject.bindings.alloc.Allocator;
 import io.jingproject.log.RegionOut;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

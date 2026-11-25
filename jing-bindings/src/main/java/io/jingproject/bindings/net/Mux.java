@@ -14,7 +14,7 @@ import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.ValueLayout;
 
 @Fragile
-public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
+public sealed interface Mux extends AutoCloseable permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
     int MUX_NONE_FLAG = 0x0000;
     int MUX_READABLE_FLAG = 0x0001;
     int MUX_WRITEABLE_FLAG = 0x0002;
@@ -28,28 +28,8 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
 
     int poll(long events, int maxEvents, int timeout, int[] muxEvents);
 
+    @Override
     void close();
-
-    static Mux newWepollMux() {
-        if(Os.current() != Os.WINDOWS) {
-            throw new UnsupportedOperationException("wepoll is only supported on windows operating system");
-        }
-        return new WepollMux();
-    }
-
-    static Mux newEpollMux() {
-        if(Os.current() != Os.LINUX) {
-            throw new UnsupportedOperationException("epoll is only supported on linux operating system");
-        }
-        return new EpollMux();
-    }
-
-    static Mux newKqueueMux() {
-        if(Os.current() != Os.MACOS) {
-            throw new UnsupportedOperationException("kqueue is only supported on macos operating system");
-        }
-        return new KqueueMux();
-    }
 
     static Mux newMux() {
         return switch (Os.current()) {
@@ -75,6 +55,14 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
         );
         private static final long EPOLL_EVENTS_OFFSET = EPOLL_EVENT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("events"));
         private static final long EPOLL_DATA_OFFSET = EPOLL_EVENT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("data"));
+        private static final int EPOLL_ADD;
+        private static final int EPOLL_MOD;
+        private static final int EPOLL_DEL;
+        private static final int EPOLL_IN;
+        private static final int EPOLL_OUT;
+        private static final int EPOLL_RDHUP;
+        private static final int EPOLL_HUP;
+        private static final int EPOLL_ERR;
 
         private int epfd = -1;
 
@@ -85,6 +73,14 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
             if (POSIX_BINDINGS == null) {
                 throw new ExceptionInInitializerError("cannot initialize posix bindings");
             }
+            EPOLL_ADD = LINUX_BINDINGS.epollAdd();
+            EPOLL_MOD = LINUX_BINDINGS.epollMod();
+            EPOLL_DEL = LINUX_BINDINGS.epollDel();
+            EPOLL_IN = LINUX_BINDINGS.epollIn();
+            EPOLL_OUT = LINUX_BINDINGS.epollOut();
+            EPOLL_RDHUP = LINUX_BINDINGS.epollRdhup();
+            EPOLL_HUP = LINUX_BINDINGS.epollHup();
+            EPOLL_ERR = LINUX_BINDINGS.epollErr();
         }
 
         private value record CtlArgs(int op, int type) {
@@ -93,15 +89,15 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
 
         private static CtlArgs createCtlArgs(int from, int to) {
             if(to == Mux.MUX_NONE_FLAG) {
-                return new CtlArgs(LINUX_BINDINGS.epollDel(), 0); // type could be safely ignored for EPOLL_CTL_DEL
+                return new CtlArgs(EPOLL_DEL, 0); // type could be safely ignored for EPOLL_CTL_DEL
             }
-            int op = from == Mux.MUX_NONE_FLAG ? LINUX_BINDINGS.epollAdd() : LINUX_BINDINGS.epollMod();
+            int op = from == Mux.MUX_NONE_FLAG ? EPOLL_ADD : EPOLL_MOD;
             int type = 0;
             if ((to & Mux.MUX_READABLE_FLAG) != 0) {
-                type |= LINUX_BINDINGS.epollIn();
+                type |= EPOLL_IN;
             }
             if ((to & Mux.MUX_WRITEABLE_FLAG) != 0) {
-                type |= LINUX_BINDINGS.epollOut();
+                type |= EPOLL_OUT;
             }
             return new CtlArgs(op, type);
         }
@@ -150,8 +146,8 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
                 int err = -r;
                 throw new ForeignException("failed to poll epoll mux, err : " + err);
             }
-            int writeable = LINUX_BINDINGS.epollOut();
-            int readable = LINUX_BINDINGS.epollIn() | LINUX_BINDINGS.epollRdhup() | LINUX_BINDINGS.epollHup() | LINUX_BINDINGS.epollErr();
+            int writeable = EPOLL_OUT;
+            int readable = EPOLL_IN | EPOLL_RDHUP | EPOLL_HUP | EPOLL_ERR;
             for(int index = 0; index < r; index++) {
                 long base = index * EPOLL_EVENT_LAYOUT.byteSize();
                 int event = NativeSegmentAccess.getInt(events, base + EPOLL_EVENTS_OFFSET);
@@ -204,6 +200,9 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
         ).withByteAlignment(4L);
         private static final long IDENT_OFFSET = KEVENT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("ident"));
         private static final long FILTER_OFFSET = KEVENT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("filter"));
+        private static final int EVFILT_READ;
+        private static final int EVFILT_WRITE;
+
         private int kqFd = -1;
 
         static {
@@ -213,6 +212,8 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
             if (POSIX_BINDINGS == null) {
                 throw new ExceptionInInitializerError("cannot initialize posix bindings");
             }
+            EVFILT_READ = MACOS_BINDINGS.evfiltRead();
+            EVFILT_WRITE = MACOS_BINDINGS.evfiltWrite();
         }
 
         @Override
@@ -266,16 +267,14 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
                 int err = -r;
                 throw new ForeignException("failed to poll kqueue mux, err : " + err);
             }
-            int evfiltWrite = MACOS_BINDINGS.evfiltWrite();
-            int evfiltRead = MACOS_BINDINGS.evfiltRead();
             for(int index = 0; index < r; index++) {
                 long base = index * KEVENT_LAYOUT.byteSize();
                 short filter = NativeSegmentAccess.getShort(events, base + FILTER_OFFSET);
                 int data = (int) NativeSegmentAccess.getLong(events, base + IDENT_OFFSET);
                 int eventType;
-                if(filter == evfiltWrite) {
+                if(filter == EVFILT_WRITE) {
                     eventType = Mux.MUX_WRITEABLE_FLAG;
-                } else if(filter == evfiltRead) {
+                } else if(filter == EVFILT_READ) {
                     eventType = Mux.MUX_READABLE_FLAG;
                 } else {
                     throw new ForeignException("unsupported kqueue filter : " + filter);
@@ -320,11 +319,28 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
         );
         private static final long WEPOLL_EVENTS_OFFSET = WEPOLL_EVENT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("events"));
         private static final long WEPOLL_DATA_OFFSET = WEPOLL_EVENT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("data"));
+        private static final int WEPOLL_ADD;
+        private static final int WEPOLL_MOD;
+        private static final int WEPOLL_DEL;
+        private static final int WEPOLL_IN;
+        private static final int WEPOLL_OUT;
+        private static final int WEPOLL_RDHUP;
+        private static final int WEPOLL_HUP;
+        private static final int WEPOLL_ERR;
+
 
         static {
             if (WIN_BINDINGS == null) {
                 throw new ExceptionInInitializerError("cannot initialize wepoll mux");
             }
+            WEPOLL_ADD = WIN_BINDINGS.wepollAdd();
+            WEPOLL_MOD = WIN_BINDINGS.wepollMod();
+            WEPOLL_DEL = WIN_BINDINGS.wepollDel();
+            WEPOLL_IN = WIN_BINDINGS.wepollIn();
+            WEPOLL_OUT = WIN_BINDINGS.wepollOut();
+            WEPOLL_RDHUP = WIN_BINDINGS.wepollRdhup();
+            WEPOLL_HUP = WIN_BINDINGS.wepollHup();
+            WEPOLL_ERR = WIN_BINDINGS.wepollErr();
         }
 
         private long handle = -1L;
@@ -335,15 +351,15 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
 
         private static CtlArgs createCtlArgs(int from, int to) {
             if(to == Mux.MUX_NONE_FLAG) {
-                return new CtlArgs(WIN_BINDINGS.wepollDel(), 0); // type could be safely ignored for EPOLL_CTL_DEL
+                return new CtlArgs(WEPOLL_DEL, 0); // type could be safely ignored for EPOLL_CTL_DEL
             }
-            int op = from == Mux.MUX_NONE_FLAG ? WIN_BINDINGS.wepollAdd() : WIN_BINDINGS.wepollMod();
+            int op = from == Mux.MUX_NONE_FLAG ? WEPOLL_ADD : WEPOLL_MOD;
             int type = 0;
             if ((to & Mux.MUX_READABLE_FLAG) != 0) {
-                type |= WIN_BINDINGS.wepollIn();
+                type |= WEPOLL_IN;
             }
             if ((to & Mux.MUX_WRITEABLE_FLAG) != 0) {
-                type |= WIN_BINDINGS.wepollOut();
+                type |= WEPOLL_OUT;
             }
             return new CtlArgs(op, type);
         }
@@ -392,8 +408,8 @@ public sealed interface Mux permits Mux.WepollMux, Mux.EpollMux, Mux.KqueueMux {
                 int err = -r;
                 throw new ForeignException("failed to poll wepoll mux, err : " + err);
             }
-            int writeable = WIN_BINDINGS.wepollOut();
-            int readable = WIN_BINDINGS.wepollIn() | WIN_BINDINGS.wepollRdhup() | WIN_BINDINGS.wepollHup() | WIN_BINDINGS.wepollErr();
+            int writeable = WEPOLL_OUT;
+            int readable = WEPOLL_IN | WEPOLL_RDHUP | WEPOLL_HUP | WEPOLL_ERR;
             for(int index = 0; index < r; index++) {
                 long base = index * WEPOLL_EVENT_LAYOUT.byteSize();
                 int event = NativeSegmentAccess.getInt(events, base + WEPOLL_EVENTS_OFFSET);

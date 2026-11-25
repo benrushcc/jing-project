@@ -4,13 +4,7 @@ import io.jingproject.marshall.MarshallFacade;
 import io.jingproject.marshall.MarshallInfo;
 import io.jingproject.marshall.MarshallUtil;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 // explicit-stack node of the serialization state machine, mirroring the json serializer.
 // object and map heads are definite when null entries are written, otherwise they are

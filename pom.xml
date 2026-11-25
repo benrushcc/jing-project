@@ -30,6 +30,8 @@
         <module>jing-marshall-processor</module>
         <module>jing-marshall-json</module>
         <module>jing-marshall-cbor</module>
+        <module>jing-net-processor</module>
+        <module>jing-net-codec</module>
     </modules>
 
     <profiles>

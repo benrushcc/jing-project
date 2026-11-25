@@ -8,19 +8,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-// verifies that the Allocator interface performs off-heap allocations through
-// both of its implementations: MallocAllocator and ArenaAllocator; the native
-// library is required, hence the require-native-library tag.
 @Tag("require-native-library")
 public class AllocTest {
-    // arena size of 4 MiB, a multiple of the 64 KiB allocation granularity
-    // used on Windows, so the reserved region never gets rounded up unexpectedly.
     private static final long ARENA_SIZE = 4L * 1024L * 1024L;
-
-    // Allocator.alloc(long) guarantees 16-byte alignment by contract; the
-    // implementation also verifies that the underlying system allocator
-    // reports 16-byte max alignment at class-init time.
-    private static final long DEFAULT_ALIGNMENT = 16L;
 
     @Test
     public void testMallocAllocator() {
@@ -50,10 +40,10 @@ public class AllocTest {
     @Test
     public void testMallocAllocatorDefaultAlignment() {
         try (Allocator allocator = Allocator.newAllocator()) {
+            long maxAlign = allocator.maxAlign();
             for (int i = 0; i < 100; i++) {
                 long addr = allocator.alloc(1L + i);
-                Assertions.assertEquals(0L, addr % DEFAULT_ALIGNMENT,
-                        "Allocator.alloc must be 16-byte aligned by default");
+                Assertions.assertEquals(0L, addr % maxAlign);
             }
         }
     }
@@ -70,27 +60,17 @@ public class AllocTest {
                 long addr = allocator.alignedAlloc(4096L, 4096L);
                 Assertions.assertEquals(0L, addr % 4096L);
             }
-            //noinspection EmptyTryBlock
-            try (Allocator _ = Allocator.newArenaAllocator(arenaBase)) {
-                // no op
+            try (Allocator allocator = Allocator.newArenaAllocator(arenaBase)) {
+                long maxAlign = allocator.maxAlign();
+                for (int i = 0; i < 100; i++) {
+                    long addr = allocator.alloc(1L + i);
+                    Assertions.assertEquals(0L, addr % maxAlign);
+                }
             }
             try (Allocator allocator = Allocator.newArenaAllocator(arenaBase)) {
                 for (int i = 0; i < 1000; i++) {
                     long addr = allocator.alloc(1L);
                     Assertions.assertNotEquals(0L, addr);
-                }
-            }
-        }
-    }
-
-    @Test
-    public void testArenaAllocatorDefaultAlignment() {
-        try (ArenaBase arenaBase = ArenaBase.newInstance(ARENA_SIZE, 4, 4)) {
-            try (Allocator allocator = Allocator.newArenaAllocator(arenaBase)) {
-                for (int i = 0; i < 100; i++) {
-                    long addr = allocator.alloc(1L + i);
-                    Assertions.assertEquals(0L, addr % DEFAULT_ALIGNMENT,
-                            "ArenaAllocator.alloc must be 16-byte aligned by default");
                 }
             }
         }
@@ -104,8 +84,6 @@ public class AllocTest {
                 long[] addrs = new long[count];
                 for (int i = 0; i < count; i++) {
                     long addr = allocator.alignedAlloc(64L * 1024L, 8L);
-                    // writing into the tail of each block exercises the
-                    // lazily grown committed region of the arena
                     NativeSegmentAccess.setLong(addr, 64L * 1024L - 8L, i);
                     addrs[i] = addr;
                 }
@@ -136,9 +114,6 @@ public class AllocTest {
     public void testArenaAllocatorOutOfRange() {
         try (ArenaBase arenaBase = ArenaBase.newInstance(ARENA_SIZE, 4, 4)) {
             try (Allocator allocator = Allocator.newArenaAllocator(arenaBase)) {
-                // ForeignException is thrown by ArenaBase.slice when the request
-                // exceeds the reserved capacity - a hard boundary, not a
-                // "safety net" of the allocator interface itself.
                 Assertions.assertThrows(ForeignException.class, () -> allocator.alignedAlloc(ARENA_SIZE * 2L, 8L));
             }
         }

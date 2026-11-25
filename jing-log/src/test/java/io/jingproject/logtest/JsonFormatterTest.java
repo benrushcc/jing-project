@@ -1,6 +1,5 @@
 package io.jingproject.logtest;
 
-import io.jingproject.bindings.alloc.Allocator;
 import io.jingproject.common.log.LogLevel;
 import io.jingproject.log.FileLogEventHandler;
 import io.jingproject.log.FormatPattern;

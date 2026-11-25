@@ -4,8 +4,6 @@ import io.jingproject.common.Os;
 import io.jingproject.ffm.Downcall;
 import io.jingproject.ffm.FFM;
 
-import java.lang.foreign.MemorySegment;
-
 @FFM(libraryName = "jing_bindings", supportedOS = Os.MACOS)
 public interface MacosBindings {
     @Downcall(methodName = "jing_macos_evfilt_read",critical = true)

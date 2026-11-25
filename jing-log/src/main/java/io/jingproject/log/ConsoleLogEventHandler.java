@@ -2,7 +2,6 @@ package io.jingproject.log;
 
 import io.jingproject.bindings.PosixLogIoBindings;
 import io.jingproject.bindings.WinLogIoBindings;
-import io.jingproject.bindings.alloc.Allocator;
 import io.jingproject.common.ConfigurationFactory;
 import io.jingproject.common.Os;
 import io.jingproject.common.log.LogLevel;

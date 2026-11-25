@@ -9,8 +9,6 @@ import io.jingproject.ffm.ForeignException;
 import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
 
-import java.lang.foreign.MemorySegment;
-
 // base class of an arena that reserves a large virtual memory up front and
 // commits pages on demand, serving as the backing store of ArenaAllocator
 
@@ -132,16 +130,28 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
     // windows arena backed by VirtualAlloc and VirtualFree
     static final class WinArenaBase extends ArenaBase {
         private static final WinBindings WIN_BINDINGS = Libs.impl(WinBindings.class);
+        private static final long GRANULARITY;
+        private static final long PAGESIZE;
+        private static final int MEM_RESERVE;
+        private static final int MEM_COMMIT;
+        private static final int MEM_DECOMMIT;
+        private static final int MEM_RELEASE;
+        private static final int PAGE_READWRITE;
 
         static {
             if(WIN_BINDINGS == null) {
-                throw new ExceptionInInitializerError("cannot initialize WIN_BINDINGS");
+                throw new ExceptionInInitializerError("cannot initialize windows system bindings");
             }
-            long granularity = WIN_BINDINGS.winAllocateGranularity();
-            long pageSize = WIN_BINDINGS.winPageSize();
-            if(granularity < 0L || Long.bitCount(granularity) != 1 || pageSize < 0L || Long.bitCount(pageSize) != 1) {
+            GRANULARITY = WIN_BINDINGS.winAllocateGranularity();
+            PAGESIZE = WIN_BINDINGS.winPageSize();
+            if(GRANULARITY < 0L || Long.bitCount(GRANULARITY) != 1 || PAGESIZE < 0L || Long.bitCount(PAGESIZE) != 1) {
                 throw new ExceptionInInitializerError("granularity and pageSize must be positive and power of two");
             }
+            MEM_RESERVE = WIN_BINDINGS.winMemReserve();
+            MEM_COMMIT = WIN_BINDINGS.winMemCommit();
+            MEM_DECOMMIT = WIN_BINDINGS.winMemDecommit();
+            MEM_RELEASE = WIN_BINDINGS.winMemRelease();
+            PAGE_READWRITE = WIN_BINDINGS.winPageReadWrite();
         }
 
         WinArenaBase(long size, int count, int initialPages) {
@@ -150,19 +160,17 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
 
         @Override
         protected long granularity() {
-            return WIN_BINDINGS.winAllocateGranularity();
+            return GRANULARITY;
         }
 
         @Override
         protected long pageSize() {
-            return WIN_BINDINGS.winPageSize();
+            return PAGESIZE;
         }
 
         @Override
         protected long reserve(long size) {
-            int memReserve = WIN_BINDINGS.winMemReserve();
-            int pageReadWrite = WIN_BINDINGS.winPageReadWrite();
-            long addr = WIN_BINDINGS.winVirtualAlloc(0L, size, memReserve, pageReadWrite);
+            long addr = WIN_BINDINGS.winVirtualAlloc(0L, size, MEM_RESERVE, PAGE_READWRITE);
             if(NativeSegmentAccess.isErrPtr(addr)) {
                 int err = NativeSegmentAccess.errCode(addr);
                 throw new ForeignException("failed to reserve memory, err : " + err);
@@ -172,8 +180,7 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
 
         @Override
         protected void release() {
-            int memRelease = WIN_BINDINGS.winMemRelease();
-            int r = WIN_BINDINGS.winVirtualFree(addr, 0L, memRelease);
+            int r = WIN_BINDINGS.winVirtualFree(addr, 0L, MEM_RELEASE);
             if(r < 0) {
                 throw new ForeignException("failed to release memory, err : " + -r);
             }
@@ -181,9 +188,7 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
 
         @Override
         protected void commit(long addr, long size) {
-            int memCommit = WIN_BINDINGS.winMemCommit();
-            int pageReadWrite = WIN_BINDINGS.winPageReadWrite();
-            long r = WIN_BINDINGS.winVirtualAlloc(addr, size, memCommit, pageReadWrite);
+            long r = WIN_BINDINGS.winVirtualAlloc(addr, size, MEM_COMMIT, PAGE_READWRITE);
             if(NativeSegmentAccess.isErrPtr(r)) {
                 int err = NativeSegmentAccess.errCode(r);
                 throw new ForeignException("failed to commit memory, err : " + err);
@@ -192,10 +197,10 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
 
         @Override
         protected void uncommit(long addr, long size) {
-            int memDecommit = WIN_BINDINGS.winMemDecommit();
-            int r = WIN_BINDINGS.winVirtualFree(addr, size, memDecommit);
+            int r = WIN_BINDINGS.winVirtualFree(addr, size, MEM_DECOMMIT);
             if(r < 0) {
-                throw new ForeignException("failed to uncommit memory, err : " + -r);
+                int err = -r;
+                throw new ForeignException("failed to uncommit memory, err : " + err);
             }
         }
     }
@@ -203,15 +208,26 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
     // posix arena backed by mmap/munmap
     static final class PosixArenaBase extends ArenaBase {
         private static final PosixBindings POSIX_BINDINGS = Libs.impl(PosixBindings.class);
+        private static final long PAGESIZE;
+        private static final int PROT_READ;
+        private static final int PROT_WRITE;
+        private static final int MAP_PRIVATE;
+        private static final int MAP_ANONYMOUS;
+        private static final int MADV_FREE;
 
         static {
             if(POSIX_BINDINGS == null) {
-                throw new ExceptionInInitializerError("cannot initialize POSIX_BINDINGS");
+                throw new ExceptionInInitializerError("cannot initialize posix system bindings");
             }
-            long pageSize = POSIX_BINDINGS.posixPageSize();
-            if(pageSize < 0L || Long.bitCount(pageSize) != 1) {
+            PAGESIZE = POSIX_BINDINGS.posixPageSize();
+            if(PAGESIZE < 0L || Long.bitCount(PAGESIZE) != 1) {
                 throw new ExceptionInInitializerError("pageSize must be positive and power of two");
             }
+            PROT_READ = POSIX_BINDINGS.posixProtRead();
+            PROT_WRITE = POSIX_BINDINGS.posixProtWrite();
+            MAP_PRIVATE = POSIX_BINDINGS.posixMapPrivate();
+            MAP_ANONYMOUS = POSIX_BINDINGS.posixMapAnonymous();
+            MADV_FREE = POSIX_BINDINGS.posixMadvFree();
         }
 
         PosixArenaBase(long size, int count, int initialPages) {
@@ -220,21 +236,17 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
 
         @Override
         protected long granularity() {
-            return POSIX_BINDINGS.posixPageSize();
+            return PAGESIZE;
         }
 
         @Override
         protected long pageSize() {
-            return POSIX_BINDINGS.posixPageSize();
+            return PAGESIZE;
         }
 
         @Override
         protected long reserve(long size) {
-            int protRead = POSIX_BINDINGS.posixProtRead();
-            int protWrite = POSIX_BINDINGS.posixProtWrite();
-            int mapPrivate = POSIX_BINDINGS.posixMapPrivate();
-            int mapAnonymous = POSIX_BINDINGS.posixMapAnonymous();
-            long addr = POSIX_BINDINGS.posixMmap(0L, size, protRead | protWrite, mapPrivate | mapAnonymous, -1, 0L);
+            long addr = POSIX_BINDINGS.posixMmap(0L, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0L);
             if (NativeSegmentAccess.isErrPtr(addr)) {
                 int err = NativeSegmentAccess.errCode(addr);
                 throw new ForeignException("failed to reserve memory, err : " + err);
@@ -246,7 +258,8 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
         protected void release() {
             int r = POSIX_BINDINGS.posixMunmap(addr, bound - addr);
             if(r < 0) {
-                throw new ForeignException("failed to release memory, err : " + -r);
+                int err = -r;
+                throw new ForeignException("failed to release memory, err : " + err);
             }
         }
 
@@ -257,10 +270,10 @@ public sealed abstract class ArenaBase implements AutoCloseable permits ArenaBas
 
         @Override
         protected void uncommit(long addr, long size) {
-            int madvFree = POSIX_BINDINGS.posixMadvFree();
-            int r = POSIX_BINDINGS.posixMadvise(addr, size, madvFree);
+            int r = POSIX_BINDINGS.posixMadvise(addr, size, MADV_FREE);
             if(r < 0) {
-                throw new ForeignException("failed to uncommit memory, err : " + -r);
+                int err = -r;
+                throw new ForeignException("failed to uncommit memory, err : " + err);
             }
         }
     }

@@ -6,11 +6,9 @@ import io.jingproject.common.LifeCycle;
 import java.util.List;
 
 public final class Coordinator implements LifeCycle {
-
     private final NetConfig config;
-    private final Mux mux;
     private final List<CoordinatorData> data;
-    private final Thread thread;
+    private final Thread coordinatorThread;
 
     record CoordinatorData() {
 
@@ -22,9 +20,8 @@ public final class Coordinator implements LifeCycle {
 
     public Coordinator(NetConfig config) {
         this.config = config;
-        this.mux = Mux.newMux();
         this.data = createCoordinatorData();
-        this.thread = createCoordinatorThread();
+        this.coordinatorThread = createCoordinatorThread();
     }
 
     private List<CoordinatorData> createCoordinatorData() {
@@ -38,6 +35,10 @@ public final class Coordinator implements LifeCycle {
         });
     }
 
+    public NetConfig config() {
+        return config;
+    }
+
     public void publishResource() {
 
     }
@@ -48,7 +49,7 @@ public final class Coordinator implements LifeCycle {
 
     @Override
     public void start() {
-        thread.start();
+        coordinatorThread.start();
     }
 
     @Override

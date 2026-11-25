@@ -15,10 +15,9 @@ import java.lang.foreign.MemorySegment;
 public class WakerTest {
 
     private static void testWaker(Waker waker) {
-        Mux mux = Mux.newMux();
-        mux.init();
-        waker.init();
-        try(Arena arena = Arena.ofConfined()) {
+        try (Mux mux = Mux.newMux(); Arena arena = Arena.ofConfined()) {
+            mux.init();
+            waker.init();
             int count = 1;
             int[] muxEvents = new int[count * 2];
             MemorySegment seg = arena.allocate(mux.layout(), count);
@@ -31,7 +30,6 @@ public class WakerTest {
             Assertions.assertEquals(Mux.MUX_READABLE_FLAG, muxEvents[1]);
         } finally {
             waker.close();
-            mux.close();
         }
     }
 

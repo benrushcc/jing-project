@@ -1,5 +1,6 @@
 package io.jingproject.common;
 
+import io.jingproject.common.conf.CfgException;
 import io.jingproject.common.conf.DefaultConfigurationFacade;
 
 import java.util.List;
@@ -50,7 +51,11 @@ public final class ConfigurationFactory {
         if (value == null || value.isBlank()) {
             return defaultValue;
         }
-        return Integer.parseInt(value);
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new CfgException("illegal number format for int value : " + value);
+        }
     }
 
     public static int confAsInt(String key, int defaultValue) {
@@ -61,7 +66,11 @@ public final class ConfigurationFactory {
         if (value == null || value.isBlank()) {
             return defaultValue;
         }
-        return Long.parseLong(value);
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            throw new CfgException("illegal number format for long value : " + value);
+        }
     }
 
     public static long confAsLong(String key, long defaultValue) {
@@ -72,7 +81,11 @@ public final class ConfigurationFactory {
         if (value == null || value.isBlank()) {
             return defaultValue;
         }
-        return Float.parseFloat(value);
+        try {
+            return Float.parseFloat(value);
+        } catch (NumberFormatException e) {
+            throw new CfgException("illegal number format for float value : " + value);
+        }
     }
 
     public static float confAsFloat(String key, float defaultValue) {
@@ -83,10 +96,16 @@ public final class ConfigurationFactory {
         if (value == null || value.isBlank()) {
             return defaultValue;
         }
-        return Double.parseDouble(value);
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            throw new CfgException("illegal number format for double value : " + value);
+        }
     }
 
     public static double confAsDouble(String key, double defaultValue) {
         return valueAsDouble(conf(key), defaultValue);
     }
+
+
 }

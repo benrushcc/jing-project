@@ -10,11 +10,7 @@ import io.jingproject.marshallcbor.CborDeserializer;
 import io.jingproject.marshallcbor.CborDeserializerOption;
 import io.jingproject.marshallcbor.CborSerializer;
 import io.jingproject.marshallcbor.CborSerializerOption;
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Level;
-import org.openjdk.jmh.annotations.Param;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import tools.jackson.dataformat.cbor.CBORMapper;
 

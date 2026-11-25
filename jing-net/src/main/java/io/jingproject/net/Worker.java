@@ -2,9 +2,6 @@ package io.jingproject.net;
 
 import io.jingproject.common.BatchQueue;
 
-import java.util.concurrent.LinkedTransferQueue;
-import java.util.concurrent.TransferQueue;
-
 public final class Worker {
     private static final ScopedValue<WorkerData> DATA = ScopedValue.newInstance();
     private final NetConfig config;

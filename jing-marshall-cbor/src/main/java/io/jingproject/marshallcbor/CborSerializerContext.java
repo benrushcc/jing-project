@@ -1,26 +1,14 @@
 package io.jingproject.marshallcbor;
 
-import io.jingproject.common.ArrayAccess;
-import io.jingproject.common.HeapWriteBuffer;
-import io.jingproject.common.SegmentAccess;
-import io.jingproject.common.SegmentWriteBuffer;
-import io.jingproject.common.WriteBuffer;
+import io.jingproject.common.*;
 import io.jingproject.marshall.MarshallInfo;
 import io.jingproject.marshall.Marshalls;
-import jdk.incubator.vector.ByteVector;
-import jdk.incubator.vector.ShortVector;
-import jdk.incubator.vector.VectorMask;
-import jdk.incubator.vector.VectorOperators;
-import jdk.incubator.vector.VectorSpecies;
+import jdk.incubator.vector.*;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteOrder;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 // sealed context with a heap and a segment implementation, mirroring the json serializer.
 // the container layout and value semantics are shared here, while the subclasses only provide

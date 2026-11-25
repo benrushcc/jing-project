@@ -6,11 +6,7 @@ import io.jingproject.marshall.MarshallInfo;
 import io.jingproject.marshall.MarshallUtil;
 
 import java.lang.reflect.Array;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 // explicit-stack node that processes one container or object at a time, mirroring the json
 // deserializer node. a definite-length container keeps the number of entries that are still

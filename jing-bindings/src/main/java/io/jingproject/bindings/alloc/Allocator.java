@@ -8,6 +8,8 @@ import io.jingproject.common.anno.Fragile;
 import io.jingproject.ffm.Libs;
 import io.jingproject.ffm.NativeSegmentAccess;
 
+import java.lang.foreign.ValueLayout;
+
 // a sealed allocator interface for the jing project's memory management.
 @Fragile
 public sealed interface Allocator extends AutoCloseable
@@ -33,6 +35,8 @@ public sealed interface Allocator extends AutoCloseable
         return new ArenaAllocator(arenaBase);
     }
 
+    long maxAlign();
+
     long alloc(long size);
 
     long alignedAlloc(long size, long alignment);
@@ -43,14 +47,15 @@ public sealed interface Allocator extends AutoCloseable
     final class WinMallocAllocator implements Allocator {
         private static final WinBindings WIN_BINDINGS = Libs.impl(WinBindings.class);
         private static final long PROCESS_HEAP;
+        private static final long MAX_ALIGN;
 
         static {
             if(WIN_BINDINGS == null) {
                 throw new ExceptionInInitializerError("cannot initialize windows system bindings");
             }
-            long winMaxAlign = WIN_BINDINGS.winMaxAlign();
-            if(winMaxAlign != 16L) {
-                throw new ExceptionInInitializerError("allocation is not aligned to 16 bytes by default : " + winMaxAlign);
+            MAX_ALIGN = WIN_BINDINGS.winMaxAlign();
+            if(MAX_ALIGN < ValueLayout.ADDRESS.byteAlignment() || Long.bitCount(MAX_ALIGN) != 1) {
+                throw new ExceptionInInitializerError("illegal alignment : " + MAX_ALIGN);
             }
             long processHeap = WIN_BINDINGS.winProcessHeap();
             if(NativeSegmentAccess.isErrPtr(processHeap)) {
@@ -66,6 +71,11 @@ public sealed interface Allocator extends AutoCloseable
             if(ctx == 0L) {
                 throw new OutOfMemoryError("failed to create alloc ctx for windows system");
             }
+        }
+
+        @Override
+        public long maxAlign() {
+            return MAX_ALIGN;
         }
 
         @Override
@@ -94,14 +104,15 @@ public sealed interface Allocator extends AutoCloseable
 
     final class PosixMallocAllocator implements Allocator {
         private static final PosixBindings POSIX_BINDINGS = Libs.impl(PosixBindings.class);
+        private static final long MAX_ALIGN;
 
         static {
             if(POSIX_BINDINGS == null) {
                 throw new ExceptionInInitializerError("cannot initialize posix system bindings");
             }
-            long posixMaxAlign = POSIX_BINDINGS.posixMaxAlign();
-            if(posixMaxAlign != 16L) {
-                throw new ExceptionInInitializerError("allocation is not aligned to 16 bytes by default : " + posixMaxAlign);
+            MAX_ALIGN = POSIX_BINDINGS.posixMaxAlign();
+            if(MAX_ALIGN < ValueLayout.ADDRESS.byteAlignment() || Long.bitCount(MAX_ALIGN) != 1) {
+                throw new ExceptionInInitializerError("illegal alignment : " + MAX_ALIGN);
             }
         }
 
@@ -111,6 +122,11 @@ public sealed interface Allocator extends AutoCloseable
             if(ctx == 0L) {
                 throw new OutOfMemoryError("failed to create alloc ctx for posix system");
             }
+        }
+
+        @Override
+        public long maxAlign() {
+            return MAX_ALIGN;
         }
 
         @Override
@@ -139,14 +155,15 @@ public sealed interface Allocator extends AutoCloseable
 
     final class RpMallocAllocator implements Allocator {
         private static final RpmallocBindings RPMALLOC_BINDINGS = Libs.impl(RpmallocBindings.class);
+        private static final long MAX_ALIGN;
 
         static {
             if(RPMALLOC_BINDINGS == null) {
                 throw new ExceptionInInitializerError("cannot initialize rpmalloc bindings");
             }
-            long rpMaxAlign = RPMALLOC_BINDINGS.rpMaxAlign();
-            if(rpMaxAlign != 16L) {
-                throw new ExceptionInInitializerError("allocation is not aligned to 16 bytes by default : " + rpMaxAlign);
+            MAX_ALIGN = RPMALLOC_BINDINGS.rpMaxAlign();
+            if(MAX_ALIGN < ValueLayout.ADDRESS.byteAlignment() || Long.bitCount(MAX_ALIGN) != 1) {
+                throw new ExceptionInInitializerError("illegal alignment : " + MAX_ALIGN);
             }
         }
 
@@ -156,6 +173,11 @@ public sealed interface Allocator extends AutoCloseable
             if(ctx == 0L) {
                 throw new OutOfMemoryError("failed to create alloc ctx for rpmalloc");
             }
+        }
+
+        @Override
+        public long maxAlign() {
+            return MAX_ALIGN;
         }
 
         @Override
@@ -183,12 +205,27 @@ public sealed interface Allocator extends AutoCloseable
     }
 
     final class ArenaAllocator implements Allocator {
+        private static final long DEFAULT_ALIGN = 16;
+        private static final long MAX_ALIGN;
         private final ArenaBase arenaBase;
         private final long pos;
+
+        static {
+            long requiredAlign = Long.getLong("jing.bindings.alloc.arena.alignment", DEFAULT_ALIGN);
+            MAX_ALIGN = Math.max(requiredAlign, DEFAULT_ALIGN);
+            if(MAX_ALIGN < ValueLayout.ADDRESS.byteAlignment() || Long.bitCount(MAX_ALIGN) != 1) {
+                throw new ExceptionInInitializerError("illegal alignment : " + MAX_ALIGN);
+            }
+        }
 
         public ArenaAllocator(ArenaBase arenaBase) {
             this.arenaBase = arenaBase;
             this.pos = arenaBase.pos();
+        }
+
+        @Override
+        public long maxAlign() {
+            return MAX_ALIGN;
         }
 
         @Override
