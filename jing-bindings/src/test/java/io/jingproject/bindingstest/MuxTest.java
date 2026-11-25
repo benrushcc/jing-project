@@ -12,7 +12,7 @@ import java.lang.foreign.MemorySegment;
 public class MuxTest {
 
     @Test
-    public void testMuxForWin() {
+    public void muxImmediatePollTest() {
         try(Mux mux = Mux.newMux()) {
             int count = 32;
             int[] muxEvents = new int[count * 2];

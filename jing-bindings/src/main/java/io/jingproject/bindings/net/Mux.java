@@ -198,8 +198,8 @@ public sealed interface Mux extends AutoCloseable permits Mux.WepollMux, Mux.Epo
                 ValueLayout.JAVA_LONG_UNALIGNED.withName("data"),
                 ValueLayout.ADDRESS_UNALIGNED.withName("udata")
         ).withByteAlignment(4L);
-        private static final long IDENT_OFFSET = KEVENT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("ident"));
         private static final long FILTER_OFFSET = KEVENT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("filter"));
+        private static final long UDATA_OFFSET = KEVENT_LAYOUT.byteOffset(MemoryLayout.PathElement.groupElement("udata"));
         private static final int EVFILT_READ;
         private static final int EVFILT_WRITE;
 
@@ -270,7 +270,7 @@ public sealed interface Mux extends AutoCloseable permits Mux.WepollMux, Mux.Epo
             for(int index = 0; index < r; index++) {
                 long base = index * KEVENT_LAYOUT.byteSize();
                 short filter = NativeSegmentAccess.getShort(events, base + FILTER_OFFSET);
-                int data = (int) NativeSegmentAccess.getLong(events, base + IDENT_OFFSET);
+                int data = (int) NativeSegmentAccess.getLong(events, base + UDATA_OFFSET);
                 int eventType;
                 if(filter == EVFILT_WRITE) {
                     eventType = Mux.MUX_WRITEABLE_FLAG;
